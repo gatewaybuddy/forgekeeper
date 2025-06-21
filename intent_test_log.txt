@@ -1,0 +1,7 @@
+
+🧠 Testing: create a function for me that greets a user by name.
+[RAW RESULT]:
+{'response': ''}
+
+[❌ ERROR]: No action key in response.
+Goodbye!
