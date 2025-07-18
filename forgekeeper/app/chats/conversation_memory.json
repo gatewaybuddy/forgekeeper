@@ -362,6 +362,22 @@
       {
         "role": "core",
         "content": "\"\"\"\n\nImproved Response:\n\"\"\"\nI remember you prefer parfaits with strawberries, as mentioned earlier.\n\"\"\""
+      },
+      {
+        "role": "core",
+        "content": "[User's Name]"
+      },
+      {
+        "role": "core",
+        "content": "\"\"\"\n\nImproved response:\n\"\"\"\nHello! I'm here to assist you. You can call me Core. How can I help you today?\n\"\"\"\n\nJustification:\n- Added \"I'm here to assist you\" to make the response more welcoming and proactive.\n- Changed \"How can I help you today?\" to \"How can I help you today?\" to maintain a friendly and helpful tone."
+      },
+      {
+        "role": "core",
+        "content": "[User's Name]"
+      },
+      {
+        "role": "core",
+        "content": "\"\"\"\n\nHello! I'm Core. It's great to meet you! How can I assist you today?"
       }
     ],
     "internal": [],
