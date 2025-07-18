@@ -37,10 +37,12 @@ def store_memory_entry(session_id: str, role: str, content: str, type: str = "di
         "session_id": session_id,
         "role": role,
         "type": type,
-        # ChromaDB metadata fields must be simple types; store tags as comma separated string
-        "tags": ",".join(tags) if tags else None,
-        "timestamp": datetime.datetime.now().isoformat()
+        "timestamp": datetime.datetime.now().isoformat(),
     }
+
+    # ChromaDB doesn't accept None for metadata values; only include tags if present
+    if tags:
+        metadata["tags"] = ",".join(tags)
     collection.add(
         documents=[content],
         embeddings=embed([content]),
