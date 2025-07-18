@@ -1,0 +1,19 @@
+# .gitignore
+
+# Node / Python / Env files
+node_modules/
+.env
+.env.local
+__pycache__/
+*.pyc
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
