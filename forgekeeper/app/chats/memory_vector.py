@@ -37,9 +37,12 @@ def store_memory_entry(session_id: str, role: str, content: str, type: str = "di
         "session_id": session_id,
         "role": role,
         "type": type,
-        "tags": tags or [],
-        "timestamp": datetime.datetime.now().isoformat()
+        "timestamp": datetime.datetime.now().isoformat(),
     }
+
+    # ChromaDB doesn't accept None for metadata values; only include tags if present
+    if tags:
+        metadata["tags"] = ",".join(tags)
     collection.add(
         documents=[content],
         embeddings=embed([content]),
@@ -65,6 +68,10 @@ def retrieve_similar_entries(session_id: str, query: str, top_k: int = 5, types:
     if types:
         items = [item for item in items if item[1].get("type") in types]
     if tags:
-        items = [item for item in items if set(tags).intersection(set(item[1].get("tags", [])))]
+        def tag_match(meta_tags: Optional[str]) -> bool:
+            stored_tags = set(meta_tags.split(",")) if meta_tags else set()
+            return bool(set(tags).intersection(stored_tags))
+
+        items = [item for item in items if tag_match(item[1].get("tags"))]
 
     return items[:top_k]
