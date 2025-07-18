@@ -17,3 +17,7 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+
+# Vector store data
+vector_store/
+*.bin
