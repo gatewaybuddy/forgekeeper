@@ -34,6 +34,7 @@ class DummyCollection:
                     if self.store[i]["metadata"].get(key) == value:
                         self.store.pop(i)
 
+
     def get(self, ids=None, include=None, where=None):
         sel_ids, docs, metas = [], [], []
         for i, data in self.store.items():
@@ -45,6 +46,7 @@ class DummyCollection:
             docs.append(data["document"])
             metas.append(data["metadata"])
         return {"ids": sel_ids, "documents": docs, "metadatas": metas}
+
 
 
 def setup_bank(monkeypatch):
@@ -59,16 +61,19 @@ def setup_bank(monkeypatch):
 
     stub.update_entry = update_entry
     monkeypatch.setitem(sys.modules, 'app.chats.memory_vector', stub)
+
     import importlib
     from app.chats import memory_bank as mb  # reload so stub is used
     importlib.reload(mb)
     return mb.MemoryBank(), collection
 
 
+
 def test_add_update_list_delete(monkeypatch):
     bank, store = setup_bank(monkeypatch)
     entry_id = bank.add_entry('hello', session_id='s1', type='note', tags=['t'])
     assert entry_id in store.store
+
 
     # ensure last_accessed stored
     meta_ts = store.store[entry_id]['metadata']['last_accessed']
@@ -109,3 +114,5 @@ def test_evaluate_relevance_scores():
 
     assert score_recent_goal > score_old_note
     assert 0 <= score_recent_goal <= 1
+    bank.delete_entries([entry_id])
+    assert entry_id not in store.store

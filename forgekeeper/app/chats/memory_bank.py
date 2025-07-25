@@ -74,8 +74,8 @@ class MemoryBank:
             "role": "memory",
             "type": type,
             "tags": ",".join(tags) if tags else None,
-            "timestamp": timestamp,
             "last_accessed": timestamp,
+            "timestamp": datetime.utcnow().isoformat(),
         }
         memory_vector.collection.add(
             documents=[content],
@@ -103,7 +103,6 @@ class MemoryBank:
             embeddings=memory_vector.embed([doc]),
             metadatas=[meta],
         )
-
     def delete_entries(
         self,
         ids: List[str] | None = None,
