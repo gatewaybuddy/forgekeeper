@@ -8,9 +8,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import math
 import re
-
 from . import memory_vector
-
 
 def evaluate_relevance(memory_item: Dict, context: str, *, now: Optional[datetime] = None) -> float:
     """Return a relevance score between 0 and 1 for ``memory_item``.

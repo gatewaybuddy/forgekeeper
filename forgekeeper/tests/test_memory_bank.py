@@ -78,6 +78,7 @@ def test_add_update_list_delete(monkeypatch):
     assert entry_id not in store.store
 
 
+
 def test_evaluate_relevance_scores():
     from app.chats.memory_bank import evaluate_relevance
     now = datetime(2024, 1, 1)
@@ -98,3 +99,4 @@ def test_evaluate_relevance_scores():
 
     assert score_recent_goal > score_old_note
     assert 0 <= score_recent_goal <= 1
+
