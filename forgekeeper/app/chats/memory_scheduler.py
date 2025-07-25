@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+
+from datetime import datetime, timezone
+
 from typing import Callable, List, Dict, Optional
 
 from .memory_bank import MemoryBank
@@ -28,7 +30,7 @@ class MemoryScheduler:
 
     def review(self, now: Optional[datetime] = None) -> List[Dict]:
         """Return memory entries that should be reviewed."""
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
         entries = self.memory_bank.list_entries()
         to_review: List[Dict] = []
         for entry in entries:
@@ -45,7 +47,8 @@ class MemoryScheduler:
 
     def cleanup(self, now: Optional[datetime] = None) -> None:
         """Trim memory if it exceeds ``max_entries``."""
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
+
         entries = self.memory_bank.list_entries()
         if len(entries) <= self.max_entries:
             return

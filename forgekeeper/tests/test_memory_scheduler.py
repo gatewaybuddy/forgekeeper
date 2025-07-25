@@ -61,9 +61,18 @@ def test_cleanup_and_review(monkeypatch):
     from app.chats import memory_bank as mb
 
     now = datetime(2024, 1, 2)
-    monkeypatch.setattr(mb, 'datetime', types.SimpleNamespace(utcnow=lambda: now - timedelta(days=10)))
+    monkeypatch.setattr(
+        mb,
+        'datetime',
+        types.SimpleNamespace(now=lambda tz=None: now - timedelta(days=10), timezone=mb.timezone)
+    )
     old_id = bank.add_entry('old', session_id='s', type='note')
-    monkeypatch.setattr(mb, 'datetime', types.SimpleNamespace(utcnow=lambda: now))
+    monkeypatch.setattr(
+        mb,
+        'datetime',
+        types.SimpleNamespace(now=lambda tz=None: now, timezone=mb.timezone)
+    )
+
     recent_id = bank.add_entry('recent', session_id='s', type='task')
     mb.datetime = datetime
 

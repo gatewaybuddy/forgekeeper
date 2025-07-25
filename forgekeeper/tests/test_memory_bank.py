@@ -114,5 +114,7 @@ def test_evaluate_relevance_scores():
 
     assert score_recent_goal > score_old_note
     assert 0 <= score_recent_goal <= 1
+
     bank.delete_entries([entry_id])
     assert entry_id not in store.store
+
