@@ -1,6 +1,8 @@
 from forgekeeper.app.chats.memory_vector import store_memory_entry
 import json
 import os
+from typing import Callable, Dict, Any
+from datetime import datetime
 
 MEMORY_FILE = os.path.join(os.path.dirname(__file__), "conversation_memory.json")
 
@@ -37,7 +39,11 @@ def set_memory(session_id, memory):
 def save_message(session_id, role, content, internal=False):
     memory = get_memory(session_id)
     target = "internal" if internal else "shared"
-    memory[target].append({"role": role, "content": content})
+    memory[target].append({
+        "role": role,
+        "content": content,
+        "timestamp": datetime.utcnow().isoformat()
+    })
     set_memory(session_id, memory)
     store_memory_entry(session_id, role, content, type="internal" if internal else "dialogue")
 
@@ -91,3 +97,59 @@ def set_pending_confirmation(session_id, intent):
 
 def get_pending_confirmation(session_id):
     return get_memory(session_id).get("pending_confirmation")
+
+
+# === Memory Management Enhancements ===
+def default_relevance_check(entry: Dict[str, Any], session_id: str) -> bool:
+    """Return True if the memory entry should be kept."""
+    return True
+
+
+def prune_memory(session_id: str, relevance_fn: Callable[[Dict[str, Any], str], bool] = default_relevance_check) -> bool:
+    """Remove memory entries deemed irrelevant by ``relevance_fn``.
+
+    Returns True if any entries were removed.
+    """
+    memory = get_memory(session_id)
+    changed = False
+    for key in ("shared", "internal"):
+        entries = memory.get(key, [])
+        filtered = [e for e in entries if relevance_fn(e, session_id)]
+        if len(filtered) != len(entries):
+            changed = True
+        memory[key] = filtered
+    if changed:
+        set_memory(session_id, memory)
+    return changed
+
+
+def update_memory_entries(
+    session_id: str,
+    update_fn: Callable[[Dict[str, Any], str], Dict[str, Any]],
+    relevance_fn: Callable[[Dict[str, Any], str], bool] = default_relevance_check,
+) -> bool:
+    """Update memory entries in-place using ``update_fn``.
+
+    ``update_fn`` should return the modified entry or ``None`` to delete it.
+    Returns True if any changes were made.
+    """
+    memory = get_memory(session_id)
+    changed = False
+    for key in ("shared", "internal"):
+        updated = []
+        for entry in memory.get(key, []):
+            if not relevance_fn(entry, session_id):
+                updated.append(entry)
+                continue
+            new_entry = update_fn(entry, session_id)
+            if new_entry is not None:
+                updated.append(new_entry)
+            if new_entry != entry:
+                changed = True
+        if updated != memory.get(key):
+            changed = True
+        memory[key] = updated
+    if changed:
+        set_memory(session_id, memory)
+    return changed
+

@@ -1,7 +1,7 @@
 import os
 import uuid
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
 
@@ -73,3 +73,30 @@ def retrieve_similar_entries(session_id: str, query: str, top_k: int = 5, types:
         items = [item for item in items if tag_match(item[1].get("tags"))]
 
     return items[:top_k]
+
+
+def delete_entries(session_id: str, types: Optional[List[str]] = None, ids: Optional[List[str]] = None) -> None:
+    """Delete vector entries by session, type, or explicit IDs."""
+    if ids:
+        collection.delete(ids=ids)
+        return
+    where: Dict[str, Any] = {"session_id": session_id}
+    if types:
+        for t in types:
+            collection.delete(where={"session_id": session_id, "type": t})
+    else:
+        collection.delete(where=where)
+
+
+def update_entry(entry_id: str, new_content: str) -> None:
+    """Replace the content of an existing vector entry."""
+    results = collection.get(ids=[entry_id], include=["metadatas"])
+    if not results.get("ids"):
+        return
+    metadata = results["metadatas"][0]
+    collection.update(
+        ids=[entry_id],
+        documents=[new_content],
+        embeddings=embed([new_content]),
+        metadatas=[metadata],
+    )
