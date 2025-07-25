@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+
 from typing import Optional, Dict, List
 
 from .memory_bank import MemoryBank, evaluate_relevance
@@ -36,7 +37,9 @@ class RetrievalManager:
         now:
             Override the timestamp used for recency scoring.
         """
-        now = now or datetime.utcnow()
+
+        now = now or datetime.now(timezone.utc)
+
         filters = filters or {}
 
         # Extract extended filters
@@ -67,4 +70,8 @@ class RetrievalManager:
             scored.append({**entry, "score": score})
 
         scored.sort(key=lambda e: e["score"], reverse=True)
-        return scored[:top_n]
+
+        results = scored[:top_n]
+        for item in results:
+            self.memory_bank.touch_entry(item["id"])
+        return results

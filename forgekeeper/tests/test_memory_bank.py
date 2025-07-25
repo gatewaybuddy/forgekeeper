@@ -18,9 +18,10 @@ class DummyCollection:
             self.store[i] = {"document": doc, "metadata": meta}
 
     def update(self, ids, documents, embeddings, metadatas):
-        for doc, i in zip(documents, ids):
+        for doc, meta, i in zip(documents, metadatas, ids):
             if i in self.store:
-                meta = self.store[i]["metadata"]
+                if meta is None:
+                    meta = self.store[i]["metadata"]
                 self.store[i] = {"document": doc, "metadata": meta}
 
     def delete(self, ids=None, where=None):
@@ -33,17 +34,19 @@ class DummyCollection:
                     if self.store[i]["metadata"].get(key) == value:
                         self.store.pop(i)
 
-    def get(self, include=None, where=None):
-        ids, docs, metas = [], [], []
+
+    def get(self, ids=None, include=None, where=None):
+        sel_ids, docs, metas = [], [], []
         for i, data in self.store.items():
-            if where and not all(
-                data["metadata"].get(k) == v for k, v in where.items()
-            ):
+            if ids and i not in ids:
                 continue
-            ids.append(i)
+            if where and not all(data["metadata"].get(k) == v for k, v in where.items()):
+                continue
+            sel_ids.append(i)
             docs.append(data["document"])
             metas.append(data["metadata"])
-        return {"ids": ids, "documents": docs, "metadatas": metas}
+        return {"ids": sel_ids, "documents": docs, "metadatas": metas}
+
 
 
 def setup_bank(monkeypatch):
@@ -58,14 +61,23 @@ def setup_bank(monkeypatch):
 
     stub.update_entry = update_entry
     monkeypatch.setitem(sys.modules, 'app.chats.memory_vector', stub)
-    from app.chats.memory_bank import MemoryBank  # import after patching
-    return MemoryBank(), collection
+
+    import importlib
+    from app.chats import memory_bank as mb  # reload so stub is used
+    importlib.reload(mb)
+    return mb.MemoryBank(), collection
+
 
 
 def test_add_update_list_delete(monkeypatch):
     bank, store = setup_bank(monkeypatch)
     entry_id = bank.add_entry('hello', session_id='s1', type='note', tags=['t'])
     assert entry_id in store.store
+
+
+    # ensure last_accessed stored
+    meta_ts = store.store[entry_id]['metadata']['last_accessed']
+    assert meta_ts is not None
 
     bank.update_entry(entry_id, 'updated')
     assert store.store[entry_id]['document'] == 'updated'
@@ -74,10 +86,12 @@ def test_add_update_list_delete(monkeypatch):
     assert len(entries) == 1
     assert entries[0]['content'] == 'updated'
 
+    bank.touch_entry(entry_id)
+    touched = store.store[entry_id]['metadata']['last_accessed']
+    assert touched != meta_ts
+
     bank.delete_entries([entry_id])
     assert entry_id not in store.store
-
-
 
 def test_evaluate_relevance_scores():
     from app.chats.memory_bank import evaluate_relevance
