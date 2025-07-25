@@ -75,3 +75,6 @@ Additional agents may be introduced to support:
 - Multi-agent planning
 - External tool orchestration
 - Emotion-guided narrative synthesis
+
+## ⚙️ Safe Update Runner
+The file `forgekeeper_safe_update.py` orchestrates a self-edit cycle. It loads the persistent state from `state.json`, runs the agent to modify files, commits those changes, and restarts `main.py` using `os.execv`. Marking this file with a *DO NOT EDIT* header prevents the self-editing loop from corrupting its own update mechanism.
