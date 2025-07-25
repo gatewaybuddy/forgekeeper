@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import uuid
+
 from datetime import datetime, timezone
+
 from typing import List, Dict, Optional
 import math
 import re
@@ -23,12 +25,16 @@ def evaluate_relevance(memory_item: Dict, context: str, *, now: Optional[datetim
     context : str
         The conversation or task context to evaluate against.
     now : datetime, optional
+
         Timestamp used for recency comparison. Defaults to ``datetime.now(timezone.utc)``.
+
 
     The heuristic combines recency, keyword overlap and type weighting.
     """
 
+
     now = now or datetime.now(timezone.utc)
+
     timestamp = memory_item.get("timestamp")
     try:
         item_time = datetime.fromisoformat(timestamp) if timestamp else now
@@ -68,14 +74,16 @@ class MemoryBank:
     ) -> str:
         """Store ``content`` and return the new entry id."""
         entry_id = str(uuid.uuid4())
+
         timestamp = datetime.now(timezone.utc).isoformat()
+
         metadata = {
             "session_id": session_id,
             "role": "memory",
             "type": type,
             "tags": ",".join(tags) if tags else None,
-            "timestamp": timestamp,
             "last_accessed": timestamp,
+            "timestamp": datetime.utcnow().isoformat(),
         }
         memory_vector.collection.add(
             documents=[content],
@@ -97,6 +105,7 @@ class MemoryBank:
         doc = results["documents"][0]
         meta = results["metadatas"][0]
         meta["last_accessed"] = datetime.now(timezone.utc).isoformat()
+
         memory_vector.collection.update(
             ids=[entry_id],
             documents=[doc],

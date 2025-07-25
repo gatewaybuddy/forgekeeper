@@ -63,20 +63,24 @@ def test_retrieve_top_items(monkeypatch):
     from app.chats import memory_bank as mb
 
     now = datetime(2024, 1, 2)
+
     monkeypatch.setattr(
         mb,
         'datetime',
         types.SimpleNamespace(now=lambda tz=None: now - timedelta(hours=1), timezone=mb.timezone)
     )
+
     recent_id = bank.add_entry('finish the mission', session_id='s1', type='task', tags=['p'])
     assert recent_id in store.store
     meta_before = store.store[recent_id]['metadata']['last_accessed']
+
 
     monkeypatch.setattr(
         mb,
         'datetime',
         types.SimpleNamespace(now=lambda tz=None: now - timedelta(days=10), timezone=mb.timezone)
     )
+
     old_id = bank.add_entry('some note', session_id='s1', type='note', tags=['p'])
 
     monkeypatch.setattr(mb, 'datetime', datetime)

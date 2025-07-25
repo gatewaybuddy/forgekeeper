@@ -72,6 +72,7 @@ def test_cleanup_and_review(monkeypatch):
         'datetime',
         types.SimpleNamespace(now=lambda tz=None: now, timezone=mb.timezone)
     )
+
     recent_id = bank.add_entry('recent', session_id='s', type='task')
     mb.datetime = datetime
 

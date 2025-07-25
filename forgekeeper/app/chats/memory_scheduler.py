@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+
 from datetime import datetime, timezone
+
 from typing import Callable, List, Dict, Optional
 
 from .memory_bank import MemoryBank
@@ -46,6 +48,7 @@ class MemoryScheduler:
     def cleanup(self, now: Optional[datetime] = None) -> None:
         """Trim memory if it exceeds ``max_entries``."""
         now = now or datetime.now(timezone.utc)
+
         entries = self.memory_bank.list_entries()
         if len(entries) <= self.max_entries:
             return

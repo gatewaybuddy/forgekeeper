@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+
 from datetime import datetime, timezone
+
 from typing import Optional, Dict, List
 
 from .memory_bank import MemoryBank, evaluate_relevance
@@ -36,7 +38,9 @@ class RetrievalManager:
         now:
             Override the timestamp used for recency scoring.
         """
+
         now = now or datetime.now(timezone.utc)
+
         filters = filters or {}
 
         # Extract extended filters
