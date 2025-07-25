@@ -83,7 +83,7 @@ class MemoryBank:
             "type": type,
             "tags": ",".join(tags) if tags else None,
             "last_accessed": timestamp,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": timestamp,
         }
         memory_vector.collection.add(
             documents=[content],
