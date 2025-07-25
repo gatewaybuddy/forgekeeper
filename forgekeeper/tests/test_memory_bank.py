@@ -93,7 +93,6 @@ def test_add_update_list_delete(monkeypatch):
     bank.delete_entries([entry_id])
     assert entry_id not in store.store
 
-
 def test_evaluate_relevance_scores():
     from app.chats.memory_bank import evaluate_relevance
     now = datetime(2024, 1, 1)

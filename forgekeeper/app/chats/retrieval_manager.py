@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from datetime import datetime, timezone
 
 from typing import Optional, Dict, List
@@ -71,6 +70,7 @@ class RetrievalManager:
             scored.append({**entry, "score": score})
 
         scored.sort(key=lambda e: e["score"], reverse=True)
+
         results = scored[:top_n]
         for item in results:
             self.memory_bank.touch_entry(item["id"])

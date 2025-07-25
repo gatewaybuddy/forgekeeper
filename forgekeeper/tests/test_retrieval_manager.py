@@ -18,6 +18,7 @@ class DummyCollection:
             self.store[i] = {"document": doc, "metadata": meta}
 
     def update(self, ids, documents, embeddings, metadatas):
+
         for doc, meta, i in zip(documents, metadatas, ids):
             if i in self.store:
                 if meta is None:
@@ -26,6 +27,7 @@ class DummyCollection:
 
     def delete(self, ids=None, where=None):
         pass
+
 
     def get(self, ids=None, include=None, where=None):
         sel_ids, docs, metas = [], [], []
@@ -39,7 +41,6 @@ class DummyCollection:
             metas.append(data["metadata"])
         return {"ids": sel_ids, "documents": docs, "metadatas": metas}
 
-
 def setup_bank(monkeypatch):
     collection = DummyCollection()
     stub = types.SimpleNamespace(
@@ -52,11 +53,11 @@ def setup_bank(monkeypatch):
 
     stub.update_entry = update_entry
     monkeypatch.setitem(sys.modules, 'app.chats.memory_vector', stub)
+
     import importlib
     from app.chats import memory_bank as mb
     importlib.reload(mb)
     return mb.MemoryBank(), collection
-
 
 def test_retrieve_top_items(monkeypatch):
     bank, store = setup_bank(monkeypatch)
@@ -97,4 +98,3 @@ def test_retrieve_top_items(monkeypatch):
     # touch should update last_accessed
     assert recent_id in store.store
     assert store.store[recent_id]['metadata']['last_accessed'] != meta_before
-
