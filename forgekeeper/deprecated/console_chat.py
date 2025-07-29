@@ -1,16 +1,20 @@
 import os
 import sys
 import logging
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 # from forgekeeper.app.services.llm_service import ask_llm
 from forgekeeper.app.services.llm_service_llamacpp import ask_llm
 from forgekeeper.app.services.code_catcher import auto_write_functions_from_response
 
-DEBUG_MODE = "--debug" in sys.argv
+CLI_DEBUG = "--debug" in sys.argv
 
-if DEBUG_MODE:
+if CLI_DEBUG:
     logging.basicConfig(level=logging.DEBUG)
 else:
     logging.basicConfig(level=logging.WARNING)
+
+log = get_logger(__name__, debug=DEBUG_MODE or CLI_DEBUG)
 # # Configure root logger to INFO (chat stays clean)
 # logging.basicConfig(
 #     level=logging.INFO,
@@ -19,37 +23,28 @@ else:
 # logger = logging.getLogger(__name__)
 # logger.setLevel(logging.INFO)
 
-print("🦇 ForgeKeeper Console Chat")
-print("Type your message. End input with '<<END>>' on a new line. Type 'exit' to quit.\n")
+log.info("🦇 ForgeKeeper Console Chat")
+log.info("Type your message. End input with '<<END>>' on a new line. Type 'exit' to quit.\n")
 
 while True:
-    print("You > ", end="")
-    lines = []
-    # while True:
-    #     line = input()
-    #     if line.strip() == "<<END>>":
-    #         break
-    #     lines.append(line)
-    # prompt = "\n".join(lines).strip()
-    # if prompt.lower() == "exit":
-    #     break
+    prompt = input("You > ").strip()
+
     if __name__ == "__main__":
-        print("🦇 ForgeKeeper Console Chat")
-        prompt = input("You > ").strip()
+        log.info("🦇 ForgeKeeper Console Chat")
         result = ask_llm(prompt)
-        print("Kai >", result.get("response", result))
+        log.info("Kai > %s", result.get("response", result))
 
 
     try:
         response = ask_llm(prompt)
         if isinstance(response, dict) and "response" in response:
-            print(f'Kai > {response["response"]}')
+            log.info('Kai > %s', response["response"])
             written = auto_write_functions_from_response(response["response"])
             if written:
-                print(f"📝 Saved: {', '.join(written)}")
+                log.info("📝 Saved: %s", ', '.join(written))
         elif isinstance(response, dict):
-            print(f'Kai > {response}')
+            log.info('Kai > %s', response)
         else:
-            print(f'Kai > {response}')
+            log.info('Kai > %s', response)
     except Exception as e:
-        print(f"Kai > Error: {e}")
+        log.error("Kai > Error: %s", e)

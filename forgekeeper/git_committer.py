@@ -4,6 +4,10 @@ from datetime import datetime
 from pathlib import Path
 
 from git import Repo
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 
 def commit_and_push_changes(commit_message: str, create_branch: bool = False, branch_prefix: str = "forgekeeper/self-edit") -> None:
@@ -14,18 +18,18 @@ def commit_and_push_changes(commit_message: str, create_branch: bool = False, br
         timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         branch_name = f"{branch_prefix}-{timestamp}"
         repo.git.checkout('-b', branch_name)
-        print(f"Created branch {branch_name}")
+        log.info(f"Created branch {branch_name}")
     else:
         branch_name = repo.active_branch.name
 
     if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
         repo.index.commit(commit_message)
-        print(f"Committed changes on {branch_name}: {commit_message}")
+        log.info(f"Committed changes on {branch_name}: {commit_message}")
         try:
             origin = repo.remote()
             origin.push(branch_name)
-            print("Pushed to remote")
+            log.info("Pushed to remote")
         except Exception as exc:
-            print(f"Push failed: {exc}")
+            log.error(f"Push failed: {exc}")
     else:
-        print("No staged changes to commit")
+        log.info("No staged changes to commit")

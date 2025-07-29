@@ -4,6 +4,10 @@ import sys
 from pathlib import Path
 
 import torch
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from fftnet.utils.generation import generate
@@ -70,14 +74,14 @@ def main() -> None:
             mode=args.sampling,
             top_k=args.top_k,
         )
-        print(output)
+        log.info(output)
     elif args.mode == "logits":
         with torch.no_grad():
             logits = model(input_ids).logits[:, -1, :]
         values, indices = torch.topk(logits, args.top_k, dim=-1)
         tokens = tokenizer.batch_decode(indices[0])
         for token, val in zip(tokens, values[0]):
-            print(f"{token}\t{val.item():.4f}")
+            log.info(f"{token}\t{val.item():.4f}")
     elif args.mode == "spectrum":
         script = Path(__file__).resolve().parent / "fft_visualizer.py"
         cmd = [sys.executable, str(script), "--model", args.model, "--text", text]

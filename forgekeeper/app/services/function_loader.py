@@ -1,5 +1,9 @@
 import os
 import importlib.util
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 def load_functions(directory="functions"):
     functions = {}
@@ -10,7 +14,7 @@ def load_functions(directory="functions"):
     full_path = os.path.normpath(full_path)
 
     if not os.path.isdir(full_path):
-        print(f"[WARN] Function directory '{full_path}' not found.")
+        log.warning(f"Function directory '{full_path}' not found.")
         return functions
 
     for filename in os.listdir(full_path):

@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from forgekeeper.app.services.llm_service_llamacpp import ask_llm
 from dotenv import load_dotenv
 import os
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 os.environ['FLASK_RUN_FROM_CLI'] = 'false'
 
 # Load environment variables
@@ -10,6 +12,7 @@ port = int(os.getenv("PORT", 5000))  # fallback to 5000 if not set
 
 app = Flask(__name__)
 app.run(debug=True, port=port, use_reloader=False)
+log = get_logger(__name__, debug=DEBUG_MODE)
 @app.route('/api/llm', methods=['POST'])
 def llm_query():
     try:
@@ -27,5 +30,5 @@ def llm_query():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print(f"ForgeKeeper (llama-cpp) running on http://localhost:{port}/api/llm")
+    log.info(f"ForgeKeeper (llama-cpp) running on http://localhost:{port}/api/llm")
     app.run(debug=True, port=port)

@@ -54,7 +54,10 @@ class DistillationController:
 
 
 if __name__ == "__main__":
-    from pprint import pprint
+    from forgekeeper.logger import get_logger
+    from forgekeeper.config import DEBUG_MODE
+
+    log = get_logger(__name__, debug=DEBUG_MODE)
     controller = DistillationController(MemoryBank())
-    pprint(controller.prepare_replay_data("demo"))
+    log.info(controller.prepare_replay_data("demo"))
 

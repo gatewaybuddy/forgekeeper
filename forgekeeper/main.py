@@ -2,6 +2,8 @@
 
 from pathlib import Path
 from forgekeeper.state_manager import load_state, save_state
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 
 STATE_PATH = "forgekeeper/state.json"
 TASK_FILE = "tasks.md"
@@ -18,20 +20,23 @@ def _read_next_task() -> str | None:
     return None
 
 
+log = get_logger(__name__, debug=DEBUG_MODE)
+
+
 def main() -> None:
     state = load_state(STATE_PATH)
     if state.get("current_task"):
-        print(f"Resuming task: {state['current_task']}")
+        log.info(f"Resuming task: {state['current_task']}")
     else:
         task = _read_next_task()
         if not task:
-            print("No tasks available. Exiting.")
+            log.info("No tasks available. Exiting.")
             return
         state["current_task"] = task
-        print(f"Starting new task: {task}")
+        log.info(f"Starting new task: {task}")
         save_state(state, STATE_PATH)
 
-    print("Running Forgekeeper agent logic...")
+    log.info("Running Forgekeeper agent logic...")
     # Placeholder for real task execution logic.
 
     save_state(state, STATE_PATH)
