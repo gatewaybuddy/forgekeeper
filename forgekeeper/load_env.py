@@ -1,5 +1,9 @@
 import os
 from dotenv import load_dotenv
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 def init_env():
     # Always resolve from the project root where .env actually exists
@@ -8,5 +12,5 @@ def init_env():
     load_dotenv(dotenv_path)
 
     # Debug output
-    print("Resolved .env path:", dotenv_path)
-    print("LLM_BACKEND (after load):", os.getenv("LLM_BACKEND"))
+    log.debug("Resolved .env path: %s", dotenv_path)
+    log.debug("LLM_BACKEND (after load): %s", os.getenv("LLM_BACKEND"))

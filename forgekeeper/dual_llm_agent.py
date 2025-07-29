@@ -9,6 +9,10 @@ from forgekeeper.app.utils.json_helpers import extract_json
 from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.app.services.reflective_ask_core import reflective_ask_core
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 def _llm_ask(self, prompt: str):
     try:
@@ -78,31 +82,41 @@ def route_intent(user_input, session_id):
     if isinstance(parsed, dict):
         if parsed.get("action") == "delegate_to_coder":
             task = parsed.get("task", "unspecified")
-            print("\n[Core ➡️ Coder] Delegating to the coding agent.\n")
+            log.info("\n[Core ➡️ Coder] Delegating to the coding agent.\n")
             return postprocess_response(ask_coder(task, session_id))
 
         if "response" in parsed:
-            print("\n[Core 🧠] Handling this task directly.\n")
+            log.info("\n[Core 🧠] Handling this task directly.\n")
             return postprocess_response(parsed["response"])
 
-    print("\n[Core 🧠] Responding in freeform.\n")
+    log.info("\n[Core 🧠] Responding in freeform.\n")
     return postprocess_response(parsed if isinstance(parsed, str) else str(parsed))
 
 if __name__ == "__main__":
     core_model = get_core_model_name()
     coder_model = get_coder_model_name()
-    print(f"\n🧪 Dual LLM Architecture: Core ({core_model}) + Coder ({coder_model})\n")
+    log.info(f"\n🧪 Dual LLM Architecture: Core ({core_model}) + Coder ({coder_model})\n")
     while True:
-        print("You >", end=" ")
         lines = []
+        line = input("You > ")
         while True:
+            if line.strip().lower() == "exit":
+                exit()
+            elif line.strip().lower() == "summarize":
+                log.info("\n🧠 Memory Summary:\n")
+                log.info(summarize_thoughts("session_kai"))
+                log.info("\n" + "-" * 50 + "\n")
+                break
+            elif line.strip() == "<<END>>":
+                break
+            lines.append(line)
             line = input()
             if line.strip().lower() == "exit":
                 exit()
             elif line.strip().lower() == "summarize":
-                print("\n🧠 Memory Summary:\n")
-                print(summarize_thoughts("session_kai"))
-                print("\n" + "-"*50 + "\n")
+                log.info("\n🧠 Memory Summary:\n")
+                log.info(summarize_thoughts("session_kai"))
+                log.info("\n" + "-" * 50 + "\n")
                 break
             elif line.strip() == "<<END>>":
                 break
@@ -111,5 +125,5 @@ if __name__ == "__main__":
         user_input = "\n".join(lines).strip()
         if user_input:
             output = route_intent(user_input, session_id="session_kai")
-            print("\nForgeKeeper >", output)
-            print("\n" + "-"*50 + "\n")
+            log.info("\nForgeKeeper > %s", output)
+            log.info("\n" + "-" * 50 + "\n")

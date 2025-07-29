@@ -2,12 +2,16 @@ import difflib
 from pathlib import Path
 
 from git import Repo
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 
 def diff_and_stage_changes(original_code: str, modified_code: str, file_path: str, auto_stage: bool = True) -> None:
     """Compare original and modified content and stage via Git if changed."""
     if original_code == modified_code:
-        print(f"No changes detected for {file_path}")
+        log.info(f"No changes detected for {file_path}")
         return
 
     diff_lines = difflib.unified_diff(
@@ -18,7 +22,7 @@ def diff_and_stage_changes(original_code: str, modified_code: str, file_path: st
         lineterm="",
     )
     diff_text = "\n".join(diff_lines)
-    print(diff_text)
+    log.info(diff_text)
 
     proceed = auto_stage
     if not auto_stage:

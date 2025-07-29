@@ -72,12 +72,16 @@ class MemoryScheduler:
 
 
 if __name__ == "__main__":
+    from forgekeeper.logger import get_logger
+    from forgekeeper.config import DEBUG_MODE
+
+    log = get_logger(__name__, debug=DEBUG_MODE)
     bank = MemoryBank()
     scheduler = MemoryScheduler(
         bank,
         max_entries=500,
         summarizer=lambda items: f"Summarized {len(items)} entries",
-        archive_callback=print,
+        archive_callback=log.info,
     )
     scheduler.review()
     scheduler.cleanup()

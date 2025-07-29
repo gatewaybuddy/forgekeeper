@@ -3,6 +3,10 @@ from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
 from forgekeeper.app.services.llm_router import ask_llm
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 def reflective_ask_core(prompt: str, session_id: str, passes: int = 3) -> str:
     system_prompt = build_system_prompt(session_id)
@@ -28,7 +32,7 @@ def reflective_ask_core(prompt: str, session_id: str, passes: int = 3) -> str:
     if draft.strip() in ("[CTX]", "[SYS]", "[INST]", "", "```", "\"\"\""):
         draft = "(User wants me to remember their parfait preferences, possibly strawberries.)"
 
-    print("\n[Reflective Core Debug] Draft:\n", draft[:500])
+    log.debug("\n[Reflective Core Debug] Draft:\n%s", draft[:500])
 
     # === Step 2: Reflect
     reflection_prompt = f"""System: You are reviewing your own answer for clarity, correctness, and alignment with known memory and user intent.
@@ -55,7 +59,7 @@ Provide only your reflection notes. Do not revise yet.
     if isinstance(reflection, dict):
         reflection = reflection.get("response", str(reflection)).strip()
 
-    print("\n[Reflective Core Debug] Reflection:\n", reflection[:500])
+    log.debug("\n[Reflective Core Debug] Reflection:\n%s", reflection[:500])
 
     # === Step 3: Revise
     revise_prompt = f"""System: You are refining your earlier response using the reflection notes below.
@@ -72,7 +76,7 @@ Original draft:
 
 Please provide the improved response.
 """
-    print("\n[Reflective Core Debug] Revise Prompt:\n", revise_prompt[:1000])
+    log.debug("\n[Reflective Core Debug] Revise Prompt:\n%s", revise_prompt[:1000])
 
     final_response = ask_llm(revise_prompt)
     if isinstance(final_response, dict):
@@ -81,6 +85,6 @@ Please provide the improved response.
     if final_response.strip() in ("[CTX]", "[SYS]", "[INST]", "", "```", "\"\"\""):
         final_response = "(Noted. Preference for strawberries in parfaits has been saved.)"
 
-    print("\n[Reflective Core Debug] Final Response:\n", final_response[:500])
+    log.debug("\n[Reflective Core Debug] Final Response:\n%s", final_response[:500])
     save_message(session_id, "core", final_response)
     return final_response

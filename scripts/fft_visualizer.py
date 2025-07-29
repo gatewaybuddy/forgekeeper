@@ -2,6 +2,10 @@ import argparse
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import matplotlib.pyplot as plt
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
 
 
 def load_model(model_name: str):
@@ -41,7 +45,7 @@ def main() -> None:
     plt.title("FFT of token representations")
     plt.tight_layout()
     plt.savefig(args.output)
-    print(f"Saved spectrum to {args.output}")
+    log.info(f"Saved spectrum to {args.output}")
 
 
 if __name__ == "__main__":

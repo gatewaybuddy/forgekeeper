@@ -2,6 +2,8 @@
 import os
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
@@ -43,15 +45,17 @@ test_prompts = [
 ]
 
 # Run and display results
+log = get_logger(__name__, debug=DEBUG_MODE)
+
 def run_tests():
-    print("\n🧠 LangChain GPT-4o Self-Reflection Test\n" + "-" * 50)
+    log.info("\n🧠 LangChain GPT-4o Self-Reflection Test\n" + "-" * 50)
     for i, p in enumerate(test_prompts, 1):
-        print(f"\n🔹 Test #{i} — Prompt:\n{p}\n")
+        log.info(f"\n🔹 Test #{i} — Prompt:\n{p}\n")
         try:
             response = chain.run(prompt=p)
-            print(f"💬 Response:\n{response}")
+            log.info(f"💬 Response:\n{response}")
         except Exception as e:
-            print(f"⚠️ Error during test #{i}: {e}")
+            log.error(f"⚠️ Error during test #{i}: {e}")
 
 if __name__ == "__main__":
     run_tests()

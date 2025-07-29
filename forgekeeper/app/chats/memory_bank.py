@@ -212,11 +212,15 @@ class MemoryBank:
 
 
 if __name__ == "__main__":
+    from forgekeeper.logger import get_logger
+    from forgekeeper.config import DEBUG_MODE
+
+    log = get_logger(__name__, debug=DEBUG_MODE)
     bank = MemoryBank()
     eid = bank.add_entry(
         "Example memory", session_id="demo", type="note", tags=["demo"]
     )
     bank.update_entry(eid, "Updated example memory")
-    print(bank.list_entries({"session_id": "demo"}))
+    log.info(bank.list_entries({"session_id": "demo"}))
     bank.delete_entries([eid])
 

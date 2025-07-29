@@ -75,23 +75,28 @@ def try_execute_function_call(text, available_functions):
         return f"[ERROR] Failed to execute {func_name}: {str(e)}"
 
 # Start console chat
-print("🦇 ForgeKeeper Console Chat")
-print("Type your message. End input with '<<END>>' on a new line. Type 'exit' to quit.\n")
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
+
+log = get_logger(__name__, debug=DEBUG_MODE)
+
+log.info("🦇 ForgeKeeper Console Chat")
+log.info("Type your message. End input with '<<END>>' on a new line. Type 'exit' to quit.\n")
 
 conversation_history = [{"role": "system", "content": build_self_awareness_prompt()}]
 
 while True:
     user_input = []
-    print("You >", end=" ")
+    line = input("You > ")
     while True:
-        line = input()
         if line.strip().lower() == "exit":
-            print("Goodbye!")
+            log.info("Goodbye!")
             exit(0)
         elif line.strip() == "<<END>>":
             break
         else:
             user_input.append(line)
+        line = input()
 
     prompt = "\n".join(user_input).strip()
     if not prompt:
@@ -102,7 +107,7 @@ while True:
     # First check: LLM-guided system intent
     interpreted_response = interpret_prompt(prompt, session_id, llm=llm)
     if interpreted_response:
-        print(f"ForgeKeeper >", interpreted_response)
+        log.info("ForgeKeeper > %s", interpreted_response)
         save_message(session_id, "assistant", interpreted_response)
         continue
 
@@ -117,13 +122,13 @@ while True:
     except Exception as e:
         reply = f"[ERROR] LLM failed: {str(e)}"
 
-    print("ForgeKeeper >", reply)
+    log.info("ForgeKeeper > %s", reply)
     save_message(session_id, "assistant", reply)
     conversation_history.append({"role": "assistant", "content": reply})
 
     # Function calling post-processing
     tool_result = try_execute_function_call(reply, tools)
     if tool_result:
-        print(tool_result)
+        log.info(tool_result)
         save_message(session_id, "function", tool_result)
         conversation_history.append({"role": "function", "content": tool_result})

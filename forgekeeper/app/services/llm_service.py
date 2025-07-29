@@ -2,14 +2,13 @@ import os
 import requests
 import json
 import re
-import logging
 from forgekeeper.functions.list_functions import list_functions
 from forgekeeper.functions.describe_function import describe_function
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG if os.getenv("DEBUG_MODE") == "1" else logging.WARNING)
-logger.propagate = False  # Prevent duplicate logs
+logger = get_logger(__name__, debug=DEBUG_MODE)
 
 
 LLM_API_URL = os.getenv("LLM_API_URL", "http://localhost:1234/v1/completions")

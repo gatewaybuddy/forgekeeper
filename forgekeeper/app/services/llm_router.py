@@ -1,8 +1,11 @@
 import os
 from forgekeeper.app.utils.json_helpers import extract_json
+from forgekeeper.logger import get_logger
+from forgekeeper.config import DEBUG_MODE
 
 BACKEND = os.getenv("LLM_BACKEND", "llamacpp").lower()
-print("Backend from env:", os.getenv("LLM_BACKEND"))
+log = get_logger(__name__, debug=DEBUG_MODE)
+log.debug("Backend from env: %s", os.getenv("LLM_BACKEND"))
 
 # === Core Model Setup ===
 if BACKEND == "openai":
