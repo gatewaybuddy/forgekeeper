@@ -4,3 +4,5 @@ python-dotenv
 
 
 GitPython
+paho-mqtt
+strawberry-graphql
