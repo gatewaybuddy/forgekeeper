@@ -7,10 +7,13 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 ## 🎯 Milestones
 
 ### Phase 1: Human-Guided Autonomy (In Progress)
-- Define agents and roles in `Agents.md`
-- Load and summarize code files
-- Accept and interpret natural language task prompts
-- Make and commit code edits with user approval
+- [x] Define agents and roles in `AGENTS.md`
+- [x] Load and summarize code files
+- [x] Accept and interpret natural language task prompts
+- [x] Make and commit code edits with user approval
+- [x] Enable multi-agent task handoff between Core and Coder agents
+- [ ] Run a recursive self-review loop
+- [ ] Integrate linting and test validation before commits
 
 ### Phase 2: Semi-Autonomous Execution
 - Read from `Tasks.md`
