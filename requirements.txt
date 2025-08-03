@@ -1,8 +1,7 @@
 flask
 requests
 python-dotenv
-
-
 GitPython
 paho-mqtt
 strawberry-graphql
+pytest
