@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Conversation {
+  id       String   @id @map("_id")
+  title    String
+  folder   String
+  archived Boolean  @default(false)
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @map("_id")
+  role           String
+  content        String
+  timestamp      DateTime
+  tokens         Int?
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Folder {
+  name   String @id @map("_id")
+  parent String?
+}
