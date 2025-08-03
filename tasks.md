@@ -25,6 +25,8 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [ ] Summarize task success and emotional feedback into memory
 - [ ] Add “undo last task” recovery mode
 - [ ] Improve multi-agent planning and delegation across tasks
+- [ ] Pin Python and Node dependencies for reproducible installs
+- [ ] Provide cross-platform setup script to automate environment creation
 
 ---
 
