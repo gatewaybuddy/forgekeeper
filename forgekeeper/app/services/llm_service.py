@@ -6,6 +6,7 @@ from forgekeeper.functions.list_functions import list_functions
 from forgekeeper.functions.describe_function import describe_function
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.app.utils.prompt_guard import verify_prompt
 
 
 logger = get_logger(__name__, debug=DEBUG_MODE)
@@ -49,6 +50,7 @@ def format_prompt(prompt: str):
 
 def ask_llm(prompt: str):
     headers = { "Content-Type": "application/json" }
+    prompt = verify_prompt(prompt)
     formatted_prompt = format_prompt(prompt)
 
     if LLM_MODE == "chat":

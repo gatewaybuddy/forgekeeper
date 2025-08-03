@@ -12,6 +12,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 - [x] Accept and interpret natural language task prompts
 - [x] Make and commit code edits with user approval
 - [x] Enable multi-agent task handoff between Core and Coder agents
+- [x] Verify and sanitize user prompts to prevent injection attacks
 - [ ] Run a recursive self-review loop
 - [ ] Integrate linting and test validation before commits
 

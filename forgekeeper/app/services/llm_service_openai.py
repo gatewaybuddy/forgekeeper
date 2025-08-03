@@ -3,6 +3,7 @@ import time
 from openai import OpenAI
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.app.utils.prompt_guard import verify_prompt
 
 # Initialize client and model
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -11,6 +12,7 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 
 def ask_llm(prompt: str, system_message: str = None) -> str:
     messages = []
+    prompt = verify_prompt(prompt)
 
     if system_message:
         messages.append({"role": "system", "content": system_message})

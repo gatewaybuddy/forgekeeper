@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from ..services.llm_service import ask_llm
 from ..services.function_loader import load_functions
+from ..utils.prompt_guard import verify_prompt
 
 chat_bp = Blueprint('chat', __name__)
 functions = load_functions()
@@ -8,7 +9,7 @@ functions = load_functions()
 @chat_bp.route("/ask", methods=["POST"])
 def ask():
     data = request.json
-    prompt = data.get("prompt", "")
+    prompt = verify_prompt(data.get("prompt", ""))
     response = ask_llm(prompt)
 
     if isinstance(response, dict) and "function_call" in response:
