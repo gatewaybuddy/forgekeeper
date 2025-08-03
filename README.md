@@ -1,6 +1,6 @@
 # Forgekeeper
 
-Forgekeeper is a self-evolving agent framework that combines a Python backend with a React frontend.
+Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 This repository includes all components required to run the local development environment.
 
 ## Installation
@@ -17,7 +17,22 @@ This repository includes all components required to run the local development en
    ```
 3. Copy the sample environment file and adjust values as needed:
    ```bash
-   cp .env.example .env
+    cp .env.example .env
+    ```
+
+### GraphQL Service (Node/TypeScript)
+1. Install Node dependencies:
+   ```bash
+   cd backend
+   npm install
+   ```
+2. Configure the MongoDB connection string:
+   ```bash
+   export DATABASE_URL="mongodb://localhost:27017/forgekeeper"
+   ```
+3. Generate the Prisma client:
+   ```bash
+   npx prisma generate
    ```
 
 ### Frontend (React)
@@ -28,6 +43,11 @@ This repository includes all components required to run the local development en
    ```
 
 ## Running
+
+### Start the GraphQL service
+```bash
+npm run dev --prefix backend
+```
 
 ### Start the backend
 ```bash
