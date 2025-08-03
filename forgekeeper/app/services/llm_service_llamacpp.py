@@ -3,7 +3,9 @@ import json
 import re
 from forgekeeper.app.utils.json_helpers import extract_json
 from forgekeeper.app.shared.models import llm_core, llm_coder
+from forgekeeper.app.utils.prompt_guard import verify_prompt
 def ask_llm(prompt: str):
+    prompt = verify_prompt(prompt)
     return extract_json(llm_core.ask(prompt))
 
 from llama_cpp import Llama
@@ -33,6 +35,7 @@ MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500"))
 # )
 # 📤 Ask the model and parse the response
 def ask_llm(prompt: str):
+    prompt = verify_prompt(prompt)
     try:
         return extract_json(llm_core.ask(prompt))
     except Exception as e:

@@ -4,6 +4,7 @@ from forgekeeper.app.chats.memory_store import (
     summarize_thoughts, request_think_aloud,
     get_memory
 )
+from forgekeeper.app.utils.prompt_guard import verify_prompt
 from forgekeeper.app.interpreter.intent_parser import (
     handle_possible_intent, confirm_intended_action
 )
@@ -29,7 +30,7 @@ def wrap_prompt(user_input, session_id, mode=None):
     """
     mode = mode or get_prompt_mode(session_id)
     sys_prompt = get_system_prompt(session_id)
-    prompt = user_input.strip()
+    prompt = verify_prompt(user_input.strip())
 
     # Slight boost: If user says "write a function", prefer instruction format unless overridden
     if "write a function" in prompt.lower() and mode == "inst":
@@ -45,6 +46,7 @@ def wrap_prompt(user_input, session_id, mode=None):
         return prompt
 
 def interpret_prompt(user_input, session_id, llm=None):
+    user_input = verify_prompt(user_input)
     lowered = user_input.lower()
 
     # Handle confirmation flow

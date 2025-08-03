@@ -46,3 +46,4 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
   *Use diffs to stage and describe changes before pushing.*
 
 - [x] Enable multi-agent task handoff
+- [x] Add prompt validation to guard against injection attacks

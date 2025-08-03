@@ -9,8 +9,9 @@ This document defines the autonomous agents currently active—or planned—with
 ### 🧠 Core (Mistral-Nemo-Instruct)
 - **Role**: Reflective reasoning and emotional context manager
 - **Responsibilities**:
-  - Understand user intent and generate natural language responses  
-  - Self-reflect and revise outputs for clarity, alignment, and helpfulness  
+  - Understand user intent and generate natural language responses
+  - Verify and sanitize incoming prompts to prevent injection or override attempts
+  - Self-reflect and revise outputs for clarity, alignment, and helpfulness
   - Route tasks to other agents when appropriate
 - **Special Abilities**:
   - Reflective memory update loop  
