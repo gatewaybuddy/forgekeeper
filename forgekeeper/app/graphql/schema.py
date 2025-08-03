@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from typing import List, Optional
 
@@ -10,7 +11,7 @@ import paho.mqtt.publish as publish
 
 from forgekeeper.app.services import conversation_service
 
-MQTT_BROKER = "localhost"
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 TASK_TOPIC = "forgekeeper/task"
 STOP_TOPIC = "forgekeeper/stop"
 
