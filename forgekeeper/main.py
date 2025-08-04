@@ -67,7 +67,11 @@ PIPELINE = [_step_analyze, _step_edit, _step_commit]
 
 
 def _execute_pipeline(task: str, state: dict) -> bool:
-    """Run pipeline steps sequentially, saving progress after each step."""
+    """Run pipeline steps sequentially, saving progress after each step.
+
+    The ``pipeline_step`` value in ``state`` tracks the next step to run so
+    the pipeline can resume if interrupted.
+    """
     step_index = state.get("pipeline_step", 0)
     for idx in range(step_index, len(PIPELINE)):
         step = PIPELINE[idx]
