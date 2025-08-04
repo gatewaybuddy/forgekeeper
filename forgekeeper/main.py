@@ -8,13 +8,14 @@ from forgekeeper.config import DEBUG_MODE
 from forgekeeper.file_analyzer import analyze_repo_for_task
 
 
-STATE_PATH = "forgekeeper/state.json"
-TASK_FILE = "tasks.md"
+MODULE_DIR = Path(__file__).resolve().parent
+STATE_PATH = MODULE_DIR / "state.json"
+TASK_FILE = MODULE_DIR.parent / "tasks.md"
 
 
 def _read_next_task() -> str | None:
     """Return the first unchecked task from TASK_FILE if available."""
-    task_path = Path(TASK_FILE)
+    task_path = TASK_FILE
     if not task_path.is_file():
         return None
     for line in task_path.read_text(encoding="utf-8").splitlines():
@@ -28,7 +29,7 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 
 def _check_off_task(task: str) -> None:
     """Mark the provided task as completed in TASK_FILE."""
-    task_path = Path(TASK_FILE)
+    task_path = TASK_FILE
     if not task_path.is_file():
         return
     lines = task_path.read_text(encoding="utf-8").splitlines()
@@ -46,8 +47,8 @@ def _check_off_task(task: str) -> None:
 
 
 def _step_analyze(task: str, state: dict) -> bool:
-    """Analyze repository relevance for the given task."""
-    analyze_repo_for_task(task)
+    """Analyze repository relevance for the given task and store results."""
+    state["analysis"] = analyze_repo_for_task(task)
     return True
 
 
