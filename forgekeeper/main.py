@@ -4,6 +4,7 @@ from pathlib import Path
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.self_review import run_self_review
 
 STATE_PATH = "forgekeeper/state.json"
 TASK_FILE = "tasks.md"
@@ -38,6 +39,11 @@ def main() -> None:
 
     log.info("Running Forgekeeper agent logic...")
     # Placeholder for real task execution logic.
+
+    review_passed = run_self_review(state, STATE_PATH)
+    if not review_passed:
+        log.error("Self-review failed. Halting execution.")
+        return
 
     save_state(state, STATE_PATH)
 
