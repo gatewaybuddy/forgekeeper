@@ -28,7 +28,6 @@ def run_self_review(state: Dict, state_path: Path | str = Path("forgekeeper/stat
     bool
         ``True`` if the review passes, otherwise ``False``.
     """
-
     path = Path(state_path)
     task = state.get("current_task", "")
 
@@ -59,4 +58,3 @@ def run_self_review(state: Dict, state_path: Path | str = Path("forgekeeper/stat
         log.error("Self-review failed for task '%s'", task)
 
     return review_passed
-

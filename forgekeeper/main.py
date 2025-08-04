@@ -8,7 +8,6 @@ from forgekeeper.config import DEBUG_MODE
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.self_review import run_self_review
 
-
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
 TASK_FILE = MODULE_DIR.parent / "tasks.md"
@@ -118,6 +117,7 @@ def main() -> None:
             log.error("Self-review failed. Progress saved for inspection.")
     else:
         log.info("Pipeline incomplete. Progress saved for resume.")
+
     save_state(state, STATE_PATH)
 
 
