@@ -12,19 +12,18 @@ MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
 TASK_FILE = MODULE_DIR.parent / "tasks.md"
 
+log = get_logger(__name__, debug=DEBUG_MODE)
+
 
 def _read_next_task() -> str | None:
-    """Return the first unchecked task from TASK_FILE if available."""
-    task_path = TASK_FILE
+    """Return the first unchecked task from ``TASK_FILE`` if available."""
+    task_path = Path(TASK_FILE)
     if not task_path.is_file():
         return None
     for line in task_path.read_text(encoding="utf-8").splitlines():
         if line.strip().startswith("- [ ]"):
             return line.split("- [ ]", 1)[1].strip()
     return None
-
-
-log = get_logger(__name__, debug=DEBUG_MODE)
 
 
 def _check_off_task(task: str) -> None:
@@ -91,8 +90,9 @@ def _execute_pipeline(task: str, state: dict) -> bool:
 
 def main() -> None:
     state = load_state(STATE_PATH)
-    if state.get("current_task"):
-        log.info(f"Resuming task: {state['current_task']}")
+    task = state.get("current_task")
+    if task:
+        log.info(f"Resuming task: {task}")
     else:
         task = _read_next_task()
         if not task:
@@ -119,6 +119,9 @@ def main() -> None:
         log.info("Pipeline incomplete. Progress saved for resume.")
 
     save_state(state, STATE_PATH)
+
+    if not success or not review_passed:
+        return
 
 
 if __name__ == "__main__":
