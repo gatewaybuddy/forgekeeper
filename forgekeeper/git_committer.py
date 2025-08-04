@@ -10,8 +10,25 @@ from forgekeeper.config import DEBUG_MODE
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def commit_and_push_changes(commit_message: str, create_branch: bool = False, branch_prefix: str = "forgekeeper/self-edit") -> None:
-    """Commit staged changes and optionally push them on a new branch."""
+def commit_and_push_changes(
+    commit_message: str,
+    create_branch: bool = False,
+    branch_prefix: str = "forgekeeper/self-edit",
+    autonomous: bool = False,
+) -> None:
+    """Commit staged changes and optionally push them on a new branch.
+
+    Parameters
+    ----------
+    commit_message:
+        The commit message to use for the commit.
+    create_branch:
+        Whether a new timestamped branch should be created before committing.
+    branch_prefix:
+        Prefix for the auto-created branch when ``create_branch`` is ``True``.
+    autonomous:
+        If ``True``, skip the confirmation prompt and push automatically.
+    """
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
 
     if create_branch:
@@ -27,8 +44,13 @@ def commit_and_push_changes(commit_message: str, create_branch: bool = False, br
         log.info(f"Committed changes on {branch_name}: {commit_message}")
         try:
             origin = repo.remote()
-            origin.push(branch_name)
-            log.info("Pushed to remote")
+            if autonomous or input(
+                f"Push branch {branch_name} to remote? [y/N]: "
+            ).strip().lower() in {"y", "yes"}:
+                origin.push(branch_name)
+                log.info("Pushed to remote")
+            else:
+                log.info("Push to remote skipped")
         except Exception as exc:
             log.error(f"Push failed: {exc}")
     else:
