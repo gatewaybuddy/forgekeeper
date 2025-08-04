@@ -40,23 +40,7 @@ def commit_and_push_changes(
     checks: Optional[Iterable[str]] = None,
     autonomous: bool = False,
 ) -> None:
-    """Commit staged changes and optionally push them on a new branch.
-
-    Parameters
-    ----------
-    commit_message:
-        The commit message to use for the commit.
-    create_branch:
-        Whether a new timestamped branch should be created before committing.
-    branch_prefix:
-        Prefix for the auto-created branch when ``create_branch`` is ``True``.
-    run_checks:
-        Whether to run validation commands before committing.
-    checks:
-        Iterable of shell commands to run when ``run_checks`` is ``True``.
-    autonomous:
-        If ``True``, skip the confirmation prompt and push automatically.
-    """
+    """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
 
     if run_checks:
