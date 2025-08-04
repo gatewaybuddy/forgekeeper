@@ -38,6 +38,7 @@ def commit_and_push_changes(
     branch_prefix: str = "forgekeeper/self-edit",
     run_checks: bool = RUN_COMMIT_CHECKS,
     checks: Optional[Iterable[str]] = None,
+    autonomous: bool = False,
 ) -> None:
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
@@ -61,8 +62,13 @@ def commit_and_push_changes(
         log.info(f"Committed changes on {branch_name}: {commit_message}")
         try:
             origin = repo.remote()
-            origin.push(branch_name)
-            log.info("Pushed to remote")
+            if autonomous or input(
+                f"Push branch {branch_name} to remote? [y/N]: "
+            ).strip().lower() in {"y", "yes"}:
+                origin.push(branch_name)
+                log.info("Pushed to remote")
+            else:
+                log.info("Push to remote skipped")
         except Exception as exc:
             log.error(f"Push failed: {exc}")
     else:

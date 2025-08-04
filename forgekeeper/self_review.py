@@ -1,8 +1,9 @@
-from __future__ import annotations
-
 """Utilities for reviewing recent work against the active task."""
 
+from __future__ import annotations
+
 import subprocess
+from pathlib import Path
 from typing import Dict
 
 from forgekeeper.logger import get_logger
@@ -12,14 +13,14 @@ from forgekeeper.state_manager import save_state
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def run_self_review(state: Dict, state_path: str = "forgekeeper/state.json") -> bool:
+def run_self_review(state: Dict, state_path: Path | str = Path("forgekeeper/state.json")) -> bool:
     """Run a simple self-review against the latest commit.
 
     Parameters
     ----------
     state : dict
         Current execution state. Expected to contain ``current_task``.
-    state_path : str
+    state_path : Path | str
         Path where the updated state should be persisted.
 
     Returns
@@ -27,6 +28,7 @@ def run_self_review(state: Dict, state_path: str = "forgekeeper/state.json") -> 
     bool
         ``True`` if the review passes, otherwise ``False``.
     """
+    path = Path(state_path)
     task = state.get("current_task", "")
 
     commit_msg = ""
@@ -48,7 +50,7 @@ def run_self_review(state: Dict, state_path: str = "forgekeeper/state.json") -> 
         "commit_message": commit_msg,
         "passed": review_passed,
     }
-    save_state(state, state_path)
+    save_state(state, path)
 
     if review_passed:
         log.info("Self-review passed for task '%s'", task)
