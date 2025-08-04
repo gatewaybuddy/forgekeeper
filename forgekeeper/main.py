@@ -6,6 +6,7 @@ from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.file_analyzer import analyze_repo_for_task
+from forgekeeper.self_review import run_self_review
 
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -103,9 +104,14 @@ def main() -> None:
     log.info("Dispatching task to execution pipeline...")
     success = _execute_pipeline(task, state)
     if success:
-        log.info("Task completed successfully. Updating task list.")
-        _check_off_task(task)
-        state.clear()
+        log.info("Pipeline completed. Running self-review...")
+        review_passed = run_self_review(state, STATE_PATH)
+        if review_passed:
+            log.info("Task completed successfully. Updating task list.")
+            _check_off_task(task)
+            state.clear()
+        else:
+            log.error("Self-review failed. Progress saved for inspection.")
     else:
         log.info("Pipeline incomplete. Progress saved for resume.")
     save_state(state, STATE_PATH)

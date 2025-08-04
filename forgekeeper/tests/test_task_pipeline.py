@@ -29,6 +29,14 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     monkeypatch.setattr(main_module, "_step_edit", fail_step)
     main_module.PIPELINE[1] = fail_step
 
+    review_calls = {"count": 0}
+
+    def fake_review(state, state_path):
+        review_calls["count"] += 1
+        return True
+
+    monkeypatch.setattr(main_module, "run_self_review", fake_review)
+
     main_module.main()
 
     saved_state = json.loads(state_path.read_text())
@@ -36,6 +44,7 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     assert saved_state["pipeline_step"] == 1
     assert saved_state.get("analysis") == []
     assert tasks_file.read_text() == "- [ ] demo task\n"
+    assert review_calls["count"] == 0
 
     def pass_step(task, state):
         return True
@@ -48,3 +57,4 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     assert tasks_file.read_text() == "- [x] demo task\n"
     saved_state = json.loads(state_path.read_text())
     assert saved_state == {}
+    assert review_calls["count"] == 1
