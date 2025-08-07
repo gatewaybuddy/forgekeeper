@@ -20,6 +20,12 @@ This repository includes all components required to run the local development en
     cp .env.example .env
     ```
 
+4. Optional: configure local Harmony model parameters via environment variables:
+   - `OPENAI_REASONING_EFFORT` – one of `low`, `medium`, or `high` (default: `medium`).
+   - `LLM_TEMPERATURE` and `LLM_TOP_P` – sampling parameters passed to `llama_cpp`.
+   These settings may also be overridden by including lines such as `Reasoning: high` or
+   `Temperature: 0.5` at the top of a prompt.
+
 ### GraphQL Service (Node/TypeScript)
 1. Install Node dependencies:
    ```bash

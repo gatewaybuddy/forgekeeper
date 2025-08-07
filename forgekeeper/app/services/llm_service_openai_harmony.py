@@ -9,14 +9,24 @@ environment variable and loaded on first use.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, Tuple
 
 try:  # pragma: no cover - optional dependency
     from llama_cpp import Llama
 except Exception:  # pragma: no cover - allow import without llama_cpp installed
     Llama = None  # type: ignore
 
-from openai_harmony import Conversation, Message, Role
+from openai_harmony import (
+    Conversation,
+    Message,
+    Role,
+    SystemContent,
+    DeveloperContent,
+    load_harmony_encoding,
+    HarmonyEncodingName,
+    ReasoningEffort,
+)
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
@@ -30,6 +40,11 @@ N_CTX = int(os.getenv("LLM_CONTEXT_SIZE", "4096"))
 N_THREADS = int(os.getenv("LLM_THREADS", "8"))
 N_GPU_LAYERS = int(os.getenv("LLM_GPU_LAYERS", "0"))
 MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500"))
+TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
+DEFAULT_REASONING = os.getenv("OPENAI_REASONING_EFFORT", "medium")
+
+ENCODING = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
 
 _llm: Llama | None = None
 
@@ -56,65 +71,117 @@ def _load_model() -> Llama:
 
 
 # Harmony prompt helpers ----------------------------------------------------
-def _build_harmony_messages(
-    prompt: str, system_message: str | None = None
-) -> List[Dict[str, Any]]:
-    """Construct a Harmony conversation payload."""
+def _extract_directives(text: str) -> Tuple[Dict[str, str], str]:
+    """Extract generation directives like ``Reasoning: high`` from ``text``."""
+
+    directives: Dict[str, str] = {}
+    lines = []
+    pattern = re.compile(r"^(\w+):\s*(.+)$", re.IGNORECASE)
+    for line in text.splitlines():
+        match = pattern.match(line.strip())
+        if match:
+            key, value = match.group(1).lower(), match.group(2).strip()
+            directives[key] = value
+        else:
+            lines.append(line)
+    return directives, "\n".join(lines).strip()
+
+
+def _build_conversation(
+    prompt: str,
+    system_message: str | None,
+    reasoning: str,
+) -> Conversation:
+    """Construct a Harmony ``Conversation`` with optional system/developer messages."""
 
     messages: List[Message] = []
+
+    # System message with reasoning effort
+    reason_enum = ReasoningEffort[reasoning.upper()]
+    system_content = SystemContent(reasoning_effort=reason_enum)
+    messages.append(Message.from_role_and_content(Role.SYSTEM, system_content))
+
+    # Developer instructions
     if system_message:
-        messages.append(Message.from_role_and_content(Role.DEVELOPER, system_message))
+        messages.append(
+            Message.from_role_and_content(
+                Role.DEVELOPER, DeveloperContent(instructions=system_message)
+            )
+        )
+
     messages.append(Message.from_role_and_content(Role.USER, prompt))
-
-    convo = Conversation.from_messages(messages)
-    formatted: List[Dict[str, Any]] = []
-
-    for msg in convo.messages:
-        content_items = []
-        for c in msg.content:
-            data = c.model_dump()
-            content_items.append({"type": "text", "text": data.get("text", "")})
-
-        msg_dict: Dict[str, Any] = {
-            "role": msg.author.role.value,
-            "content": content_items,
-        }
-
-        if msg.channel:
-            msg_dict["channel"] = msg.channel
-        if msg.recipient:
-            msg_dict["recipient"] = msg.recipient
-
-        formatted.append(msg_dict)
-
-    return formatted
+    return Conversation.from_messages(messages)
 
 
-def _render_prompt(messages: List[Dict[str, Any]]) -> str:
-    """Render Harmony message dicts into a plain text prompt."""
+def _render_conversation(convo: Conversation) -> Tuple[str, List[str]]:
+    """Render conversation to text and stop sequences using Harmony encoding."""
 
-    lines: List[str] = []
-    for msg in messages:
-        role = msg.get("role")
-        text = " ".join(item.get("text", "") for item in msg.get("content", []))
-        if role == "developer":
-            lines.append(f"[SYSTEM] {text}")
-        elif role == "user":
-            lines.append(f"[USER] {text}")
-    lines.append("[ASSISTANT]")
-    return "\n".join(lines)
+    tokens = ENCODING.render_conversation_for_completion(convo, Role.ASSISTANT)
+    prompt_text = ENCODING.decode_utf8(tokens)
+
+    stop_tokens = ENCODING.stop_tokens_for_assistant_actions()
+    stop_sequences = [ENCODING.decode_utf8([t]) for t in stop_tokens]
+    return prompt_text, stop_sequences
 
 
-def ask_llm(prompt: str, system_message: str | None = None) -> str:
-    """Ask the local Harmony model a question."""
+def ask_llm(
+    prompt: str,
+    system_message: str | None = None,
+    reasoning: str | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+) -> str:
+    """Ask the local Harmony model a question.
+
+    ``reasoning``, ``temperature``, ``top_p`` and ``max_tokens`` may be provided
+    directly, via environment variables, or embedded as ``Key: Value`` directives
+    at the top of ``prompt`` or ``system_message``.
+    """
 
     prompt = verify_prompt(prompt)
-    messages = _build_harmony_messages(prompt, system_message)
-    rendered = _render_prompt(messages)
+
+    dir_prompt, prompt = _extract_directives(prompt)
+    dir_system, system_message = (
+        _extract_directives(system_message) if system_message else ({}, None)
+    )
+
+    # Resolve generation settings
+    reasoning = (
+        reasoning
+        or dir_prompt.get("reasoning")
+        or dir_system.get("reasoning")
+        or DEFAULT_REASONING
+    )
+
+    temperature = float(
+        dir_prompt.get("temperature")
+        or dir_system.get("temperature")
+        or (temperature if temperature is not None else TEMPERATURE)
+    )
+    top_p = float(
+        dir_prompt.get("top_p")
+        or dir_system.get("top_p")
+        or (top_p if top_p is not None else TOP_P)
+    )
+    max_tokens = int(
+        dir_prompt.get("max_tokens")
+        or dir_system.get("max_tokens")
+        or (max_tokens if max_tokens is not None else MAX_TOKENS)
+    )
+
+    convo = _build_conversation(prompt, system_message, reasoning)
+    rendered, stop = _render_conversation(convo)
 
     llm = _load_model()
     try:
-        output = llm(rendered, max_tokens=MAX_TOKENS, stop=["</s>", "<|eot_id|>"])
+        output = llm(
+            rendered,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stop=stop,
+        )
         return output["choices"][0]["text"].strip()
     except Exception as exc:  # pragma: no cover - defensive logging
         log.error("Harmony model inference failed: %s", exc)

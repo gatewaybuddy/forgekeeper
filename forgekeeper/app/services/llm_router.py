@@ -14,10 +14,11 @@ if BACKEND == "openai":
     from forgekeeper.app.services.llm_service_openai_harmony import ask_llm as backend_ask
 
     SYSTEM_MESSAGE = os.getenv("OPENAI_SYSTEM_PROMPT", "")
+    REASONING = os.getenv("OPENAI_REASONING_EFFORT")
 
     def ask_llm(prompt: str):
         prompt = verify_prompt(prompt)
-        return backend_ask(prompt, system_message=SYSTEM_MESSAGE)
+        return backend_ask(prompt, system_message=SYSTEM_MESSAGE, reasoning=REASONING)
 
 else:
     from forgekeeper.app.shared.models import llm_core
