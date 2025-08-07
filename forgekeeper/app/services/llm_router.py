@@ -10,13 +10,18 @@ log.debug("Backend from env: %s", os.getenv("LLM_BACKEND"))
 
 # === Core Model Setup ===
 if BACKEND == "openai":
-    from forgekeeper.app.services.llm_service_openai import ask_llm as backend_ask
+    # Use a local Harmony conversation model loaded from disk
+    from forgekeeper.app.services.llm_service_openai_harmony import ask_llm as backend_ask
+
     SYSTEM_MESSAGE = os.getenv("OPENAI_SYSTEM_PROMPT", "")
+
     def ask_llm(prompt: str):
         prompt = verify_prompt(prompt)
         return backend_ask(prompt, system_message=SYSTEM_MESSAGE)
+
 else:
     from forgekeeper.app.shared.models import llm_core
+
     def ask_llm(prompt: str):
         prompt = verify_prompt(prompt)
         if not llm_core:
@@ -35,7 +40,7 @@ def get_backend():
 
 def get_core_model_name():
     if BACKEND == "openai":
-        return os.getenv("OPENAI_MODEL", "gpt-4")
+        return os.getenv("OPENAI_MODEL_PATH", "gpt-oss")
     else:
         return os.getenv("LLM_CORE_PATH", "llamacpp")
 
