@@ -15,6 +15,8 @@ import {
   CircularProgress,
   CssBaseline,
 } from '@mui/material';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
@@ -26,6 +28,9 @@ import ConversationView from './ConversationView';
 import PromptInput from './PromptInput';
 import FolderTree from './FolderTree';
 import ContextMenu from './ContextMenu';
+import SyncIndicator from './SyncIndicator';
+import LogPanel from './LogPanel';
+import { setErrorHandler } from './toast';
 
 type ConversationAction =
   | { type: 'set'; payload: Conversation[] }
@@ -78,6 +83,7 @@ export default function App() {
   const [contextConv, setContextConv] = useState<Conversation | null>(null);
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
   const [darkMode, setDarkMode] = useState(prefersDark);
+  const [error, setError] = useState<string | null>(null);
 
   const theme = createTheme({ palette: { mode: darkMode ? 'dark' : 'light' } });
 
@@ -91,6 +97,10 @@ export default function App() {
   const [moveConversation] = useMutation(MOVE_CONVERSATION);
   const [deleteConversation] = useMutation(DELETE_CONVERSATION);
   const [archiveConversation] = useMutation(ARCHIVE_CONVERSATION);
+
+  useEffect(() => {
+    setErrorHandler(msg => setError(msg));
+  }, []);
 
   useEffect(() => {
     if (data?.listConversations) {
@@ -179,6 +189,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <SyncIndicator />
       <Box display="flex" sx={{ height: '100vh', flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box
           width={{ xs: '100%', sm: 300 }}
@@ -220,6 +231,7 @@ export default function App() {
         </Box>
         <Box flexGrow={1} display="flex" flexDirection="column">
           <ConversationView conversation={selectedConv} busy={isBusy} />
+          <LogPanel conversation={selectedConv} />
           <PromptInput
             prompt={prompt}
             onPromptChange={setPrompt}
@@ -236,6 +248,16 @@ export default function App() {
           onMove={handleMove}
         />
       </Box>
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }
