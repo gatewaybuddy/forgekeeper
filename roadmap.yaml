@@ -1,0 +1,5 @@
+milestones:
+- epic: core
+  status: todo
+- epic: automation
+  status: todo
