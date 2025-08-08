@@ -1,22 +1,67 @@
+from __future__ import annotations
+
+"""Goal manager utilities.
+
+- Primary storage: JSON files under forgekeeper/ (goals + progress log).
+- Backward compatibility: if no goals file exists, migrate `active_goals`
+  from the persisted state (via state_manager.load_state()) into goals.json.
+"""
+
 import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+from .state_manager import load_state
+
 GOALS_FILE = Path("forgekeeper/goals.json")
 GOAL_LOG_FILE = Path("forgekeeper/goals.log")
 
 
-def load_goals() -> List[Dict]:
-    """Load all goals from disk. Return empty list if file missing or invalid."""
-    if not GOALS_FILE.is_file():
-        return []
+def _migrate_from_state_if_needed() -> List[Dict]:
+    """If goals.json is missing, try to migrate from state['active_goals']."""
+    state = {}
     try:
-        with open(GOALS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
+        state = load_state()
+    except Exception:
+        # If state loading fails, just return an empty list and proceed.
         return []
+
+    goals_list = state.get("active_goals", [])
+    if not isinstance(goals_list, list):
+        return []
+
+    migrated: List[Dict] = []
+    now = datetime.now(timezone.utc).isoformat()
+    for desc in goals_list:
+        if not isinstance(desc, str):
+            continue
+        migrated.append(
+            {
+                "id": str(uuid.uuid4()),
+                "description": desc,
+                "source": "state_migration",
+                "created_at": now,
+                "active": True,
+            }
+        )
+    if migrated:
+        save_goals(migrated)
+    return migrated
+
+
+def load_goals() -> List[Dict]:
+    """Load all goals from disk (or migrate from state if file missing)."""
+    if GOALS_FILE.is_file():
+        try:
+            with open(GOALS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, list) else []
+        except json.JSONDecodeError:
+            return []
+    # No file: try migrating from legacy state
+    return _migrate_from_state_if_needed()
 
 
 def save_goals(goals: List[Dict]) -> None:
@@ -28,7 +73,7 @@ def save_goals(goals: List[Dict]) -> None:
 
 def get_active_goals() -> List[str]:
     """Return descriptions of currently active goals."""
-    return [g["description"] for g in load_goals() if g.get("active", True)]
+    return [g.get("description", "") for g in load_goals() if g.get("active", True)]
 
 
 def add_goal(description: str, source: str = "user") -> str:
