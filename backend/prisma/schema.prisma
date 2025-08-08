@@ -29,3 +29,14 @@ model Folder {
   name   String @id @map("_id")
   parent String?
 }
+
+model Outbox {
+  id             String   @id @map("_id")
+  topic          String
+  payload        Json
+  createdAt      DateTime @default(now())
+  nextAttemptAt  DateTime @default(now())
+  sentAt         DateTime?
+  retryCount     Int      @default(0)
+  idempotencyKey String?  @unique
+}

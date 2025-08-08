@@ -21,3 +21,7 @@ Thumbs.db
 # Vector store data
 vector_store/
 *.bin
+
+# Build output
+backend/dist/
+dist/
