@@ -52,7 +52,7 @@ class RetrievalManager:
         for entry in entries:
             # Tag filtering
             if tag_filter:
-                tags = set(entry.get("tags", "").split(",")) if entry.get("tags") else set()
+                tags = set(entry.get("tags", []))
                 if not tags.intersection(tag_filter):
                     continue
             # Date filtering

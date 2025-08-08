@@ -6,3 +6,4 @@ paho-mqtt
 strawberry-graphql
 pytest
 openai-harmony
+pymongo

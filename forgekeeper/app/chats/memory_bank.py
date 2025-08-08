@@ -79,7 +79,8 @@ class MemoryBank:
             "session_id": session_id,
             "role": "memory",
             "type": type,
-            "tags": ",".join(tags) if tags else None,
+            # store tags as an explicit list for easier querying
+            "tags": tags or [],
             "last_accessed": timestamp,
             "timestamp": timestamp,
         }
