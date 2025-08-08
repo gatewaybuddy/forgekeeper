@@ -7,3 +7,4 @@ strawberry-graphql
 pytest
 openai-harmony
 pymongo
+PyYAML
