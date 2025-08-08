@@ -17,6 +17,15 @@ async function main() {
     context: async () => ({ prisma }),
   }));
 
+  app.get('/health', async (_req, res) => {
+    const oldest = await prisma.outbox.findFirst({
+      where: { sentAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+    const lag = oldest ? Date.now() - oldest.createdAt.getTime() : 0;
+    res.json({ lag });
+  });
+
   const port = process.env.PORT || 4000;
   app.listen(port, () => {
     console.log(`GraphQL service ready at http://localhost:${port}/graphql`);

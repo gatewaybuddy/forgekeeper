@@ -1,9 +1,7 @@
 import { GraphQLJSON } from 'graphql-type-json';
 import { PrismaClient } from '@prisma/client';
-import mqtt from 'mqtt';
 import { v4 as uuidv4 } from 'uuid';
 
-const MQTT_BROKER = process.env.MQTT_BROKER || 'localhost';
 const STOP_TOPIC = 'forgekeeper/stop';
 
 function countTokensStub(text: string): number {
@@ -39,42 +37,71 @@ const resolvers = {
     },
   },
   Mutation: {
-    sendMessageToForgekeeper: async (_: any, { topic, message }: any, { prisma }: Context) => {
-      const client = mqtt.connect(`mqtt://${MQTT_BROKER}`);
-      client.publish(topic, JSON.stringify(message));
-      client.end();
+    sendMessageToForgekeeper: async (
+      _: any,
+      { topic, message, idempotencyKey }: any,
+      { prisma }: Context
+    ) => {
+      if (idempotencyKey) {
+        const existing = await prisma.outbox.findUnique({ where: { idempotencyKey } });
+        if (existing) {
+          return true;
+        }
+      }
 
       const content = typeof message === 'object' ? message.content ?? '' : '';
       let conversationId = typeof message === 'object' ? message.conversationId : undefined;
       if (!conversationId) {
         conversationId = uuidv4();
       }
-      await prisma.conversation.upsert({
-        where: { id: conversationId },
-        update: {},
-        create: {
-          id: conversationId,
-          title: `Conversation ${conversationId}`,
-          folder: 'root',
-          archived: false,
-        },
-      });
-      await prisma.message.create({
-        data: {
-          id: uuidv4(),
-          role: 'user',
-          content,
-          timestamp: new Date().toISOString(),
-          tokens: countTokensStub(content),
-          conversationId,
-        },
+
+      await prisma.$transaction(async (tx) => {
+        await tx.conversation.upsert({
+          where: { id: conversationId },
+          update: {},
+          create: {
+            id: conversationId,
+            title: `Conversation ${conversationId}`,
+            folder: 'root',
+            archived: false,
+          },
+        });
+        await tx.message.create({
+          data: {
+            id: uuidv4(),
+            role: 'user',
+            content,
+            timestamp: new Date().toISOString(),
+            tokens: countTokensStub(content),
+            conversationId,
+          },
+        });
+        await tx.outbox.create({
+          data: {
+            id: uuidv4(),
+            topic,
+            payload: message,
+            idempotencyKey,
+          },
+        });
       });
       return true;
     },
-    stopMessage: async () => {
-      const client = mqtt.connect(`mqtt://${MQTT_BROKER}`);
-      client.publish(STOP_TOPIC, JSON.stringify({ stop: true }));
-      client.end();
+    stopMessage: async (_: any, { idempotencyKey }: any, { prisma }: Context) => {
+      if (idempotencyKey) {
+        const existing = await prisma.outbox.findUnique({ where: { idempotencyKey } });
+        if (existing) {
+          return true;
+        }
+      }
+      await prisma.outbox.create({
+        data: {
+          id: uuidv4(),
+          topic: STOP_TOPIC,
+          payload: { stop: true },
+          idempotencyKey,
+        },
+      });
       return true;
     },
     moveConversationToFolder: async (_: any, { conversationId, folder }: any, { prisma }: Context) => {

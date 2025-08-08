@@ -30,8 +30,8 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    sendMessageToForgekeeper(topic: String!, message: JSON!): Boolean!
-    stopMessage: Boolean!
+    sendMessageToForgekeeper(topic: String!, message: JSON!, idempotencyKey: String): Boolean!
+    stopMessage(idempotencyKey: String): Boolean!
     moveConversationToFolder(conversationId: ID!, folder: String!): Boolean!
     deleteConversation(conversationId: ID!): Boolean!
     archiveConversation(conversationId: ID!): Boolean!
