@@ -3,3 +3,22 @@ milestones:
   status: todo
 - epic: automation
   status: todo
+
+epics:
+  - id: R-001
+    title: Reliable self-review & atomic commits
+    kpis: [self_review_pass_rate, rollback_rate]
+    milestones:
+      - id: M-001
+        title: Diff-aware self-review
+        status: in_progress
+      - id: M-002
+        title: Commit checks surfacing
+        status: todo
+  - id: R-002
+    title: Backend reliability (transactional outbox)
+    kpis: [outbox_lag_seconds_p50, publish_retry_rate]
+    milestones:
+      - id: M-010
+        title: Outbox worker with retries
+        status: todo

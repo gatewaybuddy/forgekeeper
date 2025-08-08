@@ -47,3 +47,46 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 - [x] Enable multi-agent task handoff
 - [x] Add prompt validation to guard against injection attacks
+
+---
+
+## Canonical Tasks
+
+---
+id: FK-101
+title: Diff-aware self-review (P1)
+status: in_progress
+epic: R-001
+owner: agent
+labels: [agent, reliability, tests]
+---
+Implement self_review.review_change_set and write artifact to logs/.
+
+**AC**
+- [ ] ruff/mypy/pytest scoped to touched files
+- [ ] JSON verdict emitted to logs/self-review-*.json
+- [ ] Fail commit on verdict=fail
+
+---
+id: FK-102
+title: Commit checks surfacing (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [agent, dx]
+---
+Capture stdout/stderr, block commit on failure, attach artifact.
+
+**AC**
+- [ ] Structured result returned
+- [ ] Human summary + artifact path
+
+---
+id: FK-201
+title: Transactional outbox for resolvers (P1)
+status: todo
+epic: R-002
+owner: agent
+labels: [backend, reliability, mqtt]
+---
+Add Outbox table, worker, idempotent publish, and health endpoint.
