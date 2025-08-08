@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+import json
 import shlex
 import subprocess
 from typing import Iterable, Optional
@@ -17,19 +18,40 @@ from forgekeeper.config import (
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def _run_checks(commands: Iterable[str]) -> bool:
+def _run_checks(commands: Iterable[str]) -> dict:
+    """Run shell commands, capturing output and writing logs."""
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    log_dir = Path(__file__).resolve().parent.parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    artifacts_path = log_dir / f"commit-checks-{timestamp}.json"
+
+    results = []
+    passed = True
     for command in commands:
         log.info(f"Running {command}")
         result = subprocess.run(
             shlex.split(command), capture_output=True, text=True
         )
+        results.append(
+            {
+                "command": command,
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+        )
         if result.returncode != 0:
-            log.error(
-                f"{command} failed with code {result.returncode}\n"
-                f"{result.stdout}\n{result.stderr}"
-            )
-            return False
-    return True
+            passed = False
+
+    artifacts_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+
+    failing = [r["command"] for r in results if r["returncode"] != 0]
+    if passed:
+        log.info(f"All {len(results)} checks passed")
+    else:
+        log.error(f"Checks failed: {', '.join(failing)}")
+
+    return {"passed": passed, "artifacts_path": str(artifacts_path)}
 
 
 def commit_and_push_changes(
@@ -39,15 +61,17 @@ def commit_and_push_changes(
     run_checks: bool = RUN_COMMIT_CHECKS,
     checks: Optional[Iterable[str]] = None,
     autonomous: bool = False,
-) -> None:
+) -> dict:
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
 
+    check_result = {"passed": True, "artifacts_path": ""}
     if run_checks:
         commands = checks if checks is not None else COMMIT_CHECKS
-        if not _run_checks(commands):
+        check_result = _run_checks(commands)
+        if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
-            return
+            return check_result
 
     if create_branch:
         timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -73,3 +97,5 @@ def commit_and_push_changes(
             log.error(f"Push failed: {exc}")
     else:
         log.info("No staged changes to commit")
+
+    return check_result
