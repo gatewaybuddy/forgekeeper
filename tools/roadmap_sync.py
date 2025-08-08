@@ -1,149 +1,151 @@
-import json
-import os
-import re
-from pathlib import Path
+import os, re, json, sys, subprocess
+from dataclasses import dataclass, asdict
+from typing import List, Dict, Any
 
-import requests
-import yaml
+try:
+    import yaml  # PyYAML
+except Exception:
+    print("Missing dependency: pyyaml", file=sys.stderr)
+    sys.exit(2)
+
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL|re.MULTILINE)
 
 
-def parse_tasks(path: Path):
-    content = path.read_text(encoding="utf-8")
-    segments = []
-    tasks = []
-    pos = 0
+@dataclass
+class Task:
+    id: str
+    title: str
+    status: str
+    epic: str | None = None
+    owner: str | None = None
+    labels: List[str] | None = None
+    body: str = ""
+
+
+def parse_tasks_md(path: str) -> List[Task]:
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    tasks: List[Task] = []
+    idx = 0
     while True:
-        start = content.find("---\n", pos)
-        if start == -1:
-            segments.append({"text": content[pos:]})
+        m = FRONTMATTER_RE.search(text, idx)
+        if not m:
             break
-        end = content.find("\n---\n", start + 4)
-        if end == -1:
-            segments.append({"text": content[pos:]})
-            break
-        yaml_text = content[start + 4 : end]
-        try:
-            data = yaml.safe_load(yaml_text) or {}
-        except yaml.YAMLError:
-            segments.append({"text": content[pos : end + 5]})
-            pos = end + 5
+        fm_text = m.group(1)
+        fm = yaml.safe_load(fm_text) or {}
+        start, end = m.span()
+        # Body extends until next frontmatter or EOF
+        next_m = FRONTMATTER_RE.search(text, end)
+        body = text[end: next_m.start() if next_m else len(text)].strip()
+        tasks.append(Task(
+            id=str(fm.get("id")),
+            title=fm.get("title", "").strip(),
+            status=fm.get("status", "todo").strip(),
+            epic=fm.get("epic"),
+            owner=fm.get("owner"),
+            labels=fm.get("labels") or [],
+            body=body
+        ))
+        idx = end
+    return tasks
+
+
+def format_task_block(t: Task) -> str:
+    fm = {
+        "id": t.id, "title": t.title, "status": t.status,
+        "epic": t.epic, "owner": t.owner, "labels": t.labels or []
+    }
+    front = yaml.safe_dump(fm, sort_keys=False).strip()
+    return f"---\n{front}\n---\n{t.body.strip()}\n\n"
+
+
+def write_tasks_md(path: str, tasks: List[Task]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        for t in tasks:
+            f.write(format_task_block(t))
+
+
+def gh_repo_slug() -> str:
+    # e.g., 'user/repo'
+    out = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], text=True).strip()
+    # support https and ssh
+    if out.endswith(".git"):
+        out = out[:-4]
+    if out.startswith("git@"):
+        _, rest = out.split(":", 1)
+        return rest
+    if out.startswith("https://") or out.startswith("http://"):
+        parts = out.split("/")
+        return "/".join(parts[-2:])
+    return out
+
+
+def fetch_prs_for_tasks(tasks: List[Task], token: str) -> Dict[str, Any]:
+    import requests
+    owner_repo = gh_repo_slug()
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    url = f"https://api.github.com/repos/{owner_repo}/pulls?state=all&per_page=100"
+    prs = requests.get(url, headers=headers, timeout=30).json()
+    by_task: Dict[str, list] = {}
+    for pr in prs:
+        title = pr.get("title", "")
+        for t in tasks:
+            if t.id and t.id in title:
+                by_task.setdefault(t.id, []).append(pr)
+    return by_task
+
+
+def sync_status(tasks: List[Task], pr_map: Dict[str, List[Dict[str, Any]]]) -> None:
+    for t in tasks:
+        prs = pr_map.get(t.id, [])
+        if not prs:
             continue
-        if not isinstance(data, dict) or "id" not in data:
-            segments.append({"text": content[pos : end + 5]})
-            pos = end + 5
-            continue
-        pre_text = content[pos:start]
-        segments.append({"text": pre_text})
-        pos = end + 5
-        next_start = content.find("---\n", pos)
-        if next_start == -1:
-            body = content[pos:]
-            pos = len(content)
+        # Priority: merged -> done; open+label needs_review -> needs_review; open -> in_progress
+        merged = any(p.get("merged_at") for p in prs)
+        if merged:
+            t.status = "done"
         else:
-            body = content[pos:next_start]
-            pos = next_start
-        task_seg = {"data": data, "body": body}
-        segments.append({"task": task_seg})
-        tasks.append(task_seg)
-    return segments, tasks
+            open_prs = [p for p in prs if p.get("state") == "open"]
+            if any("needs_review" in [lbl["name"] for lbl in p.get("labels", [])] for p in open_prs):
+                t.status = "needs_review"
+            elif open_prs:
+                t.status = "in_progress"
 
 
-def write_tasks(path: Path, segments):
-    out = []
-    for seg in segments:
-        if "text" in seg:
-            out.append(seg["text"])
-        else:
-            yaml_text = yaml.safe_dump(seg["task"]["data"], sort_keys=True).strip()
-            out.append(f"---\n{yaml_text}\n---\n{seg['task']['body']}")
-    path.write_text("".join(out), encoding="utf-8")
-
-
-def map_prs(repo: str | None, token: str | None):
-    if not repo:
-        return {}
-    headers = {"Accept": "application/vnd.github+json"}
-    if token:
-        headers["Authorization"] = f"token {token}"
-    prs = {}
-    page = 1
-    while True:
-        resp = requests.get(
-            f"https://api.github.com/repos/{repo}/pulls",
-            headers=headers,
-            params={"state": "all", "per_page": 100, "page": page},
-            timeout=30,
-        )
-        if resp.status_code != 200:
-            break
-        batch = resp.json()
-        if not batch:
-            break
-        for pr in batch:
-            text = f"{pr.get('title', '')} {pr.get('head', {}).get('ref', '')}"
-            m = re.search(r"FK-(\d+)", text, re.IGNORECASE)
-            if m:
-                prs[m.group(1)] = pr
-        page += 1
-    return prs
-
-
-def update_task_statuses(tasks, pr_map):
-    for task in tasks:
-        tid = task["data"].get("id")
-        if tid is None:
-            continue
-        pr = pr_map.get(str(tid))
-        if not pr:
-            continue
-        if pr.get("merged_at"):
-            task["data"]["status"] = "done"
-        elif pr.get("state") == "open" and any(l.get("name") == "needs_review" for l in pr.get("labels", [])):
-            task["data"]["status"] = "needs_review"
-
-
-def update_roadmap(path: Path, tasks):
-    if not path.exists():
-        return
-    roadmap = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    milestones = roadmap.get("milestones", [])
-    counts: dict[str, dict[str, int]] = {}
-    for task in tasks:
-        epic = task["data"].get("epic")
-        status = task["data"].get("status")
-        if not epic:
-            continue
-        c = counts.setdefault(epic, {"total": 0, "done": 0})
-        c["total"] += 1
-        if status == "done":
-            c["done"] += 1
-    for m in milestones:
-        epic = m.get("epic")
-        c = counts.get(epic, {"total": 0, "done": 0})
-        total, done = c["total"], c["done"]
-        if total == 0:
-            status = m.get("status", "todo")
-        elif done == 0:
-            status = "todo"
-        elif done == total:
-            status = "done"
-        else:
-            status = "in_progress"
-        m["status"] = status
-    path.write_text(yaml.safe_dump(roadmap, sort_keys=False), encoding="utf-8")
+def rollup_roadmap(tasks: List[Task], road_path: str) -> None:
+    with open(road_path, "r", encoding="utf-8") as f:
+        roadmap = yaml.safe_load(f) or {}
+    epics = {e["id"]: e for e in (roadmap.get("epics") or [])}
+    for epic_id, epic in epics.items():
+        # compute completion by tasks referencing this epic
+        epic_tasks = [t for t in tasks if t.epic == epic_id]
+        done = sum(1 for t in epic_tasks if t.status == "done")
+        total = max(1, len(epic_tasks))
+        epic["progress"] = round(100 * done / total, 1)
+        # auto-update milestone statuses if all tasks for a milestone are done (best‑effort heuristic via title match)
+        for m in (epic.get("milestones") or []):
+            title = (m.get("title") or "").lower()
+            m_tasks = [t for t in epic_tasks if title and title in (t.title or "").lower()]
+            if m_tasks and all(t.status == "done" for t in m_tasks):
+                m["status"] = "done"
+    roadmap["epics"] = list(epics.values())
+    with open(road_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(roadmap, f, sort_keys=False)
 
 
 def main():
-    root = Path(__file__).resolve().parents[1]
-    tasks_path = root / "tasks.md"
-    roadmap_path = root / "roadmap.yaml"
-    segments, tasks = parse_tasks(tasks_path)
-    pr_map = map_prs(os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GH_TOKEN"))
-    update_task_statuses(tasks, pr_map)
-    write_tasks(tasks_path, segments)
-    update_roadmap(roadmap_path, tasks)
-    print(json.dumps([t["data"] for t in tasks], indent=2))
+    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    tasks_path = "tasks.md"
+    road_path = "roadmap.yaml"
+    tasks = parse_tasks_md(tasks_path)
+    if gh_token:
+        pr_map = fetch_prs_for_tasks(tasks, gh_token)
+        sync_status(tasks, pr_map)
+    write_tasks_md(tasks_path, tasks)
+    if os.path.exists(road_path):
+        rollup_roadmap(tasks, road_path)
 
 
 if __name__ == "__main__":
     main()
+
