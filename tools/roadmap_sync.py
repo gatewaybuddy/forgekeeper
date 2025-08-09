@@ -1,5 +1,5 @@
 import os, re, json, sys, subprocess
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import List, Dict, Any
 
 try:
@@ -8,7 +8,7 @@ except Exception:
     print("Missing dependency: pyyaml", file=sys.stderr)
     sys.exit(2)
 
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL|re.MULTILINE)
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL | re.MULTILINE)
 
 
 @dataclass
@@ -36,24 +36,30 @@ def parse_tasks_md(path: str) -> List[Task]:
         start, end = m.span()
         # Body extends until next frontmatter or EOF
         next_m = FRONTMATTER_RE.search(text, end)
-        body = text[end: next_m.start() if next_m else len(text)].strip()
-        tasks.append(Task(
-            id=str(fm.get("id")),
-            title=fm.get("title", "").strip(),
-            status=fm.get("status", "todo").strip(),
-            epic=fm.get("epic"),
-            owner=fm.get("owner"),
-            labels=fm.get("labels") or [],
-            body=body
-        ))
+        body = text[end : (next_m.start() if next_m else len(text))].strip()
+        tasks.append(
+            Task(
+                id=str(fm.get("id")),
+                title=(fm.get("title", "") or "").strip(),
+                status=(fm.get("status", "todo") or "").strip(),
+                epic=fm.get("epic"),
+                owner=fm.get("owner"),
+                labels=fm.get("labels") or [],
+                body=body,
+            )
+        )
         idx = end
     return tasks
 
 
 def format_task_block(t: Task) -> str:
     fm = {
-        "id": t.id, "title": t.title, "status": t.status,
-        "epic": t.epic, "owner": t.owner, "labels": t.labels or []
+        "id": t.id,
+        "title": t.title,
+        "status": t.status,
+        "epic": t.epic,
+        "owner": t.owner,
+        "labels": t.labels or [],
     }
     front = yaml.safe_dump(fm, sort_keys=False).strip()
     return f"---\n{front}\n---\n{t.body.strip()}\n\n"
@@ -67,7 +73,9 @@ def write_tasks_md(path: str, tasks: List[Task]) -> None:
 
 def gh_repo_slug() -> str:
     # e.g., 'user/repo'
-    out = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], text=True).strip()
+    out = subprocess.check_output(
+        ["git", "config", "--get", "remote.origin.url"], text=True
+    ).strip()
     # support https and ssh
     if out.endswith(".git"):
         out = out[:-4]
@@ -82,8 +90,12 @@ def gh_repo_slug() -> str:
 
 def fetch_prs_for_tasks(tasks: List[Task], token: str) -> Dict[str, Any]:
     import requests
+
     owner_repo = gh_repo_slug()
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    }
     url = f"https://api.github.com/repos/{owner_repo}/pulls?state=all&per_page=100"
     prs = requests.get(url, headers=headers, timeout=30).json()
     by_task: Dict[str, list] = {}
@@ -106,7 +118,10 @@ def sync_status(tasks: List[Task], pr_map: Dict[str, List[Dict[str, Any]]]) -> N
             t.status = "done"
         else:
             open_prs = [p for p in prs if p.get("state") == "open"]
-            if any("needs_review" in [lbl["name"] for lbl in p.get("labels", [])] for p in open_prs):
+            if any(
+                "needs_review" in [lbl["name"] for lbl in p.get("labels", [])]
+                for p in open_prs
+            ):
                 t.status = "needs_review"
             elif open_prs:
                 t.status = "in_progress"
@@ -122,10 +137,12 @@ def rollup_roadmap(tasks: List[Task], road_path: str) -> None:
         done = sum(1 for t in epic_tasks if t.status == "done")
         total = max(1, len(epic_tasks))
         epic["progress"] = round(100 * done / total, 1)
-        # auto-update milestone statuses if all tasks for a milestone are done (best‑effort heuristic via title match)
+        # auto-update milestone statuses if all tasks for a milestone are done (best-effort heuristic via title match)
         for m in (epic.get("milestones") or []):
             title = (m.get("title") or "").lower()
-            m_tasks = [t for t in epic_tasks if title and title in (t.title or "").lower()]
+            m_tasks = [
+                t for t in epic_tasks if title and title in (t.title or "").lower()
+            ]
             if m_tasks and all(t.status == "done" for t in m_tasks):
                 m["status"] = "done"
     roadmap["epics"] = list(epics.values())
@@ -148,4 +165,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
