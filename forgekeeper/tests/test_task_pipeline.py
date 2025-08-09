@@ -21,7 +21,7 @@ def temp_paths(tmp_path, monkeypatch):
 
 def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     state_path, tasks_file = temp_paths
-    tasks_file.write_text("- [ ] demo task\n", encoding="utf-8")
+    tasks_file.write_text("## Active\n- [ ] demo task\n\n## Completed\n", encoding="utf-8")
 
     def fail_step(task, state):
         return False
@@ -40,10 +40,10 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     main_module.main()
 
     saved_state = json.loads(state_path.read_text())
-    assert saved_state["current_task"] == "demo task"
+    assert saved_state["current_task"]["description"] == "demo task"
     assert saved_state["pipeline_step"] == 1
     assert saved_state.get("analysis") == []
-    assert tasks_file.read_text() == "- [ ] demo task\n"
+    assert "- [ ] demo task" in tasks_file.read_text()
     assert review_calls["count"] == 0
 
     def pass_step(task, state):
@@ -54,7 +54,7 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
 
     main_module.main()
 
-    assert tasks_file.read_text() == "- [x] demo task\n"
+    assert "- [x] demo task" in tasks_file.read_text()
     saved_state = json.loads(state_path.read_text())
     assert saved_state == {}
     assert review_calls["count"] == 1

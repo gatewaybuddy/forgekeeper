@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-import goal_manager as gm
+import forgekeeper.goal_manager as gm
 
 
 def test_goal_lifecycle(tmp_path, monkeypatch):

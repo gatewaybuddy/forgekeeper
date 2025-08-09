@@ -3,7 +3,7 @@ from pathlib import Path
 
 from forgekeeper.file_summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
-from forgekeeper.code_editor import generate_code_edit
+from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.logger import get_logger
@@ -30,7 +30,10 @@ def run_update_pipeline(task_prompt: str) -> None:
             log.warning(f"File not found: {file_path}")
             continue
         original_code = p.read_text(encoding="utf-8")
-        modified_code = generate_code_edit(file_path, task_prompt, summary)
-        diff_and_stage_changes(original_code, modified_code, file_path)
+        patch = generate_code_edit(task_prompt, file_path, summary, "")
+        changed = apply_unified_diff(patch)
+        if str(p) in changed or file_path in changed:
+            modified_code = p.read_text(encoding="utf-8")
+            diff_and_stage_changes(original_code, modified_code, file_path)
 
     commit_and_push_changes(task_prompt)
