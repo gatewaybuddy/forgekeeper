@@ -13,7 +13,7 @@ class Task:
 
     description: str
     priority: int
-    status: str  # "todo" or "done"
+    status: str  # "todo", "in_progress", "needs_review", or "done"
     section: str
     lines: List[str]
 
@@ -80,7 +80,14 @@ class TaskQueue:
                 while i < len(lines) and lines[i].strip() == "":
                     block.append(lines[i])
                     i += 1
-                status = "done" if "[x]" in block[0] else "todo"
+                if "[x]" in block[0]:
+                    status = "done"
+                elif "[~]" in block[0]:
+                    status = "in_progress"
+                elif "[?]" in block[0]:
+                    status = "needs_review"
+                else:
+                    status = "todo"
                 text = block[0].split("]", 1)[1].strip()
                 priority = self.SECTION_PRIORITY.get(current.name, 99)
                 task = Task(text, priority, status, current.name, block)
@@ -103,7 +110,14 @@ class TaskQueue:
         for section in self.sections:
             lines.extend(section.header_lines)
             for task in section.tasks:
-                prefix = "- [x]" if task.status == "done" else "- [ ]"
+                if task.status == "done":
+                    prefix = "- [x]"
+                elif task.status == "in_progress":
+                    prefix = "- [~]"
+                elif task.status == "needs_review":
+                    prefix = "- [?]"
+                else:
+                    prefix = "- [ ]"
                 rest = task.lines[0].split("]", 1)[1]
                 task.lines[0] = prefix + rest
                 lines.extend(task.lines)
@@ -159,6 +173,18 @@ class TaskQueue:
             task.status = "done"
             dst.tasks.append(task)
             self.save()
+
+    def mark_in_progress(self, task: Task) -> None:
+        if task.status == "in_progress":
+            return
+        task.status = "in_progress"
+        self.save()
+
+    def mark_needs_review(self, task: Task) -> None:
+        if task.status == "needs_review":
+            return
+        task.status = "needs_review"
+        self.save()
 
     def task_by_index(self, index: int) -> Task:
         tasks = self.list_tasks()
