@@ -1,22 +1,35 @@
-name: roadmap-sync
-
+name: Roadmap Sync
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: roadmap-sync
+  cancel-in-progress: true
 
 jobs:
-  roadmap-sync:
+  sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Sync roadmap
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make sync-roadmap
+        with: { python-version: "3.11" }
+      - run: python -m pip install -r requirements.txt || true
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/roadmap_sync.py
+      - name: Commit updates
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "forgekeeper-bot"
+            git config user.email "bot@users.noreply.github.com"
+            git add roadmap.yaml tasks.md
+            git commit -m "chore(sync): roadmap & tasks"
+            git push
+          fi
