@@ -1,16 +1,11 @@
 Select a template:
 
-\- Feature: .github/PULL\_REQUEST\_TEMPLATE/feature.md
+- Feature: `.github/PULL_REQUEST_TEMPLATE/feature.md`
+- Bugfix: `.github/PULL_REQUEST_TEMPLATE/bugfix.md`
+- Refactor: `.github/PULL_REQUEST_TEMPLATE/refactor.md`
+- Infra/Chore: `.github/PULL_REQUEST_TEMPLATE/infra-chore.md`
+- Docs: `.github/PULL_REQUEST_TEMPLATE/docs.md`
+- Hotfix: `.github/PULL_REQUEST_TEMPLATE/hotfix.md`
 
-\- Bugfix: .github/PULL\_REQUEST\_TEMPLATE/bugfix.md
-
-\- Refactor: .github/PULL\_REQUEST\_TEMPLATE/refactor.md
-
-\- Infra/Chore: .github/PULL\_REQUEST\_TEMPLATE/infra-chore.md
-
-\- Docs: .github/PULL\_REQUEST\_TEMPLATE/docs.md
-
-\- Hotfix: .github/PULL\_REQUEST\_TEMPLATE/hotfix.md
-
-
+Behavior: GitHub shows this if no specific template is chosen.
 

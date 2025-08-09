@@ -1,116 +1,212 @@
 #!/usr/bin/env python3
 """Apply labels to the current pull request based on `tasks.md` metadata."""
-from __future__ import annotations
 
-import json
-import os
-import re
-from pathlib import Path
-from typing import List
+import os, re, sys, json, subprocess
+from typing import List, Dict, Any, Set
 
-import requests
-import yaml
+try:
+    import yaml  # PyYAML
+except Exception:
+    print("Missing dependency: pyyaml", file=sys.stderr)
+    sys.exit(2)
 
-from forgekeeper.task_queue import TaskQueue, Task
-
-ROOT = Path(__file__).resolve().parents[1]
-TASK_FILE = ROOT / "tasks.md"
-
-FK_RE = re.compile(r"FK-\d+")
-PRIORITY_RE = re.compile(r"\(P([0-3])\)")
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL | re.MULTILINE)
+TASK_ID_RE = re.compile(r"\b(FK-\d+)\b", re.IGNORECASE)  # matches FK-123
+PRIORITY_PAT = re.compile(r"\((P[0-3])\)", re.IGNORECASE)  # matches (P0)..(P3)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
+def parse_tasks_md(path: str) -> Dict[str, Dict[str, Any]]:
+    """
+    Scan tasks.md for blocks of:
 
-def extract_labels(task: Task) -> List[str]:
-    """Return labels defined in a task's frontmatter."""
-    lines = task.lines[1:]
-    start = end = None
-    for i, line in enumerate(lines):
-        if line.strip() == "---":
-            if start is None:
-                start = i
-            else:
-                end = i
-                break
-    if start is None or end is None or end <= start:
-        return []
-    block = "\n".join(l.lstrip() for l in lines[start + 1 : end])
-    data = yaml.safe_load(block) or {}
-    labels = data.get("labels", [])
-    if isinstance(labels, str):
-        return [labels]
-    return list(labels)
+    ---
+    id: FK-123
+    title: ...
+    labels: [a, b]
+    ...
+    ---
+    <body until next frontmatter or EOF>
 
-
-def priority_label(task: Task) -> str | None:
-    match = PRIORITY_RE.search(task.description)
-    if match:
-        return f"priority:P{match.group(1)}"
-    return None
-
-
-def find_task_by_key(queue: TaskQueue, key: str) -> Task | None:
-    for task in queue.list_tasks():
-        if FK_RE.search(task.description) and FK_RE.search(task.description).group(0) == key:
-            return task
-    return None
-
-
-def existing_labels(owner: str, repo: str, number: int, headers: dict) -> set[str]:
-    url = f"https://api.github.com/repos/{owner}/{repo}/issues/{number}/labels"
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    return {l["name"] for l in resp.json()}
+    Returns a dict keyed by uppercased task id (e.g., FK-123).
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    tasks: Dict[str, Dict[str, Any]] = {}
+    idx = 0
+    while True:
+        m = FRONTMATTER_RE.search(text, idx)
+        if not m:
+            break
+        fm = yaml.safe_load(m.group(1)) or {}
+        start, end = m.span()
+        next_m = FRONTMATTER_RE.search(text, end)
+        body = text[end : (next_m.start() if next_m else len(text))].strip()
+        tid = (fm.get("id") or "").strip()
+        if tid:
+            key = tid.upper()
+            tasks[key] = {
+                "id": key,
+                "title": (fm.get("title") or "").strip(),
+                "labels": fm.get("labels") or [],
+                "body": body,
+            }
+        idx = end
+    return tasks
 
 
-def ensure_label(owner: str, repo: str, label: str, headers: dict) -> None:
-    url = f"https://api.github.com/repos/{owner}/{repo}/labels"
-    resp = requests.post(url, json={"name": label, "color": "6f42c1"}, headers=headers)
-    if resp.status_code not in (201, 422):  # 422 = already exists
-        resp.raise_for_status()
+def repo_slug_from_env_or_git() -> str:
+    """
+    Prefer GITHUB_REPOSITORY=owner/repo when running in Actions.
+    Fallback to parsing `git remote origin` URL.
+    """
+    slug = os.getenv("GITHUB_REPOSITORY")
+    if slug:
+        return slug
+    url = subprocess.check_output(
+        ["git", "config", "--get", "remote.origin.url"], text=True
+    ).strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    if url.startswith("git@"):
+        _, slug = url.split(":", 1)
+    else:
+        parts = url.split("/")
+        slug = "/".join(parts[-2:])
+    return slug
 
 
-# ---------------------------------------------------------------------------
-# Main workflow
+def list_existing_labels(slug: str, token: str) -> Dict[str, Dict[str, Any]]:
+    import requests
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    existing: Dict[str, Dict[str, Any]] = {}
+    page = 1
+    while True:
+        r = requests.get(
+            f"https://api.github.com/repos/{slug}/labels?per_page=100&page={page}",
+            headers=headers,
+            timeout=30,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if not data:
+            break
+        for lab in data:
+            existing[lab["name"]] = lab
+        page += 1
+    return existing
+
+
+def ensure_labels(slug: str, labels: Set[str], token: str) -> None:
+    import requests
+
+    if not labels:
+        return
+    existing = list_existing_labels(slug, token)
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+
+    for name in sorted(labels):
+        if name in existing:
+            continue
+        # deterministic colors: priorities green-ish, others blue-ish
+        color = "0e8a16" if name.lower().startswith("priority:") else "0366d6"
+        payload = {"name": name, "color": color, "description": "auto-created from tasks.md"}
+        r = requests.post(
+            f"https://api.github.com/repos/{slug}/labels",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+        if r.status_code not in (200, 201, 422):  # 422: already exists (race)
+            r.raise_for_status()
+
+
+def add_labels_to_pr(slug: str, pr_number: int, labels: Set[str], token: str) -> None:
+    import requests
+
+    if not labels:
+        return
+    ensure_labels(slug, labels, token)
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    # Fetch current labels so we only add missing ones
+    cur = requests.get(
+        f"https://api.github.com/repos/{slug}/issues/{pr_number}/labels",
+        headers=headers,
+        timeout=30,
+    )
+    cur.raise_for_status()
+    existing = {l["name"] for l in cur.json()}
+
+    to_add = sorted({l for l in labels if l not in existing})
+    if not to_add:
+        print(f"No new labels to add for PR #{pr_number}")
+        return
+
+    r = requests.post(
+        f"https://api.github.com/repos/{slug}/issues/{pr_number}/labels",
+        headers=headers,
+        json={"labels": to_add},
+        timeout=30,
+    )
+    if r.status_code not in (200, 201):
+        r.raise_for_status()
+    print(f"Applied labels to PR #{pr_number}: {to_add}")
+
 
 def main() -> None:
-    token = os.environ["GITHUB_TOKEN"]
-    owner, repo = os.environ["GITHUB_REPOSITORY"].split("/")
-    with open(os.environ["GITHUB_EVENT_PATH"], "r", encoding="utf-8") as fh:
-        event = json.load(fh)
-    pr = event["pull_request"]
-    text = " ".join([pr.get("title", ""), pr.get("body", ""), pr["head"]["ref"]])
-    keys = set(FK_RE.findall(text))
-    if not keys:
-        print("No FK-### identifiers found")
-        return
+    event_path = os.getenv("GITHUB_EVENT_PATH")
+    token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    if not (event_path and token):
+        print("Missing GITHUB_EVENT_PATH or token", file=sys.stderr)
+        sys.exit(2)
 
-    queue = TaskQueue(TASK_FILE)
-    labels: set[str] = set()
-    for key in keys:
-        task = find_task_by_key(queue, key)
-        if not task:
+    with open(event_path, "r", encoding="utf-8") as fh:
+        evt = json.load(fh)
+
+    pr = evt.get("pull_request") or {}
+    try:
+        pr_number = int(pr.get("number"))
+    except (TypeError, ValueError):
+        print("Not a pull_request event or missing PR number", file=sys.stderr)
+        sys.exit(0)
+
+    title = pr.get("title") or ""
+    body = pr.get("body") or ""
+    branch = (pr.get("head") or {}).get("ref", "") or ""
+
+    # Collect FK ids from PR title/body/branch
+    ids: Set[str] = set()
+    for blob in (title, body, branch):
+        ids.update(t.upper() for t in TASK_ID_RE.findall(blob or ""))
+
+    tasks_path = "tasks.md"
+    if not os.path.exists(tasks_path):
+        print("tasks.md not found; nothing to label")
+        sys.exit(0)
+
+    tasks = parse_tasks_md(tasks_path)
+
+    labels: Set[str] = set()
+    for tid in sorted(ids):
+        t = tasks.get(tid)
+        if not t:
             continue
-        labels.update(extract_labels(task))
-        p = priority_label(task)
-        if p:
-            labels.add(p)
-    if not labels:
-        print("No labels to apply")
-        return
+        # labels from frontmatter
+        for l in (t.get("labels") or []):
+            labels.add(str(l))
+        # priority from title or body: (P0)..(P3) → priority:P0
+        for src in (t.get("title") or "", t.get("body") or ""):
+            m = PRIORITY_PAT.search(src)
+            if m:
+                labels.add(f"priority:{m.group(1).upper()}")
 
-    headers = {"Authorization": f"token {token}"}
-    for label in labels:
-        ensure_label(owner, repo, label, headers)
-    number = pr["number"]
-    current = existing_labels(owner, repo, number, headers)
-    to_add = [l for l in labels if l not in current]
-    if to_add:
-        url = f"https://api.github.com/repos/{owner}/{repo}/issues/{number}/labels"
-        requests.post(url, json={"labels": to_add}, headers=headers).raise_for_status()
-    print("Applied labels:", ", ".join(to_add))
+    # If FK IDs exist but no labels, add a breadcrumb
+    if ids and not labels:
+        labels.add("from:tasks")
+
+    slug = repo_slug_from_env_or_git()
+    add_labels_to_pr(slug, pr_number, labels, token)
 
 
 if __name__ == "__main__":
