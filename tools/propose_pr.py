@@ -1,170 +1,89 @@
-#!/usr/bin/env python3
-"""Create a stub pull request for the next open task.
+import os, re, subprocess, sys, textwrap
 
-This helper picks the next ``todo`` task from ``tasks.md`` and uses the
-GitHub API to open a pull request with the appropriate template.  The PR is
-created on a new branch named ``fk/<id>-<slug>`` where ``id`` is the task's
-index and ``slug`` is a URL friendly form of its description.
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from tools.roadmap_sync import parse_tasks_md  # reuse
 
-Environment variables:
-    GH_TOKEN: Personal access token with ``repo`` scope.
-"""
-from __future__ import annotations
-
-import os
-import re
-import subprocess
-from pathlib import Path
-from typing import List, Optional
-
-import requests
-
-from forgekeeper.task_queue import TaskQueue, Task
+PRIORITY_PAT = re.compile(r"\((P\d)\)")
 
 
-ROOT = Path(__file__).resolve().parents[1]
-TASK_FILE = ROOT / "tasks.md"
-PR_TEMPLATES = ROOT / ".github" / "PULL_REQUEST_TEMPLATE"
+def slugify(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-# ---------------------------------------------------------------------------
-# Helpers
+def pick_next(tasks):
+    todo = [t for t in tasks if t.status == "todo"]
 
-def slugify(text: str) -> str:
-    """Return a URL-safe slug derived from ``text``."""
-    slug = re.sub(r"[^a-z0-9]+", "-", text.lower())
-    return slug.strip("-")
+    def pri_value(t):
+        m = PRIORITY_PAT.search(t.title or "")
+        return int(m.group(1)[1]) if m else 2
 
-
-def repo_info() -> tuple[str, str]:
-    """Return ``(owner, repo)`` from git's ``origin`` remote."""
-    result = subprocess.run(
-        ["git", "remote", "get-url", "origin"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    url = result.stdout.strip()
-    if url.endswith(".git"):
-        url = url[:-4]
-    if url.startswith("git@github.com:"):
-        path = url.split(":", 1)[1]
-    elif url.startswith("https://github.com/"):
-        path = url.split("github.com/", 1)[1]
-    else:
-        raise RuntimeError(f"Unsupported remote URL: {url}")
-    owner, repo = path.split("/", 1)
-    return owner, repo
+    return sorted(todo, key=lambda t: pri_value(t))[0] if todo else None
 
 
-def default_branch() -> str:
-    result = subprocess.run(
-        ["git", "remote", "show", "origin"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if line.startswith("HEAD branch:"):
-            return line.split(":", 1)[1].strip()
-    return "main"
+def run(*args, **kw):
+    return subprocess.check_output(list(args), text=True, **kw).strip()
 
 
-def detect_template(task: Task) -> str:
-    """Return ``"bugfix"`` if task looks like a bug, else ``"feature"``."""
-    text = " ".join([task.description] + [l.strip() for l in task.lines[1:]])
-    text = text.lower()
-    if "bug" in text or "fix" in text:
-        return "bugfix"
-    return "feature"
-
-
-def extract_owner(task: Task) -> Optional[str]:
-    """Return ``@username`` mentioned in the task, if any."""
-    for line in [task.description] + task.lines[1:]:
-        match = re.search(r"@([A-Za-z0-9-]+)", line)
-        if match:
-            return match.group(1)
-    return None
-
-
-def acceptance_criteria(task: Task) -> List[str]:
-    ac: List[str] = []
-    for line in task.lines[1:]:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        stripped = re.sub(r"^[*-]\s*", "", stripped)
-        ac.append(stripped)
-    return ac
-
-
-def task_link(owner: str, repo: str, branch: str, task: Task, queue: TaskQueue) -> str:
-    lines = queue.path.read_text(encoding="utf-8").splitlines()
-    block = task.lines
-    for i in range(len(lines) - len(block) + 1):
-        if lines[i : i + len(block)] == block:
-            start = i + 1
-            end = i + len(block)
-            return f"https://github.com/{owner}/{repo}/blob/{branch}/tasks.md#L{start}-L{end}"
-    return f"https://github.com/{owner}/{repo}/blob/{branch}/tasks.md"
-
-
-def build_body(template: Path, ac: List[str], link: str) -> str:
-    body = template.read_text(encoding="utf-8")
-    if ac:
-        body += "\n\n### Acceptance Criteria\n"
-        for item in ac:
-            body += f"- [ ] {item}\n"
-    body += f"\n---\nLinked Task: {link}\n"
-    return body
-
-
-# ---------------------------------------------------------------------------
-# Main workflow
-
-def main() -> None:
-    token = os.environ.get("GH_TOKEN")
-    if not token:
-        raise RuntimeError("GH_TOKEN not set")
-
-    queue = TaskQueue(TASK_FILE)
-    task = queue.next_task()
-    if not task:
-        print("No pending tasks")
+def main():
+    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    if not gh_token:
+        print("GH_TOKEN required", file=sys.stderr)
+        sys.exit(2)
+    tasks = parse_tasks_md("tasks.md")
+    t = pick_next(tasks)
+    if not t:
+        print("No todo tasks")
         return
-
-    tasks = queue.list_tasks()
-    task_id = tasks.index(task) + 1
-    branch = f"fk/{task_id}-{slugify(task.description)}"
-
-    subprocess.run(["git", "checkout", "-b", branch], check=True)
-    subprocess.run(["git", "push", "-u", "origin", branch], check=True)
-
-    owner, repo = repo_info()
-    base = default_branch()
-    template_name = detect_template(task)
-    template_file = PR_TEMPLATES / f"{template_name}.md"
-    ac = acceptance_criteria(task)
-    link = task_link(owner, repo, base, task, queue)
-    body = build_body(template_file, ac, link)
-
-    headers = {"Authorization": f"token {token}"}
-    payload = {"title": task.description, "head": branch, "base": base, "body": body}
-    resp = requests.post(f"https://api.github.com/repos/{owner}/{repo}/pulls", json=payload, headers=headers)
-    resp.raise_for_status()
-    pr = resp.json()
-
-    issue_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr['number']}"
-    patch: dict = {"labels": ["needs_review"]}
-    assignee = extract_owner(task)
-    if assignee:
-        patch["assignees"] = [assignee]
-    requests.patch(issue_url, json=patch, headers=headers).raise_for_status()
-
-    print(f"Created PR #{pr['number']}: {pr['html_url']}")
+    branch = f"fk/{t.id.lower()}-{slugify(t.title)[:40]}"
+    # create branch
+    run("git", "checkout", "-b", branch)
+    run("git", "push", "-u", "origin", branch)
+    # pick template by labels
+    labels = set((t.labels or []))
+    if "bug" in labels or "bugfix" in labels:
+        template = ".github/PULL_REQUEST_TEMPLATE/bugfix.md"
+        title_prefix = "fix"
+    elif "refactor" in labels:
+        template = ".github/PULL_REQUEST_TEMPLATE/refactor.md"
+        title_prefix = "refactor"
+    elif "docs" in labels:
+        template = ".github/PULL_REQUEST_TEMPLATE/docs.md"
+        title_prefix = "docs"
+    elif "infra" in labels or "chore" in labels:
+        template = ".github/PULL_REQUEST_TEMPLATE/infra-chore.md"
+        title_prefix = "chore"
+    else:
+        template = ".github/PULL_REQUEST_TEMPLATE/feature.md"
+        title_prefix = "feat"
+    body = open(template, "r", encoding="utf-8").read()
+    title = f"{title_prefix}: {t.title} [{t.id}]"
+    import requests
+    # discover repo
+    remote = run("git", "config", "--get", "remote.origin.url")
+    if remote.endswith(".git"):
+        remote = remote[:-4]
+    if remote.startswith("git@"):
+        _, slug = remote.split(":", 1)
+    else:
+        slug = "/".join(remote.split("/")[-2:])
+    url = f"https://api.github.com/repos/{slug}/pulls"
+    headers = {
+        "Authorization": f"Bearer {gh_token}",
+        "Accept": "application/vnd.github+json",
+    }
+    data = {
+        "title": title,
+        "head": branch,
+        "base": "main",
+        "body": body,
+        "draft": True,
+    }
+    r = requests.post(url, headers=headers, json=data, timeout=30)
+    r.raise_for_status()
+    pr = r.json()
+    print(f"PR drafted: #{pr['number']} {pr['html_url']}")
 
 
 if __name__ == "__main__":
     main()
+

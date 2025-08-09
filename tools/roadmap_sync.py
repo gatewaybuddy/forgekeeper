@@ -1,7 +1,9 @@
 import json
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
 import requests
 import yaml
@@ -46,6 +48,32 @@ def parse_tasks(path: Path):
         segments.append({"task": task_seg})
         tasks.append(task_seg)
     return segments, tasks
+
+
+@dataclass
+class TaskMD:
+    id: str | None = None
+    title: str | None = None
+    status: str | None = None
+    labels: List[str] | None = None
+
+
+def parse_tasks_md(path: str | Path) -> List[TaskMD]:
+    """Parse tasks.md into a list of TaskMD entries."""
+    path = Path(path)
+    _, blocks = parse_tasks(path)
+    tasks: List[TaskMD] = []
+    for blk in blocks:
+        data = blk.get("data", {})
+        tasks.append(
+            TaskMD(
+                id=data.get("id"),
+                title=data.get("title"),
+                status=data.get("status"),
+                labels=data.get("labels"),
+            )
+        )
+    return tasks
 
 
 def write_tasks(path: Path, segments):
