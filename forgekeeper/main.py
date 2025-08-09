@@ -1,34 +1,109 @@
 """Main entrypoint for Forgekeeper."""
 
+import json
+import re
 from pathlib import Path
+
+from git import Repo
 
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.file_summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
+from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
+from forgekeeper.change_stager import diff_and_stage_changes
+from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.self_review import run_self_review
 from forgekeeper.task_queue import TaskQueue
 
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
 TASK_FILE = MODULE_DIR.parent / "tasks.md"
+TOP_N_FILES = 3
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
+def _slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
 def _step_analyze(task: str, state: dict) -> bool:
-    """Analyze repository relevance for the given task and store results."""
-    state["analysis"] = analyze_repo_for_task(task)
+    """Summarize repository and rank files for the given task."""
+    summaries = summarize_repository()
+    summaries_path = MODULE_DIR / "summaries.json"
+    summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
+    state["analysis"] = analyze_repo_for_task(task, str(summaries_path))
     return True
 
 
-def _step_edit(task: str, state: dict) -> bool:  # pragma: no cover - placeholder
-    """Placeholder for code editing logic."""
+def _step_edit(task: str, state: dict) -> bool:
+    """Generate code edits for top relevant files and stage changes."""
+    analysis = state.get("analysis", [])
+    if not analysis:
+        return True
+    meta = state.get("current_task", {})
+    task_id = meta.get("task_id", "task")
+    log_dir = MODULE_DIR.parent / "logs" / task_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    patch_texts: list[str] = []
+    changed_files: list[str] = []
+    for item in analysis[:TOP_N_FILES]:
+        file_path = item["file"]
+        summary = item.get("summary", "")
+        p = Path(file_path)
+        if not p.exists():
+            log.warning(f"File not found: {file_path}")
+            continue
+        original_code = p.read_text(encoding="utf-8")
+        patch = generate_code_edit(task, file_path, summary, "")
+        if not patch.strip():
+            continue
+        try:
+            changed = apply_unified_diff(patch)
+        except Exception as exc:
+            log.error(f"Patch apply failed for {file_path}: {exc}")
+            continue
+        if not changed:
+            continue
+        modified_code = p.read_text(encoding="utf-8")
+        diff_and_stage_changes(original_code, modified_code, file_path)
+        patch_texts.append(patch)
+        changed_files.extend(changed)
+    if patch_texts:
+        (log_dir / "patch.diff").write_text("\n".join(patch_texts), encoding="utf-8")
+        (log_dir / "files.json").write_text(
+            json.dumps(sorted(set(changed_files)), indent=2), encoding="utf-8"
+        )
+    state["changed_files"] = sorted(set(changed_files))
     return True
 
 
-def _step_commit(task: str, state: dict) -> bool:  # pragma: no cover - placeholder
-    """Placeholder for commit logic."""
+def _step_commit(task: str, state: dict) -> bool:
+    """Commit staged changes on a task-specific branch and mark status."""
+    meta = state.get("current_task", {})
+    task_id = meta.get("task_id", "task")
+    slug = meta.get("slug", _slugify(task))
+    branch = f"fk/{task_id}-{slug}"
+    repo = Repo(MODULE_DIR.parent)
+    try:
+        repo.git.checkout("-b", branch)
+    except Exception:
+        repo.git.checkout(branch)
+    result = commit_and_push_changes(task, autonomous=True)
+    if not result.get("passed", True):
+        return False
+    queue = TaskQueue(TASK_FILE)
+    t = queue.get_task(task)
+    if t:
+        queue.mark_needs_review(t)
+    log_dir = MODULE_DIR.parent / "logs" / task_id
+    if result.get("artifacts_path"):
+        src = Path(result["artifacts_path"])
+        if src.exists():
+            dst = log_dir / src.name
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
     return True
 
 
@@ -52,6 +127,8 @@ def _execute_pipeline(task: str, state: dict) -> bool:
             state["pipeline_step"] = idx
             return False
         if not success:
+            if idx == 1:
+                state["analysis"] = []
             state["pipeline_step"] = idx
             return False
         state["pipeline_step"] = idx + 1
@@ -76,9 +153,15 @@ def main() -> None:
             log.info("No tasks available. Exiting.")
             return
         task = task_obj.description
-        state["current_task"] = task_obj.to_dict()
+        task_id = f"{abs(hash(task)) % 1000000:06d}"
+        slug = _slugify(task)[:40]
+        state["current_task"] = {**task_obj.to_dict(), "task_id": task_id, "slug": slug}
         state["pipeline_step"] = 0
         log.info(f"Starting new task: {task}")
+        log_dir = MODULE_DIR.parent / "logs" / task_id
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / "prompt.txt").write_text(task, encoding="utf-8")
+        queue.mark_in_progress(task_obj)
         save_state(state, STATE_PATH)
 
     task = state["current_task"]["description"]

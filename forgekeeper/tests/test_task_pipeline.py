@@ -43,7 +43,7 @@ def test_pipeline_resume_and_checkoff(temp_paths, monkeypatch):
     assert saved_state["current_task"]["description"] == "demo task"
     assert saved_state["pipeline_step"] == 1
     assert saved_state.get("analysis") == []
-    assert "- [ ] demo task" in tasks_file.read_text()
+    assert "- [~] demo task" in tasks_file.read_text()
     assert review_calls["count"] == 0
 
     def pass_step(task, state):
