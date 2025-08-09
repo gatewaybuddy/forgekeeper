@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE
+from forgekeeper.config import DEBUG_MODE, CHECKS_PY, CHECKS_TS
 from forgekeeper.state_manager import save_state
 
 log = get_logger(__name__, debug=DEBUG_MODE)
@@ -82,38 +83,53 @@ def _changed_files() -> List[str]:
     return [f for f in result.stdout.splitlines() if f]
 
 
-def review_change_set(task_id: str, changed_files: Optional[Sequence[str]] = None) -> bool:
-    """Run lint, type-checking and tests on touched files.
+def review_change_set(task_id: str) -> Dict:
+    """Run checks on files changed in the last commit and persist results.
 
     Parameters
     ----------
-    task_id : str
-        Identifier for the task under review.
-    changed_files : Iterable[str] | None
-        Optional override for the files to review.
+    task_id: str
+        Identifier for the current task. Used to derive log path.
 
     Returns
     -------
-    bool
-        ``True`` if all tools pass, otherwise ``False``.
+    dict
+        Structured report including tool outputs and overall pass flag.
     """
 
-    files = list(changed_files) if changed_files is not None else _changed_files()
-    py_files = [f for f in files if f.endswith(".py")]
+    files = _changed_files()
+    run_py = any(f.endswith(".py") for f in files)
+    run_ts = any(f.endswith(suf) for f in files for suf in (".ts", ".tsx"))
 
-    results = {}
-    for tool in ("ruff", "mypy", "pytest"):
-        cmd = [tool, *py_files]
-        passed, output = _run_tool(cmd)
-        results[tool] = {"passed": passed, "output": output}
+    results: Dict[str, Dict[str, str | bool]] = {}
+    passed = True
 
-    overall = all(res["passed"] for res in results.values())
+    def _exec(cmd_str: str) -> Tuple[bool, str]:
+        cmd = shlex.split(cmd_str)
+        return _run_tool(cmd)
 
-    report = {"task_id": task_id, "files": files, "results": results, "passed": overall}
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    with (logs_dir / f"self-review-{ts}.json").open("w", encoding="utf-8") as fh:
-        json.dump(report, fh, indent=2)
+    if run_py:
+        for cmd_str in CHECKS_PY:
+            ok, out = _exec(cmd_str)
+            results[cmd_str] = {"passed": ok, "output": out}
+            passed &= ok
 
-    return overall
+    if run_ts:
+        for cmd_str in CHECKS_TS:
+            ok, out = _exec(cmd_str)
+            results[cmd_str] = {"passed": ok, "output": out}
+            passed &= ok
+
+    ts = datetime.utcnow().isoformat()
+    report = {
+        "passed": passed,
+        "tools": results,
+        "changed_files": files,
+        "ts": ts,
+    }
+
+    log_dir = Path("logs") / task_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "self-review.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    return report

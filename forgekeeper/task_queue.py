@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Simple task queue backed by ``tasks.md``."""
 
-from dataclasses import dataclass, asdict
+from __future__ import annotations
+
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -86,6 +86,8 @@ class TaskQueue:
                     status = "in_progress"
                 elif "[?]" in block[0]:
                     status = "needs_review"
+                elif "[!]" in block[0]:
+                    status = "blocked"
                 else:
                     status = "todo"
                 text = block[0].split("]", 1)[1].strip()
@@ -116,6 +118,8 @@ class TaskQueue:
                     prefix = "- [~]"
                 elif task.status == "needs_review":
                     prefix = "- [?]"
+                elif task.status == "blocked":
+                    prefix = "- [!]"
                 else:
                     prefix = "- [ ]"
                 rest = task.lines[0].split("]", 1)[1]
@@ -184,6 +188,12 @@ class TaskQueue:
         if task.status == "needs_review":
             return
         task.status = "needs_review"
+        self.save()
+
+    def mark_blocked(self, task: Task) -> None:
+        if task.status == "blocked":
+            return
+        task.status = "blocked"
         self.save()
 
     def task_by_index(self, index: int) -> Task:
