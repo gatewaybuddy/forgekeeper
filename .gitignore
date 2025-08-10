@@ -1,5 +1,3 @@
-# .gitignore
-
 # Node / Python / Env files
 node_modules/
 .env
@@ -22,8 +20,9 @@ Thumbs.db
 vector_store/
 *.bin
 
+# Forgekeeper runtime data
+.forgekeeper/
+
 # Build output
 backend/dist/
 dist/
-# Forgekeeper runtime data
-.forgekeeper/
