@@ -21,6 +21,7 @@ Thumbs.db
 # Vector store data
 vector_store/
 *.bin
+.forgekeeper/
 
 # Build output
 backend/dist/
