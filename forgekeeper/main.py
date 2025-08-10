@@ -18,6 +18,7 @@ from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.self_review import run_self_review, review_change_set
 from forgekeeper.task_queue import TaskQueue
+from forgekeeper.memory.episodic import append_entry
 
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
@@ -241,7 +242,8 @@ def main() -> None:
     state = load_state(STATE_PATH)
     current = state.get("current_task")
     if current:
-        task = current["title"]
+        task = current.get("title") or current.get("description", "")
+        state["current_task"].setdefault("title", task)
         log.info(f"Resuming task: {task}")
     else:
         queue = TaskQueue(TASK_FILE)
@@ -269,9 +271,24 @@ def main() -> None:
     while True:
         log.info("Dispatching task to execution pipeline...")
         success = _execute_pipeline(task, state)
+        attempt_num = state.get("attempt", 1)
+        changed_files = state.get("changed_files", [])
+        log_dir = Path("logs") / task_id
+        artifacts = [str(log_dir)] if log_dir.exists() else []
         if not success:
             log.info("Pipeline incomplete. Progress saved for resume.")
             save_state(state, STATE_PATH)
+            summary = (
+                f"Attempt {attempt_num} for task '{task}' did not complete the pipeline."
+            )
+            append_entry(
+                task_id,
+                task,
+                "pipeline-incomplete",
+                changed_files,
+                summary,
+                artifacts,
+            )
             return
 
         review = review_change_set(task_id)
@@ -280,9 +297,19 @@ def main() -> None:
             review_passed = run_self_review(state, STATE_PATH)
             if review_passed:
                 log.info("Task completed successfully.")
+                summary = (
+                    f"Attempt {attempt_num} for task '{task}' succeeded."
+                )
+                status = "success"
+                append_entry(task_id, task, status, changed_files, summary, artifacts)
                 state.clear()
             else:
                 log.error("Self-review failed. Progress saved for inspection.")
+                summary = (
+                    f"Attempt {attempt_num} for task '{task}' failed self-review."
+                )
+                status = "self-review-failed"
+                append_entry(task_id, task, status, changed_files, summary, artifacts)
                 _spawn_followup_task(state["current_task"], review)
             break
 
@@ -292,15 +319,39 @@ def main() -> None:
             artifact = Path("logs") / task_id / "self-review.json"
             state.clear()
             state["blocked_artifact"] = str(artifact)
+            artifacts.append(str(artifact))
+            summary = (
+                f"Attempt {attempt_num} for task '{task}' failed change-set review."
+            )
+            append_entry(
+                task_id,
+                task,
+                "failed",
+                changed_files,
+                summary,
+                artifacts,
+            )
             break
 
         errors = "\n\n".join(
             res["output"] for res in review["tools"].values() if not res["passed"]
         )
         state["fix_guidelines"] = f"Fix these exact lints/tests:\n{errors}"
-        state["attempt"] = state.get("attempt", 1) + 1
+        state["attempt"] = attempt_num + 1
         state["pipeline_step"] = 1
         save_state(state, STATE_PATH)
+
+        summary = (
+            f"Attempt {attempt_num} for task '{task}' failed review; retrying."
+        )
+        append_entry(
+            task_id,
+            task,
+            "retry",
+            changed_files,
+            summary,
+            artifacts,
+        )
 
     save_state(state, STATE_PATH)
 
