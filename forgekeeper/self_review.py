@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple, Union
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, CHECKS_PY, CHECKS_TS
@@ -100,12 +101,16 @@ def review_change_set(task_id: str) -> Dict:
     files = _changed_files()
     run_py = any(f.endswith(".py") for f in files)
     run_ts = any(f.endswith(suf) for f in files for suf in (".ts", ".tsx"))
+    run_backend = any(
+        f.startswith("backend/") and f.endswith(suf) for f in files for suf in (".ts", ".tsx")
+    )
 
     results: Dict[str, Dict[str, str | bool]] = {}
     passed = True
 
-    def _exec(cmd_str: str) -> Tuple[bool, str]:
-        cmd = shlex.split(cmd_str)
+    def _exec(cmd: Union[str, Sequence[str]]) -> Tuple[bool, str]:
+        if isinstance(cmd, str):
+            cmd = shlex.split(cmd)
         return _run_tool(cmd)
 
     if run_py:
@@ -119,6 +124,12 @@ def review_change_set(task_id: str) -> Dict:
             ok, out = _exec(cmd_str)
             results[cmd_str] = {"passed": ok, "output": out}
             passed &= ok
+
+    if run_backend:
+        smoke_cmd = [sys.executable, "tools/smoke_backend.py"]
+        ok, out = _exec(smoke_cmd)
+        results["smoke_backend"] = {"passed": ok, "output": out}
+        passed &= ok
 
     ts = datetime.utcnow().isoformat()
     report = {
