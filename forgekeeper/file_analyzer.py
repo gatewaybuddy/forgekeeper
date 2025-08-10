@@ -34,6 +34,7 @@ def analyze_repo_for_task(
     results = []
     for file, info in summaries.items():
         summary_text = info.get("summary", "")
+        lang = info.get("lang", "")
         keyword = rank_file_relevance(task_prompt, summary_text)
         file_vec = embedder.get_embedding(file)
         cosine = cosine_similarity(query_vec, file_vec) if file_vec else 0.0
@@ -41,6 +42,7 @@ def analyze_repo_for_task(
         results.append(
             {
                 "file": file,
+                "lang": lang,
                 "score": score,
                 "summary": summary_text,
                 "keyword": keyword,
