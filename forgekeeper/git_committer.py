@@ -19,11 +19,16 @@ from forgekeeper.config import (
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def _run_checks(commands: Iterable[str], task_id: str) -> dict:
+def _run_checks(commands: Optional[Iterable[str]], task_id: str) -> dict:
     """Run shell commands, capturing output and writing logs."""
     log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
     artifacts_path = log_dir / "commit-checks.json"
+
+    if commands is None:
+        commands = list(CHECKS_PY) + list(CHECKS_TS)
+    else:
+        commands = list(commands)
 
     results = []
     passed = True
@@ -42,6 +47,15 @@ def _run_checks(commands: Iterable[str], task_id: str) -> dict:
         )
         if result.returncode != 0:
             passed = False
+            log.error(
+                "\n".join(
+                    [
+                        f"Command failed: {command}",
+                        f"stdout:\n{result.stdout}",
+                        f"stderr:\n{result.stderr}",
+                    ]
+                )
+            )
 
     artifacts_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
 
@@ -51,7 +65,11 @@ def _run_checks(commands: Iterable[str], task_id: str) -> dict:
     else:
         log.error(f"Checks failed: {', '.join(failing)}")
 
-    return {"passed": passed, "artifacts_path": str(artifacts_path)}
+    return {
+        "passed": passed,
+        "artifacts_path": str(artifacts_path),
+        "results": results,
+    }
 
 
 def commit_and_push_changes(
@@ -66,22 +84,9 @@ def commit_and_push_changes(
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
 
-    check_result = {"passed": True, "artifacts_path": ""}
+    check_result = {"passed": True, "artifacts_path": "", "results": []}
     if run_checks:
-        if checks is not None:
-            commands = list(checks)
-        else:
-            staged = repo.git.diff("--name-only", "--cached").splitlines()
-            commands = []
-            if any(p.endswith(".py") for p in staged):
-                commands.extend(CHECKS_PY)
-            if any(
-                (p.startswith("backend/") or p.startswith("frontend/"))
-                and p.endswith((".ts", ".tsx"))
-                for p in staged
-            ):
-                commands.extend(CHECKS_TS)
-        check_result = _run_checks(commands, task_id)
+        check_result = _run_checks(checks, task_id)
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
             return check_result
