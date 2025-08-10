@@ -26,7 +26,8 @@ def analyze_repo_for_task(task_prompt: str, summary_path: str = "forgekeeper/sum
     results = []
     for file, info in summaries.items():
         summary_text = info.get("summary", "")
+        lang = info.get("lang", "")
         score = rank_file_relevance(task_prompt, summary_text)
-        results.append({"file": file, "score": score, "summary": summary_text})
+        results.append({"file": file, "lang": lang, "score": score, "summary": summary_text})
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
