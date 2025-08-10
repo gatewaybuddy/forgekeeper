@@ -11,7 +11,7 @@ import yaml
 
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE, ENABLE_RECURSIVE_FIX
+from forgekeeper.config import DEBUG_MODE, ENABLE_RECURSIVE_FIX, AUTONOMY_MODE
 from forgekeeper.file_summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
@@ -148,7 +148,12 @@ def _step_commit(task: str, state: dict) -> bool:
         repo.git.checkout("-b", branch)
     except Exception:
         repo.git.checkout(branch)
-    result = commit_and_push_changes(task, autonomous=True, task_id=task_id)
+    result = commit_and_push_changes(
+        task,
+        autonomous=True,
+        task_id=task_id,
+        auto_push=AUTONOMY_MODE,
+    )
     if not result.get("passed", True):
         return False
     # logs are already written within commit_and_push_changes
