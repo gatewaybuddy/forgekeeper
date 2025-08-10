@@ -2,15 +2,29 @@ from forgekeeper.load_env import init_env
 init_env()
 
 import os
-from forgekeeper.app.chats.memory_store import save_message, summarize_thoughts, get_memory, set_memory
+from forgekeeper.app.chats.memory_store import (
+    save_message,
+    summarize_thoughts,
+    get_memory,
+    set_memory,
+)
 from llama_cpp import Llama
-from forgekeeper.app.services.llm_router import get_core_model_name, get_coder_model_name, ask_llm
+from forgekeeper.app.services.llm_router import (
+    get_core_model_name,
+    get_coder_model_name,
+    ask_llm,
+)
 from forgekeeper.app.utils.json_helpers import extract_json
 from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.app.services.reflective_ask_core import reflective_ask_core
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.task_pipeline import TaskPipeline
+from forgekeeper.change_stager import diff_and_stage_changes
+from forgekeeper.git_committer import commit_and_push_changes
+from forgekeeper.memory.episodic import append_entry
+from pathlib import Path
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -36,9 +50,82 @@ def add_subtasks(session_id, subtasks):
     set_memory(session_id, memory)
 
 def get_next_task(session_id):
+    """Poll the task scheduler for the next task.
+
+    The selected task description is appended to the session's in-memory
+    ``task_queue`` for traceability and returned to the caller. If no tasks are
+    available ``None`` is returned.
+    """
+
+    pipeline = TaskPipeline()
+    task = pipeline.next_task()
+    if not task:
+        return None
     memory = get_memory(session_id)
     queue = memory.get("task_queue", [])
-    return queue.pop(0) if queue else None
+    queue.append(task.description)
+    memory["task_queue"] = queue
+    set_memory(session_id, memory)
+    return task
+
+
+def execute_next_task(session_id: str) -> None:
+    """Execute the next scheduled task using the coder agent.
+
+    The coder is prompted to return JSON containing ``file_path`` and the full
+    ``updated_code`` for that file. A unified diff is shown via
+    :func:`change_stager.diff_and_stage_changes`, and the user is asked to
+    confirm before committing. Outcomes are recorded in episodic memory.
+    """
+
+    task = get_next_task(session_id)
+    if not task:
+        log.info("No tasks available.")
+        return
+
+    task_id = f"{abs(hash(task.description)) % 1000000:06d}"
+    coder_prompt = (
+        "You are the Coder agent. Apply the following task to the repository:\n"
+        f"{task.description}\n"
+        "Respond with JSON containing 'file_path' and 'updated_code' representing"
+        " the complete new file contents."
+    )
+    response = ask_coder(coder_prompt, session_id)
+    try:
+        data = extract_json(response) if isinstance(response, str) else response
+    except Exception as exc:
+        log.error(f"Failed to parse coder response: {exc}")
+        append_entry(task_id, task.description, "parse-error", [], "Failed to parse coder response", [])
+        return
+    file_path = data.get("file_path") if isinstance(data, dict) else None
+    updated_code = data.get("updated_code", "") if isinstance(data, dict) else ""
+
+    if not file_path:
+        log.error("Coder response missing 'file_path'; aborting task.")
+        append_entry(task_id, task.description, "no-file", [], "Coder response missing file path", [])
+        return
+
+    p = Path(file_path)
+    original = p.read_text(encoding="utf-8") if p.exists() else ""
+    result = diff_and_stage_changes(original, updated_code, file_path, auto_stage=False, task_id=task_id)
+    outcome = result.get("outcome")
+    files = result.get("files", [])
+
+    if outcome != "success":
+        append_entry(task_id, task.description, outcome or "error", files, "Changes not staged", [])
+        return
+
+    if input("Commit staged changes? [y/N]: ").strip().lower().startswith("y"):
+        commit_and_push_changes(f"feat: {task.description}", task_id=task_id)
+        TaskPipeline().mark_done(task.description)
+        append_entry(task_id, task.description, "committed", files, "Changes committed", [])
+    else:
+        from git import Repo
+
+        repo = Repo(p.resolve().parent, search_parent_directories=True)
+        repo.git.restore("--staged", file_path)
+        repo.git.checkout("--", file_path)
+        append_entry(task_id, task.description, "aborted", [], "Commit declined", [])
 
 def ask_core(prompt, session_id):
     use_reflection = os.getenv("USE_REFLECTIVE_CORE", "true").lower() == "true"
@@ -107,6 +194,9 @@ if __name__ == "__main__":
                 log.info(summarize_thoughts("session_kai"))
                 log.info("\n" + "-" * 50 + "\n")
                 break
+            elif line.strip().lower() == "nexttask":
+                execute_next_task("session_kai")
+                break
             elif line.strip() == "<<END>>":
                 break
             lines.append(line)
@@ -117,6 +207,9 @@ if __name__ == "__main__":
                 log.info("\n🧠 Memory Summary:\n")
                 log.info(summarize_thoughts("session_kai"))
                 log.info("\n" + "-" * 50 + "\n")
+                break
+            elif line.strip().lower() == "nexttask":
+                execute_next_task("session_kai")
                 break
             elif line.strip() == "<<END>>":
                 break
