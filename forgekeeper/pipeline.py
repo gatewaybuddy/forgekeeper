@@ -8,12 +8,26 @@ from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.self_review import run_self_review
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def run_update_pipeline(task_prompt: str) -> None:
-    """Run a full self-edit cycle for the given task."""
+def run_update_pipeline(task_prompt: str, state: dict) -> bool:
+    """Run a full self-edit cycle for the given task and review the commit.
+
+    Parameters
+    ----------
+    task_prompt : str
+        Description of the current task guiding repository updates.
+    state : dict
+        Mutable state dictionary persisted between iterations.
+
+    Returns
+    -------
+    bool
+        ``True`` if the self-review passes, otherwise ``False``.
+    """
     log.info("Summarizing repository")
     summaries = summarize_repository()
     summaries_path = Path("forgekeeper/summaries.json")
@@ -37,3 +51,4 @@ def run_update_pipeline(task_prompt: str) -> None:
             diff_and_stage_changes(original_code, modified_code, file_path)
 
     commit_and_push_changes(task_prompt)
+    return run_self_review(state)
