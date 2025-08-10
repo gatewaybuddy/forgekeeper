@@ -93,19 +93,14 @@ def _step_commit(task: str, state: dict) -> bool:
         repo.git.checkout("-b", branch)
     except Exception:
         repo.git.checkout(branch)
-    result = commit_and_push_changes(task, autonomous=True)
+    result = commit_and_push_changes(task, autonomous=True, task_id=task_id)
     if not result.get("passed", True):
         return False
     queue = TaskQueue(TASK_FILE)
     t = queue.get_task(task)
     if t:
         queue.mark_needs_review(t)
-    log_dir = MODULE_DIR.parent / "logs" / task_id
-    if result.get("artifacts_path"):
-        src = Path(result["artifacts_path"])
-        if src.exists():
-            dst = log_dir / src.name
-            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    # logs are already written within commit_and_push_changes
     return True
 
 
