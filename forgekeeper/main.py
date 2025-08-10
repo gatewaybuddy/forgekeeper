@@ -2,6 +2,8 @@
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 from git import Repo
@@ -27,6 +29,29 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 
 def _slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def _check_reviewed_tasks() -> None:
+    """Update tasks marked ``needs_review`` if their PRs were merged."""
+    tasks_file = TASK_FILE
+    script = MODULE_DIR.parent / "tools" / "mark_done_if_merged.py"
+    if not tasks_file.exists() or not script.exists():
+        return
+    try:
+        import yaml  # type: ignore
+    except Exception:  # pragma: no cover - optional dependency
+        return
+    text = tasks_file.read_text(encoding="utf-8")
+    ids: list[str] = []
+    for m in re.finditer(r"^---\n(.*?)\n---", text, re.MULTILINE | re.DOTALL):
+        try:
+            data = yaml.safe_load(m.group(1)) or {}
+        except Exception:
+            continue
+        if data.get("status") == "needs_review" and data.get("id"):
+            ids.append(str(data["id"]))
+    for tid in ids:
+        subprocess.run([sys.executable, str(script), tid], check=False)
 
 
 def _step_analyze(task: str, state: dict) -> bool:
@@ -212,6 +237,7 @@ def _spawn_followup_task(
 
 
 def main() -> None:
+    _check_reviewed_tasks()
     state = load_state(STATE_PATH)
     current = state.get("current_task")
     if current:
