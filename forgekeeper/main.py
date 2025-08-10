@@ -129,6 +129,88 @@ def _execute_pipeline(task: str, state: dict) -> bool:
     return True
 
 
+def _spawn_followup_task(
+    parent: dict,
+    review: dict,
+    tasks_file: Path | None = None,
+    logs_root: Path | None = None,
+) -> str:
+    """Append a new canonical task capturing failing tool output.
+
+    Parameters
+    ----------
+    parent: dict
+        Metadata for the parent task containing ``task_id`` and ``epic``.
+    review: dict
+        Result from ``review_change_set`` including tool outputs.
+    tasks_file: Path, optional
+        File where canonical tasks are stored.
+    logs_root: Path, optional
+        Root directory for log artifacts.
+
+    Returns
+    -------
+    str
+        The identifier of the spawned task.
+    """
+
+    tasks_file = Path(tasks_file) if tasks_file else TASK_FILE
+    logs_root = Path(logs_root) if logs_root else MODULE_DIR.parent
+
+    text = tasks_file.read_text(encoding="utf-8") if tasks_file.exists() else ""
+    ids = [int(num) for num in re.findall(r"id:\s*FK-(\d+)", text)]
+    new_num = max(ids) + 1 if ids else 1
+    new_id = f"FK-{new_num:03d}"
+
+    parent_id = parent.get("task_id", "unknown")
+    epic = parent.get("epic", "")
+
+    body_lines: list[str] = []
+    for cmd, res in review.get("tools", {}).items():
+        if res.get("passed"):
+            continue
+        output = res.get("output", "").splitlines()[:20]
+        body_lines.append(cmd)
+        body_lines.extend(output)
+        body_lines.append("")
+    body = "\n".join(body_lines).rstrip()
+
+    block = [
+        "---",
+        f"id: {new_id}",
+        f"title: Fix failures from {parent_id} (P1)",
+        "status: todo",
+        f"epic: {epic}",
+        "owner: agent",
+        "labels: [autofix, reliability]",
+        "---",
+    ]
+    if body:
+        block.append(body)
+    block_text = "\n".join(block) + "\n"
+
+    with tasks_file.open("a", encoding="utf-8") as fh:
+        if text and not text.endswith("\n"):
+            fh.write("\n")
+        fh.write(block_text)
+
+    log_dir = logs_root / "logs" / parent_id
+    log_dir.mkdir(parents=True, exist_ok=True)
+    spawned_file = log_dir / "spawned.json"
+    spawned: list[str] = []
+    if spawned_file.exists():
+        try:
+            existing = json.loads(spawned_file.read_text(encoding="utf-8"))
+            if isinstance(existing, list):
+                spawned = existing
+        except Exception:
+            pass
+    spawned.append(new_id)
+    spawned_file.write_text(json.dumps(spawned, indent=2), encoding="utf-8")
+
+    return new_id
+
+
 def main() -> None:
     state = load_state(STATE_PATH)
     current = state.get("current_task")
@@ -175,6 +257,7 @@ def main() -> None:
                 state.clear()
             else:
                 log.error("Self-review failed. Progress saved for inspection.")
+                _spawn_followup_task(state["current_task"], review)
             break
 
         log.error("Change-set review failed.")
