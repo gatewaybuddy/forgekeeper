@@ -1,11 +1,22 @@
+"""Utilities for diffing and staging file changes.
+
+This module exposes :func:`diff_and_stage_changes` which compares an original
+and modified file, stages the change via Git, and logs the outcome. The
+function supports dry-run mode and returns structured information about the
+result.
+"""
+
+from __future__ import annotations
+
 import difflib
 import json
-from datetime import datetime
 from pathlib import Path
+from typing import Dict, List
 
 from git import Repo
-from forgekeeper.logger import get_logger
+
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.logger import get_logger
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -16,7 +27,8 @@ def diff_and_stage_changes(
     file_path: str,
     auto_stage: bool = True,
     dry_run: bool = False,
-) -> None:
+    task_id: str = "manual",
+) -> Dict[str, object]:
     """Compare original and modified content and stage via Git if changed.
 
     Parameters
@@ -31,11 +43,19 @@ def diff_and_stage_changes(
         If ``True`` the file is staged without prompting.
     dry_run: bool, optional
         When ``True`` no changes are written or staged.
+    task_id: str, optional
+        Identifier used for log directory naming.
+
+    Returns
+    -------
+    dict
+        Mapping containing ``files`` and ``outcome`` keys. On failure an
+        ``error`` key with message text is also included.
     """
 
     if original_code == modified_code:
         log.info(f"No changes detected for {file_path}")
-        return
+        return {"files": [], "outcome": "no-op"}
 
     diff_lines = difflib.unified_diff(
         original_code.splitlines(),
@@ -53,30 +73,44 @@ def diff_and_stage_changes(
         proceed = resp.startswith("y")
 
     if not proceed:
-        return
-
-    if dry_run:
-        log.info(f"Dry run enabled; skipping write and stage for {file_path}")
-        return
+        return {"files": [], "outcome": "skipped"}
 
     p = Path(file_path).resolve()
     repo = Repo(p.parent, search_parent_directories=True)
+    rel_path = str(p.relative_to(repo.working_tree_dir))
+
+    staged_before: List[str] = repo.git.diff("--name-only", "--cached").splitlines()
+
+    def _write_log(data: Dict[str, object]) -> None:
+        logs_dir = Path(repo.working_tree_dir) / "logs" / task_id
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_file = logs_dir / "stager.json"
+        payload = {"files": data.get("files", []), "outcome": data.get("outcome")}
+        log_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    if dry_run:
+        files = sorted(set(staged_before + [rel_path]))
+        result = {"files": files, "outcome": "dry-run"}
+        _write_log(result)
+        log.info(f"Dry run enabled; skipping write and stage for {file_path}")
+        return result
 
     try:
         p.write_text(modified_code, encoding="utf-8")
         repo.index.add([str(p)])
 
-        staged_files = repo.git.diff("--name-only", "--cached").splitlines()
-        logs_dir = Path(repo.working_tree_dir) / "logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        log_file = logs_dir / f"stager-{ts}.json"
-        log_file.write_text(json.dumps(staged_files, indent=2), encoding="utf-8")
-    except Exception as exc:
+        files = repo.git.diff("--name-only", "--cached").splitlines()
+        result = {"files": files, "outcome": "success"}
+        _write_log(result)
+        return result
+    except Exception as exc:  # pragma: no cover - best effort for restore
         p.write_text(original_code, encoding="utf-8")
         try:
-            repo.git.restore("--staged", str(p))
-        except Exception as restore_exc:  # pragma: no cover - best effort
-            log.warning(f"Failed to unstage {file_path}: {restore_exc}")
+            repo.git.restore("--staged", ":/")
+        except Exception as restore_exc:
+            log.warning(f"Failed to unstage repository: {restore_exc}")
         log.error(f"Failed to stage {file_path}: {exc}")
-        raise
+        result = {"files": [], "outcome": "error", "error": str(exc)}
+        _write_log(result)
+        return result
+

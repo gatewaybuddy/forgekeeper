@@ -28,14 +28,13 @@ def test_diff_and_stage_changes_success(tmp_path):
     original = file_path.read_text(encoding="utf-8")
     modified = "modified"
 
-    diff_and_stage_changes(original, modified, str(file_path))
+    result = diff_and_stage_changes(original, modified, str(file_path), task_id="t1")
 
     assert file_path.read_text(encoding="utf-8") == modified
     staged = repo.git.diff("--name-only", "--cached").splitlines()
-    assert "sample.txt" in staged
-    logs = list((tmp_path / "logs").glob("stager-*.json"))
-    assert len(logs) == 1
-    assert json.loads(logs[0].read_text(encoding="utf-8")) == staged
+    assert result == {"files": ["sample.txt"], "outcome": "success"}
+    log_path = tmp_path / "logs" / "t1" / "stager.json"
+    assert json.loads(log_path.read_text(encoding="utf-8")) == result
 
 
 def test_diff_and_stage_changes_failure(tmp_path, monkeypatch):
@@ -49,13 +48,18 @@ def test_diff_and_stage_changes_failure(tmp_path, monkeypatch):
 
     monkeypatch.setattr(git.index.base.IndexFile, "add", boom)
 
-    with pytest.raises(Exception):
-        diff_and_stage_changes(original, modified, str(file_path))
+    result = diff_and_stage_changes(original, modified, str(file_path), task_id="t2")
 
+    assert result["outcome"] == "error"
+    assert "error" in result
     assert file_path.read_text(encoding="utf-8") == original
     staged = repo.git.diff("--name-only", "--cached").splitlines()
-    assert "sample.txt" not in staged
-    assert not list((tmp_path / "logs").glob("stager-*.json"))
+    assert not staged
+    log_path = tmp_path / "logs" / "t2" / "stager.json"
+    assert json.loads(log_path.read_text(encoding="utf-8")) == {
+        "files": [],
+        "outcome": "error",
+    }
 
 
 def test_diff_and_stage_changes_dry_run(tmp_path):
@@ -64,9 +68,13 @@ def test_diff_and_stage_changes_dry_run(tmp_path):
     original = file_path.read_text(encoding="utf-8")
     modified = "modified"
 
-    diff_and_stage_changes(original, modified, str(file_path), dry_run=True)
+    result = diff_and_stage_changes(
+        original, modified, str(file_path), dry_run=True, task_id="t3"
+    )
 
+    assert result == {"files": ["sample.txt"], "outcome": "dry-run"}
     assert file_path.read_text(encoding="utf-8") == original
     staged = repo.git.diff("--name-only", "--cached").splitlines()
-    assert "sample.txt" not in staged
-    assert not list((tmp_path / "logs").glob("stager-*.json"))
+    assert not staged
+    log_path = tmp_path / "logs" / "t3" / "stager.json"
+    assert json.loads(log_path.read_text(encoding="utf-8")) == result
