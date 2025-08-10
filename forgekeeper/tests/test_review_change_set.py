@@ -30,6 +30,7 @@ def test_review_change_set_pass(monkeypatch, tmp_path):
     monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
     report = self_review.review_change_set("task")
     assert report["passed"] is True
+    assert "Change-set review passed" in report["summary"]
     report_file = tmp_path / "logs" / "task" / "self-review.json"
     loaded = json.loads(report_file.read_text())
     assert loaded["passed"] is True
@@ -47,6 +48,7 @@ def test_review_change_set_fail(monkeypatch, tmp_path):
     monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
     report = self_review.review_change_set("task")
     assert report["passed"] is False
+    assert "Change-set review failed" in report["summary"]
     report_file = tmp_path / "logs" / "task" / "self-review.json"
     loaded = json.loads(report_file.read_text())
     assert loaded["tools"]["mypy ."]["passed"] is False

@@ -24,6 +24,7 @@ from .user_interface import expose
 THOUGHT_LOG_PATH = Path("forgekeeper/thought_log.json")
 DEFAULT_SLEEP = 10
 REFLECTION_INTERVAL = 5
+SUMMARY_INTERVAL = 10
 MAX_DEPTH = 50
 
 # Internal state
@@ -33,6 +34,7 @@ _redundant_count = 0
 _sleep_interval = DEFAULT_SLEEP
 _running = False
 _thread: threading.Thread | None = None
+_last_summary: Dict[str, str] = {"summary": "", "emotion": "neutral"}
 
 
 def _load_thought_log() -> List[Dict[str, str]]:
@@ -98,20 +100,35 @@ def process_thought(response: str) -> Dict[str, object]:
     return {"thought": thought, "expose": should_interact_with_user(thought)}
 
 
-def summarize_thoughts() -> str:
-    """Condense recent thoughts to conserve memory."""
+def summarize_thoughts() -> Dict[str, str]:
+    """Condense recent thoughts and tag the dominant emotion."""
+    global _last_summary
     if not _thought_history:
-        return ""
+        return _last_summary
     recent = _thought_history[-10:]
-    prompt = "Summarize the following thoughts succinctly:\n" + "\n".join(recent)
+    prompt = (
+        "Summarize the following thoughts and classify the dominant emotion "
+        "as one of [neutral, positive, negative, curious, frustrated].\n"
+        + "\n".join(recent)
+    )
     try:
-        summary = llm_core.ask(prompt)
+        response = llm_core.ask(prompt)
+        data = json.loads(response)
+        summary = data.get("summary", "")
+        emotion = data.get("emotion", "neutral")
     except Exception as exc:  # pragma: no cover - defensive
         summary = f"Summary error: {exc}"
+        emotion = "neutral"
     _thought_history.clear()
     _thought_history.append(summary)
     _append_thought(summary)
-    return summary
+    _last_summary = {"summary": summary, "emotion": emotion}
+    return _last_summary
+
+
+def get_last_summary() -> Dict[str, str]:
+    """Return the most recent summary and emotion tag."""
+    return _last_summary
 
 
 def _thinking_loop() -> None:
@@ -139,7 +156,7 @@ def _thinking_loop() -> None:
             except Exception as exc:  # pragma: no cover - defensive
                 reflection = f"Reflection error: {exc}"
             process_thought(reflection)
-        if len(_thought_history) >= MAX_DEPTH or _redundant_count >= 3:
+        if iteration % SUMMARY_INTERVAL == 0 or len(_thought_history) >= MAX_DEPTH or _redundant_count >= 3:
             summarize_thoughts()
         time.sleep(_sleep_interval)
 

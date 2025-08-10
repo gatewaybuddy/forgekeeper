@@ -13,7 +13,6 @@ from typing import Dict, List, Sequence, Tuple, Union
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, CHECKS_PY, CHECKS_TS
 from forgekeeper.state_manager import save_state
-from forgekeeper.memory import episodic
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -133,25 +132,23 @@ def review_change_set(task_id: str) -> Dict:
         passed &= ok
 
     ts = datetime.utcnow().isoformat()
+    summary_lines = [
+        f"{cmd}: {'pass' if info['passed'] else 'fail'}" for cmd, info in results.items()
+    ]
+    summary_body = "; ".join(summary_lines) if summary_lines else "no checks run"
+    summary = f"Change-set review {'passed' if passed else 'failed'}: {summary_body}"
+
     report = {
         "passed": passed,
         "tools": results,
         "changed_files": files,
         "ts": ts,
+        "summary": summary,
     }
 
     log_dir = Path("logs") / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
     artifact_path = log_dir / "self-review.json"
     artifact_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-
-    episodic.append_entry(
-        task_id=task_id,
-        title="self-review",
-        status="pass" if passed else "fail",
-        changed_files=files,
-        summary=f"Self-review {'passed' if passed else 'failed'}",
-        artifacts_paths=[str(artifact_path)],
-    )
 
     return report

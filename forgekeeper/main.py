@@ -303,6 +303,15 @@ def main() -> None:
             return
 
         review = review_change_set(task_id)
+        review_artifact = Path("logs") / task_id / "self-review.json"
+        append_entry(
+            task_id,
+            task,
+            "change-set-review",
+            review.get("changed_files", []),
+            review.get("summary", ""),
+            [str(review_artifact)],
+        )
         if review["passed"]:
             log.info("Change-set review passed. Running self-review...")
             review_passed = run_self_review(state, STATE_PATH)

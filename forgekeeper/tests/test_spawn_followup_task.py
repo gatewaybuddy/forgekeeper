@@ -50,7 +50,12 @@ def test_spawn_task_on_self_review_failure(setup_env, monkeypatch):
 
     monkeypatch.setattr(main_module, "_execute_pipeline", lambda task, st: True)
     tool_output = "\n".join(f"line{i}" for i in range(1, 25))
-    review = {"passed": True, "tools": {"pytest": {"passed": False, "output": tool_output}}}
+    review = {
+        "passed": True,
+        "tools": {"pytest": {"passed": False, "output": tool_output}},
+        "changed_files": ["foo.py"],
+        "summary": "Change-set review passed: pytest: fail",
+    }
     monkeypatch.setattr(main_module, "review_change_set", lambda tid: review)
     monkeypatch.setattr(main_module, "run_self_review", lambda st, sp: False)
 
@@ -71,7 +76,12 @@ def test_no_spawn_when_self_review_passes(setup_env, monkeypatch):
     state_path.write_text(json.dumps(state), encoding="utf-8")
 
     monkeypatch.setattr(main_module, "_execute_pipeline", lambda task, st: True)
-    review = {"passed": True, "tools": {}}
+    review = {
+        "passed": True,
+        "tools": {},
+        "changed_files": [],
+        "summary": "Change-set review passed: no checks run",
+    }
     monkeypatch.setattr(main_module, "review_change_set", lambda tid: review)
     monkeypatch.setattr(main_module, "run_self_review", lambda st, sp: True)
 

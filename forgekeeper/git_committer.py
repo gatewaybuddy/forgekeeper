@@ -86,7 +86,16 @@ def commit_and_push_changes(
 
     check_result = {"passed": True, "artifacts_path": "", "results": []}
     if run_checks:
-        check_result = _run_checks(checks, task_id)
+        diff = repo.git.diff("--name-only", "--cached")
+        files = [f for f in diff.splitlines() if f]
+        run_py = any(f.endswith(".py") for f in files)
+        run_ts = any(f.endswith(suf) for f in files for suf in (".ts", ".tsx"))
+        commands = []
+        if run_py:
+            commands.extend(CHECKS_PY)
+        if run_ts:
+            commands.extend(CHECKS_TS)
+        check_result = _run_checks(commands, task_id)
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
             return check_result
