@@ -25,3 +25,5 @@ vector_store/
 # Build output
 backend/dist/
 dist/
+# Forgekeeper runtime data
+.forgekeeper/
