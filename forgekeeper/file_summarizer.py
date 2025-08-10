@@ -2,6 +2,8 @@ import ast
 import json
 from pathlib import Path
 
+from forgekeeper.memory.embeddings import LocalEmbedder
+
 EXCLUDE_DIRS = {'.git', 'venv', '__pycache__'}
 
 
@@ -49,6 +51,10 @@ def summarize_repository(root: str = '.') -> dict:
             continue
         rel = path.relative_to(root_path)
         results[str(rel)] = summarize_file(path)
+
+    if results:
+        embedder = LocalEmbedder()
+        embedder.store_embeddings({f: info['summary'] for f, info in results.items()})
     return results
 
 
