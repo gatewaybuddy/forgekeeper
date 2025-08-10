@@ -71,5 +71,15 @@ Run the Python test suite with:
 pytest
 ```
 
+## Development Tooling
+Contributors should have the following tools installed and available in `PATH`:
+
+- `ruff` (flake8-compatible linter)
+- `mypy`
+- `pytest`
+- `node` and `npm` for TypeScript checks and builds
+
+These are the commands run as part of the automated commit checks (`CHECKS_PY` and `CHECKS_TS`).
+
 ---
 This guide is intended to streamline installation and clarify component interactions.
