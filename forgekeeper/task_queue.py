@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import re
+import yaml
+
 
 @dataclass
 class Task:
@@ -141,10 +144,75 @@ class TaskQueue:
                 tasks.extend(section.tasks)
         return tasks
 
-    def next_task(self) -> Optional[Task]:
+    def next_task(self) -> Optional[dict]:
+        """Return next task from YAML front-matter in ``tasks.md``.
+
+        Tasks are defined in the "Canonical Tasks" section using YAML blocks
+        delimited by ``---``. Each block may contain ``id``, ``title``,
+        ``status``, and ``labels`` fields. The priority is derived from a
+        ``(P0-P3)`` marker in the title; if absent, it defaults to ``P2``. Only
+        tasks with ``status`` in {``todo``, ``in_progress``} are considered. The
+        task with the lowest numeric priority is returned, using FIFO order to
+        break ties. If no such front-matter tasks are found, the legacy checkbox
+        tasks are used as a fallback.
+        """
+
+        try:
+            content = self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            content = ""
+
+        best: Optional[dict] = None
+        if "## Canonical Tasks" in content:
+            section = content.split("## Canonical Tasks", 1)[1]
+            lines = section.splitlines()
+            i = 0
+            while i < len(lines):
+                if lines[i].strip() == "---":
+                    i += 1
+                    fm_lines: List[str] = []
+                    while i < len(lines) and lines[i].strip() != "---":
+                        fm_lines.append(lines[i])
+                        i += 1
+                    if i >= len(lines):
+                        break
+                    i += 1  # skip closing ---
+                    try:
+                        data = yaml.safe_load("\n".join(fm_lines))
+                    except Exception:
+                        continue
+                    if not isinstance(data, dict):
+                        continue
+                    status = str(data.get("status", "")).strip()
+                    if status not in {"todo", "in_progress"}:
+                        continue
+                    title = str(data.get("title", ""))
+                    match = re.search(r"\(P([0-3])\)", title)
+                    priority = int(match.group(1)) if match else 2
+                    labels = data.get("labels") or []
+                    task = {
+                        "id": data.get("id"),
+                        "title": title,
+                        "status": status,
+                        "labels": labels,
+                        "priority": priority,
+                    }
+                    if best is None or task["priority"] < best["priority"]:
+                        best = task
+                else:
+                    i += 1
+        if best:
+            return best
+
         for task in self.list_tasks():
-            if task.status == "todo" and task.priority < self.SECTION_PRIORITY["Completed"]:
-                return task
+            if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
+                return {
+                    "id": "",
+                    "title": task.description,
+                    "status": task.status,
+                    "labels": [],
+                    "priority": task.priority,
+                }
         return None
 
     def get_task(self, description: str) -> Optional[Task]:
