@@ -80,6 +80,7 @@ def commit_and_push_changes(
     checks: Optional[Iterable[str]] = None,
     autonomous: bool = False,
     task_id: str = "manual",
+    auto_push: bool = False,
 ) -> dict:
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
@@ -108,21 +109,31 @@ def commit_and_push_changes(
     else:
         branch_name = repo.active_branch.name
 
+    changelog = ""
     if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
         repo.index.commit(commit_message)
         log.info(f"Committed changes on {branch_name}: {commit_message}")
+        changelog = repo.git.log("-1", "--stat")
         try:
             origin = repo.remote()
-            if autonomous or input(
-                f"Push branch {branch_name} to remote? [y/N]: "
-            ).strip().lower() in {"y", "yes"}:
-                origin.push(branch_name)
-                log.info("Pushed to remote")
+            if autonomous:
+                if auto_push:
+                    origin.push(branch_name)
+                    log.info("Pushed to remote")
+                else:
+                    log.info("Auto push disabled; skipping push")
             else:
-                log.info("Push to remote skipped")
+                if input(
+                    f"Push branch {branch_name} to remote? [y/N]: "
+                ).strip().lower() in {"y", "yes"}:
+                    origin.push(branch_name)
+                    log.info("Pushed to remote")
+                else:
+                    log.info("Push to remote skipped")
         except Exception as exc:
             log.error(f"Push failed: {exc}")
     else:
         log.info("No staged changes to commit")
 
+    check_result["changelog"] = changelog
     return check_result

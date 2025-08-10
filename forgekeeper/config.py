@@ -6,6 +6,9 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 RUN_COMMIT_CHECKS = os.getenv("RUN_COMMIT_CHECKS", "true").lower() == "true"
 """Whether to run commit checks before committing changes."""
 
+AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
+"""Enable fully autonomous task execution."""
+
 _checks_py = os.getenv("CHECKS_PY")
 if _checks_py:
     CHECKS_PY = [cmd.strip() for cmd in _checks_py.split(",") if cmd.strip()]

@@ -4,8 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 
 def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
@@ -72,3 +70,12 @@ def test_failing_checks_abort_commit(tmp_path, monkeypatch):
     log_path = repo / "logs" / "t3" / "commit-checks.json"
     data = json.loads(log_path.read_text(encoding="utf-8"))
     assert data[0]["returncode"] != 0
+
+
+def test_changelog_returned(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    f = repo / "bar.py"
+    f.write_text("print('hello')\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
+    result = gc.commit_and_push_changes("msg", task_id="t4", autonomous=True)
+    assert "changelog" in result and "bar.py" in result["changelog"]
