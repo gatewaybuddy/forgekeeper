@@ -6,6 +6,7 @@ from pathlib import Path
 
 from git import Repo
 
+import yaml
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, ENABLE_RECURSIVE_FIX
@@ -16,6 +17,8 @@ from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.self_review import run_self_review, review_change_set
 from forgekeeper.task_queue import TaskQueue
+from forgekeeper.vcs.pr_api import create_draft_pr
+from tools.auto_label_pr import FRONTMATTER_RE
 
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
@@ -27,6 +30,32 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 
 def _slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def _mark_task_needs_review(task_id: str) -> None:
+    """Update ``tasks.md`` to mark the given task as ``needs_review``."""
+    path = TASK_FILE
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    idx = 0
+    pieces: list[str] = []
+    while True:
+        m = FRONTMATTER_RE.search(text, idx)
+        if not m:
+            pieces.append(text[idx:])
+            break
+        start, end = m.span()
+        pieces.append(text[idx:start])
+        fm = yaml.safe_load(m.group(1)) or {}
+        if str(fm.get("id", "")).strip().upper() == task_id.upper():
+            fm["status"] = "needs_review"
+            front = yaml.safe_dump(fm, sort_keys=False).strip()
+            pieces.append(f"---\n{front}\n---\n")
+        else:
+            pieces.append(m.group(0))
+        idx = end
+    path.write_text("".join(pieces), encoding="utf-8")
 
 
 def _step_analyze(task: str, state: dict) -> bool:
@@ -215,7 +244,7 @@ def main() -> None:
     state = load_state(STATE_PATH)
     current = state.get("current_task")
     if current:
-        task = current["title"]
+        task = current.get("title") or current.get("description", "")
         log.info(f"Resuming task: {task}")
     else:
         queue = TaskQueue(TASK_FILE)
@@ -236,7 +265,7 @@ def main() -> None:
         (log_dir / "prompt.txt").write_text(task, encoding="utf-8")
         save_state(state, STATE_PATH)
 
-    task = state["current_task"]["title"]
+    task = state["current_task"].get("title") or state["current_task"].get("description", "")
     task_id = state["current_task"]["task_id"]
     state.setdefault("attempt", 1)
 
@@ -254,6 +283,18 @@ def main() -> None:
             review_passed = run_self_review(state, STATE_PATH)
             if review_passed:
                 log.info("Task completed successfully.")
+                try:
+                    pr = create_draft_pr(state["current_task"], str(TASK_FILE))
+                except Exception as exc:  # pragma: no cover - best effort
+                    log.error(f"PR creation failed: {exc}")
+                else:
+                    log_dir = MODULE_DIR.parent / "logs" / task_id
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    (log_dir / "pr.json").write_text(
+                        json.dumps({"url": pr.get("html_url")}, indent=2),
+                        encoding="utf-8",
+                    )
+                _mark_task_needs_review(state["current_task"].get("id", ""))
                 state.clear()
             else:
                 log.error("Self-review failed. Progress saved for inspection.")
