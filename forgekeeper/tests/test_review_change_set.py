@@ -3,10 +3,10 @@ import json
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from forgekeeper.self_review import review_change_set  # noqa: E402
+from forgekeeper import self_review  # noqa: E402
 
 
 def _fake_run_factory(mapping):
@@ -27,12 +27,13 @@ def test_review_change_set_pass(monkeypatch, tmp_path):
         "pytest": (0, "pytest ok"),
     }
     monkeypatch.setattr(subprocess, "run", _fake_run_factory(mapping))
-    passed = review_change_set("task", changed_files=["foo.py"])
-    assert passed is True
-    report_file = next((tmp_path / "logs").glob("self-review-*.json"))
-    report = json.loads(report_file.read_text())
+    monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
+    report = self_review.review_change_set("task")
     assert report["passed"] is True
-    assert report["results"]["ruff"]["passed"] is True
+    report_file = tmp_path / "logs" / "task" / "self-review.json"
+    loaded = json.loads(report_file.read_text())
+    assert loaded["passed"] is True
+    assert loaded["tools"]["ruff ."]["passed"] is True
 
 
 def test_review_change_set_fail(monkeypatch, tmp_path):
@@ -43,11 +44,12 @@ def test_review_change_set_fail(monkeypatch, tmp_path):
         "pytest": (0, "ok"),
     }
     monkeypatch.setattr(subprocess, "run", _fake_run_factory(mapping))
-    passed = review_change_set("task", changed_files=["foo.py"])
-    assert passed is False
-    report_file = next((tmp_path / "logs").glob("self-review-*.json"))
-    report = json.loads(report_file.read_text())
-    assert report["results"]["mypy"]["passed"] is False
+    monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
+    report = self_review.review_change_set("task")
+    assert report["passed"] is False
+    report_file = tmp_path / "logs" / "task" / "self-review.json"
+    loaded = json.loads(report_file.read_text())
+    assert loaded["tools"]["mypy ."]["passed"] is False
 
 
 def test_review_change_set_detects_changed(monkeypatch, tmp_path):
@@ -61,5 +63,5 @@ def test_review_change_set_detects_changed(monkeypatch, tmp_path):
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr(subprocess, "run", _fake_run)
-    review_change_set("task")
+    self_review.review_change_set("task")
     assert calls[0][:3] == ["git", "diff", "--name-only"]

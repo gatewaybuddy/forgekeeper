@@ -8,13 +8,13 @@ from git import Repo
 
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE
+from forgekeeper.config import DEBUG_MODE, ENABLE_RECURSIVE_FIX
 from forgekeeper.file_summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
-from forgekeeper.self_review import run_self_review
+from forgekeeper.self_review import run_self_review, review_change_set
 from forgekeeper.task_queue import TaskQueue
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -49,6 +49,7 @@ def _step_edit(task: str, state: dict) -> bool:
     log_dir.mkdir(parents=True, exist_ok=True)
     patch_texts: list[str] = []
     changed_files: list[str] = []
+    guidelines = state.get("fix_guidelines", "")
     for item in analysis[:TOP_N_FILES]:
         file_path = item["file"]
         summary = item.get("summary", "")
@@ -57,7 +58,7 @@ def _step_edit(task: str, state: dict) -> bool:
             log.warning(f"File not found: {file_path}")
             continue
         original_code = p.read_text(encoding="utf-8")
-        patch = generate_code_edit(task, file_path, summary, "")
+        patch = generate_code_edit(task, file_path, summary, guidelines)
         if not patch.strip():
             continue
         try:
@@ -77,6 +78,7 @@ def _step_edit(task: str, state: dict) -> bool:
             json.dumps(sorted(set(changed_files)), indent=2), encoding="utf-8"
         )
     state["changed_files"] = sorted(set(changed_files))
+    state["fix_guidelines"] = ""
     return True
 
 
@@ -157,6 +159,8 @@ def main() -> None:
         slug = _slugify(task)[:40]
         state["current_task"] = {**task_obj.to_dict(), "task_id": task_id, "slug": slug}
         state["pipeline_step"] = 0
+        state["attempt"] = 1
+        state["fix_guidelines"] = ""
         log.info(f"Starting new task: {task}")
         log_dir = MODULE_DIR.parent / "logs" / task_id
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -165,26 +169,53 @@ def main() -> None:
         save_state(state, STATE_PATH)
 
     task = state["current_task"]["description"]
-    log.info("Dispatching task to execution pipeline...")
-    success = _execute_pipeline(task, state)
-    if success:
-        log.info("Pipeline completed. Running self-review...")
-        review_passed = run_self_review(state, STATE_PATH)
-        if review_passed:
-            log.info("Task completed successfully. Updating task list.")
+    task_id = state["current_task"]["task_id"]
+    state.setdefault("attempt", 1)
+
+    while True:
+        log.info("Dispatching task to execution pipeline...")
+        success = _execute_pipeline(task, state)
+        if not success:
+            log.info("Pipeline incomplete. Progress saved for resume.")
+            save_state(state, STATE_PATH)
+            return
+
+        review = review_change_set(task_id)
+        if review["passed"]:
+            log.info("Change-set review passed. Running self-review...")
+            review_passed = run_self_review(state, STATE_PATH)
+            if review_passed:
+                log.info("Task completed successfully. Updating task list.")
+                task_obj = queue.get_task(task)
+                if task_obj:
+                    queue.mark_done(task_obj)
+                state.clear()
+            else:
+                log.error("Self-review failed. Progress saved for inspection.")
+            break
+
+        log.error("Change-set review failed.")
+        if not ENABLE_RECURSIVE_FIX or state.get("attempt", 1) >= 3:
+            log.error(
+                "Maximum attempts reached or recursive fix disabled. Marking task blocked."
+            )
             task_obj = queue.get_task(task)
             if task_obj:
-                queue.mark_done(task_obj)
+                queue.mark_blocked(task_obj)
+            artifact = Path("logs") / task_id / "self-review.json"
             state.clear()
-        else:
-            log.error("Self-review failed. Progress saved for inspection.")
-    else:
-        log.info("Pipeline incomplete. Progress saved for resume.")
+            state["blocked_artifact"] = str(artifact)
+            break
+
+        errors = "\n\n".join(
+            res["output"] for res in review["tools"].values() if not res["passed"]
+        )
+        state["fix_guidelines"] = f"Fix these exact lints/tests:\n{errors}"
+        state["attempt"] = state.get("attempt", 1) + 1
+        state["pipeline_step"] = 1
+        save_state(state, STATE_PATH)
 
     save_state(state, STATE_PATH)
-
-    if not success or not review_passed:
-        return
 
 
 if __name__ == "__main__":
