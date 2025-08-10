@@ -3,6 +3,8 @@ import json
 import re
 from pathlib import Path
 
+from forgekeeper.memory.embeddings import LocalEmbedder
+
 EXCLUDE_DIRS = {'.git', 'venv', '__pycache__'}
 
 
@@ -41,11 +43,8 @@ def summarize_py_file(file_path: Path) -> dict:
     return {"summary": summary_text, "lines": len(lines), "lang": "py"}
 
 
-IMPORT_RE = re.compile(r'^import\s+(?:[\w*\s{},]*from\s+)?[\'"]([^\'\"]+)[\'"]', re.MULTILINE)
-EXPORT_RE = re.compile(
-    r'^export\s+(?:default\s+)?(?:class|function|const|let|var)\s+(\w+)',
-    re.MULTILINE,
-)
+IMPORT_RE = re.compile(r'^import\s+(?:[\w*\s{},]*from\s+)?[\'"]([^\'"]+)[\'"]', re.MULTILINE)
+EXPORT_RE = re.compile(r'^export\s+(?:default\s+)?(?:class|function|const|let|var)\s+(\w+)', re.MULTILINE)
 EXPORT_BRACE_RE = re.compile(r'^export\s*{\s*([^}]+)\s*}', re.MULTILINE)
 FUNCTION_RE = re.compile(r'function\s+(\w+)\s*\(')
 ARROW_FUNC_RE = re.compile(r'const\s+(\w+)\s*=\s*(?:async\s*)?(?:[^=]*?)=>')
@@ -61,7 +60,7 @@ def _extract_top_comment(lines: list[str]) -> str | None:
             i += 1
             continue
         if line.startswith("//"):
-            top.append(line.lstrip("/ "))
+            top.append(line.lstrip("/ ").strip())
             i += 1
             continue
         if line.startswith("/*"):
@@ -135,6 +134,12 @@ def summarize_repository(root: str = ".") -> dict:
                 continue
             rel = path.relative_to(root_path)
             results[str(rel)] = summarize_file(path)
+
+    # Store embeddings for summaries (used by ranking step)
+    if results:
+        embedder = LocalEmbedder()
+        embedder.store_embeddings({f: info["summary"] for f, info in results.items()})
+
     return results
 
 

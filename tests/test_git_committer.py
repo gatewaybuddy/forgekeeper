@@ -22,10 +22,16 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     monkeypatch.syspath_prepend(str(repo_dir))
     monkeypatch.setenv("CHECKS_PY", checks_py)
     monkeypatch.setenv("CHECKS_TS", checks_ts)
+
     import importlib
+
+    for mod in list(sys.modules):
+        if mod.startswith("forgekeeper"):
+            sys.modules.pop(mod)
+
     config = importlib.import_module("forgekeeper.config")
-    importlib.reload(config)
     gc = importlib.import_module("forgekeeper.git_committer")
+    importlib.reload(config)
     importlib.reload(gc)
     return repo_dir, gc
 

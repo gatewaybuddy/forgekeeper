@@ -1,0 +1,80 @@
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from forgekeeper.task_queue import TaskQueue
+
+
+def test_next_task_priority_ordering(tmp_path):
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: A1
+title: First task (P2)
+status: todo
+labels: [one]
+---
+
+---
+id: A2
+title: Second task (P1)
+status: todo
+labels: [two]
+---
+
+---
+id: A3
+title: Third task (P1)
+status: todo
+labels: [three]
+---
+""",
+        encoding="utf-8",
+    )
+    queue = TaskQueue(tasks_md)
+    task = queue.next_task()
+    assert task["id"] == "A2"
+    assert task["priority"] == 1
+
+
+def test_state_persistence(tmp_path, monkeypatch):
+    import sys
+    for mod in list(sys.modules):
+        if mod.startswith("forgekeeper"):
+            sys.modules.pop(mod)
+    from forgekeeper import main as fk_main
+
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: B1
+title: Persist me (P1)
+status: todo
+labels: [test]
+---
+""",
+        encoding="utf-8",
+    )
+
+    state_path = tmp_path / "state.json"
+
+    monkeypatch.setattr(fk_main, "TASK_FILE", tasks_md)
+    monkeypatch.setattr(fk_main, "STATE_PATH", state_path)
+    monkeypatch.setattr(fk_main, "_execute_pipeline", lambda task, state: False)
+
+    fk_main.main()
+
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    assert data["current_task"]["id"] == "B1"
+    assert data["current_task"]["title"].startswith("Persist me")
+
+    # remove modules to avoid side effects on other tests
+    for mod in ["forgekeeper.main", "forgekeeper.git_committer", "forgekeeper.config"]:
+        sys.modules.pop(mod, None)
