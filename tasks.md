@@ -90,3 +90,103 @@ owner: agent
 labels: [backend, reliability, mqtt]
 ---
 Add Outbox table, worker, idempotent publish, and health endpoint.
+
+---
+id: FK-103
+title: Consolidate test directories (P2)
+status: todo
+epic: R-001
+owner: agent
+labels: [dx, tests]
+---
+Move all test modules into a unified `tests/` directory and update references.
+
+**AC**
+- [ ] All tests reside under `tests/`
+- [ ] CI and imports point to the new location
+
+---
+id: FK-104
+title: Skip backend smoke test when prerequisites missing (P2)
+status: todo
+epic: R-001
+owner: agent
+labels: [reliability, tooling]
+---
+Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gracefully.
+
+**AC**
+- [ ] Smoke test exits 0 with skip message when environment absent
+- [ ] self_review treats skipped state as neutral
+
+---
+id: FK-105
+title: Test commit check command selection (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [tests, reliability]
+---
+Add unit tests ensuring `git_committer` runs language-specific checks and logs results.
+
+**AC**
+- [ ] Commands include `CHECKS_PY` for Python files
+- [ ] Commands include `CHECKS_TS` for TS/TSX files
+- [ ] `commit-checks.json` captures stdout/stderr
+
+---
+id: FK-106
+title: Test task queue prioritization (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [tests, scheduling]
+---
+Verify `TaskQueue.next_task` selects lowest priority with FIFO tie-break and falls back to checkbox tasks.
+
+**AC**
+- [ ] Front-matter priorities honored
+- [ ] FIFO ordering on ties
+- [ ] Legacy checkbox tasks used when no front-matter tasks qualify
+
+---
+id: FK-107
+title: Validate episodic memory logging (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [memory, tests]
+---
+Add tests for `append_entry` and CLI tail output to ensure memory persistence.
+
+**AC**
+- [ ] JSONL entries written by `append_entry`
+- [ ] CLI displays recent entries
+
+---
+id: FK-108
+title: Test mark_done_if_merged flow (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [tests, vcs]
+---
+Mock GitHub responses to verify tasks are marked `done` only when associated PRs merge.
+
+**AC**
+- [ ] `mark_done_if_merged` updates status on merge
+- [ ] Startup polling handles multiple `needs_review` tasks
+
+---
+id: FK-109
+title: Test LocalEmbedder storage and retrieval (P1)
+status: todo
+epic: R-001
+owner: agent
+labels: [search, tests]
+---
+Ensure embeddings persist and influence ranking via cosine similarity.
+
+**AC**
+- [ ] Vectors stored in `.forgekeeper/vectors.sqlite`
+- [ ] Query ranking reflects combined keyword and vector scores
