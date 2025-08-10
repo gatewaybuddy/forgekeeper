@@ -83,7 +83,7 @@ def _step_edit(task: str, state: dict) -> bool:
 
 
 def _step_commit(task: str, state: dict) -> bool:
-    """Commit staged changes on a task-specific branch and mark status."""
+    """Commit staged changes on a task-specific branch."""
     meta = state.get("current_task", {})
     task_id = meta.get("task_id", "task")
     slug = meta.get("slug", _slugify(task))
@@ -96,10 +96,6 @@ def _step_commit(task: str, state: dict) -> bool:
     result = commit_and_push_changes(task, autonomous=True, task_id=task_id)
     if not result.get("passed", True):
         return False
-    queue = TaskQueue(TASK_FILE)
-    t = queue.get_task(task)
-    if t:
-        queue.mark_needs_review(t)
     # logs are already written within commit_and_push_changes
     return True
 
@@ -135,24 +131,20 @@ def _execute_pipeline(task: str, state: dict) -> bool:
 
 def main() -> None:
     state = load_state(STATE_PATH)
-    queue = TaskQueue(TASK_FILE)
     current = state.get("current_task")
     if current:
-        task_obj = queue.get_task(current["description"])
-        if task_obj:
-            task = task_obj.description
-            log.info(f"Resuming task: {task}")
-        else:
-            current = None
-    if not current:
-        task_obj = queue.next_task()
-        if not task_obj:
+        task = current["title"]
+        log.info(f"Resuming task: {task}")
+    else:
+        queue = TaskQueue(TASK_FILE)
+        meta = queue.next_task()
+        if not meta:
             log.info("No tasks available. Exiting.")
             return
-        task = task_obj.description
-        task_id = f"{abs(hash(task)) % 1000000:06d}"
+        task = meta["title"]
+        task_id = meta.get("id", f"{abs(hash(task)) % 1000000:06d}")
         slug = _slugify(task)[:40]
-        state["current_task"] = {**task_obj.to_dict(), "task_id": task_id, "slug": slug}
+        state["current_task"] = {**meta, "task_id": task_id, "slug": slug}
         state["pipeline_step"] = 0
         state["attempt"] = 1
         state["fix_guidelines"] = ""
@@ -160,10 +152,9 @@ def main() -> None:
         log_dir = MODULE_DIR.parent / "logs" / task_id
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / "prompt.txt").write_text(task, encoding="utf-8")
-        queue.mark_in_progress(task_obj)
         save_state(state, STATE_PATH)
 
-    task = state["current_task"]["description"]
+    task = state["current_task"]["title"]
     task_id = state["current_task"]["task_id"]
     state.setdefault("attempt", 1)
 
@@ -180,10 +171,7 @@ def main() -> None:
             log.info("Change-set review passed. Running self-review...")
             review_passed = run_self_review(state, STATE_PATH)
             if review_passed:
-                log.info("Task completed successfully. Updating task list.")
-                task_obj = queue.get_task(task)
-                if task_obj:
-                    queue.mark_done(task_obj)
+                log.info("Task completed successfully.")
                 state.clear()
             else:
                 log.error("Self-review failed. Progress saved for inspection.")
@@ -191,12 +179,7 @@ def main() -> None:
 
         log.error("Change-set review failed.")
         if not ENABLE_RECURSIVE_FIX or state.get("attempt", 1) >= 3:
-            log.error(
-                "Maximum attempts reached or recursive fix disabled. Marking task blocked."
-            )
-            task_obj = queue.get_task(task)
-            if task_obj:
-                queue.mark_blocked(task_obj)
+            log.error("Maximum attempts reached or recursive fix disabled.")
             artifact = Path("logs") / task_id / "self-review.json"
             state.clear()
             state["blocked_artifact"] = str(artifact)
