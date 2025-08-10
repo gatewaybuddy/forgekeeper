@@ -12,18 +12,18 @@ from forgekeeper.logger import get_logger
 from forgekeeper.config import (
     DEBUG_MODE,
     RUN_COMMIT_CHECKS,
-    COMMIT_CHECKS,
+    CHECKS_PY,
+    CHECKS_TS,
 )
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def _run_checks(commands: Iterable[str]) -> dict:
+def _run_checks(commands: Iterable[str], task_id: str) -> dict:
     """Run shell commands, capturing output and writing logs."""
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    log_dir = Path(__file__).resolve().parent.parent / "logs"
+    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
-    artifacts_path = log_dir / f"commit-checks-{timestamp}.json"
+    artifacts_path = log_dir / "commit-checks.json"
 
     results = []
     passed = True
@@ -61,14 +61,27 @@ def commit_and_push_changes(
     run_checks: bool = RUN_COMMIT_CHECKS,
     checks: Optional[Iterable[str]] = None,
     autonomous: bool = False,
+    task_id: str = "manual",
 ) -> dict:
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
 
     check_result = {"passed": True, "artifacts_path": ""}
     if run_checks:
-        commands = checks if checks is not None else COMMIT_CHECKS
-        check_result = _run_checks(commands)
+        if checks is not None:
+            commands = list(checks)
+        else:
+            staged = repo.git.diff("--name-only", "--cached").splitlines()
+            commands = []
+            if any(p.endswith(".py") for p in staged):
+                commands.extend(CHECKS_PY)
+            if any(
+                (p.startswith("backend/") or p.startswith("frontend/"))
+                and p.endswith((".ts", ".tsx"))
+                for p in staged
+            ):
+                commands.extend(CHECKS_TS)
+        check_result = _run_checks(commands, task_id)
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
             return check_result
