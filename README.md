@@ -95,6 +95,20 @@ Verify the backend with the smoke-test CLI:
 python tools/smoke_backend.py
 ```
 
+### LLM smoke test
+
+Generate a short response using the configured LLM:
+
+```bash
+python scripts/llm_smoke_test.py
+```
+
+Override the backend for a single run with `--backend`:
+
+```bash
+python scripts/llm_smoke_test.py --backend vllm
+```
+
 ## Testing
 Run the Python test suite with:
 ```bash
