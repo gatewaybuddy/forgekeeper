@@ -8,11 +8,9 @@ from forgekeeper.app.chats.memory_store import (
     get_memory,
     set_memory,
 )
-from llama_cpp import Llama
 from forgekeeper.app.services.llm_router import (
     get_core_model_name,
     get_coder_model_name,
-    ask_llm,
 )
 from forgekeeper.app.utils.json_helpers import extract_json
 from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
@@ -20,6 +18,7 @@ from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.app.services.reflective_ask_core import reflective_ask_core
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.llm import get_llm
 from forgekeeper.task_pipeline import TaskPipeline
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
@@ -27,15 +26,6 @@ from forgekeeper.memory.episodic import append_entry
 from pathlib import Path
 
 log = get_logger(__name__, debug=DEBUG_MODE)
-
-def _llm_ask(self, prompt: str):
-    try:
-        result = self(prompt=prompt, max_tokens=800, stop=["<|endoftext|>"])
-        return result["choices"][0]["text"].strip()
-    except Exception as e:
-        return f"[ERROR] {str(e)}"
-
-setattr(Llama, "ask", _llm_ask)
 
 def add_goal(session_id, goal):
     memory = get_memory(session_id)
@@ -152,7 +142,8 @@ def ask_core(prompt, session_id):
     retrieved = retrieve_similar_entries(session_id, prompt, top_k=3)
     vector_summary = "\n".join(f"- {doc}" for doc, meta in retrieved) if retrieved else ""
     full_prompt = build_memory_prompt(prompt, system_prompt, context, vector_summary, prompt_mode)
-    response = ask_llm(full_prompt)
+    llm = get_llm()
+    response = llm.generate(full_prompt)
     save_message(session_id, "core", response)
     return response
 
@@ -166,9 +157,9 @@ def postprocess_response(response):
     return response
 
 def ask_coder(prompt, session_id):
-    from forgekeeper.app.shared.models import llm_coder
+    llm = get_llm()
     save_message(session_id, "user", prompt)
-    response = llm_coder.ask(prompt)
+    response = llm.generate(prompt)
     save_message(session_id, "assistant", response)
     return response
 
