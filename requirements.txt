@@ -8,3 +8,6 @@ pytest
 openai-harmony
 pymongo
 PyYAML
+transformers
+torch
+openai
