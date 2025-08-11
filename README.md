@@ -65,6 +65,36 @@ python -m forgekeeper.main
 npm run dev --prefix frontend
 ```
 
+### GPT-OSS-20B Model Setup
+
+Download the open-source model from Hugging Face:
+
+```bash
+huggingface-cli download openai/gpt-oss-20b --local-dir /path/to/model
+```
+
+Configure Forgekeeper to use the model via `transformers`:
+
+```bash
+export FK_LLM_IMPL=transformers
+export FK_MODEL_PATH=/path/to/model
+export FK_DTYPE=bf16
+export FK_DEVICE=cuda
+```
+
+Optionally, point to a running `vllm` server:
+
+```bash
+export FK_LLM_IMPL=vllm
+export FK_API_BASE=http://localhost:8000/v1
+```
+
+Verify the backend with the smoke-test CLI:
+
+```bash
+python tools/smoke_backend.py
+```
+
 ## Testing
 Run the Python test suite with:
 ```bash
