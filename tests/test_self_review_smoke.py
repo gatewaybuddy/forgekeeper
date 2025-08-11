@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,10 @@ def init_repo(tmp_path: Path, monkeypatch, smoke_exit: int):
     pkg_dir.mkdir(parents=True)
     for name in ["__init__.py", "config.py", "logger.py", "self_review.py", "state_manager.py"]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
+    (pkg_dir / "user_interface.py").write_text(
+        "def display_check_results(report):\n    return None\n",
+        encoding="utf-8",
+    )
     tools_dir = repo_dir / "tools"
     tools_dir.mkdir()
     smoke = tools_dir / "smoke_backend.py"
@@ -70,3 +75,57 @@ def test_smoke_test_fail(tmp_path, monkeypatch):
     assert "smoke_backend" in report["tools"]
     assert not report["tools"]["smoke_backend"]["passed"]
     assert not report["passed"]
+
+
+def _stub_pipeline(monkeypatch, tmp_path, commit_result, review_result, self_result=True):
+    monkeypatch.syspath_prepend(str(ROOT))
+    sys.modules.pop("forgekeeper", None)
+    sys.modules.pop("forgekeeper.pipeline", None)
+    from forgekeeper import pipeline
+    (tmp_path / "forgekeeper").mkdir(exist_ok=True)
+    monkeypatch.setattr(pipeline, "summarize_repository", lambda: {})
+    monkeypatch.setattr(pipeline, "analyze_repo_for_task", lambda *_: [])
+    monkeypatch.setattr(pipeline, "generate_code_edit", lambda *a, **k: "")
+    monkeypatch.setattr(pipeline, "apply_unified_diff", lambda *_: [])
+    monkeypatch.setattr(pipeline, "diff_and_stage_changes", lambda *a, **k: None)
+    monkeypatch.setattr(
+        pipeline,
+        "commit_and_push_changes",
+        lambda *a, **k: {"passed": commit_result},
+    )
+    monkeypatch.setattr(
+        pipeline.self_review,
+        "review_change_set",
+        lambda *_: {"passed": review_result},
+    )
+    monkeypatch.setattr(pipeline, "run_self_review", lambda *_: self_result)
+    return pipeline
+
+
+def test_pipeline_aborts_on_failed_commit(tmp_path, monkeypatch):
+    pipeline = _stub_pipeline(monkeypatch, tmp_path, commit_result=False, review_result=True)
+    state = {"current_task": {"task_id": "T1"}}
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        assert not pipeline.run_update_pipeline("task", state)
+    finally:
+        os.chdir(cwd)
+
+
+def test_pipeline_propagates_review_status(tmp_path, monkeypatch):
+    pipeline = _stub_pipeline(monkeypatch, tmp_path, commit_result=True, review_result=False)
+    state = {"current_task": {"task_id": "T2"}}
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        assert not pipeline.run_update_pipeline("task", state)
+    finally:
+        os.chdir(cwd)
+    pipeline = _stub_pipeline(monkeypatch, tmp_path, commit_result=True, review_result=True)
+    cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        assert pipeline.run_update_pipeline("task", state)
+    finally:
+        os.chdir(cwd)
