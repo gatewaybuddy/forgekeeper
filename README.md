@@ -125,5 +125,49 @@ Contributors should have the following tools installed and available in `PATH`:
 
 These are the commands run as part of the automated commit checks (`CHECKS_PY` and `CHECKS_TS`).
 
+## Task Queue
+
+Forgekeeper tracks work items in `tasks.md`, which contains checkbox lists under
+"Active", "Backlog", and "Completed" sections. The "Canonical Tasks" section
+uses YAML front‑matter blocks to capture structured metadata such as `id`,
+`title`, `status`, `labels`, and priority markers like `(P0)`–`(P3)`:
+
+```markdown
+---
+id: FK-123
+title: Example task (P1)
+status: todo
+labels: [demo]
+---
+Detailed description...
+```
+
+`forgekeeper.task_queue.TaskQueue` parses this file and returns the next task
+based on priority. Manage tasks via the command helpers:
+
+```bash
+python -m forgekeeper.commands list   # show all tasks
+python -m forgekeeper.commands pick   # print next task
+python -m forgekeeper.commands defer 0  # move task 0 to backlog
+python -m forgekeeper.commands done 0   # mark task 0 completed
+```
+
+## Self-review and commit checks
+
+`forgekeeper.git_committer.commit_and_push_changes` runs language-specific
+checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing results
+under `logs/<task_id>/commit-checks.json`. After committing, run
+`forgekeeper.self_review.review_change_set(task_id)` to re-run checks on the
+latest commit, verify the commit message references the active task, and save a
+summary to `logs/<task_id>/self-review.json`.
+
+## Roadmap updater (optional)
+
+`forgekeeper.roadmap_updater.update_roadmap()` appends a markdown section to
+`Roadmap.md` summarizing recent commits and memory entries. To keep the roadmap
+fresh automatically, call
+`forgekeeper.roadmap_updater.start_periodic_updates(interval_seconds)` to run
+updates in a background thread.
+
 ---
 This guide is intended to streamline installation and clarify component interactions.
