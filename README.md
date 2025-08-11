@@ -11,6 +11,12 @@ Set up and launch all Forgekeeper services with Docker using:
 ./scripts/setup_docker_env.sh
 ```
 
+Run from PowerShell:
+
+```powershell
+pwsh scripts/setup_docker_env.ps1
+```
+
 ## Installation
 
 ### Backend (Python)
