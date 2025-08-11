@@ -18,12 +18,15 @@ async function main() {
   }));
 
   app.get('/health', async (_req, res) => {
-    const oldest = await prisma.outbox.findFirst({
+    const pending = await prisma.outbox.findMany({
       where: { sentAt: null },
       orderBy: { createdAt: 'asc' },
     });
+    const oldest = pending[0];
     const lag = oldest ? Date.now() - oldest.createdAt.getTime() : 0;
-    res.json({ lag });
+    const retries = pending.filter((m) => m.retryCount > 0).length;
+    const retryRate = pending.length ? retries / pending.length : 0;
+    res.json({ lag, retryRate });
   });
 
   const port = process.env.PORT || 4000;

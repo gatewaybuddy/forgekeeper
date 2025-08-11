@@ -1,0 +1,3 @@
+-- Migration: create Outbox collection
+-- Prisma with MongoDB uses `prisma db push` to apply this model.
+-- No SQL is generated for MongoDB.
