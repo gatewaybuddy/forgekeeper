@@ -49,6 +49,9 @@ def add_subtasks(session_id, subtasks):
     memory["task_queue"] = subtasks
     set_memory(session_id, memory)
 
+from types import SimpleNamespace
+
+
 def get_next_task(session_id):
     """Poll the task scheduler for the next task.
 
@@ -61,11 +64,19 @@ def get_next_task(session_id):
     task = pipeline.next_task()
     if not task:
         return None
+
+    desc = getattr(task, "description", None)
+    if desc is None and isinstance(task, dict):
+        desc = task.get("title") or task.get("description") or ""
+
     memory = get_memory(session_id)
     queue = memory.get("task_queue", [])
-    queue.append(task.description)
+    queue.append(desc)
     memory["task_queue"] = queue
     set_memory(session_id, memory)
+
+    if isinstance(task, dict):
+        return SimpleNamespace(description=desc, **task)
     return task
 
 

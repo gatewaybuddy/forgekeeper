@@ -33,13 +33,13 @@ def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
 
     task = pipeline.next_task()
     assert task is not None
-    assert task.description == "alpha"
+    assert task["title"] == "alpha"
     assert captured["desc"] == "alpha"
 
     text = tasks_md.read_text(encoding="utf-8")
     assert "- [~] alpha" in text
 
-    pipeline.mark_done(task.description)
+    pipeline.mark_done(task["title"])
     text = tasks_md.read_text(encoding="utf-8")
     assert "## Completed" in text
     assert "- [x] alpha" in text

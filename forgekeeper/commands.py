@@ -21,7 +21,8 @@ def cmd_list(queue: TaskQueue, _: argparse.Namespace) -> None:
 def cmd_pick(queue: TaskQueue, _: argparse.Namespace) -> None:
     task = queue.next_task()
     if task:
-        print(task.description)
+        title = task.get("title") or task.get("description") or ""
+        print(title)
     else:
         print("No tasks available")
 

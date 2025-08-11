@@ -42,6 +42,56 @@ labels: [three]
     assert task["priority"] == 1
 
 
+def test_front_matter_skips_completed(tmp_path):
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: C1
+title: Done task (P0)
+status: done
+---
+
+---
+id: C2
+title: Pending task (P1)
+status: in_progress
+---
+""",
+        encoding="utf-8",
+    )
+    queue = TaskQueue(tasks_md)
+    task = queue.next_task()
+    assert task["id"] == "C2"
+    assert task["status"] == "in_progress"
+
+
+def test_checkbox_tasks_ignore_completed(tmp_path):
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: only_done
+title: Only done (P0)
+status: done
+---
+
+## Active
+- [x] finished
+- [ ] todo
+
+## Completed
+- [ ] should be ignored
+""",
+        encoding="utf-8",
+    )
+    queue = TaskQueue(tasks_md)
+    task = queue.next_task()
+    assert task["title"] == "todo"
+
+
 def test_state_persistence(tmp_path, monkeypatch):
     import sys
     for mod in list(sys.modules):
