@@ -54,7 +54,10 @@ class HighLevelGoalManager:
             log.info("No tasks available for autonomous execution")
             return False
 
-        log.info("Autonomy active; executing task pipeline for '%s'", task.description)
+        desc = getattr(task, "description", None)
+        if desc is None and isinstance(task, dict):
+            desc = task.get("title") or task.get("description") or ""
+        log.info("Autonomy active; executing task pipeline for '%s'", desc)
         pipeline_main.main()
         return True
 

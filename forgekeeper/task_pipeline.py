@@ -10,9 +10,9 @@ APIs. Progress on tasks is persisted back to ``tasks.md`` through the
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
-from .task_queue import TaskQueue, Task
+from .task_queue import TaskQueue
 from . import goal_manager
 
 TASK_FILE = Path(__file__).resolve().parents[1] / "tasks.md"
@@ -26,24 +26,31 @@ class TaskPipeline:
 
     # ------------------------------------------------------------------
     # Task selection
-    def next_task(self) -> Optional[Task]:
-        """Return the highest priority task and mark it in progress.
+    def next_task(self) -> Optional[Dict]:
+        """Return the highest priority task metadata.
 
-        The task description is also registered with :mod:`goal_manager` so the
-        agent loop can access it via ``goal_manager.get_active_goals``.
+        Tasks are sourced via :meth:`TaskQueue.next_task`, which supports both
+        YAML front-matter and legacy checkbox definitions. Only tasks with
+        ``status`` in {``todo``, ``in_progress``} are returned. The description
+        is registered with :mod:`goal_manager` for downstream consumption. If a
+        corresponding legacy checkbox task exists it is marked in progress.
         """
 
-        tasks = self.queue.list_tasks()
-        if not tasks:
+        meta = self.queue.next_task()
+        if not meta or meta.get("status") not in {"todo", "in_progress"}:
             return None
-        # ``list_tasks`` preserves file order; ``sorted`` keeps FIFO on ties.
-        task = sorted(tasks, key=lambda t: t.priority)[0]
-        self.queue.mark_in_progress(task)
+
+        desc = meta.get("title") or meta.get("description") or ""
         try:  # Best effort – goal_manager may be unavailable during tests
-            goal_manager.add_goal(task.description, source="task_queue")
+            goal_manager.add_goal(desc, source="task_queue")
         except Exception:  # pragma: no cover - defensive
             pass
-        return task
+
+        task = self.queue.get_task(desc)
+        if task:
+            self.queue.mark_in_progress(task)
+
+        return meta
 
     # ------------------------------------------------------------------
     # Progress helpers
