@@ -2,6 +2,7 @@
 """Execute a safe self-edit-and-restart sequence for Forgekeeper."""
 
 import os
+import subprocess
 from pathlib import Path
 
 from forgekeeper.state_manager import load_state, save_state
@@ -30,6 +31,15 @@ def run_safe_update() -> None:
             success = False
         if not success:
             log.warning("Self-review failed; retrying")
+            result = subprocess.run(
+                ["git", "reset", "--hard", "HEAD~1"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                log.error(f"Git reset failed: {result.stderr.strip()}")
+                break
+            log.info(f"Git reset succeeded: {result.stdout.strip()}")
 
     state["last_update_success"] = success
     state["review_attempts"] = attempt
