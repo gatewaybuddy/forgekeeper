@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
-from forgekeeper.app.services.llm_service_llamacpp import ask_llm
 from dotenv import load_dotenv
 import os
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
+from forgekeeper.llm import get_llm
 os.environ['FLASK_RUN_FROM_CLI'] = 'false'
 
 # Load environment variables
@@ -13,6 +13,7 @@ port = int(os.getenv("PORT", 5000))  # fallback to 5000 if not set
 app = Flask(__name__)
 app.run(debug=True, port=port, use_reloader=False)
 log = get_logger(__name__, debug=DEBUG_MODE)
+llm = get_llm()
 @app.route('/api/llm', methods=['POST'])
 def llm_query():
     try:
@@ -22,7 +23,7 @@ def llm_query():
         if not prompt:
             return jsonify({'error': 'No prompt provided'}), 400
 
-        response = ask_llm(prompt)
+        response = llm.generate(prompt)
         return jsonify({'response': response})
 
     except Exception as e:

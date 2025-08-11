@@ -2,8 +2,8 @@ from forgekeeper.app.chats.memory_store import summarize_thoughts, get_memory, s
 from forgekeeper import recursive_thinker
 from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
-from forgekeeper.app.services.llm_router import ask_llm
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
+from forgekeeper.llm import get_llm
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 
@@ -31,8 +31,10 @@ def reflective_ask_core(prompt: str, session_id: str, passes: int = 3) -> str:
 
     full_prompt = build_memory_prompt(prompt, system_prompt, memory_summary, vector_summary, prompt_mode)
 
+    llm = get_llm()
+
     # === Step 1: Draft
-    draft = ask_llm(full_prompt)
+    draft = llm.generate(full_prompt)
     if isinstance(draft, dict):
         draft = draft.get("response", str(draft)).strip()
 
@@ -62,7 +64,7 @@ Please reflect on the following:
 
 Provide only your reflection notes. Do not revise yet.
 """
-    reflection = ask_llm(reflection_prompt)
+    reflection = llm.generate(reflection_prompt)
     if isinstance(reflection, dict):
         reflection = reflection.get("response", str(reflection)).strip()
 
@@ -85,7 +87,7 @@ Please provide the improved response.
 """
     log.debug("\n[Reflective Core Debug] Revise Prompt:\n%s", revise_prompt[:1000])
 
-    final_response = ask_llm(revise_prompt)
+    final_response = llm.generate(revise_prompt)
     if isinstance(final_response, dict):
         final_response = final_response.get("response", str(final_response)).strip()
 
