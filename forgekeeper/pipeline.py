@@ -9,6 +9,7 @@ from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.self_review import run_self_review
+from forgekeeper import self_review
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -50,5 +51,11 @@ def run_update_pipeline(task_prompt: str, state: dict) -> bool:
             modified_code = p.read_text(encoding="utf-8")
             diff_and_stage_changes(original_code, modified_code, file_path)
 
-    commit_and_push_changes(task_prompt)
-    return run_self_review(state)
+    task_id = state.get("current_task", {}).get("task_id", "manual")
+    commit_result = commit_and_push_changes(task_prompt, task_id=task_id)
+    if not commit_result.get("passed", False):
+        return False
+
+    review = self_review.review_change_set(task_id)
+    review_passed = review.get("passed", False)
+    return review_passed and run_self_review(state)
