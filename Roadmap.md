@@ -13,14 +13,19 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 - [x] Make and commit code edits with user approval
 - [x] Enable multi-agent task handoff between Core and Coder agents
 - [x] Verify and sanitize user prompts to prevent injection attacks
-- [ ] Run a recursive self-review loop
-- [ ] Integrate linting and test validation before commits
+- [x] Run a recursive self-review loop
+- [x] Integrate linting and test validation before commits
+
+#### Supporting Modules
+- `forgekeeper/forgekeeper_safe_update.py` orchestrates a retryable self-edit cycle and restarts the agent.
+- `forgekeeper/git_committer.py` commits staged changes and runs lint/test checks before pushing.
+- `forgekeeper/self_review.py` reviews recent commits and logs check results for the active task.
 
 ### Phase 2: Semi-Autonomous Execution
-- Read from `Tasks.md`
-- Evaluate and rank tasks by priority and feasibility
-- Complete tasks independently with user review
-- Self-reflect on outcomes using internal memory module
+- [x] Read from `Tasks.md`
+- [x] Evaluate and rank tasks by priority and feasibility
+- [ ] Complete tasks independently with user review
+- [ ] Self-reflect on outcomes using internal memory module
 
 ### Phase 3: Full Local Autonomy
 - Fully autonomous task execution based on high-level goals
