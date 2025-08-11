@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Sequence
 
@@ -28,8 +29,13 @@ def append_entry(
         "artifacts_paths": list(artifacts_paths or []),
     }
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with MEMORY_FILE.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(entry) + "\n")
+    data = (json.dumps(entry) + "\n").encode("utf-8")
+    fd = os.open(MEMORY_FILE, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+    try:
+        os.write(fd, data)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _tail(n: int) -> None:
@@ -44,14 +50,15 @@ def _tail(n: int) -> None:
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Episodic memory utilities")
-    sub = parser.add_subparsers(dest="cmd")
-
-    p_tail = sub.add_parser("tail", help="Print last N entries")
-    p_tail.add_argument("--n", type=int, default=20, help="Number of entries to show")
-
+    parser.add_argument(
+        "--review",
+        type=int,
+        metavar="N",
+        help="Display the last N entries from episodic memory",
+    )
     args = parser.parse_args(argv)
-    if args.cmd == "tail":
-        _tail(args.n)
+    if args.review is not None:
+        _tail(args.review)
     else:
         parser.print_help()
 
