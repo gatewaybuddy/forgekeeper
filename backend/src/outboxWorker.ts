@@ -22,6 +22,20 @@ async function publishMessage(topic: string, payload: any): Promise<void> {
 
 async function processOutbox() {
   while (true) {
+    const [oldest, total, retrying] = await Promise.all([
+      prisma.outbox.findFirst({
+        where: { sentAt: null },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.outbox.count({ where: { sentAt: null } }),
+      prisma.outbox.count({
+        where: { sentAt: null, retryCount: { gt: 0 } },
+      }),
+    ]);
+    const lag = oldest ? Date.now() - oldest.createdAt.getTime() : 0;
+    const retryRate = total ? retrying / total : 0;
+    console.log(`outbox lag=${lag}ms retryRate=${retryRate}`);
+
     const pending = await prisma.outbox.findMany({
       where: {
         sentAt: null,
