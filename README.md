@@ -3,6 +3,14 @@
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 This repository includes all components required to run the local development environment.
 
+## Docker environment
+
+Set up and launch all Forgekeeper services with Docker using:
+
+```bash
+./scripts/setup_docker_env.sh
+```
+
 ## Installation
 
 ### Backend (Python)
