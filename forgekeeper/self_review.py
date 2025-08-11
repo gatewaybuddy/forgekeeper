@@ -8,11 +8,12 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, CHECKS_PY, CHECKS_TS
 from forgekeeper.state_manager import save_state
+from forgekeeper import user_interface as ui
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -84,6 +85,33 @@ def _changed_files() -> List[str]:
     return [f for f in result.stdout.splitlines() if f]
 
 
+def _collect_feedback(results: Dict[str, Dict[str, Any]]) -> Dict[str, List[str]]:
+    """Extract file-specific feedback from tool outputs.
+
+    Parameters
+    ----------
+    results : dict
+        Mapping of tool command to result info containing ``passed`` and ``output``.
+
+    Returns
+    -------
+    dict
+        Mapping of file paths to a list of feedback lines related to that file.
+    """
+
+    feedback: Dict[str, List[str]] = {}
+    for info in results.values():
+        if info.get("passed"):
+            continue
+        for line in str(info.get("output", "")).splitlines():
+            if not line:
+                continue
+            file_part = line.split(":", 1)[0]
+            if file_part:
+                feedback.setdefault(file_part, []).append(line.strip())
+    return feedback
+
+
 def review_change_set(task_id: str) -> Dict:
     """Run checks on files changed in the last commit and persist results.
 
@@ -138,17 +166,26 @@ def review_change_set(task_id: str) -> Dict:
     summary_body = "; ".join(summary_lines) if summary_lines else "no checks run"
     summary = f"Change-set review {'passed' if passed else 'failed'}: {summary_body}"
 
+    feedback = _collect_feedback(results)
+    highlights: Dict[str, Dict[str, Any]] = {}
+    for fname, messages in feedback.items():
+        ok, diff_text = _run_tool(["git", "diff", "HEAD~1..HEAD", "--", fname])
+        highlights[fname] = {"diff": diff_text if ok else "", "messages": messages}
+
     report = {
         "passed": passed,
         "tools": results,
         "changed_files": files,
         "ts": ts,
         "summary": summary,
+        "highlights": highlights,
     }
 
     log_dir = Path("logs") / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
     artifact_path = log_dir / "self-review.json"
     artifact_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    ui.display_check_results(report)
 
     return report
