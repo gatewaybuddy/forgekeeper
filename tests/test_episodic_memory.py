@@ -53,7 +53,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
     result = subprocess.run(
-        [sys.executable, "-m", "forgekeeper.memory.episodic", "tail", "--n", "2"],
+        [sys.executable, "-m", "forgekeeper.memory.episodic", "--review", "2"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
