@@ -92,6 +92,40 @@ status: done
     assert task["title"] == "todo"
 
 
+def test_memory_weight_affects_order(tmp_path):
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: T1
+title: First task (P1)
+status: todo
+---
+
+---
+id: T2
+title: Second task (P1)
+status: todo
+---
+""",
+        encoding="utf-8",
+    )
+    mem_dir = tmp_path / ".forgekeeper" / "memory"
+    mem_dir.mkdir(parents=True)
+    mem_file = mem_dir / "episodic.jsonl"
+    mem_file.write_text(
+        """{"task_id": "T1", "title": "First task", "status": "failed"}
+{"task_id": "T2", "title": "Second task", "status": "success"}
+{"task_id": "T1", "title": "First task", "status": "failed"}
+""",
+        encoding="utf-8",
+    )
+    queue = TaskQueue(tasks_md)
+    task = queue.next_task()
+    assert task["id"] == "T2"
+
+
 def test_state_persistence(tmp_path, monkeypatch):
     import sys
     for mod in list(sys.modules):
