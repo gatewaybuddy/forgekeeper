@@ -6,13 +6,7 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## 🛠️ Active Tasks
 
-- [ ] **Run a recursive self-review loop**
-  *Evaluate whether code changes fulfill the original task prompt.*
-
 - [ ] **Enable Forgekeeper to pull tasks from this file and complete them autonomously**
-
-- [ ] **Integrate linting and test validation before commits**
-
 - [ ] **Enhance code edit generation with real modifications**
   *Replace TODO scaffolds with LLM-generated code changes.*
 
@@ -47,39 +41,13 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 - [x] Enable multi-agent task handoff
 - [x] Add prompt validation to guard against injection attacks
+- [x] Run a recursive self-review loop
+  *Evaluate whether code changes fulfill the original task prompt.*
+- [x] Integrate linting and test validation before commits
 
 ---
 
 ## Canonical Tasks
-
----
-id: FK-101
-title: Diff-aware self-review (P1)
-status: in_progress
-epic: R-001
-owner: agent
-labels: [agent, reliability, tests]
----
-Implement self_review.review_change_set and write artifact to logs/.
-
-**AC**
-- [ ] ruff/mypy/pytest scoped to touched files
-- [ ] JSON verdict emitted to logs/self-review-*.json
-- [ ] Fail commit on verdict=fail
-
----
-id: FK-102
-title: Commit checks surfacing (P1)
-status: todo
-epic: R-001
-owner: agent
-labels: [agent, dx]
----
-Capture stdout/stderr, block commit on failure, attach artifact.
-
-**AC**
-- [ ] Structured result returned
-- [ ] Human summary + artifact path
 
 ---
 id: FK-201
