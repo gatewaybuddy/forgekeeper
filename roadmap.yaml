@@ -1,6 +1,6 @@
 milestones:
 - epic: core
-  status: todo
+  status: in_progress
 - epic: automation
   status: todo
 
@@ -11,10 +11,10 @@ epics:
     milestones:
       - id: M-001
         title: Diff-aware self-review
-        status: in_progress
+        status: done
       - id: M-002
         title: Commit checks surfacing
-        status: todo
+        status: done
   - id: R-002
     title: Backend reliability (transactional outbox)
     kpis: [outbox_lag_seconds_p50, publish_retry_rate]
