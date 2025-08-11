@@ -37,12 +37,20 @@ class Section:
 
 
 class TaskQueue:
-    """Parse and manage tasks in ``tasks.md``."""
+    """Parse and manage tasks in ``tasks.md``.
+
+    Parameters
+    ----------
+    path:
+        Optional path to the ``tasks.md`` file. When omitted, the file at the
+        repository root is used.
+    """
 
     SECTION_PRIORITY = {"Active": 0, "Backlog": 1, "Completed": 2}
+    DEFAULT_PATH = Path(__file__).resolve().parents[1] / "tasks.md"
 
-    def __init__(self, path: Path) -> None:
-        self.path = Path(path)
+    def __init__(self, path: Path | str | None = None) -> None:
+        self.path = Path(path) if path else self.DEFAULT_PATH
         self.preamble: List[str] = []
         self.sections: List[Section] = []
         self._section_by_name: dict[str, Section] = {}

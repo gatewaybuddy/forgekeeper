@@ -111,6 +111,13 @@ def commit_and_push_changes(
 
     changelog = ""
     if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
+        if not autonomous:
+            resp = input("Commit staged changes? [y/N]: ").strip().lower()
+            if resp not in {"y", "yes"}:
+                log.info("Commit aborted by user")
+                check_result["passed"] = False
+                check_result["aborted"] = True
+                return check_result
         repo.index.commit(commit_message)
         log.info(f"Committed changes on {branch_name}: {commit_message}")
         changelog = repo.git.log("-1", "--stat")
