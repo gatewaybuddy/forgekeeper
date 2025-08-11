@@ -21,6 +21,8 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [ ] Improve multi-agent planning and delegation across tasks
 - [ ] Pin Python and Node dependencies for reproducible installs
 - [ ] Provide cross-platform setup script to automate environment creation
+- [ ] Add unit tests for task insertion utility
+- [ ] Expose task insertion utility via CLI for manual task creation
 
 ---
 
