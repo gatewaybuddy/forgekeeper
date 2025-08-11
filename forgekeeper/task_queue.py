@@ -1,11 +1,20 @@
-"""Simple task queue backed by ``tasks.md``."""
+"""Task queue backed by ``tasks.md`` with episodic memory weighting.
+
+Tasks are primarily ordered by priority markers in the task file.  Episodic
+memory entries stored in ``.forgekeeper/memory/episodic.jsonl`` adjust this
+ordering by contributing a *memory weight*: each recorded failure increases the
+weight while each success decreases it.  The final score ``priority +
+memory_weight`` determines queue order, so repeatedly failing tasks are pushed
+back and successful ones bubble up.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+import json
 import re
 import yaml
 
@@ -144,6 +153,32 @@ class TaskQueue:
 
     # ------------------------------------------------------------------
     # Task helpers
+    def _load_memory_summaries(self) -> Dict[str, Dict[str, int]]:
+        """Load episodic memory success/failure counts keyed by task ID or title."""
+        mem_path = self.path.parent / ".forgekeeper" / "memory" / "episodic.jsonl"
+        if not mem_path.is_file():
+            return {}
+        summary: Dict[str, Dict[str, int]] = {}
+        for line in mem_path.read_text(encoding="utf-8").splitlines():
+            try:
+                data = json.loads(line)
+            except Exception:
+                continue
+            key = str(data.get("task_id") or data.get("title") or "").strip()
+            if not key:
+                continue
+            status = str(data.get("status", ""))
+            stats = summary.setdefault(key, {"success": 0, "failure": 0})
+            if "success" in status or status == "committed":
+                stats["success"] += 1
+            elif (
+                "fail" in status
+                or "error" in status
+                or status == "no-file"
+            ):
+                stats["failure"] += 1
+        return summary
+
     def list_tasks(self) -> List[Task]:
         tasks: List[Task] = []
         for name in ["Active", "Backlog", "Completed"]:
@@ -170,7 +205,9 @@ class TaskQueue:
         except FileNotFoundError:
             content = ""
 
+        memory = self._load_memory_summaries()
         best: Optional[dict] = None
+        best_score: Optional[int] = None
         if "## Canonical Tasks" in content:
             section = content.split("## Canonical Tasks", 1)[1]
             lines = section.splitlines()
@@ -198,15 +235,21 @@ class TaskQueue:
                     match = re.search(r"\(P([0-3])\)", title)
                     priority = int(match.group(1)) if match else 2
                     labels = data.get("labels") or []
+                    key = str(data.get("id") or title).strip()
+                    stats = memory.get(key)
+                    memory_weight = (stats["failure"] - stats["success"]) if stats else 0
                     task = {
                         "id": data.get("id"),
                         "title": title,
                         "status": status,
                         "labels": labels,
                         "priority": priority,
+                        "memory_weight": memory_weight,
                     }
-                    if best is None or task["priority"] < best["priority"]:
+                    score = priority + memory_weight
+                    if best_score is None or score < best_score:
                         best = task
+                        best_score = score
                 else:
                     i += 1
         if best:
@@ -214,14 +257,20 @@ class TaskQueue:
 
         for task in self.list_tasks():
             if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
-                return {
-                    "id": "",
-                    "title": task.description,
-                    "status": task.status,
-                    "labels": [],
-                    "priority": task.priority,
-                }
-        return None
+                stats = memory.get(task.description)
+                memory_weight = (stats["failure"] - stats["success"]) if stats else 0
+                score = task.priority + memory_weight
+                if best is None or score < best_score:
+                    best = {
+                        "id": "",
+                        "title": task.description,
+                        "status": task.status,
+                        "labels": [],
+                        "priority": task.priority,
+                        "memory_weight": memory_weight,
+                    }
+                    best_score = score
+        return best
 
     def get_task(self, description: str) -> Optional[Task]:
         for task in self.list_tasks():
