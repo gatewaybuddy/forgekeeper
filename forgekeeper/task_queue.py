@@ -1,11 +1,11 @@
 """Task queue backed by ``tasks.md`` with episodic memory weighting.
 
-Tasks are primarily ordered by priority markers in the task file.  Episodic
-memory entries stored in ``.forgekeeper/memory/episodic.jsonl`` adjust this
-ordering by contributing a *memory weight*: each recorded failure increases the
-weight while each success decreases it.  The final score ``priority +
-memory_weight`` determines queue order, so repeatedly failing tasks are pushed
-back and successful ones bubble up.
+Tasks are primarily ordered by priority markers in the task file.  At
+construction the queue loads episodic memory summaries from
+``.forgekeeper/memory/episodic.jsonl`` and derives a *memory weight* for each
+task: every recorded failure increases the weight while each success decreases
+it.  The queue orders tasks by the combined score ``priority + memory_weight``,
+so repeatedly failing items drift back and successful ones bubble up.
 """
 
 from __future__ import annotations
@@ -64,6 +64,11 @@ class TaskQueue:
         self.sections: List[Section] = []
         self._section_by_name: dict[str, Section] = {}
         self._parse()
+        self.memory_stats: Dict[str, Dict[str, int]] = self._load_memory_summaries()
+
+    def refresh_memory(self) -> None:
+        """Reload episodic memory summaries from disk."""
+        self.memory_stats = self._load_memory_summaries()
 
     # ------------------------------------------------------------------
     # Parsing and serialization
@@ -205,7 +210,8 @@ class TaskQueue:
         except FileNotFoundError:
             content = ""
 
-        memory = self._load_memory_summaries()
+        self.refresh_memory()
+        memory = self.memory_stats
         best: Optional[dict] = None
         best_score: Optional[int] = None
         if "## Canonical Tasks" in content:
