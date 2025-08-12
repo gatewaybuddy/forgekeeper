@@ -1,10 +1,11 @@
 from pathlib import Path
+import json
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
-def test_autonomous_manager_triggers_pipeline(monkeypatch):
+def test_autonomous_manager_triggers_pipeline(tmp_path, monkeypatch):
     import forgekeeper.high_level_goal_manager as hgm
 
     class DummyTask:
@@ -22,13 +23,14 @@ def test_autonomous_manager_triggers_pipeline(monkeypatch):
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
     monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)
     assert mgr.run() is True
-    assert called, "Pipeline main not invoked"
+    assert called == [True], "Pipeline main not invoked once"
 
 
-def test_manager_no_autonomy(monkeypatch):
+def test_manager_no_autonomy(tmp_path, monkeypatch):
     import forgekeeper.high_level_goal_manager as hgm
 
     class DummyPipeline:
@@ -37,6 +39,40 @@ def test_manager_no_autonomy(monkeypatch):
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
     mgr = hgm.HighLevelGoalManager(autonomous=False)
     assert mgr.run() is False
+
+
+def test_complex_goal_breakdown(tmp_path, monkeypatch):
+    import forgekeeper.high_level_goal_manager as hgm
+
+    class DummyTask:
+        description = "write unit tests and update docs"
+
+    class DummyPipeline:
+        def next_task(self):
+            return DummyTask()
+
+    calls = []
+
+    def fake_main():
+        calls.append(True)
+
+    goals_path = tmp_path / "goals.json"
+    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+    monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
+    monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", goals_path)
+
+    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    assert mgr.run() is True
+    assert len(calls) == 2
+
+    data = json.loads(goals_path.read_text())
+    assert len(data) == 3
+    parent = next(g for g in data if g.get("description") == DummyTask.description)
+    subtasks = [g for g in data if g.get("parent_id") == parent["id"]]
+    assert [g["priority"] for g in subtasks] == [0, 1]
+    assert parent.get("subtasks") == [g["id"] for g in subtasks]
 
