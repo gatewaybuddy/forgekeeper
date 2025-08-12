@@ -6,6 +6,9 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 
 ## 🎯 Milestones
 
+- **Core milestone**: complete
+- **Automation milestone**: in progress
+
 ### Phase 1: Human-Guided Autonomy (Complete)
 - [x] Define agents and roles in `AGENTS.md`
 - [x] Load and summarize code files
@@ -32,7 +35,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 
 Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks, learn from results, and plan next steps with minimal oversight. Upcoming refinement will focus on improving memory retrieval fidelity and task scheduling heuristics.
 
-### Phase 3: Full Local Autonomy
+### Phase 3: Full Local Autonomy (In Progress)
 - Fully autonomous task execution based on high-level goals
 - Memory-aware feedback loop with emotion tagging
 - Periodic self-generated roadmap and sprint plans
