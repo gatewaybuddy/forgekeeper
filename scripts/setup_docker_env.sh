@@ -31,12 +31,19 @@ prompt_var () {
   export "$var"="${input:-${!var:-$default}}"
 }
 
+prompt_secret () {
+  local var="$1" default="$2"
+  read -s -p "$var [${!var:-$default}]: " input
+  echo
+  export "$var"="${input:-${!var:-$default}}"
+}
+
 # --- gather env vars (editable on rerun) ---
 prompt_var FRONTEND_PORT 3000
 prompt_var BACKEND_PORT 8000
 prompt_var PYTHON_PORT 5000
 prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper
-prompt_var OPENAI_API_KEY ""
+prompt_secret OPENAI_API_KEY ""
 
 cat >"$ENV_FILE" <<EOF2
 FRONTEND_PORT=$FRONTEND_PORT
