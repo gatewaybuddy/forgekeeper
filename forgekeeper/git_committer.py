@@ -15,6 +15,7 @@ from forgekeeper.config import (
     CHECKS_PY,
     CHECKS_TS,
 )
+from forgekeeper import self_review
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -84,8 +85,24 @@ def commit_and_push_changes(
 ) -> dict:
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
+    pre_review = self_review.review_staged_changes(task_id)
+    if not pre_review.get("passed", False):
+        if autonomous:
+            log.error("Pre-commit review failed in autonomous mode")
+            return {"passed": False, "pre_review": pre_review, "aborted": True}
+        resp = input(
+            "Proceed with commit despite review issues? [y/N]: "
+        ).strip().lower()
+        if resp not in {"y", "yes"}:
+            log.info("Commit aborted due to review issues")
+            return {"passed": False, "pre_review": pre_review, "aborted": True}
 
-    check_result = {"passed": True, "artifacts_path": "", "results": []}
+    check_result = {
+        "passed": True,
+        "artifacts_path": "",
+        "results": [],
+        "pre_review": pre_review,
+    }
     if run_checks:
         diff = repo.git.diff("--name-only", "--cached")
         files = [f for f in diff.splitlines() if f]
@@ -96,7 +113,7 @@ def commit_and_push_changes(
             commands.extend(CHECKS_PY)
         if run_ts:
             commands.extend(CHECKS_TS)
-        check_result = _run_checks(commands, task_id)
+        check_result.update(_run_checks(commands, task_id))
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
             return check_result

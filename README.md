@@ -8,12 +8,14 @@ This repository includes all components required to run the local development en
 Set up and launch all Forgekeeper services with Docker using:
 
 ```bash
+cp .env.example .env
 ./scripts/setup_docker_env.sh
 ```
 
 Run from PowerShell:
 
 ```powershell
+Copy-Item .env.example .env
 pwsh scripts/setup_docker_env.ps1
 ```
 
@@ -29,12 +31,7 @@ pwsh scripts/setup_docker_env.ps1
    ```bash
    pip install -r requirements.txt
    ```
-3. Copy the sample environment file and adjust values as needed:
-   ```bash
-    cp .env.example .env
-    ```
-
-4. Optional: configure local Harmony model parameters via environment variables:
+3. Optional: configure local Harmony model parameters via environment variables:
    - `OPENAI_REASONING_EFFORT` – one of `low`, `medium`, or `high` (default: `medium`).
    - `LLM_TEMPERATURE` and `LLM_TOP_P` – sampling parameters passed to `llama_cpp`.
    These settings may also be overridden by including lines such as `Reasoning: high` or
@@ -150,7 +147,7 @@ reflections so developers can audit recent activity. `TaskQueue` loads these
 entries and derives a *memory weight* where failures push tasks back and
 successes bring them forward in priority.
 
-## Task Queue
+## `tasks.md` format and `TaskQueue` usage
 
 Forgekeeper tracks work items in `tasks.md`, which contains checkbox lists under
 "Active", "Backlog", and "Completed" sections. The "Canonical Tasks" section
@@ -181,18 +178,18 @@ For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
 priority item, runs analysis and code edits, and commits the result end-to-end
 without manual intervention.
 
-## Self-review and commit checks
+## Self-review & commit-check workflow
 
-`forgekeeper.git_committer.commit_and_push_changes` runs language-specific
-checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing results
-under `logs/<task_id>/commit-checks.json`. After committing, run
-`forgekeeper.self_review.review_change_set(task_id)` to re-run checks on the
-latest commit, verify the commit message references the active task, and save a
-summary to `logs/<task_id>/self-review.json`.
+`git_committer.py` provides `commit_and_push_changes`, which runs language-
+specific checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing
+results under `logs/<task_id>/commit-checks.json`. After committing, run
+`self_review.py`'s `review_change_set(task_id)` to re-run checks on the latest
+commit, verify the commit message references the active task, and save a summary
+to `logs/<task_id>/self-review.json`.
 
-## Roadmap updater (optional)
+## Optional `roadmap_updater` workflow
 
-`forgekeeper.roadmap_updater.update_roadmap()` appends a markdown section to
+The optional `roadmap_updater.py` module appends a markdown section to
 `Roadmap.md` summarizing recent commits and memory entries. To keep the roadmap
 fresh automatically, call
 `forgekeeper.roadmap_updater.start_periodic_updates(interval_seconds)` to run
