@@ -139,6 +139,17 @@ Contributors should have the following tools installed and available in `PATH`:
 
 These are the commands run as part of the automated commit checks (`CHECKS_PY` and `CHECKS_TS`).
 
+## Episodic Memory
+
+`forgekeeper/memory/episodic.py` records short reflections about each task
+attempt in `.forgekeeper/memory/episodic.jsonl`. Entries are appended via
+`append_entry`, which stores the task ID, outcome, changed files, a free-form
+summary, and any artifact paths for later review. The CLI helper
+`python -m forgekeeper.memory.episodic --review N` prints the last `N`
+reflections so developers can audit recent activity. `TaskQueue` loads these
+entries and derives a *memory weight* where failures push tasks back and
+successes bring them forward in priority.
+
 ## Task Queue
 
 Forgekeeper tracks work items in `tasks.md`, which contains checkbox lists under
@@ -165,6 +176,10 @@ python -m forgekeeper.commands pick   # print next task
 python -m forgekeeper.commands defer 0  # move task 0 to backlog
 python -m forgekeeper.commands done 0   # mark task 0 completed
 ```
+
+For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
+priority item, runs analysis and code edits, and commits the result end-to-end
+without manual intervention.
 
 ## Self-review and commit checks
 
