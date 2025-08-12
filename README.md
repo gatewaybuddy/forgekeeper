@@ -100,6 +100,20 @@ export FK_LLM_IMPL=vllm
 export FK_API_BASE=http://localhost:8000/v1
 ```
 
+### vLLM Backend
+
+Configure vLLM-specific behaviour with environment variables:
+
+- `LLM_BACKEND` (default `vllm`) – selects the backend implementation.
+- `VLLM_MODEL_CORE` – model identifier for the Core agent.
+- `VLLM_MODEL_CODER` – model identifier for the Coder agent.
+- `VLLM_HOST_CORE`/`VLLM_PORT_CORE` – host and port of the Core vLLM server.
+- `VLLM_HOST_CODER`/`VLLM_PORT_CODER` – host and port of the Coder vLLM server.
+- `VLLM_MAX_MODEL_LEN` – maximum context length expected by vLLM.
+- `VLLM_TP` – tensor parallelism degree.
+- `VLLM_GPU_MEMORY_UTILIZATION` – fraction of GPU memory allocated to vLLM.
+- `VLLM_ENABLE_LOGPROBS` – set to `true` to include log probabilities in responses.
+
 Verify the backend with the smoke-test CLI:
 
 ```bash

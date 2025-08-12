@@ -43,6 +43,41 @@ CODEGEN_TEMPERATURE = float(os.getenv("CODEGEN_TEMPERATURE", "0.0"))
 ENABLE_RECURSIVE_FIX = os.getenv("ENABLE_RECURSIVE_FIX", "true").lower() == "true"
 """Enable iterative recursive fix attempts."""
 
+LLM_BACKEND = os.getenv("LLM_BACKEND", "vllm")
+"""Backend implementation to use for LLMs."""
+
+VLLM_MODEL_CORE = os.getenv("VLLM_MODEL_CORE", "mistral-nemo-instruct")
+"""Model identifier for the core agent when using vLLM."""
+
+VLLM_MODEL_CODER = os.getenv("VLLM_MODEL_CODER", "codellama-13b-python")
+"""Model identifier for the coder agent when using vLLM."""
+
+VLLM_HOST_CORE = os.getenv("VLLM_HOST_CORE", "localhost")
+"""Hostname for the core vLLM server."""
+
+VLLM_PORT_CORE = int(os.getenv("VLLM_PORT_CORE", "8000"))
+"""Port for the core vLLM server."""
+
+VLLM_HOST_CODER = os.getenv("VLLM_HOST_CODER", "localhost")
+"""Hostname for the coder vLLM server."""
+
+VLLM_PORT_CODER = int(os.getenv("VLLM_PORT_CODER", "8001"))
+"""Port for the coder vLLM server."""
+
+VLLM_MAX_MODEL_LEN = int(os.getenv("VLLM_MAX_MODEL_LEN", "4096"))
+"""Maximum sequence length supported by the vLLM models."""
+
+VLLM_TP = int(os.getenv("VLLM_TP", "1"))
+"""Tensor parallelism degree for vLLM."""
+
+VLLM_GPU_MEMORY_UTILIZATION = float(
+    os.getenv("VLLM_GPU_MEMORY_UTILIZATION", "0.9")
+)
+"""Fraction of GPU memory vLLM may allocate."""
+
+VLLM_ENABLE_LOGPROBS = os.getenv("VLLM_ENABLE_LOGPROBS", "false").lower() == "true"
+"""Whether vLLM should return log probabilities."""
+
 _token_keys = os.getenv("GITHUB_TOKEN_ENV_KEYS")
 if _token_keys:
     GITHUB_TOKEN_ENV_KEYS = [k.strip() for k in _token_keys.split(",") if k.strip()]
