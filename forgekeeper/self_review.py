@@ -8,7 +8,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, CHECKS_PY, CHECKS_TS
@@ -18,23 +18,39 @@ from forgekeeper import user_interface as ui
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
-def run_self_review(state: Dict, state_path: Path | str = Path("forgekeeper/state.json")) -> bool:
-    """Run a simple self-review against the latest commit.
+def run_self_review(
+    state: Dict,
+    state_path: Path | str = Path("forgekeeper/state.json"),
+    ask_fn: Callable[[str], str] | None = None,
+) -> bool:
+    """Run a self-review of the last commit using LLM reasoning and task tests.
 
     Parameters
     ----------
     state : dict
-        Current execution state. Expected to contain ``current_task``.
+        Current execution state. Should contain ``current_task`` with
+        ``description`` and optional ``task_id``.
     state_path : Path | str
         Path where the updated state should be persisted.
+    ask_fn : callable, optional
+        Function used to query an LLM. Defaults to ``ask_llm`` from the
+        internal router when not provided.
 
     Returns
     -------
     bool
         ``True`` if the review passes, otherwise ``False``.
     """
+
     path = Path(state_path)
-    task = state.get("current_task", "")
+
+    task_info = state.get("current_task", {})
+    if isinstance(task_info, dict):
+        task_desc = task_info.get("description", "")
+        task_id = task_info.get("task_id")
+    else:
+        task_desc = str(task_info)
+        task_id = None
 
     commit_msg = ""
     try:
@@ -48,19 +64,69 @@ def run_self_review(state: Dict, state_path: Path | str = Path("forgekeeper/stat
     except subprocess.CalledProcessError as exc:
         log.error("Failed to read last commit message: %s", exc)
 
-    review_passed = bool(task) and task.lower() in commit_msg.lower()
+    diff_text = ""
+    try:
+        diff_result = subprocess.run(
+            ["git", "diff", "HEAD~1..HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        diff_text = diff_result.stdout
+    except subprocess.CalledProcessError as exc:
+        log.error("Failed to read diff: %s", exc)
+
+    if ask_fn is None:
+        try:
+            from forgekeeper.app.services.llm_router import ask_llm as ask_fn
+        except Exception as exc:  # pragma: no cover - import errors in prod only
+            log.error("LLM backend unavailable: %s", exc)
+            ask_fn = lambda _: "FAIL: no LLM"  # type: ignore
+
+    prompt = (
+        "You are a code reviewer. Given the following task description and git diff,\n"
+        "determine if the diff accomplishes the task. Respond with PASS or FAIL\n"
+        "followed by a brief rationale.\n\n"
+        f"Task: {task_desc}\n\nDiff:\n{diff_text}\n"
+    )
+
+    llm_response = ""
+    llm_passed = False
+    try:
+        llm_response = ask_fn(prompt)
+        llm_passed = "pass" in llm_response.lower() and "fail" not in llm_response.lower()
+    except Exception as exc:  # pragma: no cover - defensive
+        llm_response = str(exc)
+        llm_passed = False
+
+    tests_passed = True
+    tests_output = ""
+    if task_id:
+        test_cmd = [sys.executable, "-m", "pytest", "-k", task_id, "-q"]
+        test_result = subprocess.run(test_cmd, capture_output=True, text=True)
+        tests_output = (test_result.stdout + test_result.stderr).strip()
+        tests_passed = test_result.returncode == 0
+    else:
+        tests_output = "no task id provided"
+
+    review_passed = bool(task_desc) and llm_passed and tests_passed
 
     state["last_review"] = {
-        "task": task,
+        "task": task_desc,
+        "task_id": task_id,
         "commit_message": commit_msg,
+        "llm_response": llm_response,
+        "llm_passed": llm_passed,
+        "tests_output": tests_output,
+        "tests_passed": tests_passed,
         "passed": review_passed,
     }
     save_state(state, str(path))
 
     if review_passed:
-        log.info("Self-review passed for task '%s'", task)
+        log.info("Self-review passed for task '%s'", task_desc)
     else:
-        log.error("Self-review failed for task '%s'", task)
+        log.error("Self-review failed for task '%s'", task_desc)
 
     return review_passed
 
