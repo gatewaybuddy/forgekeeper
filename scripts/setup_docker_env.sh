@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+# Environment file now lives at the repository root
+ENV_FILE="$SCRIPT_DIR/../.env"
 NET_NAME="forgekeeper-net"
 
 # --- dependency checks ---

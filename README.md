@@ -8,12 +8,14 @@ This repository includes all components required to run the local development en
 Set up and launch all Forgekeeper services with Docker using:
 
 ```bash
+cp .env.example .env
 ./scripts/setup_docker_env.sh
 ```
 
 Run from PowerShell:
 
 ```powershell
+Copy-Item .env.example .env
 pwsh scripts/setup_docker_env.ps1
 ```
 
@@ -29,12 +31,7 @@ pwsh scripts/setup_docker_env.ps1
    ```bash
    pip install -r requirements.txt
    ```
-3. Copy the sample environment file and adjust values as needed:
-   ```bash
-    cp .env.example .env
-    ```
-
-4. Optional: configure local Harmony model parameters via environment variables:
+3. Optional: configure local Harmony model parameters via environment variables:
    - `OPENAI_REASONING_EFFORT` – one of `low`, `medium`, or `high` (default: `medium`).
    - `LLM_TEMPERATURE` and `LLM_TOP_P` – sampling parameters passed to `llama_cpp`.
    These settings may also be overridden by including lines such as `Reasoning: high` or
