@@ -6,12 +6,19 @@ ENV_FILE="$SCRIPT_DIR/.env"
 NET_NAME="forgekeeper-net"
 
 # --- dependency checks ---
-for cmd in docker docker-compose; do
-  command -v "$cmd" >/dev/null 2>&1 || {
-    echo "❌ $cmd not found. Install Docker Desktop / docker-compose first." >&2
-    exit 1
-  }
-done
+command -v docker >/dev/null 2>&1 || {
+  echo "❌ docker not found. Install Docker Desktop first." >&2
+  exit 1
+}
+
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker-compose)
+else
+  echo "❌ docker compose not found. Install Docker Desktop / docker-compose." >&2
+  exit 1
+fi
 
 # --- load existing env if present ---
 if [ -f "$ENV_FILE" ]; then
@@ -48,5 +55,5 @@ docker build -t forgekeeper-frontend "$SCRIPT_DIR/../frontend"
 docker build -t forgekeeper-python "$SCRIPT_DIR/.."
 
 # --- launch via compose ---
-(cd "$SCRIPT_DIR/.." && docker-compose --env-file "$ENV_FILE" up -d)
+(cd "$SCRIPT_DIR/.." && "${COMPOSE_CMD[@]}" --env-file "$ENV_FILE" up -d)
 echo "✅ Forgekeeper services are up and running."
