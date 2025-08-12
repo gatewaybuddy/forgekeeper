@@ -13,19 +13,17 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## 🛠️ Active Tasks
 
- - [ ] **Use stored memories to refine future task selection and execution**
- - [ ] **Generate follow-up tasks based on reflection outcomes**
+ - [ ] **Design multi-step planning framework for complex tasks**
+ - [ ] **Implement cross-file validation for code edits**
 
 ---
 
 ## ⏳ Backlog
 
-- [ ] Summarize task success and emotional feedback into memory
 - [ ] Add “undo last task” recovery mode
 - [ ] Improve multi-agent planning and delegation across tasks
 - [ ] Pin Python and Node dependencies for reproducible installs
 - [ ] Provide cross-platform setup script to automate environment creation
-- [ ] Add unit tests for task insertion utility
 - [ ] Expose task insertion utility via CLI for manual task creation
 - [ ] FK-201: Transactional outbox for resolvers (P1)
 - [ ] FK-105: Test commit check command selection (P1)
@@ -65,6 +63,11 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
   *Replace TODO scaffolds with LLM-generated code changes.*
 
 - [x] Connect summarization, analysis, editing, and commit modules into an end-to-end self-edit pipeline
+
+- [x] Use stored memories to refine future task selection and execution
+- [x] Generate follow-up tasks based on reflection outcomes
+- [x] Summarize task success and emotional feedback into memory
+- [x] Add unit tests for task insertion utility
 
 ---
 
