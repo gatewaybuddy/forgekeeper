@@ -6,11 +6,11 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## 🛠️ Active Tasks
 
-- [ ] **Enable Forgekeeper to pull tasks from this file and complete them autonomously**
-- [ ] **Enhance code edit generation with real modifications**
-  *Replace TODO scaffolds with LLM-generated code changes.*
-
-- [ ] **Connect summarization, analysis, editing, and commit modules into an end-to-end self-edit pipeline**
+- [ ] **Complete tasks independently with user review**
+- [ ] **Self-reflect on outcomes using internal memory module**
+- [ ] **Persist reflections to a long-term memory log**
+- [ ] **Use stored memories to refine future task selection and execution**
+- [ ] **Generate follow-up tasks based on reflection outcomes**
 
 ---
 
@@ -46,6 +46,12 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [x] Run a recursive self-review loop
   *Evaluate whether code changes fulfill the original task prompt.*
 - [x] Integrate linting and test validation before commits
+
+- [x] Enable Forgekeeper to pull tasks from this file and complete them autonomously
+- [x] Enhance code edit generation with real modifications
+  *Replace TODO scaffolds with LLM-generated code changes.*
+
+- [x] Connect summarization, analysis, editing, and commit modules into an end-to-end self-edit pipeline
 
 ---
 
