@@ -11,7 +11,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .state_manager import load_state
 
@@ -76,9 +76,34 @@ def get_active_goals() -> List[str]:
     return [g.get("description", "") for g in load_goals() if g.get("active", True)]
 
 
-def add_goal(description: str, source: str = "user") -> str:
-    """Add a new goal and return its identifier."""
+def add_goal(
+    description: str,
+    source: str = "user",
+    *,
+    parent_id: Optional[str] = None,
+    priority: int = 0,
+) -> str:
+    """Add a new goal and return its identifier.
+
+    Parameters
+    ----------
+    description:
+        The textual description of the goal or subtask.
+    source:
+        A label indicating where the goal originated.
+    parent_id:
+        If provided, the goal is treated as a subtask of ``parent_id``.
+    priority:
+        Ordering hint used when scheduling subtasks.
+    """
+
     goals = load_goals()
+
+    # Avoid duplicates when the same goal/parent pair already exists
+    for g in goals:
+        if g.get("description") == description and g.get("parent_id") == parent_id:
+            return g.get("id", "")
+
     goal_id = str(uuid.uuid4())
     goal = {
         "id": goal_id,
@@ -86,8 +111,19 @@ def add_goal(description: str, source: str = "user") -> str:
         "source": source,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "active": True,
+        "priority": priority,
     }
+    if parent_id:
+        goal["parent_id"] = parent_id
+
     goals.append(goal)
+
+    if parent_id:
+        for g in goals:
+            if g.get("id") == parent_id:
+                g.setdefault("subtasks", []).append(goal_id)
+                break
+
     save_goals(goals)
     return goal_id
 
