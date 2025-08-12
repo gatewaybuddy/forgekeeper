@@ -6,7 +6,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 
 ## 🎯 Milestones
 
-### Phase 1: Human-Guided Autonomy (Complete)
+### Phase 1: Human-Guided Autonomy — Complete
 - [x] Define agents and roles in `AGENTS.md`
 - [x] Load and summarize code files
 - [x] Accept and interpret natural language task prompts
@@ -22,13 +22,20 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 - `forgekeeper/self_review.py` reviews recent commits and logs check results for the active task.
 
 ### Phase 2: Semi-Autonomous Execution (Complete)
-- [x] Read from `Tasks.md`
-- [x] Evaluate and rank tasks by priority and feasibility
-- [x] Complete tasks independently with user review
-- [x] Self-reflect on outcomes using internal memory module
-- [x] Persist reflections to a long-term memory log
-- [x] Use stored memories to refine future task selection and execution
-- [x] Generate follow-up tasks based on reflection outcomes
+
+- **Autonomous Execution**
+  - [x] Read from `Tasks.md`
+  - [x] Evaluate and rank tasks by priority and feasibility
+  - [x] Schedule and execute top-priority tasks without direct supervision
+  - [x] Request user confirmation before committing code changes
+  - [x] Log execution steps and errors for later review
+
+- **Memory Reflection**
+  - [x] Capture task context and results in a long-term memory store
+  - [x] Summarize each task outcome and tag with relevant metadata
+  - [x] Recall related memories when planning new tasks
+  - [x] Use reflections to refine task prioritization and execution strategies
+  - [x] Generate follow-up tasks based on insights from stored memories
 
 Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks, learn from results, and plan next steps with minimal oversight. Upcoming refinement will focus on improving memory retrieval fidelity and task scheduling heuristics.
 
