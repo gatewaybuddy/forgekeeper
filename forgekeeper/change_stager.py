@@ -81,17 +81,32 @@ def diff_and_stage_changes(
 
     staged_before: List[str] = repo.git.diff("--name-only", "--cached").splitlines()
 
-    def _write_log(data: Dict[str, object]) -> None:
+    def _write_log(new_files: List[str], outcome: str) -> Dict[str, object]:
+        """Record staging outcomes, aggregating across multiple calls.
+
+        Each task may touch several files. Subsequent calls for the same
+        ``task_id`` should append to the log rather than overwrite it. The
+        log file therefore stores the union of all staged files.
+        """
+
         logs_dir = Path(repo.working_tree_dir) / "logs" / task_id
         logs_dir.mkdir(parents=True, exist_ok=True)
         log_file = logs_dir / "stager.json"
-        payload = {"files": data.get("files", []), "outcome": data.get("outcome")}
+
+        existing: Dict[str, object] = {}
+        if log_file.exists():
+            try:
+                existing = json.loads(log_file.read_text(encoding="utf-8"))
+            except Exception:
+                existing = {}
+
+        files = sorted(set(existing.get("files", []) + new_files))
+        payload = {"files": files, "outcome": outcome}
         log_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return payload
 
     if dry_run:
-        files = sorted(set(staged_before + [rel_path]))
-        result = {"files": files, "outcome": "dry-run"}
-        _write_log(result)
+        result = _write_log(sorted(set(staged_before + [rel_path])), "dry-run")
         log.info(f"Dry run enabled; skipping write and stage for {file_path}")
         return result
 
@@ -100,8 +115,7 @@ def diff_and_stage_changes(
         repo.index.add([str(p)])
 
         files = repo.git.diff("--name-only", "--cached").splitlines()
-        result = {"files": files, "outcome": "success"}
-        _write_log(result)
+        result = _write_log(files, "success")
         return result
     except Exception as exc:  # pragma: no cover - best effort for restore
         p.write_text(original_code, encoding="utf-8")
@@ -111,6 +125,6 @@ def diff_and_stage_changes(
             log.warning(f"Failed to unstage repository: {restore_exc}")
         log.error(f"Failed to stage {file_path}: {exc}")
         result = {"files": [], "outcome": "error", "error": str(exc)}
-        _write_log(result)
+        _write_log([], "error")
         return result
 

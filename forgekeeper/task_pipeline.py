@@ -161,7 +161,6 @@ class TaskPipeline:
             if file_path in changed or str(p) in changed:
                 modified = p.read_text(encoding="utf-8")
                 diff_and_stage_changes(original, modified, file_path, task_id=task_id)
-                break
 
         result = commit_and_push_changes(desc, task_id=task_id)
         if result.get("passed"):

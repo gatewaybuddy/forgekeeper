@@ -50,34 +50,50 @@ def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
 def test_run_next_task_executes_chain(tmp_path, monkeypatch):
     tasks_md = tmp_path / "tasks.md"
     tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
-    repo_file = tmp_path / "foo.py"
-    repo_file.write_text("print('hi')\n", encoding="utf-8")
+    repo_file_a = tmp_path / "foo.py"
+    repo_file_b = tmp_path / "bar.py"
+    repo_file_a.write_text("print('hi')\n", encoding="utf-8")
+    repo_file_b.write_text("print('hey')\n", encoding="utf-8")
 
     pipeline = tp.TaskPipeline(tasks_md)
 
     monkeypatch.setattr(
         tp,
         "summarize_repository",
-        lambda root=".": {str(repo_file): {"summary": "print", "lang": "py"}},
+        lambda root=".": {
+            str(repo_file_a): {"summary": "print", "lang": "py"},
+            str(repo_file_b): {"summary": "print", "lang": "py"},
+        },
     )
     monkeypatch.setattr(
         tp,
         "analyze_repo_for_task",
-        lambda *_: [{"file": str(repo_file), "summary": "print", "lang": "py"}],
+        lambda *_: [
+            {"file": str(repo_file_a), "summary": "print", "lang": "py"},
+            {"file": str(repo_file_b), "summary": "print", "lang": "py"},
+        ],
     )
 
     def fake_generate(task, file_path, file_summary, guidelines):
-        return (
-            f"--- a/{file_path}\n+++ b/{file_path}\n@@ -1 +1 @@\n-print('hi')\n+print('bye')\n"
-        )
+        if file_path == str(repo_file_a):
+            return (
+                f"--- a/{file_path}\n+++ b/{file_path}\n@@ -1 +1 @@\n-print('hi')\n+print('bye')\n"
+            )
+        else:
+            return (
+                f"--- a/{file_path}\n+++ b/{file_path}\n@@ -1 +1 @@\n-print('hey')\n+print('yo')\n"
+            )
 
     monkeypatch.setattr(tp, "generate_code_edit", fake_generate)
     monkeypatch.setattr(tp, "commit_and_push_changes", lambda *a, **k: {"passed": True})
-    monkeypatch.setattr(
-        tp,
-        "diff_and_stage_changes",
-        lambda *a, **k: {"files": [str(repo_file)], "outcome": "success"},
-    )
+
+    staged: list[str] = []
+
+    def fake_diff(original, modified, file_path, **kwargs):
+        staged.append(str(file_path))
+        return {"files": list(staged), "outcome": "success"}
+
+    monkeypatch.setattr(tp, "diff_and_stage_changes", fake_diff)
 
     cwd = os.getcwd()
     os.chdir(tmp_path)
@@ -87,6 +103,8 @@ def test_run_next_task_executes_chain(tmp_path, monkeypatch):
         os.chdir(cwd)
 
     assert result and result["passed"]
-    assert repo_file.read_text(encoding="utf-8") == "print('bye')\n"
+    assert repo_file_a.read_text(encoding="utf-8") == "print('bye')\n"
+    assert repo_file_b.read_text(encoding="utf-8") == "print('yo')\n"
+    assert staged == [str(repo_file_a), str(repo_file_b)]
     task = pipeline.queue.get_task("sample")
     assert task is not None and task.status == "done"

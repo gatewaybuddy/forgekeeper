@@ -78,3 +78,21 @@ def test_diff_and_stage_changes_dry_run(tmp_path):
     assert not staged
     log_path = tmp_path / "logs" / "t3" / "stager.json"
     assert json.loads(log_path.read_text(encoding="utf-8")) == result
+
+
+def test_diff_and_stage_changes_accumulates(tmp_path):
+    repo = Repo.init(tmp_path)
+    file_a = tmp_path / "a.txt"
+    file_b = tmp_path / "b.txt"
+    file_a.write_text("a", encoding="utf-8")
+    file_b.write_text("b", encoding="utf-8")
+    repo.index.add([str(file_a), str(file_b)])
+    repo.index.commit("init")
+
+    diff_and_stage_changes("a", "aa", str(file_a), task_id="t4")
+    diff_and_stage_changes("b", "bb", str(file_b), task_id="t4")
+
+    log_path = tmp_path / "logs" / "t4" / "stager.json"
+    data = json.loads(log_path.read_text(encoding="utf-8"))
+    assert sorted(data["files"]) == ["a.txt", "b.txt"]
+    assert data["outcome"] == "success"
