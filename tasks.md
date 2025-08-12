@@ -1,7 +1,11 @@
 # ✅ Forgekeeper Tasks
 
-- **Core milestone**: complete
-- **Automation milestone**: in progress
+## 🚦 Milestone Status
+
+| Milestone | Status |
+|-----------|--------|
+| Core | Done |
+| Automation | In Progress |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 

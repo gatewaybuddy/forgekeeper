@@ -1,6 +1,6 @@
 milestones:
   - epic: core
-    status: complete
+    status: done
   - epic: automation
     status: in_progress
 
