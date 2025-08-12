@@ -175,17 +175,18 @@ python -m forgekeeper.commands done 0   # mark task 0 completed
 ```
 
 For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
-priority item, runs analysis and code edits, and commits the result end-to-end
-without manual intervention.
+priority item, runs analysis and code edits, stages multiple files, and commits
+the result end-to-end without manual intervention. The high-level goal manager
+can automatically split complex tasks into subtasks for this pipeline.
 
 ## Self-review & commit-check workflow
 
 `git_committer.py` provides `commit_and_push_changes`, which runs language-
 specific checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing
 results under `logs/<task_id>/commit-checks.json`. After committing, run
-`self_review.py`'s `review_change_set(task_id)` to re-run checks on the latest
-commit, verify the commit message references the active task, and save a summary
-to `logs/<task_id>/self-review.json`.
+`self_review.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
+reasoning on the latest commit, verify the commit message references the active
+task, and save a summary to `logs/<task_id>/self-review.json`.
 
 ## Optional `roadmap_updater` workflow
 
