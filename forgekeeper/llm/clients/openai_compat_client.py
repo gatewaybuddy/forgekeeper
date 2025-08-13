@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any, Callable, Dict, Iterable, Iterator
 
 import requests
+
+from forgekeeper.logger import get_logger
+from forgekeeper.telemetry import estimate_tokens, log_request_metrics
+
+log = get_logger(__name__)
 
 # Environment variables mapping model aliases to their base URLs.
 MODEL_BASE_URL_ENV: Dict[str, str] = {
@@ -33,12 +39,25 @@ def _get_base_url(model_alias: str) -> str:
     return base_url.rstrip("/")
 
 
-def _sse_request(url: str, payload: Dict[str, Any], stream_handler: Callable[[str], None] | None) -> Iterator[str]:
+def _sse_request(
+    url: str,
+    payload: Dict[str, Any],
+    model_alias: str,
+    stream_handler: Callable[[str], None] | None,
+) -> Iterator[str]:
     """Send a streaming request and yield tokens from SSE responses."""
+    prompt_text = payload.get("prompt") or "".join(m.get("content", "") for m in payload.get("messages", []))
+    completion_chunks: list[str] = []
+    start = time.time()
+    log.info("Stream started for %s", model_alias)
     with requests.post(url, json=payload, stream=True) as response:
         response.raise_for_status()
         for line in response.iter_lines(decode_unicode=True):
-            if not line or not line.startswith("data: "):
+            if not line:
+                log.warning("Stream backpressure detected for %s", model_alias)
+                continue
+            if not line.startswith("data: "):
+                log.debug("Stream control line for %s: %s", model_alias, line)
                 continue
             data = line[6:]
             if data.strip() == "[DONE]":
@@ -50,9 +69,16 @@ def _sse_request(url: str, payload: Dict[str, Any], stream_handler: Callable[[st
             if token is None:
                 token = event["choices"][0].get("text")
             if token:
+                completion_chunks.append(token)
                 if stream_handler:
                     stream_handler(token)
+                log.debug("Streaming token for %s: %s", model_alias, token)
                 yield token
+    latency = time.time() - start
+    prompt_tokens = estimate_tokens(prompt_text)
+    completion_tokens = estimate_tokens("".join(completion_chunks))
+    log.info("Stream ended for %s", model_alias)
+    log_request_metrics(model_alias, prompt_tokens, completion_tokens, latency)
 
 
 def chat(
@@ -73,14 +99,23 @@ def chat(
     url = f"{_get_base_url(model_alias)}/v1/chat/completions"
     payload: Dict[str, Any] = {"model": kwargs.pop("model", model_alias), "messages": messages, **kwargs}
 
+    prompt_text = "".join(m.get("content", "") for m in messages)
     if stream:
         payload["stream"] = True
-        return _sse_request(url, payload, stream_handler)
+        return _sse_request(url, payload, model_alias, stream_handler)
 
+    start = time.time()
     response = requests.post(url, json=payload)
     response.raise_for_status()
+    latency = time.time() - start
     data = response.json()
-    return data["choices"][0]["message"]
+    message = data["choices"][0]["message"]
+    text = message.get("content", "")
+    usage = data.get("usage", {})
+    prompt_tokens = usage.get("prompt_tokens") or estimate_tokens(prompt_text)
+    completion_tokens = usage.get("completion_tokens") or estimate_tokens(text)
+    log_request_metrics(model_alias, prompt_tokens, completion_tokens, latency)
+    return message
 
 
 def completion(
@@ -95,14 +130,22 @@ def completion(
     url = f"{_get_base_url(model_alias)}/v1/completions"
     payload: Dict[str, Any] = {"model": kwargs.pop("model", model_alias), "prompt": prompt, **kwargs}
 
+    prompt_text = prompt
     if stream:
         payload["stream"] = True
-        return _sse_request(url, payload, stream_handler)
+        return _sse_request(url, payload, model_alias, stream_handler)
 
+    start = time.time()
     response = requests.post(url, json=payload)
     response.raise_for_status()
+    latency = time.time() - start
     data = response.json()
-    return data["choices"][0]["text"]
+    text = data["choices"][0]["text"]
+    usage = data.get("usage", {})
+    prompt_tokens = usage.get("prompt_tokens") or estimate_tokens(prompt_text)
+    completion_tokens = usage.get("completion_tokens") or estimate_tokens(text)
+    log_request_metrics(model_alias, prompt_tokens, completion_tokens, latency)
+    return text
 
 
 __all__ = ["chat", "completion"]
