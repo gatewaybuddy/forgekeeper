@@ -18,6 +18,27 @@ services:
     networks: [forgekeeper-net]
     ports: ["${PYTHON_PORT}:${PYTHON_PORT}"]
 
+  vllm-core:
+    image: forgekeeper-vllm
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
+    env_file: .env
+    networks: [forgekeeper-net]
+    ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
+    entrypoint: ["./scripts/run_vllm_core.sh"]
+
+  vllm-coder:
+    profiles: ["coder"]
+    image: forgekeeper-vllm
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
+    env_file: .env
+    networks: [forgekeeper-net]
+    ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
+    entrypoint: ["./scripts/run_vllm_coder.sh"]
+
 networks:
   forgekeeper-net:
     external: true
