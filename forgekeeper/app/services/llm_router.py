@@ -7,10 +7,11 @@ BACKEND = os.getenv("LLM_BACKEND", "llamacpp").lower()
 log = get_logger(__name__, debug=DEBUG_MODE)
 log.debug("Backend from env: %s", os.getenv("LLM_BACKEND"))
 
-# === Core Model Setup ===
+# === Backend Setup ===
 if BACKEND == "openai":
-    # Use a local Harmony conversation model loaded from disk
+    # Core uses local Harmony conversation model loaded from disk
     from forgekeeper.app.services.llm_service_openai_harmony import ask_llm as backend_ask
+    from forgekeeper.app.shared.models import llm_coder
 
     SYSTEM_MESSAGE = os.getenv("OPENAI_SYSTEM_PROMPT", "")
     REASONING = os.getenv("OPENAI_REASONING_EFFORT")
@@ -19,25 +20,32 @@ if BACKEND == "openai":
         prompt = verify_prompt(prompt)
         return backend_ask(prompt, system_message=SYSTEM_MESSAGE, reasoning=REASONING)
 
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        return llm_coder.ask(prompt)
+
 elif BACKEND == "vllm":
-    from forgekeeper.llm.llm_service_vllm import ask_llm as backend_ask
+    from forgekeeper.llm.llm_service_vllm import llm_core, llm_coder
 
     def ask_llm(prompt: str):
         prompt = verify_prompt(prompt)
-        return backend_ask(prompt)
+        return llm_core.ask(prompt)
+
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        return llm_coder.ask(prompt)
 
 else:
     from forgekeeper.app.services.llm_service_llamacpp import ask_llm as backend_ask
+    from forgekeeper.app.shared.models import llm_coder
 
     def ask_llm(prompt: str):
         prompt = verify_prompt(prompt)
         return backend_ask(prompt)
 
-# === Coder Model Setup (always local) ===
-from forgekeeper.app.shared.models import llm_coder
-def ask_coder(prompt: str):
-    prompt = verify_prompt(prompt)
-    return llm_coder.ask(prompt)
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        return llm_coder.ask(prompt)
 
 # === Metadata/Display ===
 def get_backend():
