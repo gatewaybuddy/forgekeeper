@@ -3,6 +3,8 @@ import uuid
 from forgekeeper.app.chats.memory_store import save_message, load_memory
 from forgekeeper.app.self.proposal_engine import propose_code_change
 from forgekeeper.app.interpreter.prompt_mapper import interpret_prompt
+from forgekeeper.llm.clients import openai_compat_client
+from .tool_utils import build_tool_specs, execute_tool_call
 
 class ForgeAgent:
     def __init__(self, name="ForgeKeeper", session_id=None):
@@ -28,10 +30,23 @@ class ForgeAgent:
         return propose_code_change(reason, module_path, suggestion, line_number)
 
     def respond(self, llm, user_input):
+        """Respond to ``user_input`` using the core model and tool calling."""
         prompt = self.format_prompt(user_input)
-        response = llm.generate(prompt)
-        save_message(self.session_id, "assistant", response)
-        return response
+        messages = [{"role": "user", "content": prompt}]
+        tools = build_tool_specs()
+        message = openai_compat_client.chat("core", messages, tools=tools)
+        tool_calls = message.get("tool_calls") or []
+        if tool_calls:
+            messages.append(message)
+            for call in tool_calls:
+                result = execute_tool_call(call)
+                save_message(self.session_id, "tool", result)
+                messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
+            message = openai_compat_client.chat("core", messages)
+
+        content = message.get("content", "")
+        save_message(self.session_id, "assistant", content)
+        return content
 
     def format_prompt(self, user_input):
         prompt = f"[SYS]\nYou are {self.name}. Think carefully, then respond.\n[/SYS]\n"
