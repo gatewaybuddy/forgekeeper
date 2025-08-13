@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Dict
 
 from forgekeeper.llm.clients import openai_compat_client
 from forgekeeper.app.utils.prompt_guard import verify_prompt
@@ -27,9 +27,9 @@ def ask_llm(prompt: str, **kwargs: Any):
     """
     prompt = verify_prompt(prompt)
     messages = [{"role": "user", "content": prompt}]
-    result: str | Iterable[str] = openai_compat_client.chat("core", messages, **kwargs)
-    if isinstance(result, str):
-        text = result
+    result: Dict[str, Any] | Iterable[str] = openai_compat_client.chat("core", messages, **kwargs)
+    if isinstance(result, dict):
+        text = result.get("content", "")
     else:
         text = "".join(result)
     return extract_json(text)

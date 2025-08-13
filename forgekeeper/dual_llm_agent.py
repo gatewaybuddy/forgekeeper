@@ -15,10 +15,10 @@ from forgekeeper.app.services.llm_router import (
 from forgekeeper.app.utils.json_helpers import extract_json
 from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
-from forgekeeper.app.services.reflective_ask_core import reflective_ask_core
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
-from forgekeeper.llm import get_llm
+from forgekeeper.llm.clients import openai_compat_client
+from forgekeeper.agent.tool_utils import build_tool_specs, execute_tool_call
 from forgekeeper.task_pipeline import TaskPipeline
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
@@ -129,12 +129,9 @@ def execute_next_task(session_id: str) -> None:
         append_entry(task_id, task.description, "aborted", [], "Commit declined", [])
 
 def ask_core(prompt, session_id):
-    use_reflection = os.getenv("USE_REFLECTIVE_CORE", "true").lower() == "true"
-    if use_reflection:
-        return reflective_ask_core(prompt, session_id)
-
-    # fallback to simple single-pass Core logic
+    """Send ``prompt`` to the core model and handle tool calls."""
     from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
+
     system_prompt = build_system_prompt(session_id)
     context = summarize_thoughts(session_id)
     memory = get_memory(session_id)
@@ -142,10 +139,24 @@ def ask_core(prompt, session_id):
     retrieved = retrieve_similar_entries(session_id, prompt, top_k=3)
     vector_summary = "\n".join(f"- {doc}" for doc, meta in retrieved) if retrieved else ""
     full_prompt = build_memory_prompt(prompt, system_prompt, context, vector_summary, prompt_mode)
-    llm = get_llm()
-    response = llm.generate(full_prompt)
-    save_message(session_id, "core", response)
-    return response
+
+    messages = [{"role": "user", "content": full_prompt}]
+    tools = build_tool_specs()
+    message = openai_compat_client.chat("core", messages, tools=tools)
+    tool_calls = message.get("tool_calls") or []
+    if tool_calls:
+        messages.append(message)
+        for call in tool_calls:
+            result = execute_tool_call(call)
+            messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
+        message = openai_compat_client.chat("core", messages)
+
+    content = message.get("content", "")
+    save_message(session_id, "core", content)
+    try:
+        return extract_json(content)
+    except Exception:
+        return content
 
 def postprocess_response(response):
     import re
@@ -157,11 +168,22 @@ def postprocess_response(response):
     return response
 
 def ask_coder(prompt, session_id):
-    llm = get_llm()
+    """Send ``prompt`` to the coder model and handle tool calls."""
     save_message(session_id, "user", prompt)
-    response = llm.generate(prompt)
-    save_message(session_id, "assistant", response)
-    return response
+    messages = [{"role": "user", "content": prompt}]
+    tools = build_tool_specs()
+    message = openai_compat_client.chat("coder", messages, tools=tools)
+    tool_calls = message.get("tool_calls") or []
+    if tool_calls:
+        messages.append(message)
+        for call in tool_calls:
+            result = execute_tool_call(call)
+            messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
+        message = openai_compat_client.chat("coder", messages)
+
+    content = message.get("content", "")
+    save_message(session_id, "assistant", content)
+    return content
 
 def route_intent(user_input, session_id):
     core_model = get_core_model_name()

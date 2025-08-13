@@ -62,11 +62,13 @@ def chat(
     stream: bool = False,
     stream_handler: Callable[[str], None] | None = None,
     **kwargs: Any,
-) -> Iterable[str] | str:
+) -> Iterable[str] | Dict[str, Any]:
     """Perform a chat completion request.
 
-    ``tools`` and ``tool_choice`` parameters are passed through verbatim via
-    ``kwargs`` to the upstream OpenAI-compatible server.
+    When ``stream`` is ``False`` a full OpenAI-style ``message`` dict is
+    returned so that callers can inspect fields such as ``tool_calls``. When
+    ``stream`` is ``True`` an iterator of string tokens is returned.  ``tools``
+    and ``tool_choice`` parameters are forwarded verbatim via ``kwargs``.
     """
     url = f"{_get_base_url(model_alias)}/v1/chat/completions"
     payload: Dict[str, Any] = {"model": kwargs.pop("model", model_alias), "messages": messages, **kwargs}
@@ -78,7 +80,7 @@ def chat(
     response = requests.post(url, json=payload)
     response.raise_for_status()
     data = response.json()
-    return data["choices"][0]["message"]["content"]
+    return data["choices"][0]["message"]
 
 
 def completion(
