@@ -10,7 +10,14 @@ from typing import Any, Callable, Dict, Iterable, Iterator
 import requests
 
 from forgekeeper.logger import get_logger
-from forgekeeper.telemetry import estimate_tokens, log_request_metrics
+from forgekeeper.telemetry import (
+    estimate_tokens,
+    log_request_metrics,
+    log_stream_start,
+    log_stream_token,
+    log_stream_end,
+    log_stream_backpressure,
+)
 
 log = get_logger(__name__)
 
@@ -49,12 +56,12 @@ def _sse_request(
     prompt_text = payload.get("prompt") or "".join(m.get("content", "") for m in payload.get("messages", []))
     completion_chunks: list[str] = []
     start = time.time()
-    log.info("Stream started for %s", model_alias)
+    log_stream_start(model_alias)
     with requests.post(url, json=payload, stream=True) as response:
         response.raise_for_status()
         for line in response.iter_lines(decode_unicode=True):
             if not line:
-                log.warning("Stream backpressure detected for %s", model_alias)
+                log_stream_backpressure(model_alias)
                 continue
             if not line.startswith("data: "):
                 log.debug("Stream control line for %s: %s", model_alias, line)
@@ -72,12 +79,12 @@ def _sse_request(
                 completion_chunks.append(token)
                 if stream_handler:
                     stream_handler(token)
-                log.debug("Streaming token for %s: %s", model_alias, token)
+                log_stream_token(model_alias, token)
                 yield token
     latency = time.time() - start
     prompt_tokens = estimate_tokens(prompt_text)
     completion_tokens = estimate_tokens("".join(completion_chunks))
-    log.info("Stream ended for %s", model_alias)
+    log_stream_end(model_alias)
     log_request_metrics(model_alias, prompt_tokens, completion_tokens, latency)
 
 
