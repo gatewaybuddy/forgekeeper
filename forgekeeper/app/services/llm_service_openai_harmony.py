@@ -31,6 +31,7 @@ from openai_harmony import (
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.app.utils.prompt_guard import verify_prompt
+from forgekeeper.app.utils.harmony_parser import parse_harmony_tool_call
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -44,7 +45,14 @@ TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
 DEFAULT_REASONING = os.getenv("OPENAI_REASONING_EFFORT", "medium")
 
-ENCODING = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+# Loading the encoding may require downloading a vocab file.  In constrained
+# environments this can fail, so perform it lazily and fall back to ``None`` to
+# allow tests to patch the encoding or skip Harmony-specific features.
+try:  # pragma: no cover - optional download
+    ENCODING = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+except Exception as exc:  # pragma: no cover - defensive logging
+    log.warning("Failed to load Harmony encoding: %s", exc)
+    ENCODING = None
 
 _llm: Llama | None = None
 
@@ -116,6 +124,9 @@ def _build_conversation(
 def _render_conversation(convo: Conversation) -> Tuple[str, List[str]]:
     """Render conversation to text and stop sequences using Harmony encoding."""
 
+    if ENCODING is None:
+        raise RuntimeError("Harmony encoding is not available")
+
     tokens = ENCODING.render_conversation_for_completion(convo, Role.ASSISTANT)
     prompt_text = ENCODING.decode_utf8(tokens)
 
@@ -131,7 +142,7 @@ def ask_llm(
     temperature: float | None = None,
     top_p: float | None = None,
     max_tokens: int | None = None,
-) -> str:
+) -> Any:
     """Ask the local Harmony model a question.
 
     ``reasoning``, ``temperature``, ``top_p`` and ``max_tokens`` may be provided
@@ -182,7 +193,11 @@ def ask_llm(
             top_p=top_p,
             stop=stop,
         )
-        return output["choices"][0]["text"].strip()
+        text = output["choices"][0]["text"].strip()
+        tool = parse_harmony_tool_call(text)
+        if tool:
+            return {"function_call": tool}
+        return text
     except Exception as exc:  # pragma: no cover - defensive logging
         log.error("Harmony model inference failed: %s", exc)
         return ""
