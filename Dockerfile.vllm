@@ -3,7 +3,8 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 # Install Python and build essentials
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    ln -s /usr/bin/python3 /usr/bin/python
 
 # Install CUDA-enabled PyTorch and vLLM
 RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121 && \
@@ -19,5 +20,4 @@ ENV VLLM_PORT_CORE=8000 \
     VLLM_PORT_CODER=8001
 EXPOSE $VLLM_PORT_CORE $VLLM_PORT_CODER
 
-ENTRYPOINT ["/bin/bash"]
-CMD ["scripts/run_vllm_core.sh"]
+ENTRYPOINT ["./scripts/run_vllm_core.sh"]

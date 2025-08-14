@@ -1,32 +1,25 @@
 version: "3.9"
 services:
   vllm-core:
-    image: vllm/vllm-openai:latest
+    image: forgekeeper-vllm
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
     env_file: ./.env
     networks: [forgekeeper-net]
-    command: >
-      python -m vllm.entrypoints.openai.api_server \
-      --host 0.0.0.0 \
-      --port ${VLLM_PORT_CORE} \
-      --model ${VLLM_MODEL_CORE} \
-      --tensor-parallel-size ${VLLM_TP} \
-      --max-model-len ${VLLM_MAX_MODEL_LEN} \
-      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
     ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
+    entrypoint: ["./scripts/run_vllm_core.sh"]
 
   vllm-coder:
-    image: vllm/vllm-openai:latest
+    profiles: ["coder"]
+    image: forgekeeper-vllm
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm
     env_file: ./.env
     networks: [forgekeeper-net]
-    command: >
-      python -m vllm.entrypoints.openai.api_server \
-      --host 0.0.0.0 \
-      --port ${VLLM_PORT_CODER} \
-      --model ${VLLM_MODEL_CODER} \
-      --tensor-parallel-size ${VLLM_TP} \
-      --max-model-len ${VLLM_MAX_MODEL_LEN} \
-      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
     ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
+    entrypoint: ["./scripts/run_vllm_coder.sh"]
 
   backend:
     image: forgekeeper-backend
@@ -48,27 +41,6 @@ services:
     depends_on:
       - vllm-core
       - vllm-coder
-
-  vllm-core:
-    image: forgekeeper-vllm
-    build:
-      context: .
-      dockerfile: Dockerfile.vllm
-    env_file: ./.env
-    networks: [forgekeeper-net]
-    ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
-    entrypoint: ["./scripts/run_vllm_core.sh"]
-
-  vllm-coder:
-    profiles: ["coder"]
-    image: forgekeeper-vllm
-    build:
-      context: .
-      dockerfile: Dockerfile.vllm
-    env_file: ./.env
-    networks: [forgekeeper-net]
-    ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
-    entrypoint: ["./scripts/run_vllm_coder.sh"]
 
 networks:
   forgekeeper-net:
