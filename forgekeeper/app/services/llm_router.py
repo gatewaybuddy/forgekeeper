@@ -3,15 +3,14 @@ from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.app.utils.prompt_guard import verify_prompt
 
-BACKEND = os.getenv("LLM_BACKEND", "llamacpp").lower()
+BACKEND = os.getenv("LLM_BACKEND", "vllm").lower()
 log = get_logger(__name__, debug=DEBUG_MODE)
 log.debug("Backend from env: %s", os.getenv("LLM_BACKEND"))
 
 # === Backend Setup ===
 if BACKEND == "openai":
-    # Core uses local Harmony conversation model loaded from disk
+    # Use OpenAI‑compatible Harmony backend for both core and coder
     from forgekeeper.app.services.llm_service_openai_harmony import ask_llm as backend_ask
-    from forgekeeper.app.shared.models import llm_coder
 
     SYSTEM_MESSAGE = os.getenv("OPENAI_SYSTEM_PROMPT", "")
     REASONING = os.getenv("OPENAI_REASONING_EFFORT")
@@ -22,7 +21,7 @@ if BACKEND == "openai":
 
     def ask_coder(prompt: str):
         prompt = verify_prompt(prompt)
-        return llm_coder.ask(prompt)
+        return backend_ask(prompt, system_message=SYSTEM_MESSAGE, reasoning=REASONING)
 
 elif BACKEND == "vllm":
     from forgekeeper.llm.llm_service_vllm import llm_core, llm_coder
@@ -35,17 +34,8 @@ elif BACKEND == "vllm":
         prompt = verify_prompt(prompt)
         return llm_coder.ask(prompt)
 
-else:
-    from forgekeeper.app.services.llm_service_llamacpp import ask_llm as backend_ask
-    from forgekeeper.app.shared.models import llm_coder
-
-    def ask_llm(prompt: str):
-        prompt = verify_prompt(prompt)
-        return backend_ask(prompt)
-
-    def ask_coder(prompt: str):
-        prompt = verify_prompt(prompt)
-        return llm_coder.ask(prompt)
+else:  # pragma: no cover - environment misconfiguration
+    raise ValueError(f"Unsupported LLM_BACKEND: {BACKEND}")
 
 # === Metadata/Display ===
 def get_backend():
@@ -53,9 +43,11 @@ def get_backend():
 
 def get_core_model_name():
     if BACKEND == "openai":
-        return os.getenv("OPENAI_MODEL_PATH", "gpt-oss")
-    else:
-        return os.getenv("LLM_CORE_PATH", "llamacpp")
+        return os.getenv("OPENAI_MODEL", "gpt-4o")
+    return os.getenv("VLLM_MODEL_CORE", "mistral-nemo-instruct")
+
 
 def get_coder_model_name():
-    return os.getenv("LLM_CODER_PATH", "wizardcoder")
+    if BACKEND == "openai":
+        return os.getenv("OPENAI_MODEL", "gpt-4o")
+    return os.getenv("VLLM_MODEL_CODER", "codellama-13b-python")

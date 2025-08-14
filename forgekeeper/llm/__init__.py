@@ -5,7 +5,7 @@ from .provider import LLMProvider
 
 def get_llm() -> LLMProvider:
     """Return an LLM provider based on environment configuration."""
-    impl = os.getenv("FK_LLM_IMPL", "transformers").lower()
+    impl = os.getenv("FK_LLM_IMPL", "vllm").lower()
     if impl == "transformers":
         from .transformers_impl import TransformersLLMProvider
 

@@ -10,7 +10,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate a short response using the configured LLM")
     parser.add_argument(
         "--backend",
-        choices=["vllm", "llama_cpp"],
+        choices=["vllm"],
+        default="vllm",
         help="Override FK_LLM_IMPL for this run",
     )
     args = parser.parse_args()

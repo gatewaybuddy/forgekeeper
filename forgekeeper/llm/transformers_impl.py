@@ -1,6 +1,12 @@
 import os
 from typing import Any
 
+"""Deprecated Transformers-based LLM provider.
+
+Forgekeeper now prefers vLLM servers. This module remains only for backwards
+compatibility and will be removed in a future release.
+"""
+
 from .provider import LLMProvider
 
 

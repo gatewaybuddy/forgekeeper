@@ -102,16 +102,27 @@ export FK_API_BASE=http://localhost:8000/v1
 
 ### vLLM Backend
 
-Forgekeeper communicates with two vLLM servers—one for the Core agent and one
-for the Coder. Copy `.env.example` to `.env` and adjust the following variables:
+Forgekeeper now defaults to **vLLM** for both the reasoning **Core** agent and
+the code‑oriented **Coder** agent. Ensure `LLM_BACKEND=vllm` is set in your
+environment (it's included in `.env.example`).
 
-- `VLLM_MODEL_CORE` / `VLLM_MODEL_CODER` – Hugging Face model IDs to load.
-- `VLLM_PORT_CORE` / `VLLM_PORT_CODER` – ports each server will listen on.
-- `FK_CORE_API_BASE` / `FK_CODER_API_BASE` – full base URLs used by the Python
-  agent when routing Core vs Coder traffic (e.g. `http://vllm-core:8001` and
-  `http://vllm-coder:8002`).
-- `VLLM_MAX_MODEL_LEN`, `VLLM_TP`, `VLLM_GPU_MEMORY_UTILIZATION`,
-  `VLLM_ENABLE_LOGPROBS` – optional performance tuning knobs.
+1. Copy the sample environment and edit as needed:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Provide Hugging Face model IDs and ports:
+
+   - `VLLM_MODEL_CORE` / `VLLM_MODEL_CODER`
+   - `VLLM_PORT_CORE` / `VLLM_PORT_CODER`
+
+3. Define API bases so the Python agent can route traffic:
+
+   - `FK_CORE_API_BASE` / `FK_CODER_API_BASE`
+
+Optional tuning flags include `VLLM_MAX_MODEL_LEN`, `VLLM_TP` and
+`VLLM_GPU_MEMORY_UTILIZATION`.
 
 #### Bare‑metal servers
 
@@ -127,8 +138,8 @@ Windows users can run the corresponding `.bat` scripts.
 
 #### Docker
 
-The `docker-compose.yml` file defines `vllm-core` and `vllm-coder` services.
-After copying `.env.example` to `.env` and optionally running
+`docker-compose.yml` includes `vllm-core` and `vllm-coder` services. After
+copying `.env.example` to `.env` and optionally running
 `./scripts/setup_docker_env.sh` to build images, start the servers with:
 
 ```bash
@@ -136,6 +147,13 @@ docker compose up -d vllm-core vllm-coder
 ```
 
 Other Forgekeeper services can then be launched via `docker compose up`.
+
+#### Routing Core vs Coder
+
+`forgekeeper.llm.llm_service_vllm` reads `FK_CORE_API_BASE` and
+`FK_CODER_API_BASE` to send requests to the appropriate server. If the coder
+model or base URL is missing, requests automatically fall back to the core
+model.
 
 #### Verification
 
