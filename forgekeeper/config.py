@@ -9,6 +9,9 @@ RUN_COMMIT_CHECKS = os.getenv("RUN_COMMIT_CHECKS", "true").lower() == "true"
 AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
 """Enable fully autonomous task execution."""
 
+ENABLE_OUTBOX = os.getenv("ENABLE_OUTBOX", "true").lower() == "true"
+"""Persist tool actions to an outbox and replay them on restart."""
+
 _checks_py = os.getenv("CHECKS_PY")
 if _checks_py:
     CHECKS_PY = [cmd.strip() for cmd in _checks_py.split(",") if cmd.strip()]

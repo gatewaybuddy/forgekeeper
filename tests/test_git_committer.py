@@ -16,6 +16,7 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
         "config.py",
         "logger.py",
         "git_committer.py",
+        "outbox.py",
         "diff_validator.py",
     ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
