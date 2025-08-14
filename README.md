@@ -185,6 +185,14 @@ reflections (use `--review` for raw JSON) so developers can audit recent
 activity. `TaskQueue` loads these entries and derives a *memory weight* where
 failures push tasks back and successes bring them forward in priority.
 
+## Multi-agent Planning
+
+Complex user requests can be decomposed into smaller subtasks and
+delegated to specialized agents. The planner assigns code-centric steps to
+the **Coder** agent and reasoning-oriented steps to the **Core** agent. A
+shared context log lets agents broadcast brief messages so each subtask
+can build on previous outputs.
+
 ## `tasks.md` format and `TaskQueue` usage
 
 Forgekeeper tracks work items in `tasks.md`, which contains checkbox lists under

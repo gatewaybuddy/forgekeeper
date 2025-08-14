@@ -27,9 +27,20 @@ This document defines the autonomous agents currently active—or planned—with
   - Assist with debugging, test scaffolding, and file edits  
   - Execute secure code blocks or generate safe code for review
 - **Special Abilities**:
-  - Code-specific context window tuning  
-  - Execution result parsing  
+  - Code-specific context window tuning
+  - Execution result parsing
   - Git commit suggestion and validation
+
+---
+
+## 🗂️ Delegation Strategy
+
+Forgekeeper splits complex requests into smaller steps and assigns each
+step to the most suitable agent. The planning module decomposes tasks and
+labels subtasks for either the **Core** or **Coder** agent using simple
+keyword heuristics. A lightweight communication protocol lets agents
+broadcast short context messages so later subtasks can build on earlier
+outputs.
 
 ---
 
