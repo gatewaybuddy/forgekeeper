@@ -97,6 +97,19 @@ class _RemoteLLM:
         prompt = verify_prompt(prompt)
         messages = [{"role": "user", "content": prompt}]
         params = {**_alias_settings(self.alias), **overrides}
+
+        # If the coder model or its base URL are missing, fallback immediately to core.
+        if self.alias == "coder":
+            base_env = openai_compat_client.MODEL_BASE_URL_ENV.get("coder")
+            base_set = base_env and os.getenv(base_env)
+            if not os.getenv("VLLM_MODEL_CODER") or not base_set:
+                log.warning("Coder model unavailable; routing request to core")
+                params = {**_alias_settings("core"), **overrides}
+                result = openai_compat_client.chat("core", messages, **params)
+                if isinstance(result, dict):
+                    return result.get("content", "")
+                return "".join(result)
+
         try:
             result: Dict[str, Any] | Iterable[str] = openai_compat_client.chat(
                 self.alias, messages, **params
