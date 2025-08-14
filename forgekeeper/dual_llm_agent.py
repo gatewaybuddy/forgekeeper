@@ -24,6 +24,8 @@ from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.memory.episodic import append_entry
 from pathlib import Path
+from forgekeeper.multi_agent_planner import split_for_agents
+from forgekeeper.agent.communication import broadcast_context, get_shared_context
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -96,14 +98,30 @@ def execute_next_task(session_id: str) -> None:
         data = extract_json(response) if isinstance(response, str) else response
     except Exception as exc:
         log.error(f"Failed to parse coder response: {exc}")
-        append_entry(task_id, task.description, "parse-error", [], "Failed to parse coder response", [])
+        append_entry(
+            task_id,
+            task.description,
+            "parse-error",
+            [],
+            "Failed to parse coder response",
+            [],
+            "negative",
+        )
         return
     file_path = data.get("file_path") if isinstance(data, dict) else None
     updated_code = data.get("updated_code", "") if isinstance(data, dict) else ""
 
     if not file_path:
         log.error("Coder response missing 'file_path'; aborting task.")
-        append_entry(task_id, task.description, "no-file", [], "Coder response missing file path", [])
+        append_entry(
+            task_id,
+            task.description,
+            "no-file",
+            [],
+            "Coder response missing file path",
+            [],
+            "negative",
+        )
         return
 
     p = Path(file_path)
@@ -113,20 +131,44 @@ def execute_next_task(session_id: str) -> None:
     files = result.get("files", [])
 
     if outcome != "success":
-        append_entry(task_id, task.description, outcome or "error", files, "Changes not staged", [])
+        append_entry(
+            task_id,
+            task.description,
+            outcome or "error",
+            files,
+            "Changes not staged",
+            [],
+            "negative",
+        )
         return
 
     if input("Commit staged changes? [y/N]: ").strip().lower().startswith("y"):
         commit_and_push_changes(f"feat: {task.description}", task_id=task_id)
         TaskPipeline().mark_done(task.description)
-        append_entry(task_id, task.description, "committed", files, "Changes committed", [])
+        append_entry(
+            task_id,
+            task.description,
+            "committed",
+            files,
+            "Changes committed",
+            [],
+            "positive",
+        )
     else:
         from git import Repo
 
         repo = Repo(p.resolve().parent, search_parent_directories=True)
         repo.git.restore("--staged", file_path)
         repo.git.checkout("--", file_path)
-        append_entry(task_id, task.description, "aborted", [], "Commit declined", [])
+        append_entry(
+            task_id,
+            task.description,
+            "aborted",
+            [],
+            "Commit declined",
+            [],
+            "negative",
+        )
 
 def ask_core(prompt, session_id):
     """Send ``prompt`` to the core model and handle tool calls."""
@@ -186,6 +228,33 @@ def ask_coder(prompt, session_id):
     return content
 
 def route_intent(user_input, session_id):
+    plan = split_for_agents(user_input)
+    broadcast_context("user", user_input)
+
+    if len(plan) > 1:
+        responses = []
+        for item in plan:
+            context_lines = "\n".join(
+                f"{c['agent']}: {c['message']}" for c in get_shared_context()
+            )
+            prompt = (
+                f"{item['task']}\n\nShared context:\n{context_lines}"
+                if context_lines
+                else item["task"]
+            )
+
+            if item["agent"] == "coder":
+                raw = ask_coder(prompt, session_id)
+            else:
+                raw = ask_core(prompt, session_id)
+                if isinstance(raw, dict) and "response" in raw:
+                    raw = raw["response"]
+
+            text = postprocess_response(raw)
+            broadcast_context(item["agent"], text)
+            responses.append(f"{item['agent']}: {text}")
+        return "\n".join(responses)
+
     core_model = get_core_model_name()
     memory = get_memory(session_id)
     parsed = ask_core(user_input, session_id)

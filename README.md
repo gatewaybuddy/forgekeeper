@@ -102,17 +102,41 @@ export FK_API_BASE=http://localhost:8000/v1
 
 ### vLLM Backend
 
-Configure vLLM-specific behaviour with environment variables:
+Forgekeeper communicates with two vLLM servers—one for the Core agent and one
+for the Coder. Copy `.env.example` to `.env` and adjust the following variables:
 
-- `LLM_BACKEND` (default `vllm`) – selects the backend implementation.
-- `VLLM_MODEL_CORE` – model identifier for the Core agent.
-- `VLLM_MODEL_CODER` – model identifier for the Coder agent.
-- `VLLM_HOST_CORE`/`VLLM_PORT_CORE` – host and port of the Core vLLM server.
-- `VLLM_HOST_CODER`/`VLLM_PORT_CODER` – host and port of the Coder vLLM server.
-- `VLLM_MAX_MODEL_LEN` – maximum context length expected by vLLM.
-- `VLLM_TP` – tensor parallelism degree.
-- `VLLM_GPU_MEMORY_UTILIZATION` – fraction of GPU memory allocated to vLLM.
-- `VLLM_ENABLE_LOGPROBS` – set to `true` to include log probabilities in responses.
+- `VLLM_MODEL_CORE` / `VLLM_MODEL_CODER` – Hugging Face model IDs to load.
+- `VLLM_PORT_CORE` / `VLLM_PORT_CODER` – ports each server will listen on.
+- `FK_CORE_API_BASE` / `FK_CODER_API_BASE` – full base URLs used by the Python
+  agent when routing Core vs Coder traffic (e.g. `http://vllm-core:8000`).
+- `VLLM_MAX_MODEL_LEN`, `VLLM_TP`, `VLLM_GPU_MEMORY_UTILIZATION`,
+  `VLLM_ENABLE_LOGPROBS` – optional performance tuning knobs.
+
+#### Bare‑metal servers
+
+Install [vLLM](https://github.com/vllm-project/vllm) locally and launch the
+servers:
+
+```bash
+./scripts/run_vllm_core.sh      # start Core model
+./scripts/run_vllm_coder.sh     # start Coder model
+```
+
+Windows users can run the corresponding `.bat` scripts.
+
+#### Docker
+
+The `docker-compose.yml` file defines `vllm-core` and `vllm-coder` services.
+After copying `.env.example` to `.env` and optionally running
+`./scripts/setup_docker_env.sh` to build images, start the servers with:
+
+```bash
+docker compose up -d vllm-core vllm-coder
+```
+
+Other Forgekeeper services can then be launched via `docker compose up`.
+
+#### Verification
 
 Verify the backend with the smoke-test CLI:
 
@@ -155,11 +179,19 @@ These are the commands run as part of the automated commit checks (`CHECKS_PY` a
 `forgekeeper/memory/episodic.py` records short reflections about each task
 attempt in `.forgekeeper/memory/episodic.jsonl`. Entries are appended via
 `append_entry`, which stores the task ID, outcome, changed files, a free-form
-summary, and any artifact paths for later review. The CLI helper
-`python -m forgekeeper.memory.episodic --review N` prints the last `N`
-reflections so developers can audit recent activity. `TaskQueue` loads these
-entries and derives a *memory weight* where failures push tasks back and
-successes bring them forward in priority.
+summary, sentiment, and any artifact paths for later review. The CLI helper
+`python -m forgekeeper.memory.episodic --browse N` pretty-prints the last `N`
+reflections (use `--review` for raw JSON) so developers can audit recent
+activity. `TaskQueue` loads these entries and derives a *memory weight* where
+failures push tasks back and successes bring them forward in priority.
+
+## Multi-agent Planning
+
+Complex user requests can be decomposed into smaller subtasks and
+delegated to specialized agents. The planner assigns code-centric steps to
+the **Coder** agent and reasoning-oriented steps to the **Core** agent. A
+shared context log lets agents broadcast brief messages so each subtask
+can build on previous outputs.
 
 ## `tasks.md` format and `TaskQueue` usage
 

@@ -150,7 +150,10 @@ class TaskPipeline:
         summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
         ranked = analyze_repo_for_task(desc, str(summaries_path))
+
+        # Use a set to avoid duplicates across multiple edit passes
         changed_files: Set[str] = set()
+
         for item in ranked:
             file_path = item["file"]
             summary = item.get("summary", "")
@@ -162,26 +165,31 @@ class TaskPipeline:
             changed = apply_unified_diff(patch)
             if file_path in changed or str(p) in changed:
                 modified = p.read_text(encoding="utf-8")
-                result = diff_and_stage_changes(
-                    original, modified, file_path, task_id=task_id
-                )
-                changed_files.update(result.get("files", []))
+                # Support both return styles (dict-with-files or None)
+                result = diff_and_stage_changes(original, modified, file_path, task_id=task_id)
+                if isinstance(result, dict) and "files" in result:
+                    changed_files.update(result.get("files", []))
+                else:
+                    changed_files.add(file_path)
 
         result = commit_and_push_changes(desc, task_id=task_id)
-        status = "committed" if result.get("passed") else "needs-review"
-        if result.get("passed"):
+
+        # Unified episodic logging (single entry)
+        passed = bool(result.get("passed"))
+        status = "success" if passed else "failed"
+        sentiment = "positive" if passed else "negative"
+        summary_text = f"Task '{desc}' {status}."
+        artifacts = [result.get("artifacts_path")] if result.get("artifacts_path") else []
+        sorted_changed = sorted(changed_files)
+
+        append_entry(task_id, desc, status, sorted_changed, summary_text, artifacts, sentiment)
+
+        if passed:
             self.mark_done(desc)
         else:
             self.mark_needs_review(desc)
-        append_entry(
-            task_id,
-            desc,
-            status,
-            sorted(changed_files),
-            "",
-            [result.get("artifacts_path", "")],
-        )
-        result["changed_files"] = sorted(changed_files)
+
+        result["changed_files"] = sorted_changed
         return result
 
     # ------------------------------------------------------------------
