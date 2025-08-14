@@ -20,7 +20,6 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## ⏳ Backlog
 
-- [ ] Add “undo last task” recovery mode
 - [ ] Improve multi-agent planning and delegation across tasks
 - [ ] Pin Python and Node dependencies for reproducible installs
 - [ ] Provide cross-platform setup script to automate environment creation
@@ -68,6 +67,9 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [x] Generate follow-up tasks based on reflection outcomes
 - [x] Summarize task success and emotional feedback into memory
 - [x] Add unit tests for task insertion utility
+
+- [x] Add “undo last task” recovery mode
+  *Implemented via `TaskPipeline.undo_last_task`.*
 
 ---
 
