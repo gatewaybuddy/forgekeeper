@@ -1,5 +1,33 @@
 version: "3.9"
 services:
+  vllm-core:
+    image: vllm/vllm-openai:latest
+    env_file: .env
+    networks: [forgekeeper-net]
+    command: >
+      python -m vllm.entrypoints.openai.api_server \
+      --host 0.0.0.0 \
+      --port ${VLLM_PORT_CORE} \
+      --model ${VLLM_MODEL_CORE} \
+      --tensor-parallel-size ${VLLM_TP} \
+      --max-model-len ${VLLM_MAX_MODEL_LEN} \
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
+    ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
+
+  vllm-coder:
+    image: vllm/vllm-openai:latest
+    env_file: .env
+    networks: [forgekeeper-net]
+    command: >
+      python -m vllm.entrypoints.openai.api_server \
+      --host 0.0.0.0 \
+      --port ${VLLM_PORT_CODER} \
+      --model ${VLLM_MODEL_CODER} \
+      --tensor-parallel-size ${VLLM_TP} \
+      --max-model-len ${VLLM_MAX_MODEL_LEN} \
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
+    ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
+
   backend:
     image: forgekeeper-backend
     env_file: .env
@@ -17,6 +45,9 @@ services:
     env_file: .env
     networks: [forgekeeper-net]
     ports: ["${PYTHON_PORT}:${PYTHON_PORT}"]
+    depends_on:
+      - vllm-core
+      - vllm-coder
 
   vllm-core:
     image: forgekeeper-vllm
