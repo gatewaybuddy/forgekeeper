@@ -23,6 +23,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "changed_files": ["a.py"],
             "summary": "first entry",
             "artifacts_paths": [],
+            "sentiment": "positive",
         },
         {
             "task_id": "T2",
@@ -31,6 +32,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "changed_files": ["b.py"],
             "summary": "second entry",
             "artifacts_paths": [],
+            "sentiment": "negative",
         },
         {
             "task_id": "T3",
@@ -39,6 +41,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "changed_files": ["c.py"],
             "summary": "third entry",
             "artifacts_paths": [],
+            "sentiment": "positive",
         },
     ]
 
@@ -64,3 +67,14 @@ def test_append_and_tail(tmp_path, monkeypatch):
     assert len(out_lines) == 2
     assert json.loads(out_lines[0])["task_id"] == "T2"
     assert json.loads(out_lines[1])["task_id"] == "T3"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "forgekeeper.memory.episodic", "--browse", "1"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    assert "T3" in result.stdout
+    assert "third entry" in result.stdout

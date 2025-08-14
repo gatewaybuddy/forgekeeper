@@ -149,6 +149,7 @@ class TaskPipeline:
         summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
         ranked = analyze_repo_for_task(desc, str(summaries_path))
+        changed_files: list[str] = []
         for item in ranked:
             file_path = item["file"]
             summary = item.get("summary", "")
@@ -161,8 +162,14 @@ class TaskPipeline:
             if file_path in changed or str(p) in changed:
                 modified = p.read_text(encoding="utf-8")
                 diff_and_stage_changes(original, modified, file_path, task_id=task_id)
+                changed_files.append(file_path)
 
         result = commit_and_push_changes(desc, task_id=task_id)
+        status = "success" if result.get("passed") else "failed"
+        sentiment = "positive" if result.get("passed") else "negative"
+        summary = f"Task '{desc}' {status}."
+        artifacts = [result.get("artifacts_path")] if result.get("artifacts_path") else []
+        append_entry(task_id, desc, status, changed_files, summary, artifacts, sentiment)
         if result.get("passed"):
             self.mark_done(desc)
         else:

@@ -304,6 +304,7 @@ def main() -> None:
                 changed_files,
                 summary,
                 artifacts,
+                "negative",
             )
             return
 
@@ -316,6 +317,7 @@ def main() -> None:
             review.get("changed_files", []),
             review.get("summary", ""),
             [str(review_artifact)],
+            "positive" if review.get("passed") else "negative",
         )
         if review["passed"]:
             log.info("Change-set review passed. Running self-review...")
@@ -339,13 +341,29 @@ def main() -> None:
 
                 # Record episodic memory success
                 summary = f"Attempt {attempt_num} for task '{task}' succeeded."
-                append_entry(task_id, task, "success", changed_files, summary, artifacts)
+                append_entry(
+                    task_id,
+                    task,
+                    "success",
+                    changed_files,
+                    summary,
+                    artifacts,
+                    "positive",
+                )
 
                 state.clear()
             else:
                 log.error("Self-review failed. Progress saved for inspection.")
                 summary = f"Attempt {attempt_num} for task '{task}' failed self-review."
-                append_entry(task_id, task, "self-review-failed", changed_files, summary, artifacts)
+                append_entry(
+                    task_id,
+                    task,
+                    "self-review-failed",
+                    changed_files,
+                    summary,
+                    artifacts,
+                    "negative",
+                )
                 _spawn_followup_task(state["current_task"], review)
             break
 
@@ -358,7 +376,15 @@ def main() -> None:
             state["blocked_artifact"] = str(artifact)
             artifacts.append(str(artifact))
             summary = f"Attempt {attempt_num} for task '{task}' failed change-set review."
-            append_entry(task_id, task, "failed", changed_files, summary, artifacts)
+            append_entry(
+                task_id,
+                task,
+                "failed",
+                changed_files,
+                summary,
+                artifacts,
+                "negative",
+            )
             break
 
         errors = "\n\n".join(
@@ -370,7 +396,15 @@ def main() -> None:
         save_state(state, STATE_PATH)
 
         summary = f"Attempt {attempt_num} for task '{task}' failed review; retrying."
-        append_entry(task_id, task, "retry", changed_files, summary, artifacts)
+        append_entry(
+            task_id,
+            task,
+            "retry",
+            changed_files,
+            summary,
+            artifacts,
+            "neutral",
+        )
 
     save_state(state, STATE_PATH)
 
