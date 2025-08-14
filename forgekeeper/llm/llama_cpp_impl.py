@@ -1,4 +1,11 @@
 import os
+"""Deprecated llama.cpp LLM provider.
+
+This module is retained for historical reference. Forgekeeper now uses vLLM
+servers via :mod:`forgekeeper.llm.llm_service_vllm` and this provider will be
+removed in a future release.
+"""
+
 from typing import Any
 
 from llama_cpp import Llama

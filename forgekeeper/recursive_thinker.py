@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from forgekeeper.app.shared.models import llm_core
+from forgekeeper.llm.llm_service_vllm import llm_core
 
 from .state_manager import load_state
 from .goal_manager import get_active_goals

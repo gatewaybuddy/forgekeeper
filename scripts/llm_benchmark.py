@@ -7,10 +7,9 @@ PROMPT_LENGTHS = [5, 50, 200]
 
 
 def _load_backend(name: str) -> Callable[[str], str]:
-    if name == "vllm":
-        from forgekeeper.llm.llm_service_vllm import ask_llm
-    else:
-        from forgekeeper.app.services.llm_service_llamacpp import ask_llm
+    if name != "vllm":
+        raise ValueError("Only the vLLM backend is supported")
+    from forgekeeper.llm.llm_service_vllm import ask_llm
     return ask_llm
 
 
@@ -22,8 +21,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark LLM backends")
     parser.add_argument(
         "--backend",
-        choices=["vllm", "llama_cpp"],
-        default="llama_cpp",
+        choices=["vllm"],
+        default="vllm",
         help="Backend to benchmark",
     )
     args = parser.parse_args()

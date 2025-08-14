@@ -1,9 +1,4 @@
 import json
-import sys
-import types
-
-fake_llm = types.SimpleNamespace(ask=lambda prompt: json.dumps({"summary": "stub", "emotion": "neutral"}))
-sys.modules['forgekeeper.app.shared.models'] = types.SimpleNamespace(llm_core=fake_llm)
 
 from forgekeeper import recursive_thinker as rt
 

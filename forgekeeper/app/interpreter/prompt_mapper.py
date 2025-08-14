@@ -5,9 +5,6 @@ from forgekeeper.app.chats.memory_store import (
     get_memory
 )
 from forgekeeper.app.utils.prompt_guard import verify_prompt
-from forgekeeper.app.interpreter.intent_parser import (
-    handle_possible_intent, confirm_intended_action
-)
 
 DEFAULT_SYS_PROMPT = os.getenv("DEFAULT_SYS_PROMPT", "You are ForgeKeeper, a helpful AI assistant and code crafter.")
 DEFAULT_PROMPT_MODE = os.getenv("DEFAULT_PROMPT_MODE", "inst").lower()
@@ -49,11 +46,6 @@ def interpret_prompt(user_input, session_id, llm=None):
     user_input = verify_prompt(user_input)
     lowered = user_input.lower()
 
-    # Handle confirmation flow
-    confirmation = confirm_intended_action(session_id, lowered)
-    if confirmation:
-        return confirmation
-
     # Update system prompt directly
     if lowered.startswith("set system prompt to"):
         new_sys = user_input.partition("to")[2].strip()
@@ -77,9 +69,5 @@ def interpret_prompt(user_input, session_id, llm=None):
 
     if "summarize what you've been thinking" in lowered or "what have you been thinking" in lowered:
         return summarize_thoughts(session_id)
-
-    # Forward to LLM-based intent parser
-    if llm is not None:
-        return handle_possible_intent(session_id, llm, user_input)
 
     return None

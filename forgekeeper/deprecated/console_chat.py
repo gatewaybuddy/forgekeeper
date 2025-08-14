@@ -4,7 +4,7 @@ import logging
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 # from forgekeeper.app.services.llm_service import ask_llm
-from forgekeeper.app.services.llm_service_llamacpp import ask_llm
+from forgekeeper.llm.llm_service_vllm import ask_llm
 from forgekeeper.app.services.code_catcher import auto_write_functions_from_response
 
 CLI_DEBUG = "--debug" in sys.argv
