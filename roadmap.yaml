@@ -28,13 +28,13 @@ epics:
     milestones:
       - id: M-020
         title: Multi-file edit support
-        status: todo
+        status: done
         links: ["forgekeeper/task_pipeline.py"]
       - id: M-021
         title: Diff-aware self-review with task-scoped tests
-        status: todo
+        status: done
         links: ["forgekeeper/self_review.py"]
       - id: M-022
         title: Subtask expansion in goal management
-        status: todo
+        status: done
         links: ["forgekeeper/high_level_goal_manager.py"]
