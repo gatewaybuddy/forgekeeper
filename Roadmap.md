@@ -50,10 +50,10 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 - Periodic self-generated roadmap and sprint plans
 - Optional push to remote repo with changelog and justification
 
-#### Upcoming Milestones
-- [ ] Multi-file edit support (`forgekeeper/task_pipeline.py`)
-- [ ] Diff-aware self-review with task-scoped tests (`forgekeeper/self_review.py`)
-- [ ] Subtask expansion in goal management (`forgekeeper/high_level_goal_manager.py`)
+#### Completed Milestones
+- [x] Multi-file edit support in `task_pipeline.py`
+- [x] Diff-aware self-review with task-scoped tests in `self_review.py`
+- [x] Subtask expansion in goal management via `high_level_goal_manager.py`
 
 ---
 
