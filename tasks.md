@@ -5,7 +5,7 @@
 | Milestone | Status |
 |-----------|--------|
 | Core | Done |
-| Automation | In Progress |
+| Automation | Done |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
