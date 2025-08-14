@@ -10,7 +10,7 @@ APIs. Progress on tasks is persisted back to ``tasks.md`` through the
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Set
 import json
 import re
 
@@ -22,6 +22,7 @@ from .code_editor import generate_code_edit, apply_unified_diff
 from .change_stager import diff_and_stage_changes
 from .git_committer import commit_and_push_changes
 from .memory.episodic import append_entry
+from git import Repo
 
 TASK_FILE = Path(__file__).resolve().parents[1] / "tasks.md"
 
@@ -149,6 +150,7 @@ class TaskPipeline:
         summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
         ranked = analyze_repo_for_task(desc, str(summaries_path))
+        changed_files: Set[str] = set()
         for item in ranked:
             file_path = item["file"]
             summary = item.get("summary", "")
@@ -160,13 +162,26 @@ class TaskPipeline:
             changed = apply_unified_diff(patch)
             if file_path in changed or str(p) in changed:
                 modified = p.read_text(encoding="utf-8")
-                diff_and_stage_changes(original, modified, file_path, task_id=task_id)
+                result = diff_and_stage_changes(
+                    original, modified, file_path, task_id=task_id
+                )
+                changed_files.update(result.get("files", []))
 
         result = commit_and_push_changes(desc, task_id=task_id)
+        status = "committed" if result.get("passed") else "needs-review"
         if result.get("passed"):
             self.mark_done(desc)
         else:
             self.mark_needs_review(desc)
+        append_entry(
+            task_id,
+            desc,
+            status,
+            sorted(changed_files),
+            "",
+            [result.get("artifacts_path", "")],
+        )
+        result["changed_files"] = sorted(changed_files)
         return result
 
     # ------------------------------------------------------------------
@@ -184,3 +199,56 @@ class TaskPipeline:
         task = self.queue.get_task(description)
         if task:
             self.queue.mark_needs_review(task)
+
+    # ------------------------------------------------------------------
+    # Undo helpers
+    def undo_last_task(self) -> Optional[Dict[str, Any]]:
+        """Revert the most recent commit and log the undo in episodic memory."""
+
+        repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
+        try:
+            last_commit = repo.head.commit
+        except Exception:
+            return None
+
+        files = repo.git.diff("--name-only", "HEAD~1").splitlines()
+        title = last_commit.message.splitlines()[0]
+        try:
+            repo.git.revert("HEAD", no_edit=True)
+            append_entry(
+                last_commit.hexsha,
+                title,
+                "undo",
+                files,
+                f"Reverted {last_commit.hexsha}",
+                [],
+            )
+            return {"reverted_commit": last_commit.hexsha, "files": files}
+        except Exception as exc:
+            append_entry(
+                last_commit.hexsha,
+                title,
+                "undo-failed",
+                files,
+                str(exc),
+                [],
+            )
+            return {"error": str(exc), "files": files}
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+    import argparse
+    parser = argparse.ArgumentParser(description="Task pipeline utilities")
+    parser.add_argument(
+        "--undo-last",
+        action="store_true",
+        help="Revert the most recent task's changes and commit",
+    )
+    args = parser.parse_args()
+    pipeline = TaskPipeline()
+    if args.undo_last:
+        info = pipeline.undo_last_task()
+        print(json.dumps(info, indent=2))
+    else:
+        result = pipeline.run_next_task()
+        print(json.dumps(result or {}, indent=2))
