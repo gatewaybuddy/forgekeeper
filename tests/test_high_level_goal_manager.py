@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import sys
+import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -73,6 +74,8 @@ def test_complex_goal_breakdown(tmp_path, monkeypatch):
     assert len(data) == 3
     parent = next(g for g in data if g.get("description") == DummyTask.description)
     subtasks = [g for g in data if g.get("parent_id") == parent["id"]]
-    assert [g["priority"] for g in subtasks] == [0, 1]
+    assert [g.get("priority") for g in subtasks] == pytest.approx([1.0, 0.5])
+    assert subtasks[0].get("depends_on", []) == []
+    assert subtasks[1].get("depends_on") == [subtasks[0]["id"]]
     assert parent.get("subtasks") == [g["id"] for g in subtasks]
 

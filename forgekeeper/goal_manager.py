@@ -81,7 +81,8 @@ def add_goal(
     source: str = "user",
     *,
     parent_id: Optional[str] = None,
-    priority: int = 0,
+    priority: float = 0,
+    depends_on: Optional[List[str]] = None,
 ) -> str:
     """Add a new goal and return its identifier.
 
@@ -94,7 +95,10 @@ def add_goal(
     parent_id:
         If provided, the goal is treated as a subtask of ``parent_id``.
     priority:
-        Ordering hint used when scheduling subtasks.
+        Ordering hint used when scheduling subtasks. Higher values denote
+        earlier execution preference.
+    depends_on:
+        List of goal identifiers that must be completed before this goal.
     """
 
     goals = load_goals()
@@ -115,6 +119,8 @@ def add_goal(
     }
     if parent_id:
         goal["parent_id"] = parent_id
+    if depends_on:
+        goal["depends_on"] = list(depends_on)
 
     goals.append(goal)
 
