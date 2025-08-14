@@ -16,6 +16,7 @@ from forgekeeper.config import (
     CHECKS_TS,
 )
 from forgekeeper import self_review
+from forgekeeper.memory.episodic import append_entry
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -60,6 +61,15 @@ def _run_checks(commands: Optional[Iterable[str]], task_id: str) -> dict:
 
     artifacts_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
 
+    # Display results for each command so callers can see lint/test output
+    for r in results:
+        status = "passed" if r["returncode"] == 0 else "failed"
+        log.info(f"Check {r['command']} {status}")
+        if r["stdout"].strip():
+            log.info(f"stdout:\n{r['stdout']}")
+        if r["stderr"].strip():
+            log.info(f"stderr:\n{r['stderr']}")
+
     failing = [r["command"] for r in results if r["returncode"] != 0]
     if passed:
         log.info(f"All {len(results)} checks passed")
@@ -86,15 +96,32 @@ def commit_and_push_changes(
     """Commit staged changes and optionally push them on a new branch."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
     pre_review = self_review.review_staged_changes(task_id)
+    files = pre_review.get("staged_files", [])
     if not pre_review.get("passed", False):
         if autonomous:
             log.error("Pre-commit review failed in autonomous mode")
+            append_entry(
+                task_id,
+                commit_message,
+                "pre-review-failed",
+                files,
+                pre_review.get("summary", "Pre-commit review failed"),
+                [],
+            )
             return {"passed": False, "pre_review": pre_review, "aborted": True}
         resp = input(
             "Proceed with commit despite review issues? [y/N]: "
         ).strip().lower()
         if resp not in {"y", "yes"}:
             log.info("Commit aborted due to review issues")
+            append_entry(
+                task_id,
+                commit_message,
+                "pre-review-aborted",
+                files,
+                pre_review.get("summary", "Commit aborted due to review issues"),
+                [],
+            )
             return {"passed": False, "pre_review": pre_review, "aborted": True}
 
     check_result = {
@@ -104,8 +131,6 @@ def commit_and_push_changes(
         "pre_review": pre_review,
     }
     if run_checks:
-        diff = repo.git.diff("--name-only", "--cached")
-        files = [f for f in diff.splitlines() if f]
         run_py = any(f.endswith(".py") for f in files)
         run_ts = any(f.endswith(suf) for f in files for suf in (".ts", ".tsx"))
         commands = []
@@ -116,6 +141,16 @@ def commit_and_push_changes(
         check_result.update(_run_checks(commands, task_id))
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
+            append_entry(
+                task_id,
+                commit_message,
+                "checks-failed",
+                files,
+                "Checks failed",
+                [check_result.get("artifacts_path")]
+                if check_result.get("artifacts_path")
+                else [],
+            )
             return check_result
 
     if create_branch:
@@ -134,6 +169,16 @@ def commit_and_push_changes(
                 log.info("Commit aborted by user")
                 check_result["passed"] = False
                 check_result["aborted"] = True
+                append_entry(
+                    task_id,
+                    commit_message,
+                    "commit-declined",
+                    files,
+                    "Commit aborted by user",
+                    [check_result.get("artifacts_path")]
+                    if check_result.get("artifacts_path")
+                    else [],
+                )
                 return check_result
         repo.index.commit(commit_message)
         log.info(f"Committed changes on {branch_name}: {commit_message}")
@@ -156,8 +201,29 @@ def commit_and_push_changes(
                     log.info("Push to remote skipped")
         except Exception as exc:
             log.error(f"Push failed: {exc}")
+
+        append_entry(
+            task_id,
+            commit_message,
+            "committed",
+            files,
+            f"Committed changes on {branch_name}: {commit_message}",
+            [check_result.get("artifacts_path")]
+            if check_result.get("artifacts_path")
+            else [],
+        )
     else:
         log.info("No staged changes to commit")
+        append_entry(
+            task_id,
+            commit_message,
+            "no-changes",
+            [],
+            "No staged changes to commit",
+            [check_result.get("artifacts_path")]
+            if check_result.get("artifacts_path")
+            else [],
+        )
 
     check_result["changelog"] = changelog
     return check_result

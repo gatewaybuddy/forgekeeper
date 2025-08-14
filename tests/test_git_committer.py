@@ -28,9 +28,17 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
             sys.modules.pop(mod)
 
     config = importlib.import_module("forgekeeper.config")
+    episodic = importlib.import_module("forgekeeper.memory.episodic")
     gc = importlib.import_module("forgekeeper.git_committer")
     importlib.reload(config)
+    importlib.reload(episodic)
+    monkeypatch.setattr(
+        episodic,
+        "MEMORY_FILE",
+        repo_dir / ".forgekeeper/memory/episodic.jsonl",
+    )
     importlib.reload(gc)
+    monkeypatch.chdir(repo_dir)
     return repo_dir, gc
 
 
@@ -66,10 +74,13 @@ def test_failing_checks_abort_commit(tmp_path, monkeypatch):
     result = gc.commit_and_push_changes("msg", task_id="t3", autonomous=True)
     head_after = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
     assert not result["passed"]
+    assert result.get("aborted")
     assert head_before == head_after
     log_path = repo / "logs" / "t3" / "commit-checks.json"
-    data = json.loads(log_path.read_text(encoding="utf-8"))
-    assert data[0]["returncode"] != 0
+    assert not log_path.exists()
+    mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
+    entry = json.loads(mem_file.read_text(encoding="utf-8").splitlines()[-1])
+    assert entry["status"] == "pre-review-failed"
 
 
 def test_changelog_returned(tmp_path, monkeypatch):
@@ -79,3 +90,16 @@ def test_changelog_returned(tmp_path, monkeypatch):
     subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
     result = gc.commit_and_push_changes("msg", task_id="t4", autonomous=True)
     assert "changelog" in result and "bar.py" in result["changelog"]
+
+
+def test_outcome_logged_to_memory(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    f = repo / "baz.py"
+    f.write_text("print('hi')\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
+    gc.commit_and_push_changes("msg", task_id="t5", autonomous=True)
+    mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
+    entry = json.loads(mem_file.read_text(encoding="utf-8").splitlines()[-1])
+    assert entry["task_id"] == "t5"
+    assert entry["status"] == "committed"
+    assert entry["changed_files"] == ["baz.py"]
