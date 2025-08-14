@@ -14,9 +14,18 @@ from forgekeeper.config import (
     RUN_COMMIT_CHECKS,
     CHECKS_PY,
     CHECKS_TS,
+    ENABLE_OUTBOX,
 )
 from forgekeeper import self_review
 from forgekeeper.memory.episodic import append_entry
+
+if ENABLE_OUTBOX:
+    try:  # pragma: no cover - optional dependency in tests
+        from forgekeeper import outbox
+    except Exception:  # pragma: no cover
+        outbox = None
+else:  # pragma: no cover - when disabled
+    outbox = None
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -83,7 +92,7 @@ def _run_checks(commands: Optional[Iterable[str]], task_id: str) -> dict:
     }
 
 
-def commit_and_push_changes(
+def _commit_and_push_impl(
     commit_message: str,
     create_branch: bool = False,
     branch_prefix: str = "forgekeeper/self-edit",
@@ -93,7 +102,7 @@ def commit_and_push_changes(
     task_id: str = "manual",
     auto_push: bool = False,
 ) -> dict:
-    """Commit staged changes and optionally push them on a new branch."""
+    """Internal helper performing commit/push logic."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
     pre_review = self_review.review_staged_changes(task_id)
     files = pre_review.get("staged_files", [])
@@ -227,3 +236,36 @@ def commit_and_push_changes(
 
     check_result["changelog"] = changelog
     return check_result
+
+
+def commit_and_push_changes(
+    commit_message: str,
+    create_branch: bool = False,
+    branch_prefix: str = "forgekeeper/self-edit",
+    run_checks: bool = RUN_COMMIT_CHECKS,
+    checks: Optional[Iterable[str]] = None,
+    autonomous: bool = False,
+    task_id: str = "manual",
+    auto_push: bool = False,
+) -> dict:
+    """Commit staged changes and optionally push them on a new branch."""
+    kwargs = {
+        "commit_message": commit_message,
+        "create_branch": create_branch,
+        "branch_prefix": branch_prefix,
+        "run_checks": run_checks,
+        "checks": checks,
+        "autonomous": autonomous,
+        "task_id": task_id,
+        "auto_push": auto_push,
+    }
+    if ENABLE_OUTBOX and outbox is not None:
+        action = {
+            "module": __name__,
+            "function": "_commit_and_push_impl",
+            "args": [],
+            "kwargs": kwargs,
+        }
+        with outbox.pending_action(action):
+            return _commit_and_push_impl(**kwargs)
+    return _commit_and_push_impl(**kwargs)

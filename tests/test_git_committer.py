@@ -11,7 +11,13 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     pkg_dir = repo_dir / "forgekeeper"
     pkg_dir.mkdir(parents=True)
     # copy minimal package files
-    for name in ["__init__.py", "config.py", "logger.py", "git_committer.py"]:
+    for name in [
+        "__init__.py",
+        "config.py",
+        "logger.py",
+        "git_committer.py",
+        "outbox.py",
+    ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
     subprocess.run(["git", "init"], cwd=repo_dir, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_dir, check=True)

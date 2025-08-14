@@ -2,8 +2,10 @@ from __future__ import annotations
 
 """Lightweight outbox for persisting tool actions before execution."""
 
+import importlib
 import json
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -24,7 +26,32 @@ def remove_action(path: Path) -> None:
     except FileNotFoundError:
         pass
 
-def replay_pending(executor: Callable[[Dict[str, Any]], Any]) -> None:
+
+def run_action(action: Dict[str, Any]) -> Any:
+    """Execute an action dictionary using ``module`` and ``function`` keys."""
+    module_name = action.get("module")
+    func_name = action.get("function")
+    args = action.get("args", [])
+    kwargs = action.get("kwargs", {})
+    if not module_name or not func_name:
+        raise ValueError("Action missing module or function")
+    module = importlib.import_module(module_name)
+    func = getattr(module, func_name)
+    return func(*args, **kwargs)
+
+
+@contextmanager
+def pending_action(action: Dict[str, Any]):
+    """Context manager writing ``action`` before execution."""
+    path = write_action(action)
+    try:
+        yield
+        remove_action(path)
+    except Exception:
+        # leave file for future replay
+        raise
+
+def replay_pending(executor: Callable[[Dict[str, Any]], Any] = run_action) -> None:
     """Replay unfinished actions using ``executor``.
 
     Each JSON file in the outbox directory represents a pending tool call. The
