@@ -11,8 +11,27 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     pkg_dir = repo_dir / "forgekeeper"
     pkg_dir.mkdir(parents=True)
     # copy minimal package files
-    for name in ["__init__.py", "config.py", "logger.py", "git_committer.py"]:
+    for name in [
+        "__init__.py",
+        "config.py",
+        "logger.py",
+        "git_committer.py",
+        "diff_validator.py",
+    ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
+    mem_dir = pkg_dir / "memory"
+    mem_dir.mkdir()
+    for name in ["__init__.py", "episodic.py", "embeddings.py"]:
+        shutil.copy(ROOT / "forgekeeper" / "memory" / name, mem_dir / name)
+    # minimal self_review stub
+    (pkg_dir / "self_review.py").write_text(
+        "import subprocess\n"
+        "def review_staged_changes(task_id):\n"
+        "    result = subprocess.run(['git','diff','--name-only','--cached'], capture_output=True, text=True, check=True)\n"
+        "    files = [f for f in result.stdout.splitlines() if f]\n"
+        "    return {'passed': True, 'staged_files': files}\n",
+        encoding="utf-8",
+    )
     subprocess.run(["git", "init"], cwd=repo_dir, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_dir, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=repo_dir, check=True)
@@ -77,10 +96,10 @@ def test_failing_checks_abort_commit(tmp_path, monkeypatch):
     assert result.get("aborted")
     assert head_before == head_after
     log_path = repo / "logs" / "t3" / "commit-checks.json"
-    assert not log_path.exists()
+    assert log_path.exists()
     mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
     entry = json.loads(mem_file.read_text(encoding="utf-8").splitlines()[-1])
-    assert entry["status"] == "pre-review-failed"
+    assert entry["status"] == "checks-failed"
 
 
 def test_changelog_returned(tmp_path, monkeypatch):
@@ -103,3 +122,41 @@ def test_outcome_logged_to_memory(tmp_path, monkeypatch):
     assert entry["task_id"] == "t5"
     assert entry["status"] == "committed"
     assert entry["changed_files"] == ["baz.py"]
+
+
+def test_diff_validation_blocks_commit(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    a = repo / "a.py"
+    b = repo / "b.py"
+    a.write_text("def foo():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import foo\nfoo()\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "init files"], cwd=repo, check=True)
+
+    a.write_text("def bar():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import foo\nfoo()\n# tweak\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    head_before = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
+    result = gc.commit_and_push_changes("msg", task_id="t6", autonomous=True)
+    head_after = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
+    assert not result["passed"]
+    assert result.get("aborted")
+    assert head_before == head_after
+    assert not result["diff_validation"]["passed"]
+
+
+def test_diff_validation_allows_consistent_changes(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    a = repo / "a.py"
+    b = repo / "b.py"
+    a.write_text("def foo():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import foo\nfoo()\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "init files"], cwd=repo, check=True)
+
+    a.write_text("def bar():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import bar\nbar()\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    result = gc.commit_and_push_changes("msg", task_id="t7", autonomous=True)
+    assert result["passed"]
+    assert result["diff_validation"]["passed"]
