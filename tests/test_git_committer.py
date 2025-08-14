@@ -86,6 +86,31 @@ def test_ts_checks_selected(tmp_path, monkeypatch):
     assert [r["command"] for r in data] == ["echo TS"]
 
 
+def test_py_and_ts_checks_selected(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    (repo / "frontend").mkdir()
+    py_file = repo / "foo.py"
+    ts_file = repo / "frontend" / "app.ts"
+    py_file.write_text("print('hi')\n", encoding="utf-8")
+    ts_file.write_text("console.log('hi')\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(py_file), str(ts_file)], cwd=repo, check=True)
+    gc.commit_and_push_changes("msg", task_id="t_py_ts", autonomous=True)
+    log_path = repo / "logs" / "t_py_ts" / "commit-checks.json"
+    data = json.loads(log_path.read_text(encoding="utf-8"))
+    assert [r["command"] for r in data] == ["echo PY", "echo TS"]
+
+
+def test_no_checks_when_no_supported_files(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    readme = repo / "README.md"
+    readme.write_text("hi\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(readme)], cwd=repo, check=True)
+    gc.commit_and_push_changes("msg", task_id="t_none", autonomous=True)
+    log_path = repo / "logs" / "t_none" / "commit-checks.json"
+    data = json.loads(log_path.read_text(encoding="utf-8"))
+    assert data == []
+
+
 def test_failing_checks_abort_commit(tmp_path, monkeypatch):
     repo, gc = init_repo(tmp_path, monkeypatch, "bash -c 'exit 1'", "echo TS")
     f = repo / "foo.py"

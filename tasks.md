@@ -24,12 +24,12 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [ ] Pin Python and Node dependencies for reproducible installs
 - [ ] Provide cross-platform setup script to automate environment creation
 - [ ] Expose task insertion utility via CLI for manual task creation
-- [ ] FK-201: Transactional outbox for resolvers (P1)
-- [ ] FK-105: Test commit check command selection (P1)
-- [ ] FK-106: Test task queue prioritization (P1)
-- [ ] FK-107: Validate episodic memory logging (P1)
-- [ ] FK-108: Test mark_done_if_merged flow (P1)
-- [ ] FK-109: Test LocalEmbedder storage and retrieval (P1)
+- [x] FK-201: Transactional outbox for resolvers (P1)
+- [x] FK-105: Test commit check command selection (P1)
+- [x] FK-106: Test task queue prioritization (P1)
+- [x] FK-107: Validate episodic memory logging (P1)
+- [x] FK-108: Test mark_done_if_merged flow (P1)
+- [x] FK-109: Test LocalEmbedder storage and retrieval (P1)
 
 ---
 
