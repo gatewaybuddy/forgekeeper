@@ -9,7 +9,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 | Milestone | Status |
 |-----------|--------|
 | Core | Done |
-| Automation | In Progress |
+| Automation | Done |
 
 ### Phase 1: Human-Guided Autonomy (Complete)
 - [x] Define agents and roles in `AGENTS.md`

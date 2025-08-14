@@ -5,7 +5,7 @@ This repository includes all components required to run the local development en
 
 ## Docker environment
 
-Set up and launch all Forgekeeper services with Docker using:
+Copy `.env.example` to `.env` in the repository root and then run the setup script:
 
 ```bash
 cp .env.example .env
@@ -108,7 +108,8 @@ for the Coder. Copy `.env.example` to `.env` and adjust the following variables:
 - `VLLM_MODEL_CORE` / `VLLM_MODEL_CODER` – Hugging Face model IDs to load.
 - `VLLM_PORT_CORE` / `VLLM_PORT_CODER` – ports each server will listen on.
 - `FK_CORE_API_BASE` / `FK_CODER_API_BASE` – full base URLs used by the Python
-  agent when routing Core vs Coder traffic (e.g. `http://vllm-core:8000`).
+  agent when routing Core vs Coder traffic (e.g. `http://vllm-core:8001` and
+  `http://vllm-coder:8002`).
 - `VLLM_MAX_MODEL_LEN`, `VLLM_TP`, `VLLM_GPU_MEMORY_UTILIZATION`,
   `VLLM_ENABLE_LOGPROBS` – optional performance tuning knobs.
 

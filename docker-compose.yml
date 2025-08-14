@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vllm
-    env_file: .env
+    env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
     entrypoint: ["./scripts/run_vllm_core.sh"]
@@ -16,26 +16,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vllm
-    env_file: .env
+    env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
     entrypoint: ["./scripts/run_vllm_coder.sh"]
 
   backend:
     image: forgekeeper-backend
-    env_file: .env
+    env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${BACKEND_PORT}:${BACKEND_PORT}"]
 
   frontend:
     image: forgekeeper-frontend
-    env_file: .env
+    env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${FRONTEND_PORT}:80"]
 
   python:
     image: forgekeeper-python
-    env_file: .env
+    env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${PYTHON_PORT}:${PYTHON_PORT}"]
     depends_on:
