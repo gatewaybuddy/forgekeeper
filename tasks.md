@@ -14,7 +14,6 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 ## 🛠️ Active Tasks
 
  - [ ] **Design multi-step planning framework for complex tasks**
- - [ ] **Implement cross-file validation for code edits**
 
 ---
 
@@ -30,6 +29,8 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [ ] FK-107: Validate episodic memory logging (P1)
 - [ ] FK-108: Test mark_done_if_merged flow (P1)
 - [ ] FK-109: Test LocalEmbedder storage and retrieval (P1)
+- [ ] Integrate cross-file validation results into planning framework
+- [ ] Perform dependency impact analysis during cross-file validation
 
 ---
 
@@ -70,6 +71,7 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 - [x] Add “undo last task” recovery mode
   *Implemented via `TaskPipeline.undo_last_task`.*
+- [x] Implement cross-file validation for code edits
 
 ---
 
