@@ -96,14 +96,30 @@ def execute_next_task(session_id: str) -> None:
         data = extract_json(response) if isinstance(response, str) else response
     except Exception as exc:
         log.error(f"Failed to parse coder response: {exc}")
-        append_entry(task_id, task.description, "parse-error", [], "Failed to parse coder response", [])
+        append_entry(
+            task_id,
+            task.description,
+            "parse-error",
+            [],
+            "Failed to parse coder response",
+            [],
+            "negative",
+        )
         return
     file_path = data.get("file_path") if isinstance(data, dict) else None
     updated_code = data.get("updated_code", "") if isinstance(data, dict) else ""
 
     if not file_path:
         log.error("Coder response missing 'file_path'; aborting task.")
-        append_entry(task_id, task.description, "no-file", [], "Coder response missing file path", [])
+        append_entry(
+            task_id,
+            task.description,
+            "no-file",
+            [],
+            "Coder response missing file path",
+            [],
+            "negative",
+        )
         return
 
     p = Path(file_path)
@@ -113,20 +129,44 @@ def execute_next_task(session_id: str) -> None:
     files = result.get("files", [])
 
     if outcome != "success":
-        append_entry(task_id, task.description, outcome or "error", files, "Changes not staged", [])
+        append_entry(
+            task_id,
+            task.description,
+            outcome or "error",
+            files,
+            "Changes not staged",
+            [],
+            "negative",
+        )
         return
 
     if input("Commit staged changes? [y/N]: ").strip().lower().startswith("y"):
         commit_and_push_changes(f"feat: {task.description}", task_id=task_id)
         TaskPipeline().mark_done(task.description)
-        append_entry(task_id, task.description, "committed", files, "Changes committed", [])
+        append_entry(
+            task_id,
+            task.description,
+            "committed",
+            files,
+            "Changes committed",
+            [],
+            "positive",
+        )
     else:
         from git import Repo
 
         repo = Repo(p.resolve().parent, search_parent_directories=True)
         repo.git.restore("--staged", file_path)
         repo.git.checkout("--", file_path)
-        append_entry(task_id, task.description, "aborted", [], "Commit declined", [])
+        append_entry(
+            task_id,
+            task.description,
+            "aborted",
+            [],
+            "Commit declined",
+            [],
+            "negative",
+        )
 
 def ask_core(prompt, session_id):
     """Send ``prompt`` to the core model and handle tool calls."""
