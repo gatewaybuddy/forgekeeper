@@ -16,7 +16,7 @@ from forgekeeper.config import (
     CHECKS_TS,
     ENABLE_OUTBOX,
 )
-from forgekeeper import self_review
+from forgekeeper import self_review, diff_validator
 from forgekeeper.memory.episodic import append_entry
 
 if ENABLE_OUTBOX:
@@ -133,11 +133,30 @@ def _commit_and_push_impl(
             )
             return {"passed": False, "pre_review": pre_review, "aborted": True}
 
+    diff_validation = diff_validator.validate_staged_diffs()
+    if not diff_validation.get("passed", False):
+        log.error("Diff validation failed; aborting commit")
+        append_entry(
+            task_id,
+            commit_message,
+            "diff-validation-failed",
+            files,
+            "; ".join(diff_validation.get("issues", [])) or "Diff validation failed",
+            [],
+        )
+        return {
+            "passed": False,
+            "pre_review": pre_review,
+            "diff_validation": diff_validation,
+            "aborted": True,
+        }
+
     check_result = {
         "passed": True,
         "artifacts_path": "",
         "results": [],
         "pre_review": pre_review,
+        "diff_validation": diff_validation,
     }
     if run_checks:
         run_py = any(f.endswith(".py") for f in files)
@@ -150,6 +169,7 @@ def _commit_and_push_impl(
         check_result.update(_run_checks(commands, task_id))
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
+            check_result["aborted"] = True
             append_entry(
                 task_id,
                 commit_message,

@@ -2,8 +2,13 @@
 
 This module provides a thin manager that, when autonomy mode is active,
 automatically dispatches tasks through the existing :mod:`task_pipeline`
-without requiring user prompts.  It is intentionally lightweight so it can be
-invoked from a scheduler or long-running service.
+without requiring user prompts.  In addition to simple dispatching the
+manager contains a lightweight planning algorithm which decomposes a goal's
+natural language description into an explicit subtask graph.  Clauses are
+extracted via basic punctuation and conjunction heuristics; each clause
+becomes a node with a floating priority weight (``1.0`` down to ``0``) and a
+dependency on the previous node.  The resulting linear graph is persisted to
+:mod:`goal_manager` so the execution pipeline can respect subtask order.
 """
 
 from __future__ import annotations
@@ -19,6 +24,15 @@ from forgekeeper.roadmap_updater import start_periodic_updates
 from forgekeeper import goal_manager
 
 log = get_logger(__name__, debug=DEBUG_MODE)
+
+
+@dataclass
+class Subtask:
+    """Representation of a planned subtask."""
+
+    description: str
+    priority: float
+    depends_on: list[int]
 
 
 @dataclass
@@ -41,16 +55,30 @@ class HighLevelGoalManager:
             start_periodic_updates(3600)
 
     # ------------------------------------------------------------------
-    def _parse_subtasks(self, description: str) -> list[str]:
-        """Split a goal ``description`` into prioritized subtasks.
+    def _build_subtask_graph(self, description: str) -> list[Subtask]:
+        """Decompose ``description`` into an ordered subtask graph.
 
-        The heuristic is intentionally lightweight: the description is split on
-        common conjunctions and punctuation.  If no clear separator is found the
-        original description is returned as the sole task.
+        The description is split on conjunctions and punctuation.  Each
+        resulting clause becomes a :class:`Subtask` with a priority weight
+        that decreases with position and a dependency on the previous clause,
+        yielding a simple linear dependency chain.  If no split occurs the
+        single task is returned with full priority and no dependencies.
         """
 
-        parts = [p.strip() for p in re.split(r"\band\b|;|\.\s|\n", description) if p.strip()]
-        return parts if len(parts) > 1 else [description]
+        parts = [
+            p.strip()
+            for p in re.split(r"\band then\b|\bthen\b|\band\b|;|\.\s|\n", description)
+            if p.strip()
+        ]
+        if len(parts) <= 1:
+            return [Subtask(description, 1.0, [])]
+        n = len(parts)
+        graph = []
+        for idx, part in enumerate(parts):
+            priority = 1.0 - idx / n
+            depends = [idx - 1] if idx > 0 else []
+            graph.append(Subtask(part, priority, depends))
+        return graph
 
     # ------------------------------------------------------------------
     def run(self) -> bool:
@@ -71,15 +99,22 @@ class HighLevelGoalManager:
 
         # Register the parent goal and expand if necessary
         parent_id = goal_manager.add_goal(desc, source="task_pipeline")
-        subtasks = self._parse_subtasks(desc)
+        graph = self._build_subtask_graph(desc)
         executed = False
 
-        if len(subtasks) > 1:
-            log.info("Expanding goal '%s' into %d subtasks", desc, len(subtasks))
-            for idx, sub_desc in enumerate(subtasks):
-                goal_manager.add_goal(
-                    sub_desc, source="subtask", parent_id=parent_id, priority=idx
+        if len(graph) > 1:
+            log.info("Expanding goal '%s' into %d subtasks", desc, len(graph))
+            id_map: dict[int, str] = {}
+            for idx, node in enumerate(graph):
+                deps = [id_map[d] for d in node.depends_on if d in id_map]
+                sub_id = goal_manager.add_goal(
+                    node.description,
+                    source="subtask",
+                    parent_id=parent_id,
+                    priority=node.priority,
+                    depends_on=deps,
                 )
+                id_map[idx] = sub_id
                 pipeline_main.main()
                 executed = True
         else:
