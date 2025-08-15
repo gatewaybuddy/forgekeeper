@@ -92,12 +92,12 @@ Move all test modules into a unified `tests/` directory and update references.
 ---
 id: FK-104
 title: Skip backend smoke test when prerequisites missing (P2)
-status: todo
+status: done
 epic: R-001
 owner: agent
 labels: [reliability, tooling]
 ---
-Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gracefully.
+Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gracefully. See skip logic in `tools/smoke_backend.py`.
 
 **AC**
 - [ ] Smoke test exits 0 with skip message when environment absent
