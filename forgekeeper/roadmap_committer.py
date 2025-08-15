@@ -12,6 +12,7 @@ from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.roadmap_updater import update_roadmap
 from forgekeeper.git_committer import commit_and_push_changes
+from forgekeeper.memory.episodic import append_entry
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -27,7 +28,9 @@ def commit_roadmap_update(
 ) -> dict:
     """Append a roadmap update and commit the change autonomously."""
 
-    update_roadmap(repo_path, roadmap_path, memory_file, commit_limit, memory_limit)
+    section = update_roadmap(
+        repo_path, roadmap_path, memory_file, commit_limit, memory_limit
+    )
     repo = Repo(repo_path or Path.cwd(), search_parent_directories=True)
     path = roadmap_path or Path("Roadmap.md")
     repo.git.add(str(path))
@@ -38,6 +41,19 @@ def commit_roadmap_update(
         task_id="roadmap-update",
         auto_push=auto_push,
     )
+
+    summary = _extract_summary(section)
+    try:
+        append_entry(
+            "roadmap-update",
+            "Autonomous roadmap update",
+            "done" if result.get("passed", False) else "failed",
+            [str(path)],
+            summary or commit_message,
+            [],
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        log.error(f"Failed to log roadmap commit: {exc}")
     return result
 
 
@@ -72,6 +88,21 @@ def start_periodic_commits(
     thread = threading.Thread(target=_loop, daemon=True)
     thread.start()
     return thread
+
+
+def _extract_summary(section: str) -> str:
+    """Return the summary text from a roadmap update section."""
+    lines = section.splitlines()
+    try:
+        start = lines.index("### Summary") + 1
+    except ValueError:
+        return ""
+    end = len(lines)
+    for idx in range(start, len(lines)):
+        if lines[idx].startswith("### ") and idx != start:
+            end = idx
+            break
+    return "\n".join(lines[start:end]).strip()
 
 
 __all__ = ["commit_roadmap_update", "start_periodic_commits"]
