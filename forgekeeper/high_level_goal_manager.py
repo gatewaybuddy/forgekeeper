@@ -19,9 +19,13 @@ import re
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, AUTONOMY_MODE
 from forgekeeper.task_pipeline import TaskPipeline
-from forgekeeper import main as pipeline_main
-from forgekeeper.roadmap_updater import start_periodic_updates
+from types import SimpleNamespace
+
+from forgekeeper.roadmap_committer import start_periodic_commits as start_periodic_updates
 from forgekeeper import goal_manager
+
+# ``pipeline_main`` is populated lazily to avoid heavy imports during module load
+pipeline_main = SimpleNamespace(main=None)
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -51,7 +55,7 @@ class HighLevelGoalManager:
     def __post_init__(self) -> None:
         self.pipeline = TaskPipeline()
         if self.autonomous:
-            # Start periodic roadmap updates in the background
+            # Start periodic roadmap commits in the background
             start_periodic_updates(3600)
 
     # ------------------------------------------------------------------
@@ -87,6 +91,10 @@ class HighLevelGoalManager:
         if not self.autonomous:
             log.debug("Autonomy mode disabled; goal manager idle")
             return False
+
+        if pipeline_main.main is None:
+            from forgekeeper import main as _main
+            pipeline_main.main = _main.main
 
         task = self.pipeline.next_task()
         if not task:

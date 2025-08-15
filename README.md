@@ -273,7 +273,10 @@ The optional `roadmap_updater.py` module appends a markdown section to
 `Roadmap.md` summarizing recent commits and memory entries. To keep the roadmap
 fresh automatically, call
 `forgekeeper.roadmap_updater.start_periodic_updates(interval_seconds)` to run
-updates in a background thread.
+updates in a background thread. When running in fully autonomous mode,
+`roadmap_committer.py` extends this workflow by committing those updates
+without manual prompts via
+`forgekeeper.roadmap_committer.start_periodic_commits(interval_seconds)`.
 
 ---
 This guide is intended to streamline installation and clarify component interactions.
