@@ -17,3 +17,16 @@ To manually work with the outbox:
 a call dictionary to process any outstanding actions.
 
 The outbox directory is ignored by Git and may be safely deleted between runs.
+
+## Inline Function Call Syntax
+
+Some language models may not support structured `function_call` fields. For
+those models, Forgekeeper recognizes a simplified textual convention:
+
+```
+call: function_name(arg=value, ...)
+```
+
+Arguments follow Python keyword syntax and are converted into a dictionary
+before being dispatched through the functions registry. Prompt templates should
+describe this pattern so models know how to invoke tools.
