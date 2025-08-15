@@ -37,6 +37,37 @@ def cmd_done(queue: TaskQueue, args: argparse.Namespace) -> None:
     queue.mark_done(task)
 
 
+def cmd_add(queue: TaskQueue, args: argparse.Namespace) -> None:
+    """Append a canonical task to ``tasks.md``.
+
+    Tasks are added to the "Canonical Tasks" section using the
+    :func:`sanitize_and_insert_tasks` helper.  The task ID and title are
+    required.  Optional metadata may be supplied via command-line flags.
+    """
+
+    from forgekeeper.task_pipeline import sanitize_and_insert_tasks
+
+    labels = [l.strip() for l in (args.labels or "").split(",") if l.strip()]
+    task = {
+        "id": args.id,
+        "title": args.title,
+        "status": args.status,
+        "epic": args.epic,
+        "owner": args.owner,
+        "labels": labels,
+        "body": args.body,
+    }
+
+    inserted = sanitize_and_insert_tasks([task], TASK_FILE)
+    if inserted:
+        print(f"Inserted {inserted[0]}")
+    else:
+        print("Task not inserted: ID exists or missing data")
+
+    # Reload queue so that the subsequent ``save`` call preserves the update
+    queue.__init__(TASK_FILE)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Task queue helpers")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -54,6 +85,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_done = sub.add_parser("done", help="Mark task as completed")
     p_done.add_argument("index", type=int, help="Task index from list")
     p_done.set_defaults(func=cmd_done)
+
+    p_add = sub.add_parser("add", help="Append a canonical task")
+    p_add.add_argument("id", help="Task identifier")
+    p_add.add_argument("title", help="Task title including priority marker")
+    p_add.add_argument("--status", default="todo", help="Initial status")
+    p_add.add_argument("--epic", default="", help="Epic identifier")
+    p_add.add_argument("--owner", default="", help="Task owner")
+    p_add.add_argument(
+        "--labels", default="", help="Comma-separated list of labels"
+    )
+    p_add.add_argument("--body", default="", help="Task description body")
+    p_add.set_defaults(func=cmd_add)
 
     return parser
 
