@@ -20,12 +20,6 @@ const typeDefs = gql`
     messages: [Message!]!
   }
 
-  type Project {
-    id: ID!
-    name: String!
-    description: String
-  }
-
   type Folder {
     name: String!
     children: [Folder!]!
