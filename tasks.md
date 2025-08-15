@@ -78,7 +78,7 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 ---
 id: FK-103
 title: Consolidate test directories (P2)
-status: todo
+status: done
 epic: R-001
 owner: agent
 labels: [dx, tests]
@@ -86,8 +86,8 @@ labels: [dx, tests]
 Move all test modules into a unified `tests/` directory and update references.
 
 **AC**
-- [ ] All tests reside under `tests/`
-- [ ] CI and imports point to the new location
+- [x] All tests reside under `tests/`
+- [x] CI and imports point to the new location
 
 ---
 id: FK-104
