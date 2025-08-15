@@ -21,7 +21,7 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [ ] Improve multi-agent planning and delegation across tasks
 - [ ] Pin Python and Node dependencies for reproducible installs
 - [ ] Provide cross-platform setup script to automate environment creation
-- [ ] Expose task insertion utility via CLI for manual task creation
+- [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
 - [x] FK-105: Test commit check command selection (P1)
 - [x] FK-106: Test task queue prioritization (P1)
