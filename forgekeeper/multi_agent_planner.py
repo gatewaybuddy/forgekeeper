@@ -1,16 +1,47 @@
 """Task planning helpers for delegating work to specialized agents.
 
-The planning heuristics here are intentionally simple: a task description
-is split into smaller chunks and each chunk is assigned to an agent based
-on keyword matching.  "Code"-centric phrases are routed to the ``coder``
-agent while general reasoning tasks go to the ``core`` agent.
+The initial version of this module hard-coded a tiny heuristic that only
+distinguished between a ``core`` and a ``coder`` agent.  In order to support
+more sophisticated multi-agent setups the planner now allows dynamic agent
+registration along with a preferred communication protocol.  Each planned
+subtask therefore contains the target agent *and* the protocol it should use
+when communicating its results.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
-CODE_KEYWORDS = {"code", "bug", "implement", "fix", "refactor"}
+# Registry mapping agent names to their keyword triggers and communication
+# protocol.  Each entry maps to ``{"keywords": set[str], "protocol": str}``.
+_AGENT_REGISTRY: Dict[str, Dict[str, object]] = {}
+
+
+def register_agent(name: str, keywords: set[str], protocol: str = "broadcast") -> None:
+    """Register a specialized agent.
+
+    Parameters
+    ----------
+    name:
+        Agent identifier used in planning results.
+    keywords:
+        Set of keywords that should trigger routing to this agent.  Keywords
+        are matched against the lowercased subtask description.
+    protocol:
+        Communication protocol the agent should use (e.g. ``"broadcast"`` or
+        ``"direct"``).  The value is returned alongside the planned subtask.
+    """
+
+    _AGENT_REGISTRY[name] = {
+        "keywords": {k.lower() for k in keywords},
+        "protocol": protocol,
+    }
+
+
+# Register the built-in agents.
+register_agent("coder", {"code", "bug", "implement", "fix", "refactor"}, protocol="broadcast")
+register_agent("core", set(), protocol="broadcast")
+
 
 def split_for_agents(task: str) -> List[Dict[str, str]]:
     """Split ``task`` into subtasks and assign them to agents.
@@ -25,19 +56,30 @@ def split_for_agents(task: str) -> List[Dict[str, str]]:
     Returns
     -------
     List[Dict[str, str]]
-        Each item contains ``agent`` and ``task`` keys specifying the
-        responsible agent and the subtask text.
+        Each item contains ``agent``, ``task`` and ``protocol`` keys specifying
+        the responsible agent, subtask text and communication protocol.
     """
 
     parts = [p.strip() for p in task.replace("\n", " ").split(" and ") if p.strip()]
     subtasks: List[Dict[str, str]] = []
     for part in parts:
-        agent = _choose_agent(part)
-        subtasks.append({"agent": agent, "task": part})
-    return subtasks or [{"agent": _choose_agent(task), "task": task.strip()}]
+        agent, protocol = _choose_agent(part)
+        subtasks.append({"agent": agent, "task": part, "protocol": protocol})
+    if not subtasks:
+        agent, protocol = _choose_agent(task)
+        subtasks.append({"agent": agent, "task": task.strip(), "protocol": protocol})
+    return subtasks
 
-def _choose_agent(text: str) -> str:
+
+def _choose_agent(text: str) -> Tuple[str, str]:
     lowered = text.lower()
-    if any(word in lowered for word in CODE_KEYWORDS):
-        return "coder"
-    return "core"
+    for name, cfg in _AGENT_REGISTRY.items():
+        keywords = cfg.get("keywords", set())
+        if keywords and any(word in lowered for word in keywords):
+            return name, cfg.get("protocol", "broadcast")
+    # Fall back to core agent
+    core_cfg = _AGENT_REGISTRY.get("core", {"protocol": "broadcast"})
+    return "core", core_cfg.get("protocol", "broadcast")
+
+
+__all__ = ["split_for_agents", "register_agent"]

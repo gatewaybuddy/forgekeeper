@@ -1,18 +1,23 @@
-"""Lightweight context sharing for Forgekeeper agents.
+"""Inter-agent communication utilities.
 
-This module provides a simple in-memory protocol that allows agents to
-share short text messages with one another. Messages are stored in a
-process-local log so that subsequent agent calls may include the
-previous context when planning or generating responses.
+The original implementation only supported a broadcast style "context" log
+where agents could append short messages for other agents to read.  To
+support more explicit communication protocols the module now also exposes a
+direct messaging API.  Messages can either be broadcast to all participants
+or sent to a specific recipient.  The communication data structures are kept
+in memory and are therefore process-local.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, DefaultDict
+from collections import defaultdict
 
-# Internal shared context log. Each entry is a mapping containing the
-# sending agent's name and the message content.
 _SHARED_CONTEXT: List[Dict[str, str]] = []
+
+# Direct message inboxes keyed by recipient agent name.  Each message contains
+# the sender and the content.
+_DIRECT_MESSAGES: DefaultDict[str, List[Dict[str, str]]] = defaultdict(list)
 
 def broadcast_context(agent: str, message: str) -> None:
     """Record a context ``message`` from ``agent``.
@@ -32,3 +37,35 @@ def get_shared_context() -> List[Dict[str, str]]:
     """Return a copy of the current shared context log."""
 
     return list(_SHARED_CONTEXT)
+
+
+def send_direct_message(sender: str, recipient: str, message: str) -> None:
+    """Send a message from ``sender`` to ``recipient``.
+
+    Parameters
+    ----------
+    sender:
+        Name of the sending agent.
+    recipient:
+        Target agent that should receive the message.
+    message:
+        Message payload.
+    """
+
+    _DIRECT_MESSAGES[recipient].append({"from": sender, "message": message})
+
+
+def get_direct_messages(agent: str) -> List[Dict[str, str]]:
+    """Retrieve and clear pending direct messages for ``agent``."""
+
+    messages = _DIRECT_MESSAGES.pop(agent, [])
+    return list(messages)
+
+
+__all__ = [
+    "broadcast_context",
+    "get_shared_context",
+    "send_direct_message",
+    "get_direct_messages",
+]
+
