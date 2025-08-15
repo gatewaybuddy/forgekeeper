@@ -2,7 +2,7 @@ milestones:
   - epic: core
     status: done
   - epic: automation
-    status: in_progress
+    status: done
 
 epics:
   - id: R-001
