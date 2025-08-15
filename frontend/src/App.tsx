@@ -32,6 +32,7 @@ import SyncIndicator from './SyncIndicator';
 import LogPanel from './LogPanel';
 import { setErrorHandler } from './toast';
 import ProjectSelector from './ProjectSelector';
+import { projectIdVar } from './apolloClient';
 
 type ConversationAction =
   | { type: 'set'; payload: Conversation[] }
@@ -108,6 +109,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    projectIdVar(projectId);
+  }, [projectId]);
+
+  useEffect(() => {
     if (data?.listConversations) {
       dispatchConvs({ type: 'set', payload: data.listConversations });
       const uniq = Array.from(
@@ -128,7 +133,6 @@ export default function App() {
       variables: {
         topic: 'forgekeeper/task',
         message: { content: prompt },
-        projectId,
       },
     });
   };
