@@ -242,7 +242,9 @@ python -m forgekeeper.commands done 0   # mark task 0 completed
 For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
 priority item, runs analysis and code edits, stages multiple files, and commits
 the result end-to-end without manual intervention. The high-level goal manager
-can automatically split complex tasks into subtasks for this pipeline.
+can automatically split complex tasks into subtasks for this pipeline. If a
+generated change needs to be rolled back, `TaskPipeline.undo_last_task` reverts
+the most recent commit and logs the undo to episodic memory.
 
 ## Self-review & commit-check workflow
 
@@ -252,6 +254,18 @@ results under `logs/<task_id>/commit-checks.json`. After committing, run
 `self_review.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
 reasoning on the latest commit, verify the commit message references the active
 task, and save a summary to `logs/<task_id>/self-review.json`.
+
+Before committing, `diff_validator.validate_staged_diffs()` scans staged Python
+files for definitions removed from one file but still referenced in another,
+catching cross-file inconsistencies early.
+
+## Transactional Outbox
+
+`forgekeeper/outbox.py` implements a lightweight transactional outbox. The
+`pending_action` context manager writes each tool call to disk before
+execution; if a run crashes, the JSON record remains so
+`replay_pending()` can replay unfinished actions on the next startup and ensure
+side effects are applied exactly once.
 
 ## Optional `roadmap_updater` workflow
 
