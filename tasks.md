@@ -13,8 +13,6 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## 🛠️ Active Tasks
 
- - [ ] **Design multi-step planning framework for complex tasks**
- - [ ] **Implement cross-file validation for code edits**
 
 ---
 
@@ -71,6 +69,8 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 - [x] Add “undo last task” recovery mode
   *Implemented via `TaskPipeline.undo_last_task`.*
 
+- [x] Design multi-step planning framework for complex tasks
+- [x] Implement cross-file validation for code edits
 ---
 
 ## Canonical Tasks
