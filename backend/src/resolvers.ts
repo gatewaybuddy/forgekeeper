@@ -37,7 +37,17 @@ const resolvers = {
       return roots;
     },
     listProjects: async (_: any, __: any, { prisma }: Context) => {
-      return prisma.project.findMany();
+
+      return prisma.project.findMany({
+        include: { conversations: { include: { messages: true } } },
+      });
+    },
+    project: async (_: any, { id }: any, { prisma }: Context) => {
+      return prisma.project.findUnique({
+        where: { id },
+        include: { conversations: { include: { messages: true } } },
+      });
+
     },
   },
   Mutation: {
@@ -134,13 +144,31 @@ const resolvers = {
       return true;
     },
     renameFolder: async (_: any, { oldName, newName }: any, { prisma }: Context) => {
-      await prisma.folder.update({ where: { name: oldName }, data: { name: newName } });
+      await prisma.folder.update({ where: { name: oldName }, data: { name: newName } as any });
       await prisma.folder.updateMany({ where: { parent: oldName }, data: { parent: newName } });
       return true;
     },
-    createProject: async (_: any, { name }: any, { prisma }: Context) => {
-      const id = uuidv4();
-      return prisma.project.create({ data: { id, name } });
+
+    createProject: async (_: any, { name, description }: any, { prisma }: Context) => {
+      return prisma.project.create({
+        data: { id: uuidv4(), name, description },
+        include: { conversations: { include: { messages: true } } },
+      });
+    },
+    updateProject: async (_: any, { id, name, description }: any, { prisma }: Context) => {
+      const data: any = {};
+      if (name !== undefined) data.name = name;
+      if (description !== undefined) data.description = description;
+      return prisma.project.update({
+        where: { id },
+        data,
+        include: { conversations: { include: { messages: true } } },
+      });
+    },
+    deleteProject: async (_: any, { id }: any, { prisma }: Context) => {
+      await prisma.project.delete({ where: { id } });
+      return true;
+
     },
   },
 };
