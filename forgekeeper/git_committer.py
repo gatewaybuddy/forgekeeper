@@ -191,6 +191,7 @@ def _commit_and_push_impl(
         branch_name = repo.active_branch.name
 
     changelog = ""
+    pushed = False
     if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
         if not autonomous:
             resp = input("Commit staged changes? [y/N]: ").strip().lower()
@@ -212,25 +213,6 @@ def _commit_and_push_impl(
         repo.index.commit(commit_message)
         log.info(f"Committed changes on {branch_name}: {commit_message}")
         changelog = repo.git.log("-1", "--stat")
-        try:
-            origin = repo.remote()
-            if autonomous:
-                if auto_push:
-                    origin.push(branch_name)
-                    log.info("Pushed to remote")
-                else:
-                    log.info("Auto push disabled; skipping push")
-            else:
-                if input(
-                    f"Push branch {branch_name} to remote? [y/N]: "
-                ).strip().lower() in {"y", "yes"}:
-                    origin.push(branch_name)
-                    log.info("Pushed to remote")
-                else:
-                    log.info("Push to remote skipped")
-        except Exception as exc:
-            log.error(f"Push failed: {exc}")
-
         append_entry(
             task_id,
             commit_message,
@@ -241,6 +223,45 @@ def _commit_and_push_impl(
             if check_result.get("artifacts_path")
             else [],
         )
+        try:
+            origin = repo.remote()
+            if autonomous:
+                if auto_push:
+                    origin.push(branch_name)
+                    pushed = True
+                    log.info("Pushed to remote")
+                else:
+                    log.info("Auto push disabled; skipping push")
+            else:
+                if input(
+                    f"Push branch {branch_name} to remote? [y/N]: "
+                ).strip().lower() in {"y", "yes"}:
+                    origin.push(branch_name)
+                    pushed = True
+                    log.info("Pushed to remote")
+                else:
+                    log.info("Push to remote skipped")
+        except Exception as exc:
+            log.error(f"Push failed: {exc}")
+            append_entry(
+                task_id,
+                commit_message,
+                "push-failed",
+                files,
+                f"Push failed: {exc}",
+                [],
+            )
+        if pushed:
+            push_details = f"Rationale: {commit_message}\nChangelog:\n{changelog}"
+            log.info(push_details)
+            append_entry(
+                task_id,
+                commit_message,
+                "pushed",
+                files,
+                push_details,
+                [],
+            )
     else:
         log.info("No staged changes to commit")
         append_entry(
@@ -255,6 +276,7 @@ def _commit_and_push_impl(
         )
 
     check_result["changelog"] = changelog
+    check_result["pushed"] = pushed
     return check_result
 
 
@@ -268,7 +290,11 @@ def commit_and_push_changes(
     task_id: str = "manual",
     auto_push: bool = False,
 ) -> dict:
-    """Commit staged changes and optionally push them on a new branch."""
+    """Commit staged changes and optionally push them on a new branch.
+
+    When ``autonomous`` is True, changes are pushed automatically and a
+    changelog plus commit rationale are logged for each push.
+    """
     kwargs = {
         "commit_message": commit_message,
         "create_branch": create_branch,
@@ -277,7 +303,7 @@ def commit_and_push_changes(
         "checks": checks,
         "autonomous": autonomous,
         "task_id": task_id,
-        "auto_push": auto_push,
+        "auto_push": auto_push or autonomous,
     }
     if ENABLE_OUTBOX and outbox is not None:
         action = {
