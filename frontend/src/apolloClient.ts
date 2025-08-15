@@ -3,6 +3,7 @@ import { onError } from '@apollo/client/link/error';
 import { notifyError } from './toast';
 
 export const pendingRequestsVar = makeVar(0);
+export const projectIdVar = makeVar<string | null>(null);
 
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
@@ -22,10 +23,18 @@ const syncLink = new ApolloLink((operation, forward) => {
   });
 });
 
+const projectLink = new ApolloLink((operation, forward) => {
+  const projectId = projectIdVar();
+  if (projectId) {
+    operation.variables = { ...operation.variables, projectId };
+  }
+  return forward(operation);
+});
+
 const httpLink = new HttpLink({ uri: '/graphql' });
 
 const client: ApolloClient<NormalizedCacheObject> = new ApolloClient({
-  link: ApolloLink.from([errorLink, syncLink, httpLink]),
+  link: ApolloLink.from([errorLink, syncLink, projectLink, httpLink]),
   cache: new InMemoryCache(),
 });
 
