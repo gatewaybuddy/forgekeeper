@@ -22,7 +22,7 @@ def reflective_ask_core(prompt: str, session_id: str, passes: int = 3) -> str:
     prompt_mode = memory.get("prompt_mode", "inst")
 
     # Retrieve vector memories with preference-type prioritization
-    retrieved = retrieve_similar_entries(session_id, prompt, top_k=3, types=["preference"])
+    retrieved = retrieve_similar_entries(session_id, session_id, prompt, top_k=3, types=["preference"])
     vector_summary = "\n".join(f"- {doc}" for doc, meta in retrieved) if retrieved else ""
 
     # Fallback if vector fails
@@ -95,5 +95,5 @@ Please provide the improved response.
         final_response = "(Noted. Preference for strawberries in parfaits has been saved.)"
 
     log.debug("\n[Reflective Core Debug] Final Response:\n%s", final_response[:500])
-    save_message(session_id, "core", final_response)
+    save_message(session_id, "core", final_response, project_id=session_id)
     return final_response

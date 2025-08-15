@@ -102,13 +102,13 @@ while True:
     if not prompt:
         continue
 
-    save_message(session_id, "user", prompt)
+    save_message(session_id, "user", prompt, project_id=session_id)
 
     # First check: LLM-guided system intent
     interpreted_response = interpret_prompt(prompt, session_id, llm=llm)
     if interpreted_response:
         log.info("ForgeKeeper > %s", interpreted_response)
-        save_message(session_id, "assistant", interpreted_response)
+        save_message(session_id, "assistant", interpreted_response, project_id=session_id)
         continue
 
     # Otherwise proceed with standard chat handling
@@ -123,12 +123,12 @@ while True:
         reply = f"[ERROR] LLM failed: {str(e)}"
 
     log.info("ForgeKeeper > %s", reply)
-    save_message(session_id, "assistant", reply)
+    save_message(session_id, "assistant", reply, project_id=session_id)
     conversation_history.append({"role": "assistant", "content": reply})
 
     # Function calling post-processing
     tool_result = try_execute_function_call(reply, tools)
     if tool_result:
         log.info(tool_result)
-        save_message(session_id, "function", tool_result)
+        save_message(session_id, "function", tool_result, project_id=session_id)
         conversation_history.append({"role": "function", "content": tool_result})

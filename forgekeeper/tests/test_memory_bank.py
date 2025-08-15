@@ -65,7 +65,7 @@ def setup_bank(monkeypatch):
     import importlib
     from app.chats import memory_bank as mb  # reload so stub is used
     importlib.reload(mb)
-    return mb.MemoryBank(), collection
+    return mb.MemoryBank("proj"), collection
 
 
 

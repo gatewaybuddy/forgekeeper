@@ -178,7 +178,7 @@ def ask_core(prompt, session_id):
     context = summarize_thoughts(session_id)
     memory = get_memory(session_id)
     prompt_mode = memory.get("prompt_mode", "inst")
-    retrieved = retrieve_similar_entries(session_id, prompt, top_k=3)
+    retrieved = retrieve_similar_entries(session_id, session_id, prompt, top_k=3)
     vector_summary = "\n".join(f"- {doc}" for doc, meta in retrieved) if retrieved else ""
     full_prompt = build_memory_prompt(prompt, system_prompt, context, vector_summary, prompt_mode)
 
@@ -194,7 +194,7 @@ def ask_core(prompt, session_id):
         message = openai_compat_client.chat("core", messages)
 
     content = message.get("content", "")
-    save_message(session_id, "core", content)
+    save_message(session_id, "core", content, project_id=session_id)
     try:
         return extract_json(content)
     except Exception:
@@ -211,7 +211,7 @@ def postprocess_response(response):
 
 def ask_coder(prompt, session_id):
     """Send ``prompt`` to the coder model and handle tool calls."""
-    save_message(session_id, "user", prompt)
+    save_message(session_id, "user", prompt, project_id=session_id)
     messages = [{"role": "user", "content": prompt}]
     tools = build_tool_specs()
     message = openai_compat_client.chat("coder", messages, tools=tools)
@@ -224,7 +224,7 @@ def ask_coder(prompt, session_id):
         message = openai_compat_client.chat("coder", messages)
 
     content = message.get("content", "")
-    save_message(session_id, "assistant", content)
+    save_message(session_id, "assistant", content, project_id=session_id)
     return content
 
 def route_intent(user_input, session_id):

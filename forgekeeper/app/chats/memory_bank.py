@@ -62,6 +62,9 @@ def evaluate_relevance(memory_item: Dict, context: str, *, now: Optional[datetim
 class MemoryBank:
     """Interface for storing, updating and retrieving long term memory."""
 
+    def __init__(self, project_id: str) -> None:
+        self.project_id = project_id
+
     def add_entry(
         self,
         content: str,
@@ -76,6 +79,7 @@ class MemoryBank:
         timestamp = datetime.now(timezone.utc).isoformat()
 
         metadata = {
+            "project_id": self.project_id,
             "session_id": session_id,
             "role": "memory",
             "type": type,
@@ -123,13 +127,14 @@ class MemoryBank:
             memory_vector.collection.delete(ids=ids)
             return
         if filters:
-            for key, value in filters.items():
-                memory_vector.collection.delete(where={key: value})
+            query = {"project_id": self.project_id, **filters}
+            memory_vector.collection.delete(where=query)
 
     def list_entries(self, filters: Dict[str, str] | None = None) -> List[Dict]:
         """Return a list of stored entries with optional metadata filtering."""
         results = memory_vector.collection.get(
-            include=["documents", "metadatas", "ids"]
+            include=["documents", "metadatas", "ids"],
+            where={"project_id": self.project_id},
         )
         entries = [
             {
@@ -161,6 +166,7 @@ class MemoryBank:
             items = json.load(f)
         for item in items:
             metadata = {k: item[k] for k in item if k not in {"id", "content"}}
+            metadata["project_id"] = self.project_id
             memory_vector.collection.add(
                 documents=[item["content"]],
                 embeddings=memory_vector.embed([item["content"]]),
@@ -174,7 +180,7 @@ if __name__ == "__main__":
     from forgekeeper.config import DEBUG_MODE
 
     log = get_logger(__name__, debug=DEBUG_MODE)
-    bank = MemoryBank()
+    bank = MemoryBank("default")
     eid = bank.add_entry(
         "Example memory", session_id="demo", type="note", tags=["demo"]
     )
