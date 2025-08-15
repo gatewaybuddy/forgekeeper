@@ -3,11 +3,14 @@
 
 Builds the backend, starts the server, probes the /health endpoint, and
 asserts an HTTP 200 response before shutting the server down.
+
+If the backend directory, npm, or node are missing, the test is skipped.
 """
 
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -20,6 +23,17 @@ URL = f"http://localhost:{PORT}/health"
 
 
 def main() -> None:
+    missing: list[str] = []
+    if not os.path.isdir("backend"):
+        missing.append("backend/")
+    if shutil.which("npm") is None:
+        missing.append("npm")
+    if shutil.which("node") is None:
+        missing.append("node")
+    if missing:
+        print("Skipping backend smoke test; missing " + ", ".join(missing))
+        return
+
     subprocess.run(["npm", "ci"], cwd="backend", check=True)
     subprocess.run(["npm", "run", "build"], cwd="backend", check=True)
 
