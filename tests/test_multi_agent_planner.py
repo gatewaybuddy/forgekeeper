@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from forgekeeper.multi_agent_planner import register_agent, split_for_agents
 from forgekeeper.agent.communication import send_direct_message, get_direct_messages
 
