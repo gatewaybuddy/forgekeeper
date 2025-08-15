@@ -9,5 +9,12 @@ export interface Conversation {
   id: string;
   title: string;
   folder?: string;
+  projectId?: string;
   messages: Message[];
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
 }
