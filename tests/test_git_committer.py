@@ -145,10 +145,12 @@ def test_outcome_logged_to_memory(tmp_path, monkeypatch):
     subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
     gc.commit_and_push_changes("msg", task_id="t5", autonomous=True)
     mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
-    entry = json.loads(mem_file.read_text(encoding="utf-8").splitlines()[-1])
-    assert entry["task_id"] == "t5"
-    assert entry["status"] == "committed"
-    assert entry["changed_files"] == ["baz.py"]
+    entries = [json.loads(line) for line in mem_file.read_text(encoding="utf-8").splitlines() if line]
+    statuses = [e["status"] for e in entries]
+    assert "committed" in statuses
+    committed_entry = entries[statuses.index("committed")]
+    assert committed_entry["task_id"] == "t5"
+    assert committed_entry["changed_files"] == ["baz.py"]
 
 
 def test_diff_validation_blocks_commit(tmp_path, monkeypatch):
@@ -187,3 +189,23 @@ def test_diff_validation_allows_consistent_changes(tmp_path, monkeypatch):
     result = gc.commit_and_push_changes("msg", task_id="t7", autonomous=True)
     assert result["passed"]
     assert result["diff_validation"]["passed"]
+
+
+def test_auto_push_logs_changelog_and_rationale(tmp_path, monkeypatch):
+    repo, gc = init_repo(tmp_path, monkeypatch, "echo PY", "echo TS")
+    remote_dir = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", str(remote_dir)], check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(remote_dir)], cwd=repo, check=True)
+    f = repo / "push.py"
+    f.write_text("print('push')\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
+    result = gc.commit_and_push_changes("auto push", task_id="t_push", autonomous=True)
+    local_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
+    remote_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=remote_dir).decode().strip()
+    assert local_head == remote_head
+    mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
+    entries = [json.loads(line) for line in mem_file.read_text(encoding="utf-8").splitlines() if line]
+    assert entries[-1]["status"] == "pushed"
+    assert "Rationale" in entries[-1]["summary"]
+    assert "push.py" in entries[-1]["summary"]
+    assert result["pushed"]
