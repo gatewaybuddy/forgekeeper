@@ -1,9 +1,10 @@
 from pathlib import Path
 import sys
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.mark_done_if_merged import mark_done_if_merged
+import forgekeeper.main as fk_main
 
 
 def _write_tasks(tmp_path: Path, status: str) -> Path:
@@ -60,3 +61,54 @@ def test_no_change_when_pr_open(tmp_path, monkeypatch):
     assert mark_done_if_merged("FK-1") is False
     text = (tmp_path / "tasks.md").read_text()
     assert "status: needs_review" in text
+
+
+def test_check_reviewed_tasks_invokes_for_each_id(tmp_path, monkeypatch):
+    tasks_content = (
+        "---\n"
+        "id: FK-1\n"
+        "title: A\n"
+        "status: needs_review\n"
+        "---\n"
+        "Body\n"
+        "\n"
+        "---\n"
+        "id: FK-2\n"
+        "title: B\n"
+        "status: needs_review\n"
+        "---\n"
+        "Body\n"
+        "\n"
+        "---\n"
+        "id: FK-3\n"
+        "title: C\n"
+        "status: done\n"
+        "---\n"
+        "Body\n"
+    )
+    tasks_file = tmp_path / "tasks.md"
+    tasks_file.write_text(tasks_content)
+
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir()
+    script = tools_dir / "mark_done_if_merged.py"
+    script.write_text("")
+
+    pkg_dir = tmp_path / "forgekeeper"
+    pkg_dir.mkdir()
+    monkeypatch.setattr(fk_main, "MODULE_DIR", pkg_dir)
+    monkeypatch.setattr(fk_main, "TASK_FILE", tasks_file)
+
+    calls = []
+
+    def fake_run(cmd, check=False):
+        calls.append(cmd)
+
+    monkeypatch.setattr(fk_main.subprocess, "run", fake_run)
+
+    fk_main._check_reviewed_tasks()
+
+    assert calls == [
+        [sys.executable, str(script), "FK-1"],
+        [sys.executable, str(script), "FK-2"],
+    ]

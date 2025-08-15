@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 # Ensure package root is importable
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from forgekeeper.self_review import run_self_review
