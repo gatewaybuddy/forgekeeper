@@ -31,6 +31,7 @@ import ContextMenu from './ContextMenu';
 import SyncIndicator from './SyncIndicator';
 import LogPanel from './LogPanel';
 import { setErrorHandler } from './toast';
+import ProjectSelector from './ProjectSelector';
 
 type ConversationAction =
   | { type: 'set'; payload: Conversation[] }
@@ -74,7 +75,11 @@ const folderReducer = (state: string[], action: FolderAction): string[] => {
 };
 
 export default function App() {
-  const { data, loading: convLoading, refetch } = useQuery(LIST_CONVERSATIONS);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const { data, loading: convLoading, refetch } = useQuery(LIST_CONVERSATIONS, {
+    variables: { projectId },
+    skip: !projectId,
+  });
   const [conversations, dispatchConvs] = useReducer(conversationReducer, []);
   const [folders, dispatchFolders] = useReducer(folderReducer, []);
   const [selected, setSelected] = useState<string | null>(null);
@@ -109,18 +114,21 @@ export default function App() {
         new Set(data.listConversations.map((c: Conversation) => c.folder).filter(Boolean))
       );
       dispatchFolders({ type: 'set', payload: uniq });
-      if (!selected && data.listConversations.length > 0) {
+      if (data.listConversations.length > 0) {
         setSelected(data.listConversations[0].id);
+      } else {
+        setSelected(null);
       }
     }
-  }, [data, selected]);
+  }, [data, projectId]);
 
   const handleSend = async () => {
-    if (!prompt) return;
+    if (!prompt || !projectId) return;
     await sendMessage({
       variables: {
         topic: 'forgekeeper/task',
         message: { content: prompt },
+        projectId,
       },
     });
   };
@@ -198,6 +206,9 @@ export default function App() {
           display="flex"
           flexDirection="column"
         >
+          <Box p={1}>
+            <ProjectSelector value={projectId} onChange={setProjectId} />
+          </Box>
           <Box display="flex" alignItems="center" justifyContent="space-between" p={1}>
             <Typography variant="h6">Conversations</Typography>
             <Box>
