@@ -5,9 +5,11 @@ from ..utils.prompt_guard import verify_prompt
 from ..utils.harmony_parser import parse_harmony_tool_call
 import ast
 import re
+import json
 
 chat_bp = Blueprint('chat', __name__)
-functions = load_functions()
+# Lazily load function registry to avoid side effects at import time
+functions = None
 
 _INLINE_CALL_RE = re.compile(r"call:\s*(\w+)\(([^)]*)\)", re.IGNORECASE)
 
@@ -42,7 +44,11 @@ def parse_inline_call(text):
 def ask():
     data = request.json
     prompt = verify_prompt(data.get("prompt", ""))
-    response = ask_llm(prompt)
+    tools = data.get("tools")
+    if tools is not None:
+        response = ask_llm(prompt, tools=tools)
+    else:
+        response = ask_llm(prompt)
 
     # Process both OpenAI-style function_call dicts and Harmony action tokens
     call = None
@@ -54,6 +60,14 @@ def ask():
     if call:
         fn_name = call["name"]
         args = call.get("arguments", {})
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except Exception:
+                args = {}
+        global functions
+        if functions is None:
+            functions = load_functions()
         fn = functions.get(fn_name)
         if fn:
             return jsonify({"result": fn(**args)})
