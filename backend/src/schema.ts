@@ -16,7 +16,14 @@ const typeDefs = gql`
     title: String!
     folder: String!
     archived: Boolean!
+    projectId: String
     messages: [Message!]!
+  }
+
+  type Project {
+    id: ID!
+    name: String!
+    description: String
   }
 
   type Folder {
@@ -25,18 +32,20 @@ const typeDefs = gql`
   }
 
   type Query {
-    listConversations: [Conversation!]!
+    listConversations(projectId: ID): [Conversation!]!
     listFolders: [Folder!]!
+    listProjects: [Project!]!
   }
 
   type Mutation {
-    sendMessageToForgekeeper(topic: String!, message: JSON!, idempotencyKey: String): Boolean!
+    sendMessageToForgekeeper(topic: String!, message: JSON!, idempotencyKey: String, projectId: ID): Boolean!
     stopMessage(idempotencyKey: String): Boolean!
     moveConversationToFolder(conversationId: ID!, folder: String!): Boolean!
     deleteConversation(conversationId: ID!): Boolean!
     archiveConversation(conversationId: ID!): Boolean!
     createFolder(name: String!, parent: String): Boolean!
     renameFolder(oldName: String!, newName: String!): Boolean!
+    createProject(name: String!): Project!
   }
 `;
 

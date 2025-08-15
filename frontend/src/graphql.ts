@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const SEND_MESSAGE = gql`
-  mutation SendMessage($topic: String!, $message: JSON!) {
-    sendMessageToForgekeeper(topic: $topic, message: $message)
+  mutation SendMessage($topic: String!, $message: JSON!, $projectId: ID) {
+    sendMessageToForgekeeper(topic: $topic, message: $message, projectId: $projectId)
   }
 `;
 
@@ -13,17 +13,38 @@ export const STOP_MESSAGE = gql`
 `;
 
 export const LIST_CONVERSATIONS = gql`
-  query ListConversations {
-    listConversations {
+  query ListConversations($projectId: ID) {
+    listConversations(projectId: $projectId) {
       id
       title
       folder
+      projectId
       messages {
         id
         role
         content
         timestamp
       }
+    }
+  }
+`;
+
+export const LIST_PROJECTS = gql`
+  query ListProjects {
+    listProjects {
+      id
+      name
+      description
+    }
+  }
+`;
+
+export const CREATE_PROJECT = gql`
+  mutation CreateProject($name: String!) {
+    createProject(name: $name) {
+      id
+      name
+      description
     }
   }
 `;
