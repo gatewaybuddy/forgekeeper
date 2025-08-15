@@ -1,7 +1,7 @@
 # forgekeeper/app/chat_session.py
 
-from forgekeeper.app.memory_store import load_memory, save_message
-from forgekeeper.app.llm_interface import ask_llm  # assume this handles OpenAI or LM Studio
+from forgekeeper.app.chats.memory_store import load_memory, save_message
+from forgekeeper.app.services.llm_service import ask_llm
 
 class ChatSession:
     def __init__(self, session_id):
@@ -14,8 +14,9 @@ class ChatSession:
         return content
 
     def generate_response(self):
-        response = ask_llm(self.history)
-        if isinstance(response, str):  # handle raw string output
+        prompt = "\n".join(f"{m['role']}: {m['content']}" for m in self.history)
+        response = ask_llm(prompt)
+        if isinstance(response, str):
             save_message(self.session_id, "assistant", response, project_id=self.session_id)
             self.history.append({"role": "assistant", "content": response})
         elif isinstance(response, dict) and "content" in response:
@@ -24,6 +25,6 @@ class ChatSession:
         return response
 
     def clear(self):
-        from forgekeeper.app.memory_store import clear_memory
+        from forgekeeper.app.chats.memory_store import clear_memory
         clear_memory(self.session_id)
         self.history = []
