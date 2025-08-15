@@ -25,14 +25,17 @@ class DummyCollection:
                 self.store[i] = {"document": doc, "metadata": meta}
 
     def delete(self, ids=None, where=None):
+        targets = list(self.store.keys())
         if ids:
-            for i in ids:
-                self.store.pop(i, None)
-        elif where:
-            for key, value in where.items():
-                for i in list(self.store.keys()):
-                    if self.store[i]["metadata"].get(key) == value:
-                        self.store.pop(i)
+            targets = [i for i in targets if i in ids]
+        if where:
+            targets = [
+                i
+                for i in targets
+                if all(self.store[i]["metadata"].get(k) == v for k, v in where.items())
+            ]
+        for i in targets:
+            self.store.pop(i, None)
 
 
     def get(self, ids=None, include=None, where=None):
@@ -56,7 +59,7 @@ def setup_bank(monkeypatch):
         embed=lambda texts: [[0.0] * len(t) for t in texts],
     )
 
-    def update_entry(entry_id, new_content):
+    def update_entry(project_id, entry_id, new_content):
         collection.update([entry_id], [new_content], [None], [None])
 
     stub.update_entry = update_entry

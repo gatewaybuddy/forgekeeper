@@ -98,11 +98,15 @@ class MemoryBank:
 
     def update_entry(self, entry_id: str, new_content: str) -> None:
         """Replace the stored content for ``entry_id``."""
-        memory_vector.update_entry(entry_id, new_content)
+        memory_vector.update_entry(self.project_id, entry_id, new_content)
 
     def touch_entry(self, entry_id: str) -> None:
         """Update the ``last_accessed`` timestamp for ``entry_id``."""
-        results = memory_vector.collection.get(ids=[entry_id], include=["documents", "metadatas"])
+        results = memory_vector.collection.get(
+            ids=[entry_id],
+            include=["documents", "metadatas"],
+            where={"project_id": self.project_id},
+        )
         if not results.get("ids"):
             return
         doc = results["documents"][0]
@@ -113,7 +117,7 @@ class MemoryBank:
             ids=[entry_id],
             documents=[doc],
             embeddings=memory_vector.embed([doc]),
-            metadatas=[meta],
+            metadatas=[{**meta, "project_id": self.project_id}],
         )
 
     def delete_entries(
@@ -124,7 +128,7 @@ class MemoryBank:
     ) -> None:
         """Delete entries by ``ids`` or matching metadata ``filters``."""
         if ids:
-            memory_vector.collection.delete(ids=ids)
+            memory_vector.collection.delete(ids=ids, where={"project_id": self.project_id})
             return
         if filters:
             query = {"project_id": self.project_id, **filters}

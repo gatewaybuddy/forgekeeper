@@ -111,7 +111,10 @@ class MongoVectorCollection:
             if meta is not None:
                 update.update(meta)
             if update:
-                self.collection.update_one({"_id": _id}, {"$set": update})
+                filter_query: Dict[str, Any] = {"_id": _id}
+                if meta and "project_id" in meta:
+                    filter_query["project_id"] = meta["project_id"]
+                self.collection.update_one(filter_query, {"$set": update})
 
     def delete(
         self,
@@ -119,10 +122,13 @@ class MongoVectorCollection:
         ids: Optional[List[str]] = None,
         where: Optional[Dict[str, Any]] = None,
     ) -> None:
+        query: Dict[str, Any] = {}
         if ids:
-            self.collection.delete_many({"_id": {"$in": ids}})
-        elif where:
-            self.collection.delete_many(where)
+            query["_id"] = {"$in": ids}
+        if where:
+            query.update(where)
+        if query:
+            self.collection.delete_many(query)
 
     def get(
         self,
@@ -243,7 +249,7 @@ def delete_entries(
     """Remove documents by ``session_id`` and optional constraints."""
 
     if ids:
-        collection.delete(ids=ids)
+        collection.delete(ids=ids, where={"project_id": project_id})
         return
     query: Dict[str, Any] = {"project_id": project_id, "session_id": session_id}
     if types:
@@ -251,10 +257,10 @@ def delete_entries(
     collection.delete(where=query)
 
 
-def update_entry(entry_id: str, new_content: str) -> None:
-    """Replace the stored content for ``entry_id``."""
+def update_entry(project_id: str, entry_id: str, new_content: str) -> None:
+    """Replace the stored content for ``entry_id`` scoped to ``project_id``."""
 
-    results = collection.get(ids=[entry_id], include=["metadatas"])
+    results = collection.get(ids=[entry_id], include=["metadatas"], where={"project_id": project_id})
     if not results.get("ids"):
         return
     metadata = results["metadatas"][0]
@@ -262,6 +268,6 @@ def update_entry(entry_id: str, new_content: str) -> None:
         ids=[entry_id],
         documents=[new_content],
         embeddings=[embed([new_content])[0]],
-        metadatas=[metadata],
+        metadatas=[{**metadata, "project_id": project_id}],
     )
 
