@@ -76,7 +76,7 @@ if __name__ == "__main__":
     from forgekeeper.config import DEBUG_MODE
 
     log = get_logger(__name__, debug=DEBUG_MODE)
-    bank = MemoryBank()
+    bank = MemoryBank("default")
     scheduler = MemoryScheduler(
         bank,
         max_entries=500,

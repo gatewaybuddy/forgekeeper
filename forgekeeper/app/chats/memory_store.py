@@ -36,16 +36,22 @@ def set_memory(session_id, memory):
     data[session_id] = memory
     _save_all(data)
 
-def save_message(session_id, role, content, internal=False):
+def save_message(session_id, role, content, internal=False, project_id="default"):
     memory = get_memory(session_id)
     target = "internal" if internal else "shared"
     memory[target].append({
         "role": role,
         "content": content,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     })
     set_memory(session_id, memory)
-    store_memory_entry(session_id, role, content, type="internal" if internal else "dialogue")
+    store_memory_entry(
+        project_id,
+        session_id,
+        role,
+        content,
+        type="internal" if internal else "dialogue",
+    )
 
 def reset_memory(session_id):
     data = _load_all()

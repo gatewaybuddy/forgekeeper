@@ -15,8 +15,9 @@ interface Context {
 const resolvers = {
   JSON: GraphQLJSON,
   Query: {
-    listConversations: async (_: any, __: any, { prisma }: Context) => {
-      return prisma.conversation.findMany({ include: { messages: true } });
+    listConversations: async (_: any, { projectId }: any, { prisma }: Context) => {
+      const where = projectId ? { projectId } : {};
+      return prisma.conversation.findMany({ where, include: { messages: true } });
     },
     listFolders: async (_: any, __: any, { prisma }: Context) => {
       const folders = await prisma.folder.findMany();
@@ -36,6 +37,7 @@ const resolvers = {
       return roots;
     },
     listProjects: async (_: any, __: any, { prisma }: Context) => {
+
       return prisma.project.findMany({
         include: { conversations: { include: { messages: true } } },
       });
@@ -45,12 +47,13 @@ const resolvers = {
         where: { id },
         include: { conversations: { include: { messages: true } } },
       });
+
     },
   },
   Mutation: {
     sendMessageToForgekeeper: async (
       _: any,
-      { topic, message, idempotencyKey }: any,
+      { topic, message, idempotencyKey, projectId }: any,
       { prisma }: Context
     ) => {
       if (idempotencyKey) {
@@ -67,15 +70,17 @@ const resolvers = {
       }
 
       await prisma.$transaction(async (tx) => {
+        const convData: any = {
+          id: conversationId,
+          title: `Conversation ${conversationId}`,
+          folder: 'root',
+          archived: false,
+        };
+        if (projectId) convData.projectId = projectId;
         await tx.conversation.upsert({
           where: { id: conversationId },
-          update: {},
-          create: {
-            id: conversationId,
-            title: `Conversation ${conversationId}`,
-            folder: 'root',
-            archived: false,
-          },
+          update: projectId ? { projectId } : {},
+          create: convData,
         });
         await tx.message.create({
           data: {
@@ -143,6 +148,7 @@ const resolvers = {
       await prisma.folder.updateMany({ where: { parent: oldName }, data: { parent: newName } });
       return true;
     },
+
     createProject: async (_: any, { name, description }: any, { prisma }: Context) => {
       return prisma.project.create({
         data: { id: uuidv4(), name, description },
@@ -162,6 +168,7 @@ const resolvers = {
     deleteProject: async (_: any, { id }: any, { prisma }: Context) => {
       await prisma.project.delete({ where: { id } });
       return true;
+
     },
   },
 };
