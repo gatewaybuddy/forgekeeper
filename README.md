@@ -21,6 +21,20 @@ pwsh scripts/setup_docker_env.ps1
 
 ## Installation
 
+Run the helper script to install Python and Node dependencies for local development:
+
+```bash
+./scripts/setup_dev_env.sh
+```
+
+From PowerShell:
+
+```powershell
+pwsh scripts/setup_dev_env.ps1
+```
+
+Alternatively, follow the manual steps below.
+
 ### Backend (Python)
 1. Create a virtual environment (optional):
    ```bash
