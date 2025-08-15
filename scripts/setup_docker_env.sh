@@ -23,9 +23,9 @@ else
 fi
 
 # --- load existing env if present ---
-if [ -f "$ENV_FILE" ]; then
-  export $(grep -v '^#' "$ENV_FILE" | xargs)
-fi
+set -a
+[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+set +a
 
 prompt_var () {
   local var="$1" default="$2"
