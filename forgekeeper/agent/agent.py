@@ -13,10 +13,10 @@ class ForgeAgent:
         self.memory = load_memory(self.session_id)
 
     def receive_input(self, user_input):
-        save_message(self.session_id, "user", user_input)
+        save_message(self.session_id, "user", user_input, project_id=self.session_id)
         intent_result = interpret_prompt(user_input, self.session_id)
         if intent_result:
-            save_message(self.session_id, "assistant", intent_result)
+            save_message(self.session_id, "assistant", intent_result, project_id=self.session_id)
             return intent_result
         return None
 
@@ -40,12 +40,12 @@ class ForgeAgent:
             messages.append(message)
             for call in tool_calls:
                 result = execute_tool_call(call)
-                save_message(self.session_id, "tool", result)
+                save_message(self.session_id, "tool", result, project_id=self.session_id)
                 messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
             message = openai_compat_client.chat("core", messages)
 
         content = message.get("content", "")
-        save_message(self.session_id, "assistant", content)
+        save_message(self.session_id, "assistant", content, project_id=self.session_id)
         return content
 
     def format_prompt(self, user_input):

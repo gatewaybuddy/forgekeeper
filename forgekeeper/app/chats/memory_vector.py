@@ -65,7 +65,8 @@ COLL_NAME = os.getenv("MONGODB_COLLECTION", "memory_vectors")
 _mongo = MongoClient(MONGO_URI)
 _db = _mongo[DB_NAME]
 _raw_collection = _db[COLL_NAME]
-_raw_collection.create_index("session_id")
+# Index by project and session for faster scoped queries
+_raw_collection.create_index([("project_id", 1), ("session_id", 1)])
 
 
 class MongoVectorCollection:
@@ -152,6 +153,7 @@ collection = MongoVectorCollection(_raw_collection)
 
 # Convenience helpers --------------------------------------------------------
 def store_memory_entry(
+    project_id: str,
     session_id: str,
     role: str,
     content: str,
@@ -163,6 +165,7 @@ def store_memory_entry(
 
     doc_id = str(uuid.uuid4())
     metadata = {
+        "project_id": project_id,
         "session_id": session_id,
         "role": role,
         "type": type,
@@ -192,6 +195,7 @@ def _cosine(a: List[float], b: List[float]) -> float:
 
 
 def retrieve_similar_entries(
+    project_id: str,
     session_id: str,
     query: str,
     *,
@@ -207,7 +211,7 @@ def retrieve_similar_entries(
     """
 
     query_emb = embed([query])[0]
-    filter_query: Dict[str, Any] = {"session_id": session_id}
+    filter_query: Dict[str, Any] = {"project_id": project_id, "session_id": session_id}
     if types:
         filter_query["type"] = {"$in": types}
     if tags:
@@ -230,6 +234,7 @@ def retrieve_similar_entries(
 
 
 def delete_entries(
+    project_id: str,
     session_id: str,
     *,
     types: Optional[List[str]] = None,
@@ -240,7 +245,7 @@ def delete_entries(
     if ids:
         collection.delete(ids=ids)
         return
-    query: Dict[str, Any] = {"session_id": session_id}
+    query: Dict[str, Any] = {"project_id": project_id, "session_id": session_id}
     if types:
         query["type"] = {"$in": types}
     collection.delete(where=query)

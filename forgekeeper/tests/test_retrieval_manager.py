@@ -57,7 +57,7 @@ def setup_bank(monkeypatch):
     import importlib
     from app.chats import memory_bank as mb
     importlib.reload(mb)
-    return mb.MemoryBank(), collection
+    return mb.MemoryBank("proj"), collection
 
 def test_retrieve_top_items(monkeypatch):
     bank, store = setup_bank(monkeypatch)
