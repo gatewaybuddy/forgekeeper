@@ -166,10 +166,14 @@ const resolvers = {
       });
     },
     deleteProject: async (_: any, { id }: any, { prisma }: Context) => {
+      await prisma.conversation.updateMany({ where: { projectId: id }, data: { projectId: null } });
       await prisma.project.delete({ where: { id } });
       return true;
-
     },
+  },
+  Project: {
+    createdAt: (p: any) => (p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt),
+    updatedAt: (p: any) => (p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt),
   },
 };
 
