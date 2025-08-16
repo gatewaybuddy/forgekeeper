@@ -21,7 +21,7 @@ epics:
     milestones:
       - id: M-010
         title: Outbox worker with retries
-        status: todo
+        status: done
   - id: R-003
     title: Autonomy feature expansions
     kpis: []
