@@ -30,7 +30,6 @@ def append_entry(
         "summary": summary,
         "artifacts_paths": list(artifacts_paths or []),
         "sentiment": sentiment or "neutral",
-        "rationale": rationale,
     }
     if rationale is not None:
         entry["rationale"] = rationale
@@ -110,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "--pushes",
         type=int,
         metavar="N",
-        help="Show the last N automated push entries",
+        help="Show the last N automated push entries with rationales",
     )
     args = parser.parse_args(argv)
     if args.review is not None:
