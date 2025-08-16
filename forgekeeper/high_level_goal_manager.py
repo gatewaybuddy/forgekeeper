@@ -17,7 +17,12 @@ from dataclasses import dataclass
 import re
 
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE, AUTONOMY_MODE
+from forgekeeper.config import (
+    DEBUG_MODE,
+    AUTONOMY_MODE,
+    ROADMAP_COMMIT_INTERVAL,
+    ROADMAP_AUTO_PUSH,
+)
 from forgekeeper.task_pipeline import TaskPipeline
 from types import SimpleNamespace
 
@@ -56,9 +61,13 @@ class HighLevelGoalManager:
 
     def __post_init__(self) -> None:
         self.pipeline = TaskPipeline()
-        if self.autonomous:
+        if self.autonomous and ROADMAP_COMMIT_INTERVAL > 0:
             # Start periodic roadmap commits in the background
-            start_periodic_commits(3600)
+            start_periodic_commits(
+                ROADMAP_COMMIT_INTERVAL,
+                auto_push=ROADMAP_AUTO_PUSH,
+                rationale="Periodic roadmap checkpoint",
+            )
 
     # ------------------------------------------------------------------
     def _build_subtask_graph(self, description: str) -> list[Subtask]:
