@@ -208,4 +208,6 @@ def test_auto_push_logs_changelog_and_rationale(tmp_path, monkeypatch):
     assert entries[-1]["status"] == "pushed"
     assert "Rationale" in entries[-1]["summary"]
     assert "push.py" in entries[-1]["summary"]
+    assert entries[-1]["rationale"] == "auto push"
     assert result["pushed"]
+    assert result["rationale"] == "auto push"
