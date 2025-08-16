@@ -4,6 +4,9 @@ Set-StrictMode -Version Latest
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $envFile = Join-Path $rootDir '.env'
+$modelsDir = Join-Path $rootDir 'forgekeeper/models'
+if (-not (Test-Path $modelsDir)) { New-Item -ItemType Directory -Path $modelsDir | Out-Null }
+$models = Get-ChildItem $modelsDir -File | Select-Object -ExpandProperty Name
 
 # --- load existing env if present ---
 if (Test-Path $envFile) {
@@ -34,6 +37,37 @@ function Prompt-Secret {
     Set-Item -Path "Env:$Name" -Value $input
 }
 
+function Choose-Model {
+    param($Name)
+    if ($models.Count -eq 0) {
+        $current = (Get-Item "Env:$Name" -ErrorAction SilentlyContinue).Value
+        $input = Read-Host "$Name [$current]"
+        if ([string]::IsNullOrEmpty($input)) { $input = $current }
+        Set-Item -Path "Env:$Name" -Value $input
+        return
+    }
+
+    Write-Host "`nAvailable models:"
+    for ($i = 0; $i -lt $models.Count; $i++) {
+        Write-Host "[$($i + 1)] $($models[$i])"
+    }
+
+    $current = (Get-Item "Env:$Name" -ErrorAction SilentlyContinue).Value
+    $currentBase = if ($current) { [System.IO.Path]::GetFileName($current) } else { $null }
+    $defaultIndex = if ($currentBase) { ([array]::IndexOf($models, $currentBase) + 1) } else { 1 }
+    if ($defaultIndex -lt 1) { $defaultIndex = 1 }
+
+    $sel = Read-Host "$Name selection [$defaultIndex]"
+    if ([string]::IsNullOrEmpty($sel)) { $sel = $defaultIndex }
+
+    if ($sel -as [int] -and $sel -ge 1 -and $sel -le $models.Count) {
+        $choice = Join-Path $modelsDir $models[$sel - 1]
+    } else {
+        $choice = $sel
+    }
+    Set-Item -Path "Env:$Name" -Value $choice
+}
+
 # --- gather env vars ---
 Prompt-Var 'FRONTEND_PORT' '3000'
 Prompt-Var 'BACKEND_PORT' '8000'
@@ -43,8 +77,8 @@ Prompt-Secret 'OPENAI_API_KEY' ''
 Prompt-Var 'LLM_BACKEND' 'vllm'
 Prompt-Var 'VLLM_PORT_CORE' '8001'
 Prompt-Var 'VLLM_PORT_CODER' '8002'
-Prompt-Var 'VLLM_MODEL_CORE' 'mistral-nemo-instruct'
-Prompt-Var 'VLLM_MODEL_CODER' 'codellama-13b-python'
+Choose-Model 'VLLM_MODEL_CORE'
+Choose-Model 'VLLM_MODEL_CODER'
 Prompt-Var 'VLLM_TP' '1'
 Prompt-Var 'VLLM_MAX_MODEL_LEN' '4096'
 Prompt-Var 'VLLM_GPU_MEMORY_UTILIZATION' '0.9'
