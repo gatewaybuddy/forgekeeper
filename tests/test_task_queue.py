@@ -155,6 +155,9 @@ status: todo
     queue = TaskQueue(tasks_md)
     task = queue.next_task()
     assert task["id"] == "N2"
+    # ensure similar past attempt is surfaced when queried directly
+    _, related = queue._memory_weight("Implement foo feature (P1)")
+    assert any("foo feature" in s for s in related)
 
 
 def test_state_persistence(tmp_path, monkeypatch):

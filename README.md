@@ -122,6 +122,14 @@ vectorizer otherwise. The resulting vectors are stored in
 `.forgekeeper/episodic_vectors.sqlite` and compared via cosine similarity to
 adjust task scores.
 
+### Embedding-driven planning
+
+When new goals are created, Forgekeeper queries this embedding store for
+semantically similar past tasks. The retrieved summaries are attached to the
+goal and surfaced through the task queue so that memory of previous
+successes or failures can influence prioritization and provide additional
+context during execution.
+
 ### GPT-OSS-20B Model Setup
 
 Download the open-source model from Hugging Face:
