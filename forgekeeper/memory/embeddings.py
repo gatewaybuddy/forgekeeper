@@ -196,3 +196,35 @@ def load_episodic_memory(
     if to_store:
         embedder.store_embeddings(to_store)
     return embedder, summary
+
+
+def retrieve_similar_tasks(
+    text: str,
+    summary_stats: Dict[str, Dict[str, object]],
+    embedder: LocalEmbedder,
+    top_n: int = 3,
+) -> List[Tuple[str, Dict[str, object], float]]:
+    """Return ``top_n`` episodic tasks most similar to ``text``.
+
+    The ``summary_stats`` mapping should contain the episodic memory entries as
+    produced by :func:`load_episodic_memory`. This helper embeds the ``text``
+    query, computes cosine similarity against the stored vectors, and returns a
+    list of ``(key, stats, similarity)`` tuples sorted from most to least
+    similar. Entries with a non-positive similarity are skipped.
+    """
+
+    try:
+        query_vec = embedder.embed_query(text)
+    except Exception:
+        return []
+    scored: List[Tuple[str, Dict[str, object], float]] = []
+    for key, stats in summary_stats.items():
+        vec = embedder.get_embedding(key)
+        if not vec:
+            continue
+        sim = cosine_similarity(query_vec, vec)
+        if sim <= 0:
+            continue
+        scored.append((key, stats, sim))
+    scored.sort(key=lambda x: x[2], reverse=True)
+    return scored[:top_n]

@@ -22,6 +22,7 @@ from forgekeeper.memory.embeddings import (
     LocalEmbedder,
     cosine_similarity,
     load_episodic_memory,
+    retrieve_similar_tasks,
 )
 
 
@@ -183,26 +184,30 @@ class TaskQueue:
                 tasks.extend(section.tasks)
         return tasks
 
-    def _memory_weight(self, text: str, key: str | None = None) -> float:
+    def _memory_weight(self, text: str, key: str | None = None) -> tuple[float, list[str]]:
+        """Return a memory-based weight and related summaries for ``text``."""
+
         if not self.memory_stats:
-            return 0.0
+            return 0.0, []
         if key and key in self.memory_stats:
             stats = self.memory_stats[key]
-            return int(stats.get("failure", 0)) - int(stats.get("success", 0))
+            summary = stats.get("summary")
+            return (
+                int(stats.get("failure", 0)) - int(stats.get("success", 0)),
+                [str(summary)] if summary else [],
+            )
         if not self.memory_embedder:
-            return 0.0
-        query_vec = self.memory_embedder.embed_query(text)
+            return 0.0, []
+        similar = retrieve_similar_tasks(text, self.memory_stats, self.memory_embedder)
         weight = 0.0
-        for k, stats in self.memory_stats.items():
-            vec = self.memory_embedder.get_embedding(k)
-            if not vec:
-                continue
-            sim = cosine_similarity(query_vec, vec)
-            if sim <= 0:
-                continue
+        related: list[str] = []
+        for _, stats, sim in similar:
             diff = int(stats.get("failure", 0)) - int(stats.get("success", 0))
             weight += sim * diff
-        return weight
+            summary = stats.get("summary")
+            if summary:
+                related.append(str(summary))
+        return weight, related
 
     def next_task(self) -> Optional[dict]:
         """Return next task from YAML front-matter in ``tasks.md``.
@@ -225,6 +230,7 @@ class TaskQueue:
         self.refresh_memory()
         best: Optional[dict] = None
         best_score: Optional[float] = None
+        best_related: list[str] = []
         if "## Canonical Tasks" in content:
             section = content.split("## Canonical Tasks", 1)[1]
             lines = section.splitlines()
@@ -253,7 +259,7 @@ class TaskQueue:
                     priority = int(match.group(1)) if match else 2
                     labels = data.get("labels") or []
                     key = str(data.get("id") or "").strip() or None
-                    memory_weight = self._memory_weight(title, key)
+                    memory_weight, related = self._memory_weight(title, key)
                     task = {
                         "id": data.get("id"),
                         "title": title,
@@ -266,14 +272,16 @@ class TaskQueue:
                     if best_score is None or score < best_score:
                         best = task
                         best_score = score
+                        best_related = related
                 else:
                     i += 1
         if best:
+            best["memory_context"] = best_related
             return best
 
         for task in self.list_tasks():
             if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
-                memory_weight = self._memory_weight(task.description)
+                memory_weight, related = self._memory_weight(task.description)
                 score = task.priority + float(memory_weight)
                 if best is None or score < best_score:
                     best = {
@@ -285,6 +293,9 @@ class TaskQueue:
                         "memory_weight": memory_weight,
                     }
                     best_score = score
+                    best_related = related
+        if best:
+            best["memory_context"] = best_related
         return best
 
     def get_task(self, description: str) -> Optional[Task]:

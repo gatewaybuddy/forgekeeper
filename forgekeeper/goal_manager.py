@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .state_manager import load_state
+from .memory.embeddings import load_episodic_memory, retrieve_similar_tasks
 
 GOALS_FILE = Path("forgekeeper/goals.json")
 GOAL_LOG_FILE = Path("forgekeeper/goals.log")
@@ -121,6 +122,16 @@ def add_goal(
         goal["parent_id"] = parent_id
     if depends_on:
         goal["depends_on"] = list(depends_on)
+
+    # Look for related past tasks via embeddings
+    try:
+        embedder, summary = load_episodic_memory()
+        similar = retrieve_similar_tasks(description, summary, embedder)
+        summaries = [s[1].get("summary", "") for s in similar if s[1].get("summary")]
+        if summaries:
+            goal["memory_context"] = summaries
+    except Exception:
+        pass
 
     goals.append(goal)
 
