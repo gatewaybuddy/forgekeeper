@@ -2,6 +2,17 @@
 
 This document defines the autonomous agents currently active—or planned—within the Forgekeeper system. Each agent plays a distinct role in supporting Forgekeeper’s self-developing, memory-driven architecture.
 
+## Roles and Coordination
+
+Forgekeeper orchestrates two primary agents that collaborate on tasks:
+
+- **Core** – reflective reasoning and emotional context manager
+- **Coder** – code generation and debugging expert
+
+A lightweight planner breaks user requests into subtasks, assigns each
+to the appropriate agent, and records brief status messages in a shared
+context log so later steps can build on earlier work.
+
 ---
 
 ## ✅ Active Agents
@@ -36,11 +47,14 @@ This document defines the autonomous agents currently active—or planned—with
 ## 🗂️ Delegation Strategy
 
 Forgekeeper splits complex requests into smaller steps and assigns each
-step to the most suitable agent. The planning module decomposes tasks and
-labels subtasks for either the **Core** or **Coder** agent using simple
-keyword heuristics. A lightweight communication protocol lets agents
-broadcast short context messages so later subtasks can build on earlier
-outputs.
+step to the most suitable agent.
+
+1. The planning module decomposes tasks and labels subtasks for either the
+   **Core** or **Coder** agent using simple keyword heuristics.
+2. Agents execute their assigned step and append a brief message to the shared
+   context log.
+3. Later subtasks consult this log to carry forward prior decisions and
+   maintain continuity.
 
 ---
 
