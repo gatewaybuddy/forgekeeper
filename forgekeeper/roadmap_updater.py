@@ -42,8 +42,16 @@ def _recent_memory(path: Path, limit: int = 5) -> Sequence[str]:
     return entries
 
 
-def _synthesize_summary(commits: Sequence[str], mem_entries: Sequence[str]) -> str:
-    """Return a deterministic summary of recent work without prompting."""
+def generate_progress_summary(
+    commits: Sequence[str], mem_entries: Sequence[str]
+) -> str:
+    """Return a deterministic progress summary from commits and memory.
+
+    The function intentionally avoids LLM prompts so that periodic roadmap
+    updates can run autonomously.  Only a small slice of recent commit
+    messages and episodic memory summaries are included to keep the result
+    concise and reproducible.
+    """
 
     if not commits and not mem_entries:
         return ""
@@ -70,7 +78,7 @@ def draft_update(
     commits = _recent_commits(repo, commit_limit)
     mem_entries = _recent_memory(memory_file or MEMORY_FILE, memory_limit)
 
-    summary = _synthesize_summary(commits, mem_entries)
+    summary = generate_progress_summary(commits, mem_entries)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [f"## Update {timestamp}"]
@@ -130,6 +138,7 @@ def start_periodic_updates(
 
 
 __all__ = [
+    "generate_progress_summary",
     "draft_update",
     "append_update",
     "update_roadmap",
