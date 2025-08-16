@@ -4,9 +4,12 @@ import math
 import sqlite3
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 DB_PATH = Path('.forgekeeper/vectors.sqlite')
+# Separate store for episodic memory summaries
+EPISODIC_DB_PATH = Path('.forgekeeper/episodic_vectors.sqlite')
+EPISODIC_PATH = Path('.forgekeeper/memory/episodic.jsonl')
 
 
 class SimpleTfidfVectorizer:
@@ -135,3 +138,54 @@ class LocalEmbedder:
             return self.model.encode([text]).tolist()[0]  # type: ignore[union-attr]
         self._load_vectorizer()
         return self.vectorizer.transform([text])[0]  # type: ignore[union-attr]
+
+
+# ---------------------------------------------------------------------------
+def load_episodic_memory(
+    mem_path: Path = EPISODIC_PATH, db_path: Path = EPISODIC_DB_PATH
+) -> Tuple[LocalEmbedder, Dict[str, Dict[str, object]]]:
+    """Load episodic summaries, store their embeddings, and return stats.
+
+    Parameters
+    ----------
+    mem_path:
+        Path to the JSONL file containing episodic memory entries.
+    db_path:
+        SQLite database path used for embedding storage.
+
+    Returns
+    -------
+    Tuple of ``(embedder, summary_stats)`` where ``summary_stats`` maps a task
+    identifier to a dictionary with ``success``, ``failure`` and ``summary``
+    fields.
+    """
+
+    mem_path = Path(mem_path)
+    summary: Dict[str, Dict[str, object]] = {}
+    to_store: Dict[str, str] = {}
+    if mem_path.is_file():
+        for line in mem_path.read_text(encoding="utf-8").splitlines():
+            try:
+                data = json.loads(line)
+            except Exception:
+                continue
+            key = str(data.get("task_id") or data.get("title") or "").strip()
+            if not key:
+                continue
+            status = str(data.get("status", ""))
+            summary_text = str(data.get("summary") or data.get("title") or "")
+            stats = summary.setdefault(
+                key, {"success": 0, "failure": 0, "summary": summary_text}
+            )
+            if "success" in status or status == "committed":
+                stats["success"] = int(stats.get("success", 0)) + 1
+            elif "fail" in status or "error" in status or status == "no-file":
+                stats["failure"] = int(stats.get("failure", 0)) + 1
+            if summary_text:
+                stats["summary"] = summary_text
+                to_store[key] = summary_text
+
+    embedder = LocalEmbedder(db_path)
+    if to_store:
+        embedder.store_embeddings(to_store)
+    return embedder, summary

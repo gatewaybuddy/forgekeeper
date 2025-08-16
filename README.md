@@ -104,6 +104,13 @@ python -m forgekeeper.main
 npm run dev --prefix frontend
 ```
 
+## Memory-based retrieval
+
+Forgekeeper stores episodic task summaries and embeds them for quick
+similarity search. When ranking tasks, the queue recalls related past
+attempts so that frequently failing tasks are deprioritized while successful
+patterns rise to the top.
+
 ### GPT-OSS-20B Model Setup
 
 Download the open-source model from Hugging Face:

@@ -126,6 +126,37 @@ status: todo
     assert task["id"] == "T2"
 
 
+def test_similarity_recall_affects_order(tmp_path):
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text(
+        """## Canonical Tasks
+
+---
+id: N1
+title: Implement foo feature (P1)
+status: todo
+---
+
+---
+id: N2
+title: Refactor bar module (P1)
+status: todo
+---
+""",
+        encoding="utf-8",
+    )
+    mem_dir = tmp_path / ".forgekeeper" / "memory"
+    mem_dir.mkdir(parents=True)
+    mem_file = mem_dir / "episodic.jsonl"
+    mem_file.write_text(
+        """{"task_id": "old", "title": "Old task", "status": "failed", "summary": "struggled to implement foo feature"}\n""",
+        encoding="utf-8",
+    )
+    queue = TaskQueue(tasks_md)
+    task = queue.next_task()
+    assert task["id"] == "N2"
+
+
 def test_state_persistence(tmp_path, monkeypatch):
     import sys
     for mod in list(sys.modules):

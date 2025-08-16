@@ -18,6 +18,12 @@ import json
 import re
 import yaml
 
+from forgekeeper.memory.embeddings import (
+    LocalEmbedder,
+    cosine_similarity,
+    load_episodic_memory,
+)
+
 
 @dataclass
 class Task:
@@ -64,11 +70,15 @@ class TaskQueue:
         self.sections: List[Section] = []
         self._section_by_name: dict[str, Section] = {}
         self._parse()
-        self.memory_stats: Dict[str, Dict[str, int]] = self._load_memory_summaries()
+        stats, embedder = self._load_memory_summaries()
+        self.memory_stats: Dict[str, Dict[str, int | str]] = stats
+        self.memory_embedder: LocalEmbedder | None = embedder
 
     def refresh_memory(self) -> None:
         """Reload episodic memory summaries from disk."""
-        self.memory_stats = self._load_memory_summaries()
+        stats, embedder = self._load_memory_summaries()
+        self.memory_stats = stats
+        self.memory_embedder = embedder
 
     # ------------------------------------------------------------------
     # Parsing and serialization
@@ -158,31 +168,11 @@ class TaskQueue:
 
     # ------------------------------------------------------------------
     # Task helpers
-    def _load_memory_summaries(self) -> Dict[str, Dict[str, int]]:
-        """Load episodic memory success/failure counts keyed by task ID or title."""
+    def _load_memory_summaries(self) -> tuple[Dict[str, Dict[str, int | str]], LocalEmbedder]:
+        """Load episodic memory and ensure embeddings are available."""
         mem_path = self.path.parent / ".forgekeeper" / "memory" / "episodic.jsonl"
-        if not mem_path.is_file():
-            return {}
-        summary: Dict[str, Dict[str, int]] = {}
-        for line in mem_path.read_text(encoding="utf-8").splitlines():
-            try:
-                data = json.loads(line)
-            except Exception:
-                continue
-            key = str(data.get("task_id") or data.get("title") or "").strip()
-            if not key:
-                continue
-            status = str(data.get("status", ""))
-            stats = summary.setdefault(key, {"success": 0, "failure": 0})
-            if "success" in status or status == "committed":
-                stats["success"] += 1
-            elif (
-                "fail" in status
-                or "error" in status
-                or status == "no-file"
-            ):
-                stats["failure"] += 1
-        return summary
+        embedder, summary = load_episodic_memory(mem_path)
+        return summary, embedder
 
     def list_tasks(self) -> List[Task]:
         tasks: List[Task] = []
@@ -191,6 +181,27 @@ class TaskQueue:
             if section:
                 tasks.extend(section.tasks)
         return tasks
+
+    def _memory_weight(self, text: str, key: str | None = None) -> float:
+        if not self.memory_stats:
+            return 0.0
+        if key and key in self.memory_stats:
+            stats = self.memory_stats[key]
+            return int(stats.get("failure", 0)) - int(stats.get("success", 0))
+        if not self.memory_embedder:
+            return 0.0
+        query_vec = self.memory_embedder.embed_query(text)
+        weight = 0.0
+        for k, stats in self.memory_stats.items():
+            vec = self.memory_embedder.get_embedding(k)
+            if not vec:
+                continue
+            sim = cosine_similarity(query_vec, vec)
+            if sim <= 0:
+                continue
+            diff = int(stats.get("failure", 0)) - int(stats.get("success", 0))
+            weight += sim * diff
+        return weight
 
     def next_task(self) -> Optional[dict]:
         """Return next task from YAML front-matter in ``tasks.md``.
@@ -211,9 +222,8 @@ class TaskQueue:
             content = ""
 
         self.refresh_memory()
-        memory = self.memory_stats
         best: Optional[dict] = None
-        best_score: Optional[int] = None
+        best_score: Optional[float] = None
         if "## Canonical Tasks" in content:
             section = content.split("## Canonical Tasks", 1)[1]
             lines = section.splitlines()
@@ -241,9 +251,8 @@ class TaskQueue:
                     match = re.search(r"\(P([0-3])\)", title)
                     priority = int(match.group(1)) if match else 2
                     labels = data.get("labels") or []
-                    key = str(data.get("id") or title).strip()
-                    stats = memory.get(key)
-                    memory_weight = (stats["failure"] - stats["success"]) if stats else 0
+                    key = str(data.get("id") or "").strip() or None
+                    memory_weight = self._memory_weight(title, key)
                     task = {
                         "id": data.get("id"),
                         "title": title,
@@ -252,7 +261,7 @@ class TaskQueue:
                         "priority": priority,
                         "memory_weight": memory_weight,
                     }
-                    score = priority + memory_weight
+                    score = priority + float(memory_weight)
                     if best_score is None or score < best_score:
                         best = task
                         best_score = score
@@ -263,9 +272,8 @@ class TaskQueue:
 
         for task in self.list_tasks():
             if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
-                stats = memory.get(task.description)
-                memory_weight = (stats["failure"] - stats["success"]) if stats else 0
-                score = task.priority + memory_weight
+                memory_weight = self._memory_weight(task.description)
+                score = task.priority + float(memory_weight)
                 if best is None or score < best_score:
                     best = {
                         "id": "",
