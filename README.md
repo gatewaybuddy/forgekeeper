@@ -116,7 +116,11 @@ npm run dev --prefix frontend
 Forgekeeper stores episodic task summaries and embeds them for quick
 similarity search. When ranking tasks, the queue recalls related past
 attempts so that frequently failing tasks are deprioritized while successful
-patterns rise to the top.
+patterns rise to the top. Summaries are vectorized using a lightweight
+SentenceTransformer model when available and fall back to a simple TF–IDF
+vectorizer otherwise. The resulting vectors are stored in
+`.forgekeeper/episodic_vectors.sqlite` and compared via cosine similarity to
+adjust task scores.
 
 ### GPT-OSS-20B Model Setup
 
