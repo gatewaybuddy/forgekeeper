@@ -12,13 +12,12 @@ from forgekeeper.agent.communication import send_direct_message, get_direct_mess
 def test_planner_registers_custom_agent_and_protocol():
     register_agent("researcher", {"investigate", "research"}, protocol="direct")
     tasks = split_for_agents("research the topic and fix code")
-    assert tasks[0] == {
-        "agent": "researcher",
-        "task": "research the topic",
-        "protocol": "direct",
-    }
+    assert tasks[0]["agent"] == "researcher"
+    assert tasks[0]["task"] == "research the topic"
+    assert tasks[0]["protocol"] == "direct"
     assert tasks[1]["agent"] == "coder"
     assert tasks[1]["protocol"] == "broadcast"
+    assert tasks[0]["context"] is tasks[1]["context"]
 
 
 def test_direct_message_roundtrip():
