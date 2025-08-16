@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from forgekeeper.task_queue import TaskQueue
+from forgekeeper.memory import episodic
 
 MODULE_DIR = Path(__file__).resolve().parent
 TASK_FILE = MODULE_DIR.parent / "tasks.md"
@@ -70,7 +71,13 @@ def cmd_add(queue: TaskQueue, args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Task queue helpers")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--pushes",
+        type=int,
+        metavar="N",
+        help="Show the last N automated push entries",
+    )
+    sub = parser.add_subparsers(dest="command")
 
     p_list = sub.add_parser("list", help="List all tasks")
     p_list.set_defaults(func=cmd_list)
@@ -104,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "pushes", None) is not None:
+        episodic._recent_pushes(args.pushes)
+        return
+    if not hasattr(args, "func"):
+        parser.print_help()
+        return
     queue = TaskQueue(TASK_FILE)
     args.func(queue, args)
     queue.save()

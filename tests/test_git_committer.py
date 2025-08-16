@@ -206,8 +206,11 @@ def test_auto_push_logs_changelog_and_rationale(tmp_path, monkeypatch):
     mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
     entries = [json.loads(line) for line in mem_file.read_text(encoding="utf-8").splitlines() if line]
     assert entries[-1]["status"] == "pushed"
-    assert "Rationale" in entries[-1]["summary"]
-    assert "push.py" in entries[-1]["summary"]
+    changelog_path = repo / "logs" / "t_push" / "changelog.txt"
+    assert changelog_path.exists()
+    assert entries[-1]["artifacts_paths"] == [str(changelog_path)]
     assert entries[-1]["rationale"] == "auto push"
     assert result["pushed"]
     assert result["rationale"] == "auto push"
+    assert result["changelog_path"] == str(changelog_path)
+    assert "push.py" in changelog_path.read_text(encoding="utf-8")
