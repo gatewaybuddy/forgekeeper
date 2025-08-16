@@ -23,6 +23,8 @@ from .change_stager import diff_and_stage_changes
 from .git_committer import commit_and_push_changes
 from .memory.episodic import append_entry
 from git import Repo
+from .multi_agent_planner import split_for_agents
+from .agent.communication import get_shared_context
 
 TASK_FILE = Path(__file__).resolve().parents[1] / "tasks.md"
 
@@ -141,15 +143,19 @@ class TaskPipeline:
         if not meta:
             return None
 
-        desc = meta.get("title") or meta.get("description") or ""
+        original_desc = meta.get("title") or meta.get("description") or ""
         task_id = meta.get("id", "manual")
+
+        plan = split_for_agents(original_desc)
+
+        exec_desc = next((p["task"] for p in plan if p["agent"] == "coder"), original_desc)
 
         summaries = summarize_repository()
         summaries_path = Path("forgekeeper/summaries.json")
         summaries_path.parent.mkdir(parents=True, exist_ok=True)
         summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
-        ranked = analyze_repo_for_task(desc, str(summaries_path))
+        ranked = analyze_repo_for_task(exec_desc, str(summaries_path))
 
         # Use a set to avoid duplicates across multiple edit passes
         changed_files: Set[str] = set()
@@ -161,7 +167,7 @@ class TaskPipeline:
             if not p.exists():
                 continue
             original = p.read_text(encoding="utf-8")
-            patch = generate_code_edit(desc, file_path, summary, guidelines)
+            patch = generate_code_edit(exec_desc, file_path, summary, guidelines)
             changed = apply_unified_diff(patch)
             if file_path in changed or str(p) in changed:
                 modified = p.read_text(encoding="utf-8")
@@ -172,24 +178,26 @@ class TaskPipeline:
                 else:
                     changed_files.add(file_path)
 
-        result = commit_and_push_changes(desc, task_id=task_id)
+        result = commit_and_push_changes(exec_desc, task_id=task_id)
 
         # Unified episodic logging (single entry)
         passed = bool(result.get("passed"))
         status = "success" if passed else "failed"
         sentiment = "positive" if passed else "negative"
-        summary_text = f"Task '{desc}' {status}."
+        summary_text = f"Task '{exec_desc}' {status}."
         artifacts = [result.get("artifacts_path")] if result.get("artifacts_path") else []
         sorted_changed = sorted(changed_files)
 
-        append_entry(task_id, desc, status, sorted_changed, summary_text, artifacts, sentiment)
+        append_entry(task_id, exec_desc, status, sorted_changed, summary_text, artifacts, sentiment)
 
         if passed:
-            self.mark_done(desc)
+            self.mark_done(original_desc)
         else:
-            self.mark_needs_review(desc)
+            self.mark_needs_review(original_desc)
 
         result["changed_files"] = sorted_changed
+        result["plan"] = plan
+        result["shared_context"] = get_shared_context()
         return result
 
     # ------------------------------------------------------------------

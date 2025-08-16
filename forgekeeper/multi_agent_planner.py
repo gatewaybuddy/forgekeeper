@@ -5,12 +5,15 @@ distinguished between a ``core`` and a ``coder`` agent.  In order to support
 more sophisticated multi-agent setups the planner now allows dynamic agent
 registration along with a preferred communication protocol.  Each planned
 subtask therefore contains the target agent *and* the protocol it should use
-when communicating its results.
+when communicating its results.  Planned subtasks also receive a reference to
+the shared context log so agents can build on each other's outputs.
 """
 
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
+
+from .agent.communication import broadcast_context, get_shared_context
 
 # Registry mapping agent names to their keyword triggers and communication
 # protocol.  Each entry maps to ``{"keywords": set[str], "protocol": str}``.
@@ -43,7 +46,7 @@ register_agent("coder", {"code", "bug", "implement", "fix", "refactor"}, protoco
 register_agent("core", set(), protocol="broadcast")
 
 
-def split_for_agents(task: str) -> List[Dict[str, str]]:
+def split_for_agents(task: str) -> List[Dict[str, object]]:
     """Split ``task`` into subtasks and assign them to agents.
 
     Parameters
@@ -55,19 +58,25 @@ def split_for_agents(task: str) -> List[Dict[str, str]]:
 
     Returns
     -------
-    List[Dict[str, str]]
+    List[Dict[str, object]]
         Each item contains ``agent``, ``task`` and ``protocol`` keys specifying
-        the responsible agent, subtask text and communication protocol.
+        the responsible agent, subtask text and communication protocol.  A
+        ``context`` key provides a handle to the shared context log capturing
+        planning decisions.
     """
 
+    context_log = get_shared_context()
     parts = [p.strip() for p in task.replace("\n", " ").split(" and ") if p.strip()]
-    subtasks: List[Dict[str, str]] = []
+    subtasks: List[Dict[str, object]] = []
     for part in parts:
         agent, protocol = _choose_agent(part)
-        subtasks.append({"agent": agent, "task": part, "protocol": protocol})
+        broadcast_context("planner", f"{agent}: {part}")
+        subtasks.append({"agent": agent, "task": part, "protocol": protocol, "context": context_log})
     if not subtasks:
         agent, protocol = _choose_agent(task)
-        subtasks.append({"agent": agent, "task": task.strip(), "protocol": protocol})
+        text = task.strip()
+        broadcast_context("planner", f"{agent}: {text}")
+        subtasks.append({"agent": agent, "task": text, "protocol": protocol, "context": context_log})
     return subtasks
 
 
