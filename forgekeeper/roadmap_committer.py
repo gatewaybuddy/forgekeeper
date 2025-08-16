@@ -25,6 +25,7 @@ def commit_roadmap_update(
     commit_limit: int = 5,
     memory_limit: int = 5,
     auto_push: bool = False,
+    rationale: str | None = None,
 ) -> dict:
     """Append a roadmap update and commit the change autonomously."""
 
@@ -51,6 +52,7 @@ def commit_roadmap_update(
             [str(path)],
             summary or commit_message,
             [],
+            rationale=rationale,
         )
     except Exception as exc:  # pragma: no cover - best effort
         log.error(f"Failed to log roadmap commit: {exc}")
@@ -66,6 +68,7 @@ def start_periodic_commits(
     commit_limit: int = 5,
     memory_limit: int = 5,
     auto_push: bool = False,
+    rationale: str | None = None,
 ) -> threading.Thread:
     """Start a background thread that periodically commits roadmap updates."""
 
@@ -80,6 +83,7 @@ def start_periodic_commits(
                     commit_limit,
                     memory_limit,
                     auto_push,
+                    rationale,
                 )
             except Exception as exc:  # pragma: no cover - best effort
                 log.error(f"Roadmap commit failed: {exc}")

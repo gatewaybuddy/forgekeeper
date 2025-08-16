@@ -88,6 +88,7 @@ def test_commit_logs_memory(tmp_path, monkeypatch):
             memory_file=mem_file,
             commit_limit=1,
             memory_limit=1,
+            rationale="scheduled",
         )
     finally:
         os.chdir(cwd)
@@ -97,6 +98,7 @@ def test_commit_logs_memory(tmp_path, monkeypatch):
     data = json.loads(entries[-1])
     assert data["task_id"] == "roadmap-update"
     assert data["status"] == "done"
+    assert data["rationale"] == "scheduled"
     for mod in list(sys.modules):
         if mod.startswith("forgekeeper") and mod not in orig_modules:
             sys.modules.pop(mod)

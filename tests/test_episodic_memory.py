@@ -24,6 +24,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "first entry",
             "artifacts_paths": [],
             "sentiment": "positive",
+            "rationale": None,
         },
         {
             "task_id": "T2",
@@ -33,6 +34,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "second entry",
             "artifacts_paths": [],
             "sentiment": "negative",
+            "rationale": None,
         },
         {
             "task_id": "T3",
@@ -42,6 +44,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "third entry",
             "artifacts_paths": [],
             "sentiment": "positive",
+            "rationale": None,
         },
     ]
 
