@@ -3,6 +3,20 @@
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 This repository includes all components required to run the local development environment.
 
+## Environment file
+
+Interactively create or update the `.env` configuration used by the run scripts:
+
+```bash
+./scripts/setup_env.sh
+```
+
+From PowerShell:
+
+```powershell
+pwsh scripts/setup_env.ps1
+```
+
 ## Docker environment
 
 Copy `.env.example` to `.env` in the repository root and then run the setup script:
