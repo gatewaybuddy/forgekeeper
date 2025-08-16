@@ -3,6 +3,13 @@
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 This repository includes all components required to run the local development environment.
 
+## PowerShell 7
+
+Several setup scripts use the `pwsh` command, which is part of PowerShell 7.
+If `pwsh` is not available on your system, download and install PowerShell 7
+from the [official website](https://aka.ms/powershell) and ensure it is on
+your `PATH` before running the PowerShell examples.
+
 ## Environment file
 
 Interactively create or update the `.env` configuration used by the run scripts:
