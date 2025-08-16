@@ -5,6 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Path to the repository's root-level .env file
 ENV_FILE="$ROOT_DIR/.env"
+MODELS_DIR="$ROOT_DIR/forgekeeper/models"
+mkdir -p "$MODELS_DIR"
+mapfile -t MODELS < <(find "$MODELS_DIR" -maxdepth 1 -type f -printf "%f\n")
 NET_NAME="forgekeeper-net"
 
 # --- dependency checks ---
@@ -40,6 +43,37 @@ prompt_secret () {
   export "$var"="${input:-${!var:-$default}}"
 }
 
+choose_model () {
+  local var="$1"
+  if [ ${#MODELS[@]} -eq 0 ]; then
+    prompt_var "$var" "${!var}"
+    return
+  fi
+  echo
+  echo "Available models:"
+  local i=1
+  for m in "${MODELS[@]}"; do
+    echo "[$i] $m"
+    i=$((i+1))
+  done
+  local current="${!var}"
+  local base="$(basename "${current:-}")"
+  local default_index=1
+  for j in "${!MODELS[@]}"; do
+    if [ "${MODELS[$j]}" = "$base" ]; then
+      default_index=$((j+1))
+      break
+    fi
+  done
+  read -p "$var selection [$default_index]: " sel
+  sel=${sel:-$default_index}
+  if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le ${#MODELS[@]} ]; then
+    export "$var"="$MODELS_DIR/${MODELS[$((sel-1))]}"
+  else
+    export "$var"="$sel"
+  fi
+}
+
 # --- gather env vars (editable on rerun) ---
 prompt_var FRONTEND_PORT 3000
 prompt_var BACKEND_PORT 8000
@@ -49,8 +83,8 @@ prompt_secret OPENAI_API_KEY ""
 prompt_var LLM_BACKEND vllm
 prompt_var VLLM_PORT_CORE 8001
 prompt_var VLLM_PORT_CODER 8002
-prompt_var VLLM_MODEL_CORE mistral-nemo-instruct
-prompt_var VLLM_MODEL_CODER codellama-13b-python
+choose_model VLLM_MODEL_CORE
+choose_model VLLM_MODEL_CODER
 prompt_var VLLM_TP 1
 prompt_var VLLM_MAX_MODEL_LEN 4096
 prompt_var VLLM_GPU_MEMORY_UTILIZATION 0.9
