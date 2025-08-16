@@ -250,9 +250,11 @@ def _commit_and_push_impl(
                 files,
                 f"Push failed: {exc}",
                 [],
+                rationale=commit_message,
             )
         if pushed:
-            push_details = f"Rationale: {commit_message}\nChangelog:\n{changelog}"
+            rationale = commit_message
+            push_details = f"Rationale: {rationale}\nChangelog:\n{changelog}"
             log.info(push_details)
             append_entry(
                 task_id,
@@ -261,6 +263,7 @@ def _commit_and_push_impl(
                 files,
                 push_details,
                 [],
+                rationale=rationale,
             )
     else:
         log.info("No staged changes to commit")
@@ -277,6 +280,7 @@ def _commit_and_push_impl(
 
     check_result["changelog"] = changelog
     check_result["pushed"] = pushed
+    check_result["rationale"] = commit_message
     return check_result
 
 
@@ -293,7 +297,8 @@ def commit_and_push_changes(
     """Commit staged changes and optionally push them on a new branch.
 
     When ``autonomous`` is True, changes are pushed automatically and a
-    changelog plus commit rationale are logged for each push.
+    changelog plus commit rationale are logged for each push and returned
+    in the result dictionary.
     """
     kwargs = {
         "commit_message": commit_message,

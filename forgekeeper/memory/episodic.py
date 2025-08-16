@@ -32,6 +32,8 @@ def append_entry(
         "sentiment": sentiment or "neutral",
         "rationale": rationale,
     }
+    if rationale is not None:
+        entry["rationale"] = rationale
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(entry) + "\n").encode("utf-8")
     fd = os.open(MEMORY_FILE, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
@@ -76,6 +78,20 @@ def _tail(n: int, raw: bool = True) -> None:
             print(f"[{tid}] {status} ({sentiment}) - {summary}{extra}")
 
 
+def _recent_pushes(n: int) -> None:
+    """Display the last *n* push entries with their rationales."""
+    if not MEMORY_FILE.exists():
+        return
+    with MEMORY_FILE.open("r", encoding="utf-8") as fh:
+        entries = [json.loads(line) for line in fh if line.strip()]
+    pushes = [e for e in entries if e.get("status") == "pushed"][-n:]
+    for entry in reversed(pushes):
+        tid = entry.get("task_id", "")
+        title = entry.get("title", "")
+        rationale = entry.get("rationale", "")
+        print(f"[{tid}] {title} - {rationale}")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Episodic memory utilities")
     parser.add_argument(
@@ -90,11 +106,19 @@ def main(argv: Sequence[str] | None = None) -> None:
         metavar="N",
         help="Pretty-print the last N entries",
     )
+    parser.add_argument(
+        "--pushes",
+        type=int,
+        metavar="N",
+        help="Show the last N automated push entries",
+    )
     args = parser.parse_args(argv)
     if args.review is not None:
         _tail(args.review, raw=True)
     elif args.browse is not None:
         _tail(args.browse, raw=False)
+    elif getattr(args, "pushes", None) is not None:
+        _recent_pushes(args.pushes)
     else:
         parser.print_help()
 
