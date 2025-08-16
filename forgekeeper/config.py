@@ -12,6 +12,12 @@ AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
 ENABLE_OUTBOX = os.getenv("ENABLE_OUTBOX", "true").lower() == "true"
 """Persist tool actions to an outbox and replay them on restart."""
 
+ROADMAP_COMMIT_INTERVAL = int(os.getenv("ROADMAP_COMMIT_INTERVAL", "3600"))
+"""Seconds between automatic roadmap commits."""
+
+ROADMAP_AUTO_PUSH = os.getenv("ROADMAP_AUTO_PUSH", "false").lower() == "true"
+"""Whether periodic roadmap commits should be pushed automatically."""
+
 _checks_py = os.getenv("CHECKS_PY")
 if _checks_py:
     CHECKS_PY = [cmd.strip() for cmd in _checks_py.split(",") if cmd.strip()]
