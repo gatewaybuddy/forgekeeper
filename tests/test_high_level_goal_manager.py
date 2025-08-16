@@ -23,7 +23,7 @@ def test_autonomous_manager_triggers_pipeline(tmp_path, monkeypatch):
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
-    monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)
@@ -39,7 +39,7 @@ def test_manager_no_autonomy(tmp_path, monkeypatch):
             raise AssertionError("should not be called")
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
-    monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
     mgr = hgm.HighLevelGoalManager(autonomous=False)
     assert mgr.run() is False
@@ -63,7 +63,7 @@ def test_complex_goal_breakdown(tmp_path, monkeypatch):
     goals_path = tmp_path / "goals.json"
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
-    monkeypatch.setattr(hgm, "start_periodic_updates", lambda *a, **k: None)
+    monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", goals_path)
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)

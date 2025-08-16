@@ -21,7 +21,7 @@ from forgekeeper.config import DEBUG_MODE, AUTONOMY_MODE
 from forgekeeper.task_pipeline import TaskPipeline
 from types import SimpleNamespace
 
-from forgekeeper.roadmap_committer import start_periodic_commits as start_periodic_updates
+from forgekeeper.roadmap_committer import start_periodic_commits
 from forgekeeper import goal_manager
 
 # ``pipeline_main`` is populated lazily to avoid heavy imports during module load
@@ -56,7 +56,7 @@ class HighLevelGoalManager:
         self.pipeline = TaskPipeline()
         if self.autonomous:
             # Start periodic roadmap commits in the background
-            start_periodic_updates(3600)
+            start_periodic_commits(3600)
 
     # ------------------------------------------------------------------
     def _build_subtask_graph(self, description: str) -> list[Subtask]:
