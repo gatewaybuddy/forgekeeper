@@ -100,5 +100,5 @@ labels: [reliability, tooling]
 Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gracefully. See skip logic in `tools/smoke_backend.py`.
 
 **AC**
-- [ ] Smoke test exits 0 with skip message when environment absent
-- [ ] self_review treats skipped state as neutral
+- [x] Smoke test exits 0 with skip message when environment absent
+- [x] self_review treats skipped state as neutral
