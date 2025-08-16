@@ -56,6 +56,9 @@ def test_git_committer_checks(monkeypatch, staged, expected_keys):
             return False
 
     monkeypatch.setattr(gc, "Repo", lambda *a, **k: FakeRepo(staged))
+    monkeypatch.setattr(
+        gc.self_review, "review_staged_changes", lambda task_id: {"passed": True, "staged_files": staged}
+    )
 
     task_id = "case" + ("_".join(f.replace("/", "_").replace(".", "_") for f in staged) or "none")
     log_dir = Path(gc.__file__).resolve().parent.parent / "logs" / task_id

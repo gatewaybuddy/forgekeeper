@@ -190,7 +190,10 @@ def _commit_and_push_impl(
     else:
         branch_name = repo.active_branch.name
 
+    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
+    log_dir.mkdir(parents=True, exist_ok=True)
     changelog = ""
+    changelog_path = log_dir / "changelog.txt"
     pushed = False
     if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
         if not autonomous:
@@ -213,6 +216,7 @@ def _commit_and_push_impl(
         repo.index.commit(commit_message)
         log.info(f"Committed changes on {branch_name}: {commit_message}")
         changelog = repo.git.log("-1", "--stat")
+        changelog_path.write_text(changelog, encoding="utf-8")
         append_entry(
             task_id,
             commit_message,
@@ -225,13 +229,10 @@ def _commit_and_push_impl(
         )
         try:
             origin = repo.remote()
-            if autonomous:
-                if auto_push:
-                    origin.push(branch_name)
-                    pushed = True
-                    log.info("Pushed to remote")
-                else:
-                    log.info("Auto push disabled; skipping push")
+            if autonomous or auto_push:
+                origin.push(branch_name)
+                pushed = True
+                log.info("Pushed to remote")
             else:
                 if input(
                     f"Push branch {branch_name} to remote? [y/N]: "
@@ -249,20 +250,23 @@ def _commit_and_push_impl(
                 "push-failed",
                 files,
                 f"Push failed: {exc}",
-                [],
+                [str(changelog_path)] if changelog else [],
                 rationale=commit_message,
             )
         if pushed:
             rationale = commit_message
-            push_details = f"Rationale: {rationale}\nChangelog:\n{changelog}"
-            log.info(push_details)
+            summary = (
+                f"Pushed changes on {branch_name}: {commit_message}. "
+                f"Changelog at {changelog_path}"
+            )
+            log.info(summary)
             append_entry(
                 task_id,
                 commit_message,
                 "pushed",
                 files,
-                push_details,
-                [],
+                summary,
+                [str(changelog_path)] if changelog else [],
                 rationale=rationale,
             )
     else:
@@ -279,6 +283,7 @@ def _commit_and_push_impl(
         )
 
     check_result["changelog"] = changelog
+    check_result["changelog_path"] = str(changelog_path) if changelog else ""
     check_result["pushed"] = pushed
     check_result["rationale"] = commit_message
     return check_result
@@ -297,8 +302,8 @@ def commit_and_push_changes(
     """Commit staged changes and optionally push them on a new branch.
 
     When ``autonomous`` is True, changes are pushed automatically and a
-    changelog plus commit rationale are logged for each push and returned
-    in the result dictionary.
+    changelog file plus commit rationale are logged for each push and
+    returned in the result dictionary.
     """
     kwargs = {
         "commit_message": commit_message,
