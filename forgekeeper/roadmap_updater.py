@@ -20,7 +20,6 @@ from git import Repo
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.memory.episodic import MEMORY_FILE
-from forgekeeper.llm import get_llm
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -44,36 +43,19 @@ def _recent_memory(path: Path, limit: int = 5) -> Sequence[str]:
 
 
 def _synthesize_summary(commits: Sequence[str], mem_entries: Sequence[str]) -> str:
-    """Return a natural language summary of recent work.
-
-    The function attempts to use the configured LLM provider but falls back to a
-    simple concatenation when the provider is unavailable.  This allows the
-    updater to run in test environments without an active model server.
-    """
+    """Return a deterministic summary of recent work without prompting."""
 
     if not commits and not mem_entries:
         return ""
 
-    items = []
+    parts: list[str] = []
     if commits:
-        items.append("Recent commits:\n" + "\n".join(f"- {c}" for c in commits))
+        joined = ", ".join(commits[:3])
+        parts.append(f"Recent commits: {joined}")
     if mem_entries:
-        items.append("Recent memory:\n" + "\n".join(f"- {m}" for m in mem_entries))
-    context = "\n\n".join(items)
-    prompt = (
-        "Summarize the project's recent progress based on the following data. "
-        "Respond with a concise paragraph.\n" + context + "\nSummary:"
-    )
-
-    try:  # pragma: no cover - best effort, summary quality not tested
-        llm = get_llm()
-        summary = llm.generate(prompt).strip()
-    except Exception as exc:  # pragma: no cover - fallback for tests
-        log.debug(f"LLM synthesis failed: {exc}")
-        parts = commits[:1] + mem_entries[:1]
-        summary = "; ".join(parts)
-
-    return summary
+        joined = ", ".join(mem_entries[:3])
+        parts.append(f"Recent memory: {joined}")
+    return "; ".join(parts)
 
 
 def draft_update(

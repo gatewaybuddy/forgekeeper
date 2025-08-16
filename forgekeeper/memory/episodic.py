@@ -19,6 +19,7 @@ def append_entry(
     summary: str,
     artifacts_paths: Sequence[str] | None,
     sentiment: str | None = None,
+    rationale: str | None = None,
 ) -> None:
     """Append a task attempt entry to the episodic memory file."""
     entry = {
@@ -29,6 +30,7 @@ def append_entry(
         "summary": summary,
         "artifacts_paths": list(artifacts_paths or []),
         "sentiment": sentiment or "neutral",
+        "rationale": rationale,
     }
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(entry) + "\n").encode("utf-8")
@@ -69,7 +71,9 @@ def _tail(n: int, raw: bool = True) -> None:
             status = data.get("status", "")
             sentiment = data.get("sentiment", "")
             summary = data.get("summary", "")
-            print(f"[{tid}] {status} ({sentiment}) - {summary}")
+            rationale = data.get("rationale")
+            extra = f" | rationale: {rationale}" if rationale else ""
+            print(f"[{tid}] {status} ({sentiment}) - {summary}{extra}")
 
 
 def main(argv: Sequence[str] | None = None) -> None:
