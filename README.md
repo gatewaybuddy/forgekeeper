@@ -311,6 +311,15 @@ Before committing, `diff_validator.validate_staged_diffs()` scans staged Python
 files for definitions removed from one file but still referenced in another,
 catching cross-file inconsistencies early.
 
+To review recent automated pushes, run:
+
+```bash
+python -m forgekeeper.memory.episodic --pushes 5
+```
+
+This prints the last five push entries from episodic memory along with the
+rationales recorded at commit time.
+
 ## Transactional Outbox
 
 `forgekeeper/outbox.py` implements a lightweight transactional outbox. The
