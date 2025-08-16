@@ -219,12 +219,18 @@ activity. `TaskQueue` loads these entries and derives a *memory weight* where
 failures push tasks back and successes bring them forward in priority.
 
 ## Multi-agent Planning
+Forgekeeper uses a lightweight planner to split complex user requests
+into ordered subtasks. Each subtask is tagged for either the **Core** or
+**Coder** agent based on whether it requires reasoning or code
+generation.
 
-Complex user requests can be decomposed into smaller subtasks and
-delegated to specialized agents. The planner assigns code-centric steps to
-the **Coder** agent and reasoning-oriented steps to the **Core** agent. A
-shared context log lets agents broadcast brief messages so each subtask
-can build on previous outputs.
+1. The planner analyzes the request and identifies code- vs reasoning-focused steps.
+2. Each step is delegated to the agent best suited for the work.
+3. After executing a step, an agent appends a short note to a shared context log.
+4. Subsequent steps read this log so later subtasks can build on earlier outputs.
+
+This coordination enables complex tasks to be solved through a series of
+focused agent interactions.
 
 ## `tasks.md` format and `TaskQueue` usage
 
