@@ -27,3 +27,6 @@ forgekeeper/outbox/
 # Build output
 backend/dist/
 dist/
+
+# Local model weights
+forgekeeper/models/
