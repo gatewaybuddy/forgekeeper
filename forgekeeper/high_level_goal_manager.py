@@ -88,7 +88,11 @@ class HighLevelGoalManager:
 
     # ------------------------------------------------------------------
     def _dispatch_subtasks(
-        self, description: str, prev_agent: str | None = None, prev_task: str | None = None
+        self,
+        description: str,
+        prev_agent: str | None = None,
+        prev_task: str | None = None,
+        default_agent: str | None = None,
     ) -> tuple[str | None, str | None]:
         """Route ``description`` to specialized agents with message passing.
 
@@ -109,6 +113,9 @@ class HighLevelGoalManager:
         prev_task:
             Description of the previous subtask.  Included in handoff
             messages so the next agent knows what was completed.
+        default_agent:
+            Agent selected via task labels. If provided it overrides the
+            planner's suggestion.
 
         Returns
         -------
@@ -121,8 +128,16 @@ class HighLevelGoalManager:
         steps = split_for_agents(description)
         for step in steps:
             agent = step["agent"]
-            protocol = step.get("protocol", "broadcast")
             text = step["task"]
+            protocol = step.get("protocol", "broadcast")
+
+            if default_agent:
+                agent = default_agent
+            elif prev_agent and agent == "core":
+                agent = prev_agent
+
+            # Record the delegation decision for downstream agents
+            broadcast_context("goal_manager", f"delegated '{text}' to {agent}")
 
             if protocol == "direct":
                 sender = "goal_manager"
@@ -155,8 +170,18 @@ class HighLevelGoalManager:
             return False
 
         desc = getattr(task, "description", None)
+        labels = []
         if desc is None and isinstance(task, dict):
             desc = task.get("title") or task.get("description") or ""
+            labels = task.get("labels") or []
+
+        def _extract_agent_label(values: list[str]) -> str | None:
+            for lbl in values:
+                if lbl.lower().startswith("agent:"):
+                    return lbl.split(":", 1)[1].strip().lower()
+            return None
+
+        label_agent = _extract_agent_label(labels)
 
         # Register the parent goal and expand if necessary
         parent_id = goal_manager.add_goal(desc, source="task_pipeline")
@@ -180,13 +205,13 @@ class HighLevelGoalManager:
                 )
                 id_map[idx] = sub_id
                 prev_agent, prev_task = self._dispatch_subtasks(
-                    node.description, prev_agent, prev_task
+                    node.description, prev_agent, prev_task, label_agent
                 )
                 pipeline_main.main()
                 executed = True
         else:
             log.info("Autonomy active; executing task pipeline for '%s'", desc)
-            self._dispatch_subtasks(desc)
+            self._dispatch_subtasks(desc, default_agent=label_agent)
             pipeline_main.main()
             executed = True
         return executed

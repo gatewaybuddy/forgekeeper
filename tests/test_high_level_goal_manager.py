@@ -79,3 +79,56 @@ def test_complex_goal_breakdown(tmp_path, monkeypatch):
     assert subtasks[1].get("depends_on") == [subtasks[0]["id"]]
     assert parent.get("subtasks") == [g["id"] for g in subtasks]
 
+
+def test_label_based_agent_selection(tmp_path, monkeypatch):
+    import forgekeeper.high_level_goal_manager as hgm
+
+    messages = []
+
+    class DummyPipeline:
+        def next_task(self):
+            return {"title": "write docs", "labels": ["agent:coder"]}
+
+    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+    monkeypatch.setattr(hgm, "split_for_agents", lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}])
+    monkeypatch.setattr(hgm.pipeline_main, "main", lambda: None)
+    monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
+    monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
+
+    def fake_bc(agent, message):
+        messages.append((agent, message))
+
+    monkeypatch.setattr(hgm, "broadcast_context", fake_bc)
+    monkeypatch.setattr(hgm, "send_direct_message", lambda *a, **k: None)
+
+    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr.run()
+
+    assert ("goal_manager", "delegated 'write docs' to coder") in messages
+
+
+def test_history_based_agent_selection(monkeypatch):
+    import forgekeeper.high_level_goal_manager as hgm
+
+    messages = []
+
+    class DummyPipeline:
+        def next_task(self):
+            return None
+
+    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+    monkeypatch.setattr(hgm, "split_for_agents", lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}])
+    monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
+
+    def fake_bc(agent, message):
+        messages.append((agent, message))
+
+    monkeypatch.setattr(hgm, "broadcast_context", fake_bc)
+    monkeypatch.setattr(hgm, "send_direct_message", lambda *a, **k: None)
+
+    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    agent, _ = mgr._dispatch_subtasks("second step", prev_agent="coder", prev_task="first")
+
+    assert agent == "coder"
+    assert messages[0] == ("goal_manager", "delegated 'second step' to coder")
+
