@@ -18,9 +18,6 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## ⏳ Backlog
 
-- [ ] Improve multi-agent planning and delegation across tasks
-- [ ] Pin Python and Node dependencies for reproducible installs
-- [ ] Provide cross-platform setup script to automate environment creation
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
 - [x] FK-105: Test commit check command selection (P1)
@@ -33,6 +30,9 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## ✅ Completed
 
+- [x] Improve multi-agent planning and delegation across tasks
+- [x] Pin Python and Node dependencies for reproducible installs
+- [x] Provide cross-platform setup script to automate environment creation
 - [x] Complete tasks independently with user review
 - [x] Self-reflect on outcomes using internal memory module
 - [x] Persist reflections to a long-term memory log
