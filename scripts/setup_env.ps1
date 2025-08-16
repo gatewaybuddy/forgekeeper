@@ -18,7 +18,8 @@ if (Test-Path $envFile) {
 
 function Prompt-Var {
     param($Name, $Default)
-    $current = (Get-Item "Env:$Name" -ErrorAction SilentlyContinue).Value
+    $item = Get-Item "Env:$Name" -ErrorAction SilentlyContinue
+    $current = if ($item) { $item.Value } else { $null }
     $fallback = if ($current) { $current } else { $Default }
     $input = Read-Host "$Name [$fallback]"
     if ([string]::IsNullOrEmpty($input)) { $input = $fallback }
@@ -27,7 +28,8 @@ function Prompt-Var {
 
 function Prompt-Secret {
     param($Name, $Default)
-    $current = (Get-Item "Env:$Name" -ErrorAction SilentlyContinue).Value
+    $item = Get-Item "Env:$Name" -ErrorAction SilentlyContinue
+    $current = if ($item) { $item.Value } else { $null }
     $fallback = if ($current) { $current } else { $Default }
     $secure = Read-Host "$Name [$fallback]" -AsSecureString
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
