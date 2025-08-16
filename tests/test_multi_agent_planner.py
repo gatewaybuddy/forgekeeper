@@ -6,6 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from forgekeeper.multi_agent_planner import register_agent, split_for_agents
+from forgekeeper.high_level_goal_manager import HighLevelGoalManager
 from forgekeeper.agent.communication import (
     send_direct_message,
     get_direct_messages,
@@ -37,11 +38,15 @@ def test_subtask_distribution_across_agents():
     register_agent("researcher", {"investigate", "research"}, protocol="direct")
     task = "research the dataset and implement the algorithm and review results"
     tasks = split_for_agents(task)
-    assert tasks == [
-        {"agent": "researcher", "task": "research the dataset", "protocol": "direct"},
-        {"agent": "coder", "task": "implement the algorithm", "protocol": "broadcast"},
-        {"agent": "core", "task": "review results", "protocol": "broadcast"},
-    ]
+    assert tasks[0]["agent"] == "researcher"
+    assert tasks[0]["task"] == "research the dataset"
+    assert tasks[0]["protocol"] == "direct"
+    assert tasks[1]["agent"] == "coder"
+    assert tasks[1]["task"] == "implement the algorithm"
+    assert tasks[1]["protocol"] == "broadcast"
+    assert tasks[2]["agent"] == "core"
+    assert tasks[2]["task"] == "review results"
+    assert tasks[2]["protocol"] == "broadcast"
 
 
 def test_broadcast_context_shared_across_agents():
@@ -52,3 +57,16 @@ def test_broadcast_context_shared_across_agents():
         {"agent": "researcher", "message": "data ready"},
         {"agent": "coder", "message": "implemented"},
     ]
+
+
+def test_goal_manager_routes_and_handoffs_between_agents():
+    register_agent("researcher", {"research"}, protocol="direct")
+    comm._SHARED_CONTEXT.clear()
+    comm._DIRECT_MESSAGES.clear()
+    manager = HighLevelGoalManager(autonomous=False)
+    manager._dispatch_subtasks("research data and fix code")
+    msgs_researcher = get_direct_messages("researcher")
+    assert msgs_researcher == [{"from": "goal_manager", "message": "research data"}]
+    msgs_coder = get_direct_messages("coder")
+    assert msgs_coder == [{"from": "researcher", "message": "handoff complete: research data"}]
+    assert get_shared_context()[-1] == {"agent": "coder", "message": "fix code"}
