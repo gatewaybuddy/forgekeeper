@@ -23,6 +23,8 @@ from types import SimpleNamespace
 
 from forgekeeper.roadmap_committer import start_periodic_commits as start_periodic_updates
 from forgekeeper import goal_manager
+from forgekeeper.multi_agent_planner import split_for_agents
+from forgekeeper.agent.communication import broadcast_context, send_direct_message
 
 # ``pipeline_main`` is populated lazily to avoid heavy imports during module load
 pipeline_main = SimpleNamespace(main=None)
@@ -85,6 +87,57 @@ class HighLevelGoalManager:
         return graph
 
     # ------------------------------------------------------------------
+    def _dispatch_subtasks(
+        self, description: str, prev_agent: str | None = None, prev_task: str | None = None
+    ) -> tuple[str | None, str | None]:
+        """Route ``description`` to specialized agents with message passing.
+
+        The text is split via :func:`split_for_agents` which returns a list of
+        planned subtasks along with the responsible agent and the preferred
+        communication protocol.  Each subtask is communicated either via the
+        shared broadcast context or as a direct message.  When responsibility
+        shifts from one agent to another a direct handoff message is sent from
+        the previous agent to the next so that downstream steps can build on
+        earlier results.
+
+        Parameters
+        ----------
+        description:
+            Free-form subtask description.
+        prev_agent:
+            Agent that handled the previous subtask in the sequence.
+        prev_task:
+            Description of the previous subtask.  Included in handoff
+            messages so the next agent knows what was completed.
+
+        Returns
+        -------
+        Tuple[str | None, str | None]
+            The final agent and task description processed.  This can be
+            supplied as ``prev_agent``/``prev_task`` when dispatching the next
+            subtask.
+        """
+
+        steps = split_for_agents(description)
+        for step in steps:
+            agent = step["agent"]
+            protocol = step.get("protocol", "broadcast")
+            text = step["task"]
+
+            if protocol == "direct":
+                sender = "goal_manager"
+                send_direct_message(sender, agent, text)
+            else:
+                broadcast_context(agent, text)
+
+            if prev_agent and prev_agent != agent and prev_task:
+                send_direct_message(prev_agent, agent, f"handoff complete: {prev_task}")
+
+            prev_agent, prev_task = agent, text
+
+        return prev_agent, prev_task
+
+    # ------------------------------------------------------------------
     def run(self) -> bool:
         """Execute the task pipeline, expanding complex goals into subtasks."""
 
@@ -110,6 +163,9 @@ class HighLevelGoalManager:
         graph = self._build_subtask_graph(desc)
         executed = False
 
+        prev_agent: str | None = None
+        prev_task: str | None = None
+
         if len(graph) > 1:
             log.info("Expanding goal '%s' into %d subtasks", desc, len(graph))
             id_map: dict[int, str] = {}
@@ -123,10 +179,14 @@ class HighLevelGoalManager:
                     depends_on=deps,
                 )
                 id_map[idx] = sub_id
+                prev_agent, prev_task = self._dispatch_subtasks(
+                    node.description, prev_agent, prev_task
+                )
                 pipeline_main.main()
                 executed = True
         else:
             log.info("Autonomy active; executing task pipeline for '%s'", desc)
+            self._dispatch_subtasks(desc)
             pipeline_main.main()
             executed = True
         return executed

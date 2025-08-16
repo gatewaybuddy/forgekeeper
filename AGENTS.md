@@ -51,8 +51,12 @@ step to the most suitable agent.
 
 1. The planning module decomposes tasks and labels subtasks for either the
    **Core** or **Coder** agent using simple keyword heuristics.
-2. Agents execute their assigned step and append a brief message to the shared
-   context log.
+2. The high-level goal manager routes each subtask to its designated agent.
+   - **Broadcast** subtasks are appended to the shared context log.
+   - **Direct** subtasks send a message straight to the target agent.
+   - When responsibility shifts between agents a handoff message is sent from
+     the previous agent to the next so downstream work has the necessary
+     context.
 3. Later subtasks consult this log to carry forward prior decisions and
    maintain continuity.
 
