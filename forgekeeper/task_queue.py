@@ -171,7 +171,8 @@ class TaskQueue:
     def _load_memory_summaries(self) -> tuple[Dict[str, Dict[str, int | str]], LocalEmbedder]:
         """Load episodic memory and ensure embeddings are available."""
         mem_path = self.path.parent / ".forgekeeper" / "memory" / "episodic.jsonl"
-        embedder, summary = load_episodic_memory(mem_path)
+        db_path = mem_path.parent.parent / "episodic_vectors.sqlite"
+        embedder, summary = load_episodic_memory(mem_path, db_path)
         return summary, embedder
 
     def list_tasks(self) -> List[Task]:

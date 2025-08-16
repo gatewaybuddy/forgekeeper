@@ -142,7 +142,7 @@ class LocalEmbedder:
 
 # ---------------------------------------------------------------------------
 def load_episodic_memory(
-    mem_path: Path = EPISODIC_PATH, db_path: Path = EPISODIC_DB_PATH
+    mem_path: Path = EPISODIC_PATH, db_path: Path | None = None
 ) -> Tuple[LocalEmbedder, Dict[str, Dict[str, object]]]:
     """Load episodic summaries, store their embeddings, and return stats.
 
@@ -151,7 +151,9 @@ def load_episodic_memory(
     mem_path:
         Path to the JSONL file containing episodic memory entries.
     db_path:
-        SQLite database path used for embedding storage.
+        Optional SQLite database path used for embedding storage.  When not
+        provided the database is created alongside ``mem_path`` so test runs
+        remain self‑contained.
 
     Returns
     -------
@@ -161,6 +163,11 @@ def load_episodic_memory(
     """
 
     mem_path = Path(mem_path)
+    if db_path is None:
+        # mem_path -> .forgekeeper/memory/episodic.jsonl
+        # embeddings live one directory up: .forgekeeper/episodic_vectors.sqlite
+        db_path = mem_path.parent.parent / "episodic_vectors.sqlite"
+
     summary: Dict[str, Dict[str, object]] = {}
     to_store: Dict[str, str] = {}
     if mem_path.is_file():
