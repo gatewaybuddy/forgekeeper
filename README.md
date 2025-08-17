@@ -26,15 +26,21 @@ PowerShell users get interactive prompts:
 pwsh scripts/setup_env.ps1
 ```
 
-Unix users who want interactive prompts can run:
+Alternatively, run the Docker setup script for interactive prompts. It gathers values and writes `.env` automatically:
 
 ```bash
 ./scripts/setup_docker_env.sh
 ```
 
+PowerShell:
+
+```powershell
+pwsh scripts/setup_docker_env.ps1
+```
+
 ## Docker environment
 
-Use the interactive helper to configure `.env` and start the Docker services:
+Use the interactive helper to gather values, write `.env`, and start the Docker services:
 
 ```bash
 ./scripts/setup_docker_env.sh
@@ -167,18 +173,21 @@ Forgekeeper now defaults to **vLLM** for both the reasoning **Core** agent and
 the code‑oriented **Coder** agent. Ensure `LLM_BACKEND=vllm` is set in your
 environment (it's included in `.env.example`).
 
-1. Copy the sample environment and edit as needed:
+1. Run the Docker setup script to gather model IDs, ports, and other settings, writing `.env` automatically:
 
    ```bash
-   cp .env.example .env
+   ./scripts/setup_docker_env.sh
    ```
 
-2. Provide Hugging Face model IDs and ports:
+   PowerShell:
 
-   - `VLLM_MODEL_CORE` / `VLLM_MODEL_CODER`
-   - `VLLM_PORT_CORE` / `VLLM_PORT_CODER`
+   ```powershell
+   pwsh scripts/setup_docker_env.ps1
+   ```
 
-3. Define API bases so the Python agent can route traffic:
+   It prompts for values such as `VLLM_MODEL_CORE`, `VLLM_MODEL_CODER`, `VLLM_PORT_CORE`, and `VLLM_PORT_CODER`.
+
+2. Define API bases so the Python agent can route traffic:
 
    - `FK_CORE_API_BASE` / `FK_CODER_API_BASE`
 
@@ -199,9 +208,9 @@ Windows users can run the corresponding `.bat` scripts.
 
 #### Docker
 
-`docker-compose.yml` includes `vllm-core` and `vllm-coder` services. After
-copying `.env.example` to `.env` and optionally running
-`./scripts/setup_docker_env.sh` to build images, start the servers with:
+`docker-compose.yml` includes `vllm-core` and `vllm-coder` services. Run
+`scripts/setup_docker_env.sh` (or `.ps1`) to gather values, write `.env`, and
+build the images. To start the servers later:
 
 ```bash
 docker compose up -d vllm-core vllm-coder
