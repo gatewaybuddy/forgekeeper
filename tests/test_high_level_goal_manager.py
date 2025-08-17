@@ -104,10 +104,13 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
     mgr = hgm.HighLevelGoalManager(autonomous=True)
     mgr.run()
 
-    assert ("goal_manager", "delegated 'write docs' to coder") in messages
+    assert (
+        "goal_manager",
+        "delegated 'write docs' to coder (reason: label)",
+    ) in messages
 
 
-def test_history_based_agent_selection(monkeypatch):
+def test_success_history_agent_selection(monkeypatch):
     import forgekeeper.high_level_goal_manager as hgm
 
     messages = []
@@ -117,7 +120,11 @@ def test_history_based_agent_selection(monkeypatch):
             return None
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
-    monkeypatch.setattr(hgm, "split_for_agents", lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}])
+    monkeypatch.setattr(
+        hgm,
+        "split_for_agents",
+        lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}],
+    )
     monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
 
     def fake_bc(agent, message):
@@ -127,8 +134,12 @@ def test_history_based_agent_selection(monkeypatch):
     monkeypatch.setattr(hgm, "send_direct_message", lambda *a, **k: None)
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)
-    agent, _ = mgr._dispatch_subtasks("second step", prev_agent="coder", prev_task="first")
+    mgr.success_history["coder"] = 3
+    agent, _ = mgr._dispatch_subtasks("second step")
 
     assert agent == "coder"
-    assert messages[0] == ("goal_manager", "delegated 'second step' to coder")
+    assert messages[0] == (
+        "goal_manager",
+        "delegated 'second step' to coder (reason: history)",
+    )
 

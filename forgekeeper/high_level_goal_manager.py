@@ -13,7 +13,7 @@ dependency on the previous node.  The resulting linear graph is persisted to
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 
 from forgekeeper.logger import get_logger
@@ -58,6 +58,9 @@ class HighLevelGoalManager:
     """
 
     autonomous: bool = AUTONOMY_MODE
+    success_history: dict[str, int] = field(
+        default_factory=lambda: {"core": 0, "coder": 0}
+    )
 
     def __post_init__(self) -> None:
         self.pipeline = TaskPipeline()
@@ -107,7 +110,9 @@ class HighLevelGoalManager:
 
         The text is split via :func:`split_for_agents` which returns a list of
         planned subtasks along with the responsible agent and the preferred
-        communication protocol.  Each subtask is communicated either via the
+        communication protocol.  Task labels and historical success rates may
+        override the planner's suggestion when selecting an agent.  Each subtask
+        is communicated either via the
         shared broadcast context or as a direct message.  When responsibility
         shifts from one agent to another a direct handoff message is sent from
         the previous agent to the next so that downstream steps can build on
@@ -139,14 +144,26 @@ class HighLevelGoalManager:
             agent = step["agent"]
             text = step["task"]
             protocol = step.get("protocol", "broadcast")
+            reason = "planner"
 
             if default_agent:
                 agent = default_agent
-            elif prev_agent and agent == "core":
-                agent = prev_agent
+                reason = "label"
+            else:
+                best_agent, best_score = max(
+                    self.success_history.items(), key=lambda x: x[1]
+                )
+                if best_score > self.success_history.get(agent, 0):
+                    agent = best_agent
+                    reason = "history"
+                elif prev_agent and agent == "core":
+                    agent = prev_agent
+                    reason = "history"
 
             # Record the delegation decision for downstream agents
-            broadcast_context("goal_manager", f"delegated '{text}' to {agent}")
+            broadcast_context(
+                "goal_manager", f"delegated '{text}' to {agent} (reason: {reason})"
+            )
 
             if protocol == "direct":
                 sender = "goal_manager"
@@ -160,6 +177,13 @@ class HighLevelGoalManager:
             prev_agent, prev_task = agent, text
 
         return prev_agent, prev_task
+
+    # ------------------------------------------------------------------
+    def record_result(self, agent: str, success: bool) -> None:
+        """Update historical success counts for ``agent``."""
+
+        if success:
+            self.success_history[agent] = self.success_history.get(agent, 0) + 1
 
     # ------------------------------------------------------------------
     def run(self) -> bool:
