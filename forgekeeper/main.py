@@ -11,7 +11,13 @@ import yaml
 
 from forgekeeper.state_manager import load_state, save_state
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE, ENABLE_RECURSIVE_FIX, AUTONOMY_MODE
+from forgekeeper.config import (
+    DEBUG_MODE,
+    ENABLE_RECURSIVE_FIX,
+    AUTONOMY_MODE,
+    ROADMAP_COMMIT_INTERVAL,
+    ROADMAP_AUTO_PUSH,
+)
 from forgekeeper.file_summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
@@ -21,6 +27,7 @@ from forgekeeper.self_review import run_self_review, review_change_set
 from forgekeeper.task_queue import TaskQueue
 from forgekeeper.memory.episodic import append_entry
 from forgekeeper.vcs.pr_api import create_draft_pr
+from forgekeeper.roadmap_committer import start_periodic_commits
 from tools.auto_label_pr import FRONTMATTER_RE
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -254,6 +261,12 @@ def _spawn_followup_task(
 
 
 def main() -> None:
+    if ROADMAP_COMMIT_INTERVAL > 0:
+        start_periodic_commits(
+            ROADMAP_COMMIT_INTERVAL,
+            auto_push=ROADMAP_AUTO_PUSH,
+            rationale="Periodic roadmap checkpoint",
+        )
     _check_reviewed_tasks()
     state = load_state(STATE_PATH)
     current = state.get("current_task")

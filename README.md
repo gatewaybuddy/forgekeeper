@@ -347,5 +347,12 @@ updates in a background thread. When running in fully autonomous mode,
 without manual prompts via
 `forgekeeper.roadmap_committer.start_periodic_commits(interval_seconds)`.
 
+Periodic commit behavior is controlled via two environment variables:
+
+- `ROADMAP_COMMIT_INTERVAL` – seconds between automatic commits (set to `0` to disable, default `3600`).
+- `ROADMAP_AUTO_PUSH` – when `true`, pushes the commit to the remote after creation.
+
+Each autonomous roadmap commit logs its rationale to `.forgekeeper/memory/episodic.jsonl` for later review.
+
 ---
 This guide is intended to streamline installation and clarify component interactions.
