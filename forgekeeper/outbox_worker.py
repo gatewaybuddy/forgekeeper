@@ -10,21 +10,37 @@ from typing import Dict
 
 from .logger import get_logger
 from .outbox import OUTBOX_PATH, run_action
+from .telemetry import log_outbox_metrics
+from .config import (
+    OUTBOX_BASE_DELAY,
+    OUTBOX_MAX_DELAY,
+    OUTBOX_POLL_INTERVAL,
+)
 
-BASE_DELAY = 1.0
-MAX_DELAY = 60.0
+BASE_DELAY = OUTBOX_BASE_DELAY
+MAX_DELAY = OUTBOX_MAX_DELAY
 
-async def run_worker(poll_interval: float = 1.0) -> None:
+async def run_worker(
+    poll_interval: float = OUTBOX_POLL_INTERVAL,
+    base_delay: float = BASE_DELAY,
+    max_delay: float = MAX_DELAY,
+) -> None:
     """Continuously execute pending outbox actions with retries.
 
     Parameters
     ----------
     poll_interval : float
         Seconds to wait between directory scans.
+    base_delay : float
+        Initial delay for retry backoff.
+    max_delay : float
+        Maximum delay for retry backoff.
     """
     logger = get_logger("forgekeeper.outbox_worker")
     attempts: Dict[Path, int] = {}
     next_attempt: Dict[Path, float] = {}
+    processed = 0
+    retries = 0
 
     try:
         while True:
@@ -38,12 +54,15 @@ async def run_worker(poll_interval: float = 1.0) -> None:
                     path.unlink()
                     attempts.pop(path, None)
                     next_attempt.pop(path, None)
+                    processed += 1
                     logger.info("Action %s succeeded", path.name)
+                    log_outbox_metrics(processed, retries)
                 except Exception as exc:  # pragma: no cover - log path
                     attempt = attempts.get(path, 0) + 1
                     attempts[path] = attempt
-                    delay = min(MAX_DELAY, BASE_DELAY * 2 ** (attempt - 1))
+                    delay = min(max_delay, base_delay * 2 ** (attempt - 1))
                     next_attempt[path] = now + delay
+                    retries += 1
                     logger.warning(
                         "Action %s failed on attempt %d: %s. Retrying in %.1fs",
                         path.name,
@@ -51,6 +70,7 @@ async def run_worker(poll_interval: float = 1.0) -> None:
                         exc,
                         delay,
                     )
+                    log_outbox_metrics(processed, retries)
             await asyncio.sleep(poll_interval)
     except asyncio.CancelledError:
         logger.info("Outbox worker cancelled")

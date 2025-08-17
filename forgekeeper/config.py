@@ -12,6 +12,15 @@ AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
 ENABLE_OUTBOX = os.getenv("ENABLE_OUTBOX", "true").lower() == "true"
 """Persist tool actions to an outbox and replay them on restart."""
 
+OUTBOX_BASE_DELAY = float(os.getenv("OUTBOX_BASE_DELAY", "1.0"))
+"""Initial delay for outbox retry backoff in seconds."""
+
+OUTBOX_MAX_DELAY = float(os.getenv("OUTBOX_MAX_DELAY", "60.0"))
+"""Maximum delay for outbox retry backoff in seconds."""
+
+OUTBOX_POLL_INTERVAL = float(os.getenv("OUTBOX_POLL_INTERVAL", "1.0"))
+"""Seconds between outbox directory scans."""
+
 ROADMAP_COMMIT_INTERVAL = int(os.getenv("ROADMAP_COMMIT_INTERVAL", "3600"))
 """Seconds between automatic roadmap commits."""
 

@@ -337,6 +337,11 @@ execution; if a run crashes, the JSON record remains so
 `replay_pending()` can replay unfinished actions on the next startup and ensure
 side effects are applied exactly once.
 
+`forgekeeper/outbox_worker.py` runs in a background daemon thread at startup
+to execute pending actions. Its poll frequency and retry backoff are
+configurable via the `OUTBOX_POLL_INTERVAL`, `OUTBOX_BASE_DELAY`, and
+`OUTBOX_MAX_DELAY` environment variables.
+
 ## Optional `roadmap_updater` workflow
 
 The optional `roadmap_updater.py` module appends a markdown section to
