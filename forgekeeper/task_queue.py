@@ -3,9 +3,10 @@
 Tasks are primarily ordered by priority markers in the task file.  At
 construction the queue loads episodic memory summaries from
 ``.forgekeeper/memory/episodic.jsonl`` and derives a *memory weight* for each
-task: every recorded failure increases the weight while each success decreases
-it.  The queue orders tasks by the combined score ``priority + memory_weight``,
-so repeatedly failing items drift back and successful ones bubble up.
+task: every recorded failure or negative sentiment increases the weight while
+each success or positive sentiment decreases it. The queue orders tasks by the
+combined score ``priority + memory_weight``, so repeatedly failing or negatively
+reviewed items drift back and successful, positively received ones bubble up.
 """
 
 from __future__ import annotations
@@ -192,8 +193,14 @@ class TaskQueue:
         if key and key in self.memory_stats:
             stats = self.memory_stats[key]
             summary = stats.get("summary")
+            failures = int(stats.get("failure", 0)) + int(
+                stats.get("negative_sentiment", 0)
+            )
+            successes = int(stats.get("success", 0)) + int(
+                stats.get("positive_sentiment", 0)
+            )
             return (
-                int(stats.get("failure", 0)) - int(stats.get("success", 0)),
+                failures - successes,
                 [str(summary)] if summary else [],
             )
         if not self.memory_embedder:
@@ -201,8 +208,13 @@ class TaskQueue:
         similar = retrieve_similar_tasks(text, self.memory_stats, self.memory_embedder)
         weight = 0.0
         for _, stats, sim in similar:
-            diff = int(stats.get("failure", 0)) - int(stats.get("success", 0))
-            weight += sim * diff
+            failures = int(stats.get("failure", 0)) + int(
+                stats.get("negative_sentiment", 0)
+            )
+            successes = int(stats.get("success", 0)) + int(
+                stats.get("positive_sentiment", 0)
+            )
+            weight += sim * (failures - successes)
         related = similar_task_summaries(
             text, self.memory_stats, self.memory_embedder, similar=similar
         )

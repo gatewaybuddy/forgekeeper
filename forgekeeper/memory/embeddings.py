@@ -158,8 +158,8 @@ def load_episodic_memory(
     Returns
     -------
     Tuple of ``(embedder, summary_stats)`` where ``summary_stats`` maps a task
-    identifier to a dictionary with ``success``, ``failure`` and ``summary``
-    fields.
+    identifier to a dictionary with ``success``, ``failure``, ``positive_sentiment``,
+    ``negative_sentiment`` and ``summary`` fields.
     """
 
     mem_path = Path(mem_path)
@@ -180,14 +180,30 @@ def load_episodic_memory(
             if not key:
                 continue
             status = str(data.get("status", ""))
+            sentiment = str(data.get("sentiment", "")).lower()
             summary_text = str(data.get("summary") or data.get("title") or "")
             stats = summary.setdefault(
-                key, {"success": 0, "failure": 0, "summary": summary_text}
+                key,
+                {
+                    "success": 0,
+                    "failure": 0,
+                    "positive_sentiment": 0,
+                    "negative_sentiment": 0,
+                    "summary": summary_text,
+                },
             )
             if "success" in status or status == "committed":
                 stats["success"] = int(stats.get("success", 0)) + 1
             elif "fail" in status or "error" in status or status == "no-file":
                 stats["failure"] = int(stats.get("failure", 0)) + 1
+            if sentiment == "positive":
+                stats["positive_sentiment"] = int(
+                    stats.get("positive_sentiment", 0)
+                ) + 1
+            elif sentiment == "negative":
+                stats["negative_sentiment"] = int(
+                    stats.get("negative_sentiment", 0)
+                ) + 1
             if summary_text:
                 stats["summary"] = summary_text
                 to_store[key] = summary_text
