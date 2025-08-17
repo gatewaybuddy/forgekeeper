@@ -12,31 +12,37 @@ your `PATH` before running the PowerShell examples.
 
 ## Environment file
 
-Interactively create or update the `.env` configuration used by the run scripts:
+Create or update the `.env` configuration used by the run scripts.
+
+On Unix-like systems the helper installs dependencies and copies `.env.example` to `.env` without prompting:
 
 ```bash
 ./scripts/setup_env.sh
 ```
 
-From PowerShell:
+PowerShell users get interactive prompts:
 
 ```powershell
 pwsh scripts/setup_env.ps1
 ```
 
-## Docker environment
-
-Copy `.env.example` to `.env` in the repository root and then run the setup script:
+Unix users who want interactive prompts can run:
 
 ```bash
-cp .env.example .env
 ./scripts/setup_docker_env.sh
 ```
 
-Run from PowerShell:
+## Docker environment
+
+Use the interactive helper to configure `.env` and start the Docker services:
+
+```bash
+./scripts/setup_docker_env.sh
+```
+
+From PowerShell:
 
 ```powershell
-Copy-Item .env.example .env
 pwsh scripts/setup_docker_env.ps1
 ```
 
