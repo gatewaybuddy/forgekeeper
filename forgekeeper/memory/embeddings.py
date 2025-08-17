@@ -228,3 +228,40 @@ def retrieve_similar_tasks(
         scored.append((key, stats, sim))
     scored.sort(key=lambda x: x[2], reverse=True)
     return scored[:top_n]
+
+
+def similar_task_summaries(
+    text: str,
+    summary_stats: Dict[str, Dict[str, object]],
+    embedder: LocalEmbedder,
+    top_n: int = 3,
+    *,
+    similar: Optional[List[Tuple[str, Dict[str, object], float]]] = None,
+) -> List[str]:
+    """Return summaries of tasks semantically similar to ``text``.
+
+    Parameters
+    ----------
+    text:
+        Query text describing the current task or goal.
+    summary_stats:
+        Mapping of episodic memory entries as produced by
+        :func:`load_episodic_memory`.
+    embedder:
+        Embedder instance used to generate query vectors.
+    top_n:
+        Maximum number of summaries to return.
+    similar:
+        Optional precomputed list from :func:`retrieve_similar_tasks` to avoid
+        recomputing similarities.
+
+    Returns
+    -------
+    List[str]
+        Summaries for the most similar past tasks, filtered to those entries
+        that actually provide summary text.
+    """
+
+    if similar is None:
+        similar = retrieve_similar_tasks(text, summary_stats, embedder, top_n)
+    return [str(stats.get("summary")) for _, stats, _ in similar if stats.get("summary")]

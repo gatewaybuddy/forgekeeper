@@ -62,6 +62,16 @@ step to the most suitable agent.
 
 ---
 
+## 🔍 Embedding-Based Planning
+
+When the planner registers a new goal it queries episodic memory for
+semantically similar past tasks.  Summaries of those tasks are attached to the
+goal so downstream agents have additional context.  The task queue also uses
+these summaries to weight priorities, allowing recurring failures to sink in
+rank while successful patterns bubble upward.
+
+---
+
 ## 🔜 Planned Agent: Forgekeeper Self-Editor
 
 - **Role**: Autonomous local code reviewer and editor
