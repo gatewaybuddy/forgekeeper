@@ -20,9 +20,9 @@ import yaml
 
 from forgekeeper.memory.embeddings import (
     LocalEmbedder,
-    cosine_similarity,
     load_episodic_memory,
     retrieve_similar_tasks,
+    similar_task_summaries,
 )
 
 
@@ -200,13 +200,12 @@ class TaskQueue:
             return 0.0, []
         similar = retrieve_similar_tasks(text, self.memory_stats, self.memory_embedder)
         weight = 0.0
-        related: list[str] = []
         for _, stats, sim in similar:
             diff = int(stats.get("failure", 0)) - int(stats.get("success", 0))
             weight += sim * diff
-            summary = stats.get("summary")
-            if summary:
-                related.append(str(summary))
+        related = similar_task_summaries(
+            text, self.memory_stats, self.memory_embedder, similar=similar
+        )
         return weight, related
 
     def next_task(self) -> Optional[dict]:

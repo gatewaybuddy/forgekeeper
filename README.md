@@ -125,10 +125,11 @@ adjust task scores.
 ### Embedding-driven planning
 
 When new goals are created, Forgekeeper queries this embedding store for
-semantically similar past tasks. The retrieved summaries are attached to the
-goal and surfaced through the task queue so that memory of previous
-successes or failures can influence prioritization and provide additional
-context during execution.
+semantically similar past tasks using the helpers in
+`memory/embeddings.py`. The retrieved summaries are attached to the goal and
+surfaced through `task_queue.py`, where they adjust each task's priority so
+that memories of failures or successes influence scheduling and provide
+additional context during execution.
 
 ### GPT-OSS-20B Model Setup
 
