@@ -115,15 +115,18 @@ status: todo
     mem_dir.mkdir(parents=True)
     mem_file = mem_dir / "episodic.jsonl"
     mem_file.write_text(
-        """{"task_id": "T1", "title": "First task", "status": "failed"}
-{"task_id": "T2", "title": "Second task", "status": "success"}
-{"task_id": "T1", "title": "First task", "status": "failed"}
+        """{"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"}
+{"task_id": "T2", "title": "Second task", "status": "note", "sentiment": "positive"}
+{"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"}
 """,
         encoding="utf-8",
     )
     queue = TaskQueue(tasks_md)
     task = queue.next_task()
     assert task["id"] == "T2"
+    w1, _ = queue._memory_weight("First task (P1)", "T1")
+    w2, _ = queue._memory_weight("Second task (P1)", "T2")
+    assert w1 > 0 and w2 < 0
 
 
 def test_similarity_recall_affects_order(tmp_path):
