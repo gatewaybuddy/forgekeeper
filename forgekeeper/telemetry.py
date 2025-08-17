@@ -65,3 +65,12 @@ def log_stream_end(model: str) -> None:
 def log_stream_backpressure(model: str) -> None:
     """Log that streaming backpressure was detected."""
     log.warning("Stream backpressure detected | model=%s", model)
+
+
+# ---------------------------------------------------------------------------
+# Background worker telemetry
+# ---------------------------------------------------------------------------
+
+def log_outbox_metrics(processed: int, retries: int) -> None:
+    """Log cumulative outbox worker metrics."""
+    log.info("Outbox metrics | processed=%d | retries=%d", processed, retries)

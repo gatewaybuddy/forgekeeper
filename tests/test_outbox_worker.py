@@ -33,11 +33,13 @@ def test_worker_retries_and_logs(tmp_path, monkeypatch, caplog):
         action = {"module": "dummy_mod", "function": "foo", "args": [42], "kwargs": {}}
         outbox.write_action(action)
 
-        monkeypatch.setattr(outbox_worker, "BASE_DELAY", 0.01)
-        monkeypatch.setattr(outbox_worker, "MAX_DELAY", 0.01)
         caplog.set_level("INFO")
 
-        task = asyncio.create_task(outbox_worker.run_worker(poll_interval=0.01))
+        task = asyncio.create_task(
+            outbox_worker.run_worker(
+                poll_interval=0.01, base_delay=0.01, max_delay=0.01
+            )
+        )
 
         async def wait_until_empty():
             while list(outbox.OUTBOX_PATH.glob("*.json")):
