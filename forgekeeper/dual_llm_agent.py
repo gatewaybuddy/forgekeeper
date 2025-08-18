@@ -24,7 +24,7 @@ from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.memory.episodic import append_entry
 from pathlib import Path
-from forgekeeper.multi_agent_planner import split_for_agents
+from forgekeeper.multi_agent_planner import split_for_agents, track_agent
 from forgekeeper.agent.communication import broadcast_context, get_shared_context
 
 log = get_logger(__name__, debug=DEBUG_MODE)
@@ -243,12 +243,13 @@ def route_intent(user_input, session_id):
                 else item["task"]
             )
 
-            if item["agent"] == "coder":
-                raw = ask_coder(prompt, session_id)
-            else:
-                raw = ask_core(prompt, session_id)
-                if isinstance(raw, dict) and "response" in raw:
-                    raw = raw["response"]
+            with track_agent(item["agent"]):
+                if item["agent"] == "coder":
+                    raw = ask_coder(prompt, session_id)
+                else:
+                    raw = ask_core(prompt, session_id)
+                    if isinstance(raw, dict) and "response" in raw:
+                        raw = raw["response"]
 
             text = postprocess_response(raw)
             broadcast_context(item["agent"], text)
@@ -257,13 +258,16 @@ def route_intent(user_input, session_id):
 
     core_model = get_core_model_name()
     memory = get_memory(session_id)
-    parsed = ask_core(user_input, session_id)
+    with track_agent("core"):
+        parsed = ask_core(user_input, session_id)
 
     if isinstance(parsed, dict):
         if parsed.get("action") == "delegate_to_coder":
             task = parsed.get("task", "unspecified")
             log.info("\n[Core ➡️ Coder] Delegating to the coding agent.\n")
-            return postprocess_response(ask_coder(task, session_id))
+            with track_agent("coder"):
+                result = ask_coder(task, session_id)
+            return postprocess_response(result)
 
         if "response" in parsed:
             log.info("\n[Core 🧠] Handling this task directly.\n")

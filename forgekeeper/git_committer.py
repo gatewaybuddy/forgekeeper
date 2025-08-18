@@ -16,7 +16,7 @@ from forgekeeper.config import (
     CHECKS_TS,
     ENABLE_OUTBOX,
 )
-from forgekeeper import self_review, diff_validator
+from forgekeeper import self_review, diff_validator, sandbox
 from forgekeeper.memory.episodic import append_entry
 
 if ENABLE_OUTBOX:
@@ -151,12 +151,37 @@ def _commit_and_push_impl(
             "aborted": True,
         }
 
+    sandbox_result = {"passed": True, "artifacts_path": "", "results": []}
+    if run_checks:
+        sandbox_result = sandbox.run_sandbox_checks(files, task_id=task_id)
+        if not sandbox_result.get("passed", False):
+            log.error("Aborting commit due to failing sandbox checks")
+            append_entry(
+                task_id,
+                commit_message,
+                "sandbox-failed",
+                files,
+                "Sandbox checks failed",
+                [sandbox_result.get("artifacts_path")]
+                if sandbox_result.get("artifacts_path")
+                else [],
+            )
+            sandbox_result.update(
+                {
+                    "pre_review": pre_review,
+                    "diff_validation": diff_validation,
+                    "aborted": True,
+                }
+            )
+            return sandbox_result
+
     check_result = {
         "passed": True,
         "artifacts_path": "",
         "results": [],
         "pre_review": pre_review,
         "diff_validation": diff_validation,
+        "sandbox": sandbox_result,
     }
     if run_checks:
         run_py = any(f.endswith(".py") for f in files)

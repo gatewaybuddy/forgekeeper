@@ -11,9 +11,12 @@ the shared context log so agents can build on each other's outputs.
 
 from __future__ import annotations
 
+import time
+from contextlib import contextmanager
 from typing import Dict, List, Tuple
 
 from .agent.communication import broadcast_context, get_shared_context
+from .telemetry import record_agent_result
 
 # Registry mapping agent names to their keyword triggers and communication
 # protocol.  Each entry maps to ``{"keywords": set[str], "protocol": str}``.
@@ -91,4 +94,29 @@ def _choose_agent(text: str) -> Tuple[str, str]:
     return "core", core_cfg.get("protocol", "broadcast")
 
 
-__all__ = ["split_for_agents", "register_agent"]
+@contextmanager
+def track_agent(agent: str):
+    """Context manager to record agent execution metrics.
+
+    The wrapped block is timed and success/failure are reported to the
+    telemetry subsystem via :func:`record_agent_result`.
+
+    Parameters
+    ----------
+    agent:
+        Name of the agent executing the block.
+    """
+
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        duration = time.perf_counter() - start
+        record_agent_result(agent, duration, success)
+
+
+__all__ = ["split_for_agents", "register_agent", "track_agent"]
