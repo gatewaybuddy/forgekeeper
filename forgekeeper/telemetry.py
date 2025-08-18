@@ -74,3 +74,60 @@ def log_stream_backpressure(model: str) -> None:
 def log_outbox_metrics(processed: int, retries: int) -> None:
     """Log cumulative outbox worker metrics."""
     log.info("Outbox metrics | processed=%d | retries=%d", processed, retries)
+
+
+# ---------------------------------------------------------------------------
+# Agent execution telemetry
+# ---------------------------------------------------------------------------
+
+from collections import defaultdict
+
+# ``_agent_stats`` accumulates per-agent success/failure counts and total time.
+_agent_stats: Dict[str, Dict[str, float]] = defaultdict(
+    lambda: {"success": 0, "failure": 0, "total_time": 0.0}
+)
+
+
+def record_agent_result(agent: str, duration: float, success: bool) -> None:
+    """Record the outcome of an agent task.
+
+    Parameters
+    ----------
+    agent:
+        Name of the agent that executed the task.
+    duration:
+        Time spent executing the task in seconds.
+    success:
+        ``True`` if the task completed successfully, ``False`` otherwise.
+    """
+
+    stats = _agent_stats[agent]
+    stats["total_time"] += duration
+    key = "success" if success else "failure"
+    stats[key] += 1
+    log.info(
+        "Agent task | agent=%s | success=%s | duration=%.2fms",
+        agent,
+        success,
+        duration * 1000,
+    )
+
+
+def get_agent_metrics() -> Dict[str, Dict[str, float]]:
+    """Return a snapshot of aggregated agent metrics."""
+
+    return {agent: dict(stats) for agent, stats in _agent_stats.items()}
+
+
+__all__ = [
+    "estimate_tokens",
+    "log_server_launch",
+    "log_request_metrics",
+    "log_stream_start",
+    "log_stream_token",
+    "log_stream_end",
+    "log_stream_backpressure",
+    "log_outbox_metrics",
+    "record_agent_result",
+    "get_agent_metrics",
+]
