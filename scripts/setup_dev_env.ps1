@@ -28,13 +28,26 @@ if ($IsWindows) {
     }
 }
 
+$venvExitCode = 0
+$venvOutput = $null
 if (-not (Test-Path '.venv')) {
-    & $pythonExe @pythonArgs -m venv .venv
+    $venvOutput = & $pythonExe @pythonArgs -m venv .venv 2>&1
+    $venvExitCode = $LASTEXITCODE
+}
+
+if (-not (Test-Path '.venv') -or $venvExitCode -ne 0) {
+    Write-Error "❌ Failed to create virtual environment. $venvOutput"
+    exit 1
 }
 
 $venvPython = Join-Path '.venv' 'Scripts/python.exe'
 if (-not (Test-Path $venvPython)) {
     $venvPython = Join-Path '.venv' 'bin/python'
+}
+
+if (-not (Test-Path $venvPython)) {
+    Write-Error '❌ Virtual environment Python executable not found.'
+    exit 1
 }
 
 & $venvPython -m pip install --upgrade pip
