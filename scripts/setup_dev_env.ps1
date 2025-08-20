@@ -54,10 +54,10 @@ if (-not (Test-Path $venvPython)) {
 & $venvPython -m pip install -r requirements.txt
 
 $npm = Get-Command npm -ErrorAction SilentlyContinue
-$npx = Get-Command npx -ErrorAction SilentlyContinue
 if ($npm) {
     Push-Location backend
     & npm install
+    $npx = Get-Command npx -ErrorAction SilentlyContinue
     if ($npx) {
         & npx prisma generate
     } else {
