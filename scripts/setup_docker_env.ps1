@@ -6,7 +6,8 @@ $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $envFile = Join-Path $rootDir '.env'
 $modelsDir = Join-Path $rootDir 'forgekeeper/models'
 if (-not (Test-Path $modelsDir)) { New-Item -ItemType Directory -Path $modelsDir | Out-Null }
-$models = Get-ChildItem $modelsDir -File | Select-Object -ExpandProperty Name
+Write-Host "Using models directory: $modelsDir"
+$models = @(Get-ChildItem $modelsDir -File | Select-Object -ExpandProperty Name)
 $netName = 'forgekeeper-net'
 
 # --- dependency checks ---
@@ -59,6 +60,7 @@ function Prompt-Secret {
 function Choose-Model {
     param($Name)
     if ($models.Count -eq 0) {
+        Write-Host "`nNo models found in $modelsDir. Enter full path or model name:"
         $current = (Get-Item "Env:$Name" -ErrorAction SilentlyContinue).Value
         $input = Read-Host "$Name [$current]"
         if ([string]::IsNullOrEmpty($input)) { $input = $current }
