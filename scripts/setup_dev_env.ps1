@@ -5,16 +5,31 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 Set-Location $rootDir
 
-$python = Get-Command python3 -ErrorAction SilentlyContinue
-if (-not $python) { $python = Get-Command python -ErrorAction SilentlyContinue }
-if (-not $python) {
-    Write-Error '❌ Python is required but was not found.'
-    exit 1
+$pythonExe = $null
+$pythonArgs = @()
+if ($IsWindows) {
+    $pythonExe = 'py'
+    $pythonArgs = @('-3')
+    $versionOutput = & $pythonExe @pythonArgs --version 2>&1
+    if ($LASTEXITCODE -ne 0 -or $versionOutput -match 'Python was not found' -or $versionOutput -match 'App Execution Aliases') {
+        Write-Error '❌ Python 3.x must be installed.'
+        exit 1
+    }
+} else {
+    $pythonExe = 'python3'
+    $versionOutput = & $pythonExe --version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $pythonExe = 'python'
+        $versionOutput = & $pythonExe --version 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error '❌ Python 3.x must be installed.'
+            exit 1
+        }
+    }
 }
-$pythonPath = $python.Source
 
 if (-not (Test-Path '.venv')) {
-    & $pythonPath -m venv .venv
+    & $pythonExe @pythonArgs -m venv .venv
 }
 
 $venvPython = Join-Path '.venv' 'Scripts/python.exe'
