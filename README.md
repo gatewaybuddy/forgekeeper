@@ -14,13 +14,15 @@ your `PATH` before running the PowerShell examples.
 
 Create or update the `.env` configuration used by the run scripts.
 
-On Unix-like systems the helper installs dependencies and copies `.env.example` to `.env` without prompting:
+Run the helper to install dependencies and copy `.env.example` to `.env`.
+The script asks where models should be stored and can run in a simple or
+custom mode for optional component selection:
 
 ```bash
 ./scripts/setup_env.sh
 ```
 
-PowerShell users get interactive prompts:
+PowerShell users can run the equivalent script:
 
 ```powershell
 pwsh scripts/setup_env.ps1
