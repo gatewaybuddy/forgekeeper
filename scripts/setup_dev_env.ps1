@@ -54,12 +54,20 @@ if (-not (Test-Path $venvPython)) {
 & $venvPython -m pip install -r requirements.txt
 
 $npm = Get-Command npm -ErrorAction SilentlyContinue
+$npx = Get-Command npx -ErrorAction SilentlyContinue
 if ($npm) {
-    & npm install --prefix backend
     Push-Location backend
-    & npx prisma generate
+    & npm install
+    if ($npx) {
+        & npx prisma generate
+    } else {
+        Write-Warning 'npx not found; skipping Prisma client generation.'
+    }
     Pop-Location
-    & npm install --prefix frontend
+
+    Push-Location frontend
+    & npm install
+    Pop-Location
 } else {
     Write-Warning 'npm not found; skipping Node dependency installation.'
 }
