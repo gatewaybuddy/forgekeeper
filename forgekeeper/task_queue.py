@@ -19,7 +19,7 @@ import json
 import re
 import yaml
 
-from forgekeeper.memory.embeddings import (
+from forgekeeper.memory.embedding import (
     LocalEmbedder,
     load_episodic_memory,
     retrieve_similar_tasks,

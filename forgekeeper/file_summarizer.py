@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 
-from forgekeeper.memory.embeddings import LocalEmbedder
+from forgekeeper.memory.embedding import LocalEmbedder
 
 EXCLUDE_DIRS = {'.git', 'venv', '__pycache__'}
 
