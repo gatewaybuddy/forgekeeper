@@ -13,6 +13,8 @@ from forgekeeper import self_review
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
+MODULE_DIR = Path(__file__).resolve().parents[1]
+
 
 def run_update_pipeline(task_prompt: str, state: dict) -> bool:
     """Run a full self-edit cycle for the given task and review the commit.
@@ -31,7 +33,7 @@ def run_update_pipeline(task_prompt: str, state: dict) -> bool:
     """
     log.info("Summarizing repository")
     summaries = summarize_repository()
-    summaries_path = Path("forgekeeper/summaries.json")
+    summaries_path = MODULE_DIR / "summaries.json"
     summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
     log.info("Analyzing repository for task relevance")
