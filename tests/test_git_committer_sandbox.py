@@ -15,9 +15,10 @@ def test_commit_aborts_when_sandbox_fails(monkeypatch):
 
     called = {}
 
-    def fake_sandbox(files, task_id):
+    def fake_sandbox(files, task_id, run_checks=True):
         called["files"] = files
         called["task_id"] = task_id
+        called["run_checks"] = run_checks
         return {"passed": False, "artifacts_path": "", "results": []}
 
     monkeypatch.setattr(gc.sandbox, "run_sandbox_checks", fake_sandbox)
