@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from git import Repo
 import yaml
 
 from forgekeeper.state_manager import load_state, save_state
@@ -14,32 +13,22 @@ from forgekeeper.logger import get_logger
 from forgekeeper.config import (
     DEBUG_MODE,
     ENABLE_RECURSIVE_FIX,
-    AUTONOMY_MODE,
     ROADMAP_COMMIT_INTERVAL,
     ROADMAP_AUTO_PUSH,
 )
-from forgekeeper.file_summarizer import summarize_repository
-from forgekeeper.file_analyzer import analyze_repo_for_task
-from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
-from forgekeeper.change_stager import diff_and_stage_changes
-from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.self_review import run_self_review, review_change_set
 from forgekeeper.task_queue import TaskQueue
 from forgekeeper.memory.episodic import append_entry
 from forgekeeper.vcs.pr_api import create_draft_pr
 from forgekeeper.roadmap_committer import start_periodic_commits
+from forgekeeper.pipeline import execute_pipeline, slugify
 from tools.auto_label_pr import FRONTMATTER_RE
 
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
 TASK_FILE = MODULE_DIR.parent / "tasks.md"
-TOP_N_FILES = 3
 
 log = get_logger(__name__, debug=DEBUG_MODE)
-
-
-def _slugify(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
 def _mark_task_needs_review(task_id: str) -> None:
@@ -89,113 +78,6 @@ def _check_reviewed_tasks() -> None:
             ids.append(str(data["id"]))
     for tid in ids:
         subprocess.run([sys.executable, str(script), tid], check=False)
-
-
-def _step_analyze(task: str, state: dict) -> bool:
-    """Summarize repository and rank files for the given task."""
-    summaries = summarize_repository()
-    summaries_path = MODULE_DIR / "summaries.json"
-    summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
-    state["analysis"] = analyze_repo_for_task(task, str(summaries_path))
-    return True
-
-
-def _step_edit(task: str, state: dict) -> bool:
-    """Generate code edits for top relevant files and stage changes."""
-    analysis = state.get("analysis", [])
-    if not analysis:
-        return True
-    meta = state.get("current_task", {})
-    task_id = meta.get("task_id", "task")
-    log_dir = MODULE_DIR.parent / "logs" / task_id
-    log_dir.mkdir(parents=True, exist_ok=True)
-    patch_texts: list[str] = []
-    changed_files: list[str] = []
-    guidelines = state.get("fix_guidelines", "")
-    for item in analysis[:TOP_N_FILES]:
-        file_path = item["file"]
-        summary = item.get("summary", "")
-        p = Path(file_path)
-        if not p.exists():
-            log.warning(f"File not found: {file_path}")
-            continue
-        original_code = p.read_text(encoding="utf-8")
-        patch = generate_code_edit(task, file_path, summary, guidelines)
-        if not patch.strip():
-            continue
-        try:
-            changed = apply_unified_diff(patch)
-        except Exception as exc:
-            log.error(f"Patch apply failed for {file_path}: {exc}")
-            continue
-        if not changed:
-            continue
-        modified_code = p.read_text(encoding="utf-8")
-        diff_and_stage_changes(original_code, modified_code, file_path)
-        patch_texts.append(patch)
-        changed_files.extend(changed)
-    if patch_texts:
-        (log_dir / "patch.diff").write_text("\n".join(patch_texts), encoding="utf-8")
-        (log_dir / "files.json").write_text(
-            json.dumps(sorted(set(changed_files)), indent=2), encoding="utf-8"
-        )
-    state["changed_files"] = sorted(set(changed_files))
-    state["fix_guidelines"] = ""
-    return True
-
-
-def _step_commit(task: str, state: dict) -> bool:
-    """Commit staged changes on a task-specific branch."""
-    meta = state.get("current_task", {})
-    task_id = meta.get("task_id", "task")
-    slug = meta.get("slug", _slugify(task))
-    branch = f"fk/{task_id}-{slug}"
-    repo = Repo(MODULE_DIR.parent)
-    try:
-        repo.git.checkout("-b", branch)
-    except Exception:
-        repo.git.checkout(branch)
-    result = commit_and_push_changes(
-        task,
-        autonomous=True,
-        task_id=task_id,
-        auto_push=AUTONOMY_MODE,
-    )
-    if not result.get("passed", True):
-        return False
-    # logs are already written within commit_and_push_changes
-    return True
-
-
-PIPELINE = [_step_analyze, _step_edit, _step_commit]
-
-
-def _execute_pipeline(task: str, state: dict) -> bool:
-    """Run pipeline steps sequentially, saving progress after each step.
-
-    The ``pipeline_step`` value in ``state`` tracks the next step to run so
-    the pipeline can resume if interrupted.
-    """
-    step_index = state.get("pipeline_step", 0)
-    for idx in range(step_index, len(PIPELINE)):
-        step = PIPELINE[idx]
-        log.info(f"Executing step {idx + 1}/{len(PIPELINE)}: {step.__name__}")
-        try:
-            success = step(task, state)
-        except Exception as exc:  # pragma: no cover - defensive
-            log.error(f"Step {step.__name__} failed: {exc}")
-            state["pipeline_step"] = idx
-            return False
-        if not success:
-            if idx == 1:
-                state["analysis"] = []
-            state["pipeline_step"] = idx
-            return False
-        state["pipeline_step"] = idx + 1
-        save_state(state, STATE_PATH)
-    return True
-
-
 def _spawn_followup_task(
     parent: dict,
     review: dict,
@@ -283,7 +165,7 @@ def main() -> None:
             return
         task = meta["title"]
         task_id = meta.get("id", f"{abs(hash(task)) % 1000000:06d}")
-        slug = _slugify(task)[:40]
+        slug = slugify(task)[:40]
         state["current_task"] = {**meta, "task_id": task_id, "slug": slug}
         state["pipeline_step"] = 0
         state["attempt"] = 1
@@ -300,7 +182,7 @@ def main() -> None:
 
     while True:
         log.info("Dispatching task to execution pipeline...")
-        success = _execute_pipeline(task, state)
+        success = execute_pipeline(task, state)
         attempt_num = state.get("attempt", 1)
         changed_files = state.get("changed_files", [])
         log_dir = Path("logs") / task_id
