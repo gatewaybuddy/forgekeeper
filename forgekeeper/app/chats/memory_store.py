@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_vector import store_memory_entry
+from forgekeeper.app.memory.store import store_memory_entry
 import json
 import os
 from typing import Callable, Dict, Any

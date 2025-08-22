@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import math
 import re
-from . import memory_vector
+from forgekeeper.app.memory import backend, store
 
 def evaluate_relevance(memory_item: Dict, context: str, *, now: Optional[datetime] = None) -> float:
     """Return a relevance score between 0 and 1 for ``memory_item``.
@@ -88,9 +88,9 @@ class MemoryBank:
             "last_accessed": timestamp,
             "timestamp": timestamp,
         }
-        memory_vector.collection.add(
+        store.collection.add(
             documents=[content],
-            embeddings=memory_vector.embed([content]),
+            embeddings=backend.embed([content]),
             ids=[entry_id],
             metadatas=[metadata],
         )
@@ -98,11 +98,11 @@ class MemoryBank:
 
     def update_entry(self, entry_id: str, new_content: str) -> None:
         """Replace the stored content for ``entry_id``."""
-        memory_vector.update_entry(self.project_id, entry_id, new_content)
+        store.update_entry(self.project_id, entry_id, new_content)
 
     def touch_entry(self, entry_id: str) -> None:
         """Update the ``last_accessed`` timestamp for ``entry_id``."""
-        results = memory_vector.collection.get(
+        results = store.collection.get(
             ids=[entry_id],
             include=["documents", "metadatas"],
             where={"project_id": self.project_id},
@@ -113,10 +113,10 @@ class MemoryBank:
         meta = results["metadatas"][0]
         meta["last_accessed"] = datetime.now(timezone.utc).isoformat()
 
-        memory_vector.collection.update(
+        store.collection.update(
             ids=[entry_id],
             documents=[doc],
-            embeddings=memory_vector.embed([doc]),
+            embeddings=backend.embed([doc]),
             metadatas=[{**meta, "project_id": self.project_id}],
         )
 
@@ -128,15 +128,15 @@ class MemoryBank:
     ) -> None:
         """Delete entries by ``ids`` or matching metadata ``filters``."""
         if ids:
-            memory_vector.collection.delete(ids=ids, where={"project_id": self.project_id})
+            store.collection.delete(ids=ids, where={"project_id": self.project_id})
             return
         if filters:
             query = {"project_id": self.project_id, **filters}
-            memory_vector.collection.delete(where=query)
+            store.collection.delete(where=query)
 
     def list_entries(self, filters: Dict[str, str] | None = None) -> List[Dict]:
         """Return a list of stored entries with optional metadata filtering."""
-        results = memory_vector.collection.get(
+        results = store.collection.get(
             include=["documents", "metadatas", "ids"],
             where={"project_id": self.project_id},
         )
@@ -171,9 +171,9 @@ class MemoryBank:
         for item in items:
             metadata = {k: item[k] for k in item if k not in {"id", "content"}}
             metadata["project_id"] = self.project_id
-            memory_vector.collection.add(
+            store.collection.add(
                 documents=[item["content"]],
-                embeddings=memory_vector.embed([item["content"]]),
+                embeddings=backend.embed([item["content"]]),
                 ids=[item["id"]],
                 metadatas=[metadata],
             )

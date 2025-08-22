@@ -13,7 +13,7 @@ from forgekeeper.app.services.llm_router import (
     get_coder_model_name,
 )
 from forgekeeper.app.utils.json_helpers import extract_json
-from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
+from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
