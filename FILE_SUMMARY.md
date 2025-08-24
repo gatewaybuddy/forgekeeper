@@ -32,11 +32,12 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `backend/package-lock.json`: Backend dependency lockfile  
 - `backend/package.json`: Backend package definition  
 - `backend/prisma/migrations/20240507120000_add_outbox/migration.sql`: Prisma migration script  
-- `backend/prisma/schema.prisma`: Prisma schema definition  
-- `backend/src/index.ts`: Express application entrypoint  
-- `backend/src/outboxWorker.ts`: Prisma outbox worker  
-- `backend/src/resolvers.ts`: GraphQL resolvers  
-- `backend/src/schema.ts`: GraphQL schema  
+- `backend/prisma/schema.prisma`: Prisma schema definition
+- `backend/src/crud.ts`: Prisma CRUD helper functions
+- `backend/src/index.ts`: Express application entrypoint
+- `backend/src/outboxWorker.ts`: Prisma outbox worker
+- `backend/src/resolvers.ts`: GraphQL resolvers using shared CRUD module
+- `backend/src/schema.ts`: GraphQL schema
 - `backend/tsconfig.json`: TypeScript configuration  
 - `docker-compose.yml`: Multi-service Docker orchestration  
 - `forgekeeper/__init__.py`: Forgekeeper package marker  
