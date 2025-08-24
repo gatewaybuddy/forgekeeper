@@ -59,7 +59,7 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
-- [x] Subtask expansion in goal management via `high_level_goal_manager.py`
+- [x] Subtask expansion in goal management via `goal_manager/manager.py`
 - [x] Consolidated conversation handling behind GraphQL service
 
 ---
@@ -227,3 +227,14 @@ Recent commits: chore: update roadmap, chore: update roadmap, chore: update road
 - No staged changes to commit
 - No staged changes to commit
 - No staged changes to commit
+
+## Update 2025-08-24 07:36 UTC
+### Summary
+Recent commits: Merge pull request #302 from gatewaybuddy/codex/create-reusable-crud-module-and-refactor, refactor: centralize Prisma CRUD operations, Merge pull request #301 from gatewaybuddy/codex/mark-completed-milestones-and-remove-duplicates
+
+### Recent Commits
+- Merge pull request #302 from gatewaybuddy/codex/create-reusable-crud-module-and-refactor
+- refactor: centralize Prisma CRUD operations
+- Merge pull request #301 from gatewaybuddy/codex/mark-completed-milestones-and-remove-duplicates
+- docs: add roadmap update entry
+- Merge pull request #300 from gatewaybuddy/codex/remove-personal-system-information-file

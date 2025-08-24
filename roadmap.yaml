@@ -37,7 +37,7 @@ epics:
       - id: M-022
         title: Subtask expansion in goal management
         status: done
-        links: ["forgekeeper/high_level_goal_manager.py"]
+        links: ["goal_manager/manager.py"]
       - id: M-030
         title: Autonomous task execution
         status: todo
