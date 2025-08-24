@@ -6,7 +6,7 @@ import re
 import yaml
 
 from .parser import (
-    Task,
+    ChecklistTask as Task,
     Section,
     parse_task_file,
     save as save_tasks,
