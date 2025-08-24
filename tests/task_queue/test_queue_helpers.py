@@ -1,4 +1,4 @@
-from forgekeeper.task_queue import TaskQueue
+from forgekeeper.tasks.queue import TaskQueue
 
 
 def test_find_canonical_tasks(queue_from_text):

@@ -159,8 +159,8 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/state.json`: Current state storage  
 - `forgekeeper/state_manager.py`: Manage state persistence  
 - `forgekeeper/task_pipeline.py`: Scheduler for tasks in `tasks.md`  
-- `forgekeeper/task_queue.py`: Task queue with episodic memory weighting  
-- `forgekeeper/telemetry.py`: Telemetry utilities  
+- `forgekeeper/tasks/queue.py`: Task queue with episodic memory weighting
+- `forgekeeper/telemetry.py`: Telemetry utilities
 - `forgekeeper/user_interface.py`: Minimal UI abstraction  
 - `forgekeeper/vcs/__init__.py`: Version control utilities package marker  
 - `forgekeeper/vcs/pr_api.py`: PR API helpers  
@@ -195,7 +195,8 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `goal_manager/delegator.py`: Delegate tasks to agents
 - `goal_manager/manager.py`: High-level goal orchestration
 - `goal_manager/planner.py`: Decompose goals into subtasks
-- `goal_manager/storage.py`: Persist goals and progress log
+- `goal_manager/storage.py`: Persist goal metadata
+- `goal_manager/progress.py`: Append progress notes to goal log
 - `intent_test_log.txt`: Intent test log  
 - `mqtt_forgekeeper_listener.py`: MQTT listener for tasks  
 - `requirements.txt`: Python dependencies (e.g., GitPython)  
@@ -262,7 +263,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_self_review_smoke.py`: Self-review smoke tests  
 - `tests/test_spawn_followup_task.py`: Follow-up task tests  
 - `tests/test_task_pipeline.py`: Task pipeline tests  
-- `tests/test_task_queue.py`: Task queue tests  
 - `tests/test_ts_support.py`: TypeScript support tests  
 - `tools/auto_label_pr.py`: CLI to auto-label PRs  
 - `tools/mark_done_if_merged.py`: Mark tasks done if PR merged  

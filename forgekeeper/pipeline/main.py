@@ -5,7 +5,7 @@ from typing import Optional, Dict, List, Any, Set
 import json
 
 from forgekeeper.tasks.queue import TaskQueue
-import goal_manager
+from goal_manager import storage as goal_storage
 from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_edit.llm_diff import generate_code_edit
@@ -36,7 +36,7 @@ class TaskPipeline:
 
         desc = meta.get("title") or meta.get("description") or ""
         try:
-            goal_manager.add_goal(desc, source="task_queue")
+            goal_storage.add_goal(desc, source="task_queue")
         except Exception:  # pragma: no cover - defensive
             pass
 

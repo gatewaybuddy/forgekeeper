@@ -1,15 +1,19 @@
 """Utilities for committing and pushing Forgekeeper updates."""
 
-from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
 from git import Repo
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE, RUN_COMMIT_CHECKS
-from forgekeeper import self_review, diff_validator
 from forgekeeper.memory.episodic import append_entry
-from forgekeeper.git import checks as git_checks, sandbox, outbox
+from forgekeeper.git import (
+    checks as git_checks,
+    outbox,
+    pre_review,
+    sandbox_checks,
+    commit_ops,
+)
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -26,83 +30,29 @@ def _commit_and_push_impl(
 ) -> dict:
     """Internal helper performing commit/push logic."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
-    pre_review = self_review.review_staged_changes(task_id)
-    files = pre_review.get("staged_files", [])
-    if not pre_review.get("passed", False):
-        if autonomous:
-            log.error("Pre-commit review failed in autonomous mode")
-            append_entry(
-                task_id,
-                commit_message,
-                "pre-review-failed",
-                files,
-                pre_review.get("summary", "Pre-commit review failed"),
-                [],
-            )
-            return {"passed": False, "pre_review": pre_review, "aborted": True}
-        resp = input(
-            "Proceed with commit despite review issues? [y/N]: "
-        ).strip().lower()
-        if resp not in {"y", "yes"}:
-            log.info("Commit aborted due to review issues")
-            append_entry(
-                task_id,
-                commit_message,
-                "pre-review-aborted",
-                files,
-                pre_review.get("summary", "Commit aborted due to review issues"),
-                [],
-            )
-            return {"passed": False, "pre_review": pre_review, "aborted": True}
 
-    diff_validation = diff_validator.validate_staged_diffs()
-    if not diff_validation.get("passed", False):
-        log.error("Diff validation failed; aborting commit")
-        append_entry(
-            task_id,
-            commit_message,
-            "diff-validation-failed",
-            files,
-            "; ".join(diff_validation.get("issues", [])) or "Diff validation failed",
-            [],
-        )
-        return {
-            "passed": False,
-            "pre_review": pre_review,
-            "diff_validation": diff_validation,
-            "aborted": True,
-        }
+    review_result = pre_review._run_pre_review(commit_message, task_id, autonomous)
+    if not review_result.get("passed", False):
+        return review_result
 
-    sandbox_result = sandbox.run_sandbox_checks(
-        files, task_id=task_id, run_checks=run_checks
+    files = review_result.get("files", [])
+    sandbox_result = sandbox_checks._run_sandbox_checks(
+        files,
+        commit_message,
+        task_id,
+        run_checks,
+        review_result["pre_review"],
+        review_result["diff_validation"],
     )
     if not sandbox_result.get("passed", False):
-        log.error("Aborting commit due to failing sandbox checks")
-        append_entry(
-            task_id,
-            commit_message,
-            "sandbox-failed",
-            files,
-            "Sandbox checks failed",
-            [sandbox_result.get("artifacts_path")]
-            if sandbox_result.get("artifacts_path")
-            else [],
-        )
-        sandbox_result.update(
-            {
-                "pre_review": pre_review,
-                "diff_validation": diff_validation,
-                "aborted": True,
-            }
-        )
         return sandbox_result
 
     check_result = {
         "passed": True,
         "artifacts_path": "",
         "results": [],
-        "pre_review": pre_review,
-        "diff_validation": diff_validation,
+        "pre_review": review_result["pre_review"],
+        "diff_validation": review_result["diff_validation"],
         "sandbox": sandbox_result,
     }
     if run_checks:
@@ -116,115 +66,44 @@ def _commit_and_push_impl(
                 "checks-failed",
                 files,
                 "Checks failed",
-                [check_result.get("artifacts_path")]
-                if check_result.get("artifacts_path")
-                else [],
+                [check_result.get("artifacts_path")] if check_result.get("artifacts_path") else [],
             )
             return check_result
 
-    if create_branch:
-        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        branch_name = f"{branch_prefix}-{timestamp}"
-        repo.git.checkout('-b', branch_name)
-        log.info(f"Created branch {branch_name}")
-    else:
-        branch_name = repo.active_branch.name
+    commit_result = commit_ops.commit_changes(
+        repo,
+        commit_message,
+        files,
+        task_id,
+        create_branch,
+        branch_prefix,
+        autonomous,
+        check_result.get("artifacts_path", ""),
+    )
+    check_result["changelog"] = commit_result.get("changelog", "")
+    check_result["changelog_path"] = commit_result.get("changelog_path", "")
+    branch_name = commit_result.get("branch_name", repo.active_branch.name)
+    if commit_result.get("aborted"):
+        check_result["passed"] = False
+        check_result["aborted"] = True
+        return check_result
+    if not commit_result.get("committed"):
+        check_result["pushed"] = False
+        check_result["rationale"] = commit_message
+        return check_result
 
-    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
-    log_dir.mkdir(parents=True, exist_ok=True)
-    changelog = ""
-    changelog_path = log_dir / "changelog.txt"
-    pushed = False
-    if repo.is_dirty(index=True, working_tree=False, untracked_files=False):
-        if not autonomous:
-            resp = input("Commit staged changes? [y/N]: ").strip().lower()
-            if resp not in {"y", "yes"}:
-                log.info("Commit aborted by user")
-                check_result["passed"] = False
-                check_result["aborted"] = True
-                append_entry(
-                    task_id,
-                    commit_message,
-                    "commit-declined",
-                    files,
-                    "Commit aborted by user",
-                    [check_result.get("artifacts_path")]
-                    if check_result.get("artifacts_path")
-                    else [],
-                )
-                return check_result
-        repo.index.commit(commit_message)
-        log.info(f"Committed changes on {branch_name}: {commit_message}")
-        changelog = repo.git.log("-1", "--stat")
-        changelog_path.write_text(changelog, encoding="utf-8")
-        append_entry(
-            task_id,
-            commit_message,
-            "committed",
-            files,
-            f"Committed changes on {branch_name}: {commit_message}",
-            [check_result.get("artifacts_path")]
-            if check_result.get("artifacts_path")
-            else [],
-        )
-        try:
-            origin = repo.remote()
-            if autonomous or auto_push:
-                origin.push(branch_name)
-                pushed = True
-                log.info("Pushed to remote")
-            else:
-                if input(
-                    f"Push branch {branch_name} to remote? [y/N]: "
-                ).strip().lower() in {"y", "yes"}:
-                    origin.push(branch_name)
-                    pushed = True
-                    log.info("Pushed to remote")
-                else:
-                    log.info("Push to remote skipped")
-        except Exception as exc:
-            log.error(f"Push failed: {exc}")
-            append_entry(
-                task_id,
-                commit_message,
-                "push-failed",
-                files,
-                f"Push failed: {exc}",
-                [str(changelog_path)] if changelog else [],
-                rationale=commit_message,
-            )
-        if pushed:
-            rationale = commit_message
-            summary = (
-                f"Pushed changes on {branch_name}: {commit_message}. "
-                f"Changelog at {changelog_path}"
-            )
-            log.info(summary)
-            append_entry(
-                task_id,
-                commit_message,
-                "pushed",
-                files,
-                summary,
-                [str(changelog_path)] if changelog else [],
-                rationale=rationale,
-            )
-    else:
-        log.info("No staged changes to commit")
-        append_entry(
-            task_id,
-            commit_message,
-            "no-changes",
-            [],
-            "No staged changes to commit",
-            [check_result.get("artifacts_path")]
-            if check_result.get("artifacts_path")
-            else [],
-        )
-
-    check_result["changelog"] = changelog
-    check_result["changelog_path"] = str(changelog_path) if changelog else ""
-    check_result["pushed"] = pushed
+    push_result = commit_ops.push_branch(
+        repo,
+        branch_name,
+        commit_message,
+        files,
+        task_id,
+        autonomous,
+        auto_push,
+        check_result["changelog_path"],
+        check_result["changelog"],
+    )
+    check_result["pushed"] = push_result.get("pushed", False)
     check_result["rationale"] = commit_message
     return check_result
 

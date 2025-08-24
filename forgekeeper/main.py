@@ -6,6 +6,7 @@ from pathlib import Path
 
 from forgekeeper.config import DEBUG_MODE, ROADMAP_AUTO_PUSH, ROADMAP_COMMIT_INTERVAL
 from forgekeeper.logger import get_logger
+
 from forgekeeper.state_manager import load_state
 from forgekeeper.task_review import _check_reviewed_tasks
 
