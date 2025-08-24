@@ -40,6 +40,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ## ✅ Completed
 
 - [x] Improve multi-agent planning and delegation across tasks
+- [x] Replace file-based conversation helpers with GraphQL service
 - [x] Pin Python and Node dependencies for reproducible installs
 - [x] Provide cross-platform setup script to automate environment creation
 - [x] Complete tasks independently with user review

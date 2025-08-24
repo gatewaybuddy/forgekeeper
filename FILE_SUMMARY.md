@@ -52,7 +52,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/chats/__pycache__/memory_vector.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/app/chats/chat_session.py`: Chat session model/logic  
 - `forgekeeper/app/chats/conversation_memory.json`: Example conversation memory  
-- `forgekeeper/app/chats/conversations.json`: Stored conversations  
 - `forgekeeper/app/chats/distillation_controller.py`: Placeholder for attention distillation utilities  
 - `forgekeeper/app/chats/memory_bank.py`: High-level memory management  
 - `forgekeeper/app/chats/memory_scheduler.py`: Scheduled memory maintenance tools  
@@ -79,16 +78,16 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/services/__pycache__/prompt_formatting.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/app/services/__pycache__/reflective_ask_core.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/app/services/code_catcher.py`: Code retrieval utilities  
-- `forgekeeper/app/services/conversation_service.py`: Conversation management service  
 - `forgekeeper/app/services/file_writer.py`: Write content to disk  
-- `forgekeeper/app/services/function_loader.py`: Dynamically load functions  
-- `forgekeeper/app/services/llm_router.py`: Route requests to different LLM backends  
-- `forgekeeper/app/services/llm_service.py`: Base LLM service helpers  
-- `forgekeeper/app/services/llm_service_openai.py`: OpenAI API implementation  
-- `forgekeeper/app/services/llm_service_openai_harmony.py`: Local OpenAI-Harmony model service  
-- `forgekeeper/app/services/local_llm.py`: llama.cpp-based local LLM  
-- `forgekeeper/app/services/prompt_formatting.py`: Build memory-aware prompts  
-- `forgekeeper/app/services/reflective_ask_core.py`: Memory-aware reflective question logic  
+- `forgekeeper/app/services/function_loader.py`: Dynamically load functions
+- `forgekeeper/app/services/llm_router.py`: Route requests to different LLM backends
+- `forgekeeper/app/services/llm_service.py`: Base LLM service helpers
+- `forgekeeper/app/services/llm_service_openai.py`: OpenAI API implementation
+- `forgekeeper/app/services/llm_service_openai_harmony.py`: Local OpenAI-Harmony model service
+- `forgekeeper/app/services/local_llm.py`: llama.cpp-based local LLM
+- `forgekeeper/app/services/prompt_formatting.py`: Build memory-aware prompts
+- `forgekeeper/app/services/reflective_ask_core.py`: Memory-aware reflective question logic
+- `forgekeeper/app/services/graphql_client.py`: GraphQL helper for conversation service
 - `forgekeeper/app/shared/__pycache__/models.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/app/utils/__pycache__/json_helpers.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/app/utils/__pycache__/system_prompt_builder.cpython-310.pyc`: Python bytecode  
