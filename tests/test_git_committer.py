@@ -26,6 +26,17 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     mem_dir.mkdir()
     for name in ["__init__.py", "episodic.py", "embeddings.py"]:
         shutil.copy(ROOT / "forgekeeper" / "memory" / name, mem_dir / name)
+    emb_pkg = mem_dir / "embedding"
+    emb_pkg.mkdir()
+    (emb_pkg / "__init__.py").write_text(
+        "def LocalEmbedder(*a, **k):\n    return None\n"
+        "def SimpleTfidfVectorizer(*a, **k):\n    return None\n"
+        "def cosine_similarity(a, b):\n    return 0.0\n"
+        "def load_episodic_memory(*a, **k):\n    return []\n"
+        "def retrieve_similar_tasks(*a, **k):\n    return []\n"
+        "def similar_task_summaries(*a, **k):\n    return []\n",
+        encoding="utf-8",
+    )
     # minimal self_review stub
     sr_pkg = pkg_dir / "self_review"
     sr_pkg.mkdir()
@@ -63,9 +74,9 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     )
     importlib.reload(gc)
     monkeypatch.setattr(
-        gc.sandbox,
-        "run_sandbox_checks",
-        lambda files, task_id, run_checks=True: {"passed": True, "artifacts_path": "", "results": []},
+        gc.sandbox_checks,
+        "_run_sandbox_checks",
+        lambda files, commit_message, task_id, run_checks, pre_review, diff_validation: {"passed": True, "artifacts_path": "", "results": []},
     )
     monkeypatch.chdir(repo_dir)
     return repo_dir, gc

@@ -24,6 +24,21 @@ def setup_repo(tmp_path, monkeypatch):
     ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
     shutil.copytree(ROOT / "forgekeeper" / "self_review", pkg_dir / "self_review")
+    mem_dir = pkg_dir / "memory"
+    mem_dir.mkdir()
+    for name in ["__init__.py", "episodic.py", "embeddings.py"]:
+        shutil.copy(ROOT / "forgekeeper" / "memory" / name, mem_dir / name)
+    emb_pkg = mem_dir / "embedding"
+    emb_pkg.mkdir()
+    (emb_pkg / "__init__.py").write_text(
+        "def LocalEmbedder(*a, **k):\n    return None\n"
+        "def SimpleTfidfVectorizer(*a, **k):\n    return None\n"
+        "def cosine_similarity(a, b):\n    return 0.0\n"
+        "def load_episodic_memory(*a, **k):\n    return []\n"
+        "def retrieve_similar_tasks(*a, **k):\n    return []\n"
+        "def similar_task_summaries(*a, **k):\n    return []\n",
+        encoding="utf-8",
+    )
     tools_dir = repo_dir / "tools"
     tools_dir.mkdir()
     (tools_dir / "smoke_backend.py").write_text("import sys; sys.exit(0)\n", encoding="utf-8")
@@ -44,7 +59,7 @@ def setup_repo(tmp_path, monkeypatch):
     gc = importlib.import_module("forgekeeper.git_committer")
     importlib.reload(gc)
     monkeypatch.setattr(
-        gc.self_review,
+        gc.pre_review.self_review,
         "review_staged_changes",
         lambda task_id: {"passed": False, "staged_files": ["foo.py"]},
     )

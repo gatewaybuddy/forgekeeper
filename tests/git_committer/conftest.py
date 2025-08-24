@@ -76,9 +76,9 @@ def init_repo(tmp_path, monkeypatch):
         )
         importlib.reload(gc)
         monkeypatch.setattr(
-            gc.sandbox,
-            "run_sandbox_checks",
-            lambda files, task_id, run_checks=True: {"passed": True, "artifacts_path": "", "results": []},
+            gc.sandbox_checks,
+            "_run_sandbox_checks",
+            lambda files, commit_message, task_id, run_checks, pre_review, diff_validation: {"passed": True, "artifacts_path": "", "results": []},
         )
         monkeypatch.chdir(repo_dir)
         return repo_dir, gc
