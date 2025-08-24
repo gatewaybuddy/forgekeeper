@@ -109,7 +109,7 @@ def store_memory_entry(
     *,
     type: str = "dialogue",
     tags: Optional[List[str]] = None,
-) -> str:
+    ) -> str:
     """Insert a new memory document and return its id."""
 
     doc_id = str(uuid.uuid4())
@@ -128,36 +128,3 @@ def store_memory_entry(
         metadatas=[metadata],
     )
     return doc_id
-
-
-def delete_entries(
-    project_id: str,
-    session_id: str,
-    *,
-    types: Optional[List[str]] = None,
-    ids: Optional[List[str]] = None,
-) -> None:
-    """Remove documents by ``session_id`` and optional constraints."""
-
-    if ids:
-        collection.delete(ids=ids, where={"project_id": project_id})
-        return
-    query: Dict[str, Any] = {"project_id": project_id, "session_id": session_id}
-    if types:
-        query["type"] = {"$in": types}
-    collection.delete(where=query)
-
-
-def update_entry(project_id: str, entry_id: str, new_content: str) -> None:
-    """Replace the stored content for ``entry_id`` scoped to ``project_id``."""
-
-    results = collection.get(ids=[entry_id], include=["metadatas"], where={"project_id": project_id})
-    if not results.get("ids"):
-        return
-    metadata = results["metadatas"][0]
-    collection.update(
-        ids=[entry_id],
-        documents=[new_content],
-        embeddings=[embed([new_content])[0]],
-        metadatas=[{**metadata, "project_id": project_id}],
-    )
