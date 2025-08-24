@@ -9,9 +9,11 @@ from forgekeeper.logger import get_logger
 
 from forgekeeper.state_manager import load_state
 from forgekeeper.task_review import _check_reviewed_tasks
+from forgekeeper.pipeline.execution import execute_pipeline  # re-export for tests
 
 MODULE_DIR = Path(__file__).resolve().parent
 STATE_PATH = MODULE_DIR / "state.json"
+TASK_FILE = MODULE_DIR.parent / "tasks.md"
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 

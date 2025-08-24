@@ -98,7 +98,8 @@ def _recent_pushes(n: int) -> None:
         title = entry.get("title", "")
         emotion = entry.get("emotion", "")
         rationale = entry.get("rationale", "")
-        print(f"[{tid}] {title} ({emotion}) - {rationale}")
+        emotion_part = f" ({emotion})" if emotion else ""
+        print(f"[{tid}] {title}{emotion_part} - {rationale}")
 
 
 def main(argv: Sequence[str] | None = None) -> None:

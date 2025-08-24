@@ -1,13 +1,13 @@
 from .analyze import step_analyze
 from .edit import step_edit
 from .commit import step_commit, commit_with_log, slugify
-from .runner import PIPELINE, execute_pipeline
+from .execution import PIPELINE, execute_pipeline
 from .update import run_update_pipeline
 from .main import TaskPipeline
 from .undo import undo_last_commit
 
 # Re-export helpers used by tests for monkeypatching
-from forgekeeper.file_summarizer import summarize_repository
+from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_edit.llm_diff import generate_code_edit
 from forgekeeper.code_edit.patcher import apply_unified_diff
