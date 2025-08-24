@@ -51,7 +51,7 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 - [ ] M-030: Autonomous task execution based on high-level goals
  - [x] M-031: Emotion tagging for memory reflections
 - [x] M-032: Self-generated roadmap and sprint plans
-- [ ] M-033: Optional push to remote repo with changelog and justification
+ - [x] M-033: Optional push to remote repo with changelog and justification
 
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
@@ -80,7 +80,7 @@ Forgekeeper will become a memory-driven, self-reflective development environment
 
 ## 🔄 Update History
 
-Last update: 2025-08-24 06:40 UTC
+Last update: 2025-08-24 07:57 UTC
 Recent commits: added setup script prompts and goal manager refactor.
 Outstanding work: tasks "Persist me (P1)" and "Demo task (P1)" require follow-up; latest self-review reported failing tests.
 
@@ -238,3 +238,14 @@ Recent commits: Merge pull request #302 from gatewaybuddy/codex/create-reusable-
 - Merge pull request #301 from gatewaybuddy/codex/mark-completed-milestones-and-remove-duplicates
 - docs: add roadmap update entry
 - Merge pull request #300 from gatewaybuddy/codex/remove-personal-system-information-file
+
+## Update 2025-08-24 07:56 UTC
+### Summary
+Recent commits: Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304), Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+
+### Recent Commits
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+- refactor: drop deprecated goal manager alias
