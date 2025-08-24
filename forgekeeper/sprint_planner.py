@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from forgekeeper.goal_manager import load_goals
+from goal_manager.storage import load_goals
 from forgekeeper.tasks.queue import TaskQueue
 
 

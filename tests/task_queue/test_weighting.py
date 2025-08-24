@@ -1,4 +1,4 @@
-from forgekeeper.task_queue import TaskQueue
+from forgekeeper.tasks.queue import TaskQueue
 
 
 def test_memory_weight_affects_order(tasks_file):

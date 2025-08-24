@@ -8,7 +8,18 @@ ENV_FILE="$ROOT_DIR/.env"
 echo "Select setup type:"
 echo "[1] Local single-user"
 echo "[2] Multi-agent distributed (Docker)"
-read -rp "Enter choice [1-2]: " choice
+choice=""
+while true; do
+  read -rp "Enter choice [1-2]: " choice
+  case "$choice" in
+    1|2)
+      break
+      ;;
+    *)
+      echo "Invalid choice. Please enter 1 or 2."
+      ;;
+  esac
+done
 
 read -rp "Model storage directory [./models]: " model_dir
 model_dir=${model_dir:-./models}
