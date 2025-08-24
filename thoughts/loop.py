@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from forgekeeper.llm.llm_service_vllm import llm_core
 from forgekeeper.state_manager import load_state
-from forgekeeper.goal_manager import get_active_goals
+from goal_manager import get_active_goals
 from forgekeeper.user_interface import expose
 
 from . import generator, summary
