@@ -2,9 +2,7 @@ import json
 import subprocess
 
 
-# Tests for diff validation logic
-
-def test_diff_validation_prevents_commit(init_repo):
+def test_diff_validation_blocks_commit(init_repo):
     repo, gc = init_repo()
     a = repo / "a.py"
     b = repo / "b.py"
@@ -22,3 +20,20 @@ def test_diff_validation_prevents_commit(init_repo):
     mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
     entry = json.loads(mem_file.read_text(encoding="utf-8").splitlines()[-1])
     assert entry["status"] == "diff-validation-failed"
+
+
+def test_diff_validation_allows_consistent_changes(init_repo):
+    repo, gc = init_repo()
+    a = repo / "a.py"
+    b = repo / "b.py"
+    a.write_text("def foo():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import foo\nfoo()\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "init files"], cwd=repo, check=True)
+
+    a.write_text("def bar():\n    return 1\n", encoding="utf-8")
+    b.write_text("from a import bar\nbar()\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(a), str(b)], cwd=repo, check=True)
+    result = gc.commit_and_push_changes("msg", task_id="t7", autonomous=True)
+    assert result["passed"]
+    assert result["diff_validation"]["passed"]
