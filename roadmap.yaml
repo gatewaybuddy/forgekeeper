@@ -37,4 +37,17 @@ epics:
       - id: M-022
         title: Subtask expansion in goal management
         status: done
-        links: ["goal_manager/"]
+        links: ["forgekeeper/high_level_goal_manager.py"]
+      - id: M-030
+        title: Autonomous task execution
+        status: todo
+      - id: M-031
+        title: Emotion tagging for memory
+        status: todo
+      - id: M-032
+        title: Sprint and roadmap generation
+        status: todo
+      - id: M-033
+        title: Optional remote push with justification
+        status: todo
+

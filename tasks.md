@@ -6,6 +6,7 @@
 |-----------|--------|
 | Core | Done |
 | Automation | Done |
+| Autonomy | In Progress |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
@@ -22,10 +23,11 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## ⏳ Backlog
 
-- [ ] FK-301: Emotion tagging (P1)
-- [ ] FK-302: CRUD consolidation (P2)
-- [ ] FK-303: Goal-manager unification (P1)
-- [ ] FK-304: Automated sprint/roadmap generation (P3)
+
+- [ ] FK-301: Autonomous task execution from high-level goals (P1)
+- [ ] FK-302: Emotion tagging for memory reflections (P2)
+- [ ] FK-303: Self-generated roadmap and sprint plans (P2)
+- [ ] FK-304: Optional remote push with changelog and justification (P3)
 
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
