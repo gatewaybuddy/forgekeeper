@@ -235,6 +235,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_commands.py`: Command tests
 - `tests/test_embeddings.py`: Embedding tests
 - `tests/test_episodic_memory.py`: Episodic memory tests
+- `tests/test_git_committer.py`: Legacy Git committer test shim
 - `tests/test_git_committer_checks.py`: Committer check tests
 - `tests/test_git_committer_sandbox.py`: Git committer sandbox tests
 - `tests/test_goal_manager.py`: Goal manager tests
