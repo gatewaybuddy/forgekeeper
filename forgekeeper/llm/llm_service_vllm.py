@@ -11,7 +11,7 @@ import requests
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.telemetry import log_server_launch
-from forgekeeper.llm.clients import openai_compat_client
+from forgekeeper.llm.clients import client, config as client_config
 from forgekeeper.app.utils.prompt_guard import verify_prompt
 from forgekeeper.app.utils.json_helpers import extract_json
 
@@ -31,7 +31,7 @@ def _wait_for_healthz(timeout: float = 60.0, interval: float = 1.0) -> None:
 
     # Collect base URLs from the OpenAI-compat client map
     urls: Dict[str, str] = {}
-    for alias, env_var in openai_compat_client.MODEL_BASE_URL_ENV.items():
+    for alias, env_var in client_config.MODEL_BASE_URL_ENV.items():
         base = os.getenv(env_var)
         if base:
             urls[alias] = base.rstrip("/")
@@ -100,18 +100,18 @@ class _RemoteLLM:
 
         # If the coder model or its base URL are missing, fallback immediately to core.
         if self.alias == "coder":
-            base_env = openai_compat_client.MODEL_BASE_URL_ENV.get("coder")
+            base_env = client_config.MODEL_BASE_URL_ENV.get("coder")
             base_set = base_env and os.getenv(base_env)
             if not os.getenv("VLLM_MODEL_CODER") or not base_set:
                 log.warning("Coder model unavailable; routing request to core")
                 params = {**_alias_settings("core"), **overrides}
-                result = openai_compat_client.chat("core", messages, **params)
+                result = client.chat("core", messages, **params)
                 if isinstance(result, dict):
                     return result.get("content", "")
                 return "".join(result)
 
         try:
-            result: Dict[str, Any] | Iterable[str] = openai_compat_client.chat(
+            result: Dict[str, Any] | Iterable[str] = client.chat(
                 self.alias, messages, **params
             )
         except Exception as exc:  # noqa: BLE001  # pragma: no cover - network errors
@@ -120,7 +120,7 @@ class _RemoteLLM:
                     "Coder model unavailable; routing request to core: %s", exc
                 )
                 params = {**_alias_settings("core"), **overrides}
-                result = openai_compat_client.chat("core", messages, **params)
+                result = client.chat("core", messages, **params)
             else:
                 raise
         if isinstance(result, dict):

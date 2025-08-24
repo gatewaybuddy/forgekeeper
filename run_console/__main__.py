@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from typing import List
 
-from forgekeeper.llm.clients import openai_compat_client
+from forgekeeper.llm.clients import client
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
                 continue
             messages.append({"role": "user", "content": user_input})
             try:
-                stream = openai_compat_client.chat("core", messages, stream=True)
+                stream = client.chat("core", messages, stream=True)
                 response_text = ""
                 for token in stream:
                     response_text += token
