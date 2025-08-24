@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.mark_done_if_merged import mark_done_if_merged
-import forgekeeper.main as fk_main
+import forgekeeper.task_review as fk_review
 
 
 def _write_tasks(tmp_path: Path, status: str) -> Path:
@@ -96,17 +96,17 @@ def test_check_reviewed_tasks_invokes_for_each_id(tmp_path, monkeypatch):
 
     pkg_dir = tmp_path / "forgekeeper"
     pkg_dir.mkdir()
-    monkeypatch.setattr(fk_main, "MODULE_DIR", pkg_dir)
-    monkeypatch.setattr(fk_main, "TASK_FILE", tasks_file)
+    monkeypatch.setattr(fk_review, "MODULE_DIR", pkg_dir)
+    monkeypatch.setattr(fk_review, "TASK_FILE", tasks_file)
 
     calls = []
 
     def fake_run(cmd, check=False):
         calls.append(cmd)
 
-    monkeypatch.setattr(fk_main.subprocess, "run", fake_run)
+    monkeypatch.setattr(fk_review.subprocess, "run", fake_run)
 
-    fk_main._check_reviewed_tasks()
+    fk_review._check_reviewed_tasks()
 
     assert calls == [
         [sys.executable, str(script), "FK-1"],

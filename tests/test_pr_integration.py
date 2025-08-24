@@ -1,11 +1,24 @@
 import json
 import sys
+import types
+import importlib.util
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+pipeline_pkg = types.ModuleType("forgekeeper.pipeline")
+pipeline_pkg.__path__ = [str(ROOT / "forgekeeper" / "pipeline")]
+sys.modules.setdefault("forgekeeper.pipeline", pipeline_pkg)
+
+spec = importlib.util.spec_from_file_location(
+    "forgekeeper.pipeline.runner", ROOT / "forgekeeper" / "pipeline" / "runner.py"
+)
+fk_runner = importlib.util.module_from_spec(spec)
+sys.modules["forgekeeper.pipeline.runner"] = fk_runner
+spec.loader.exec_module(fk_runner)
 
 from forgekeeper import main as fk_main
 from forgekeeper.vcs import pr_api
@@ -21,9 +34,17 @@ def test_pr_creation_and_status_update(tmp_path, monkeypatch):
     state_path = tmp_path / "state.json"
     module_dir = tmp_path / "fk"
     module_dir.mkdir()
-    monkeypatch.setattr(fk_main, "TASK_FILE", tasks_md)
     monkeypatch.setattr(fk_main, "STATE_PATH", state_path)
     monkeypatch.setattr(fk_main, "MODULE_DIR", module_dir)
+    monkeypatch.setattr(fk_runner, "TASK_FILE", tasks_md)
+    monkeypatch.setattr(fk_runner, "STATE_PATH", state_path)
+    monkeypatch.setattr(fk_runner, "MODULE_DIR", module_dir)
+    monkeypatch.setattr(fk_main, "_check_reviewed_tasks", lambda: None)
+    def fake_mark(tid):
+        text = tasks_md.read_text()
+        tasks_md.write_text(text.replace("status: todo", "status: needs_review"))
+    monkeypatch.setattr(fk_runner, "_mark_task_needs_review", fake_mark)
+    fk_main.ROADMAP_COMMIT_INTERVAL = 0
 
     state = {
         "current_task": {
@@ -37,9 +58,9 @@ def test_pr_creation_and_status_update(tmp_path, monkeypatch):
     }
     state_path.write_text(json.dumps(state), encoding="utf-8")
 
-    monkeypatch.setattr(fk_main, "_execute_pipeline", lambda task, st: True)
-    monkeypatch.setattr(fk_main, "review_change_set", lambda tid: {"passed": True, "tools": {}})
-    monkeypatch.setattr(fk_main, "run_self_review", lambda st, p: True)
+    monkeypatch.setattr(fk_runner, "_execute_pipeline", lambda task, st: True)
+    monkeypatch.setattr(fk_runner, "review_change_set", lambda tid: {"passed": True, "tools": {}})
+    monkeypatch.setattr(fk_runner, "run_self_review", lambda st, p: True)
 
     monkeypatch.setenv("GH_TOKEN", "tkn")
     monkeypatch.setattr(pr_api, "current_branch", lambda: "feature-branch")
