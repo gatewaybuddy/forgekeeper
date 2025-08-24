@@ -3,7 +3,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from tools.roadmap_sync import parse_tasks_md, format_task_block, sync_status, Task
+from forgekeeper.tasks.parser import parse_tasks_md, Task
+from tools.roadmap.aggregator import format_task_block, sync_status
 
 
 def test_parse_tasks_md(tmp_path):

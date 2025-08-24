@@ -3,11 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
+import re
+
+try:
+    import yaml  # type: ignore
+except Exception as exc:  # pragma: no cover - dependency missing
+    raise ImportError("Missing dependency: pyyaml") from exc
+
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL | re.MULTILINE)
 
 
 @dataclass
-class Task:
-    """Serializable representation of a single task."""
+class ChecklistTask:
+    """Serializable representation of a single checklist task."""
 
     description: str
     priority: int
@@ -23,13 +31,26 @@ class Task:
         }
 
 
+@dataclass
+class Task:
+    """Structured representation of a roadmap task with frontmatter."""
+
+    id: str
+    title: str
+    status: str
+    epic: str | None = None
+    owner: str | None = None
+    labels: List[str] | None = None
+    body: str = ""
+
+
 class Section:
     """Container for a group of tasks under a Markdown heading."""
 
     def __init__(self, name: str) -> None:
         self.name = name
         self.header_lines: List[str] = []
-        self.tasks: List[Task] = []
+        self.tasks: List[ChecklistTask] = []
         self.footer_lines: List[str] = []
 
 
@@ -98,7 +119,7 @@ def parse_task_file(path: Path) -> tuple[List[str], List[Section], Dict[str, Sec
                 status = "todo"
             text = block[0].split("]", 1)[1].strip()
             priority = SECTION_PRIORITY.get(current.name, 99)
-            task = Task(text, priority, status, current.name, block)
+            task = ChecklistTask(text, priority, status, current.name, block)
             current.tasks.append(task)
             continue
         current.footer_lines.append(line)
@@ -134,3 +155,33 @@ def save(path: Path, preamble: List[str], sections: List[Section]) -> None:
     """Write parsed sections back to ``tasks.md``."""
 
     path.write_text(serialize(preamble, sections), encoding="utf-8")
+
+
+def parse_tasks_md(path: str) -> List[Task]:
+    """Parse YAML-frontmatter ``tasks.md`` into a list of ``Task`` objects."""
+
+    text = Path(path).read_text(encoding="utf-8")
+    tasks: List[Task] = []
+    idx = 0
+    while True:
+        m = FRONTMATTER_RE.search(text, idx)
+        if not m:
+            break
+        fm_text = m.group(1)
+        fm = yaml.safe_load(fm_text) or {}
+        start, end = m.span()
+        next_m = FRONTMATTER_RE.search(text, end)
+        body = text[end : (next_m.start() if next_m else len(text))].strip()
+        tasks.append(
+            Task(
+                id=str(fm.get("id")),
+                title=(fm.get("title", "") or "").strip(),
+                status=(fm.get("status", "todo") or "").strip(),
+                epic=fm.get("epic"),
+                owner=fm.get("owner"),
+                labels=fm.get("labels") or [],
+                body=body,
+            )
+        )
+        idx = end
+    return tasks
