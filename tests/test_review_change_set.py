@@ -27,7 +27,7 @@ def test_review_change_set_pass(monkeypatch, tmp_path):
         "pytest": (0, "pytest ok"),
     }
     monkeypatch.setattr(subprocess, "run", _fake_run_factory(mapping))
-    monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
+    monkeypatch.setattr(self_review.checks, "_changed_files", lambda: ["foo.py"])
     captured = {}
 
     def _fake_display(report):
@@ -54,7 +54,7 @@ def test_review_change_set_fail(monkeypatch, tmp_path):
         "git": (0, "--- a/foo.py\n+++ b/foo.py\n@@\n+bad\n"),
     }
     monkeypatch.setattr(subprocess, "run", _fake_run_factory(mapping))
-    monkeypatch.setattr(self_review, "_changed_files", lambda: ["foo.py"])
+    monkeypatch.setattr(self_review.checks, "_changed_files", lambda: ["foo.py"])
 
     captured = {}
 
