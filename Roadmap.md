@@ -47,10 +47,10 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks, learn from results, and plan next steps with minimal oversight. Upcoming refinement will focus on improving memory retrieval fidelity and task scheduling heuristics.
 
 ### Phase 3: Full Local Autonomy (In Progress)
-- [ ] Autonomous task execution based on high-level goals
-- [ ] Emotion tagging for memory reflections
-- [ ] Self-generated roadmap and sprint plans
-- [ ] Optional push to remote repo with changelog and justification
+- [ ] M-030: Autonomous task execution based on high-level goals
+- [ ] M-031: Emotion tagging for memory reflections
+- [ ] M-032: Self-generated roadmap and sprint plans
+- [ ] M-033: Optional push to remote repo with changelog and justification
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
 
