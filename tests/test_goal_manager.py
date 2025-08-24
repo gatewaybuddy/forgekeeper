@@ -7,14 +7,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import forgekeeper.goal_manager as gm
+import goal_manager as gm
 
 
 def test_goal_lifecycle(tmp_path, monkeypatch):
     goals_file = tmp_path / "goals.json"
     log_file = tmp_path / "goals.log"
-    monkeypatch.setattr(gm, "GOALS_FILE", goals_file)
-    monkeypatch.setattr(gm, "GOAL_LOG_FILE", log_file)
+    monkeypatch.setattr(gm.storage, "GOALS_FILE", goals_file)
+    monkeypatch.setattr(gm.storage, "GOAL_LOG_FILE", log_file)
 
     assert gm.load_goals() == []
 
@@ -39,6 +39,6 @@ def test_goal_lifecycle(tmp_path, monkeypatch):
 
 def test_deactivate_missing(tmp_path, monkeypatch):
     goals_file = tmp_path / "goals.json"
-    monkeypatch.setattr(gm, "GOALS_FILE", goals_file)
+    monkeypatch.setattr(gm.storage, "GOALS_FILE", goals_file)
 
     assert gm.deactivate_goal("missing") is False

@@ -5,7 +5,7 @@ from typing import Optional, Dict, List, Any, Set
 import json
 
 from forgekeeper.tasks.queue import TaskQueue
-from forgekeeper import goal_manager
+import goal_manager
 from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_edit.llm_diff import generate_code_edit

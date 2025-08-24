@@ -7,7 +7,11 @@ Set-StrictMode -Version Latest
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $envFile = Join-Path $rootDir '.env'
-$modelsDir = Join-Path $rootDir 'forgekeeper/models'
+if ($env:MODEL_DIR) {
+    $modelsDir = Join-Path $rootDir $env:MODEL_DIR
+} else {
+    $modelsDir = Join-Path $rootDir 'forgekeeper/models'
+}
 if (-not (Test-Path $modelsDir)) { New-Item -ItemType Directory -Path $modelsDir | Out-Null }
 Write-Host "Using models directory: $modelsDir"
 $models = @(Get-ChildItem $modelsDir -File | Select-Object -ExpandProperty Name)
@@ -32,6 +36,11 @@ if ($LASTEXITCODE -eq 0) {
 # --- load existing env if present ---
 if ($Defaults) {
     Copy-Item (Join-Path $rootDir '.env.example') $envFile -Force
+    if ($env:MODEL_DIR) {
+        $content = Get-Content $envFile | Where-Object {$_ -notmatch '^MODEL_DIR='}
+        $content += "MODEL_DIR=$($env:MODEL_DIR)"
+        Set-Content -Path $envFile -Value $content
+    }
     Get-Content $envFile | Where-Object {$_ -notmatch '^#'} | ForEach-Object {
         $name, $value = $_.Split('=', 2)
         if ($name) { Set-Item -Path "Env:$name" -Value $value }

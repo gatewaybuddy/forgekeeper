@@ -9,14 +9,23 @@
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
+Sprint plans are generated from active goals and the tasks in this file using `forgekeeper/sprint_planner.py`. The resulting `SprintPlan.md` is reviewed alongside periodic roadmap commits.
+
 ---
 
 ## 🛠️ Active Tasks
+
+*(none)*
 
 
 ---
 
 ## ⏳ Backlog
+
+- [ ] FK-301: Emotion tagging (P1)
+- [ ] FK-302: CRUD consolidation (P2)
+- [ ] FK-303: Goal-manager unification (P1)
+- [ ] FK-304: Automated sprint/roadmap generation (P3)
 
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
@@ -103,3 +112,62 @@ Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gra
 **AC**
 - [x] Smoke test exits 0 with skip message when environment absent
 - [x] self_review treats skipped state as neutral
+---
+id: FK-301
+title: Implement emotion tagging for memory reflections (P1)
+status: todo
+epic: R-002
+owner: agent
+labels: [memory, analysis]
+---
+Enable emotion tagging in the memory reflection pipeline so logs record emotional context.
+
+**AC**
+- [ ] Emotional labels attach to new memory entries
+- [ ] Stored emotions persist across sessions
+- [ ] Unit tests cover positive, negative, and neutral cases
+
+---
+id: FK-302
+title: Consolidate CRUD operations into shared module (P2)
+status: todo
+epic: R-003
+owner: agent
+labels: [backend, refactor]
+---
+Unify scattered create/read/update/delete logic under a single interface to reduce duplication.
+
+**AC**
+- [ ] Existing modules delegate CRUD to shared utility
+- [ ] Duplicate functions removed
+- [ ] Tests updated for new interface
+
+---
+id: FK-303
+title: Unify goal manager components (P1)
+status: todo
+epic: R-003
+owner: agent
+labels: [planner, architecture]
+---
+Merge fragmented goal-management logic into a single orchestrator for consistent task routing.
+
+**AC**
+- [ ] Legacy managers deprecated
+- [ ] Unified manager handles subtask expansion and agent delegation
+- [ ] Migration tests ensure parity with previous behavior
+
+---
+id: FK-304
+title: Generate sprints and roadmap automatically (P3)
+status: todo
+epic: R-004
+owner: agent
+labels: [planning, automation]
+---
+Create an automated process that builds sprint plans and roadmap updates from the backlog.
+
+**AC**
+- [ ] Command outputs upcoming sprint plan and roadmap
+- [ ] Generated documents reflect task priorities
+- [ ] Documentation explains usage

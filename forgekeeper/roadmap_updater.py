@@ -20,6 +20,7 @@ from git import Repo
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.memory.episodic import MEMORY_FILE
+from forgekeeper.sprint_planner import update_sprint_plan
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -121,6 +122,7 @@ def start_periodic_updates(
     repo_path: Path | None = None,
     roadmap_path: Path | None = None,
     memory_file: Path | None = None,
+    sprint_plan_path: Path | None = None,
 ) -> threading.Thread:
     """Start a background thread that updates the roadmap periodically."""
 
@@ -128,6 +130,7 @@ def start_periodic_updates(
         while True:
             try:
                 update_roadmap(repo_path, roadmap_path, memory_file)
+                update_sprint_plan(plan_path=sprint_plan_path)
             except Exception as exc:  # pragma: no cover - best effort
                 log.error(f"Roadmap update failed: {exc}")
             time.sleep(interval_seconds)

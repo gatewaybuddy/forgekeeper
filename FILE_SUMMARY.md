@@ -128,7 +128,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/functions/summarize_conversation.py`: Summarize stored conversation  
 - `forgekeeper/functions/write_file.py`: Write file contents via config-guarded API  
 - `forgekeeper/git_committer.py`: Commit and push updates  
-- `forgekeeper/goal_manager.py`: Manage goals  
 - `forgekeeper/goals.json`: Saved goals  
 - `forgekeeper/high_level_goal_manager.py`: High-level goal orchestration  
 - `forgekeeper/llm/__init__.py`: LLM utilities package marker  
@@ -192,6 +191,11 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `frontend/src/types.ts`: Shared TypeScript interfaces  
 - `frontend/tsconfig.json`: TypeScript config for frontend  
 - `frontend/vite.config.js`: Vite configuration  
+- `goal_manager/__init__.py`: Unified goal management utilities
+- `goal_manager/delegator.py`: Delegate tasks to agents
+- `goal_manager/manager.py`: High-level goal orchestration
+- `goal_manager/planner.py`: Decompose goals into subtasks
+- `goal_manager/storage.py`: Persist goals and progress log
 - `intent_test_log.txt`: Intent test log  
 - `mqtt_forgekeeper_listener.py`: MQTT listener for tasks  
 - `requirements.txt`: Python dependencies (e.g., GitPython)  

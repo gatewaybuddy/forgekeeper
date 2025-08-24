@@ -37,6 +37,9 @@ if ! $USE_DEFAULTS; then
   set +a
 else
   cp "$ROOT_DIR/.env.example" "$ENV_FILE"
+  if [[ -n "${MODEL_DIR:-}" ]]; then
+    sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$MODEL_DIR|" "$ENV_FILE"
+  fi
   set -a
   . "$ENV_FILE"
   set +a

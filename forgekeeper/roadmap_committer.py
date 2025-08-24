@@ -13,7 +13,7 @@ from forgekeeper.config import DEBUG_MODE
 from forgekeeper.roadmap_updater import update_roadmap
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.memory.episodic import append_entry
-from forgekeeper.task_queue import TaskQueue
+from forgekeeper.sprint_planner import update_sprint_plan, generate_sprint_plan
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -22,6 +22,7 @@ def commit_roadmap_update(
     repo_path: Path | None = None,
     roadmap_path: Path | None = None,
     memory_file: Path | None = None,
+    sprint_plan_path: Path | None = None,
     commit_message: str = "chore: update roadmap",
     commit_limit: int = 5,
     memory_limit: int = 5,
@@ -33,9 +34,12 @@ def commit_roadmap_update(
     section = update_roadmap(
         repo_path, roadmap_path, memory_file, commit_limit, memory_limit
     )
+    plan_path = sprint_plan_path or Path("SprintPlan.md")
+    update_sprint_plan(plan_path=plan_path)
     repo = Repo(repo_path or Path.cwd(), search_parent_directories=True)
     path = roadmap_path or Path("Roadmap.md")
     repo.git.add(str(path))
+    repo.git.add(str(plan_path))
     result = commit_and_push_changes(
         commit_message,
         run_checks=False,
@@ -50,7 +54,7 @@ def commit_roadmap_update(
             "roadmap-update",
             "Autonomous roadmap update",
             "done" if result.get("passed", False) else "failed",
-            [str(path)],
+            [str(path), str(plan_path)],
             summary or commit_message,
             [],
             rationale=rationale,
@@ -65,6 +69,7 @@ def start_periodic_commits(
     repo_path: Path | None = None,
     roadmap_path: Path | None = None,
     memory_file: Path | None = None,
+    sprint_plan_path: Path | None = None,
     commit_message: str = "chore: update roadmap",
     commit_limit: int = 5,
     memory_limit: int = 5,
@@ -85,15 +90,16 @@ def start_periodic_commits(
                     repo_path,
                     roadmap_path,
                     memory_file,
+                    sprint_plan_path,
                     commit_message,
                     commit_limit,
                     memory_limit,
                     auto_push,
                     rationale,
                 )
-                summary = _next_sprint_summary()
-                if summary:
-                    log.info("Next sprint: %s", summary)
+                plan = generate_sprint_plan()
+                if plan:
+                    log.info("Next sprint:\n%s", plan.rstrip())
             except Exception as exc:  # pragma: no cover - best effort
                 log.error(f"Roadmap commit failed: {exc}")
             time.sleep(interval_seconds)
@@ -101,16 +107,6 @@ def start_periodic_commits(
     thread = threading.Thread(target=_loop, daemon=True)
     thread.start()
     return thread
-
-
-def _next_sprint_summary(
-    tasks_file: Path | str | None = None, limit: int = 3
-) -> str:
-    """Return a semicolon-separated list of pending task descriptions."""
-
-    queue = TaskQueue(tasks_file)
-    pending = [t.description for t in queue.list_tasks() if t.status != "done"]
-    return "; ".join(pending[:limit])
 
 
 def _extract_summary(section: str) -> str:

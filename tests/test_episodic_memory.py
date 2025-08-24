@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from forgekeeper.memory import episodic
-from forgekeeper.memory.episodic import append_entry
+from forgekeeper.memory import episodic  # noqa: E402
+from forgekeeper.memory.episodic import append_entry  # noqa: E402
 
 
 def test_append_and_tail(tmp_path, monkeypatch):
@@ -24,6 +24,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "first entry",
             "artifacts_paths": [],
             "sentiment": "positive",
+            "emotion": "happy",
             "rationale": None,
         },
         {
@@ -34,6 +35,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "second entry",
             "artifacts_paths": [],
             "sentiment": "negative",
+            "emotion": "sad",
             "rationale": None,
         },
         {
@@ -44,6 +46,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
             "summary": "third entry",
             "artifacts_paths": [],
             "sentiment": "positive",
+            "emotion": "happy",
             "rationale": None,
         },
     ]
@@ -54,7 +57,11 @@ def test_append_and_tail(tmp_path, monkeypatch):
     lines = memory_file.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == len(entries)
     parsed = [json.loads(line) for line in lines]
-    assert parsed == entries
+    expected = [
+        {k: v for k, v in entry.items() if v is not None}
+        for entry in entries
+    ]
+    assert parsed == expected
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
@@ -81,6 +88,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
     )
     assert "T3" in result.stdout
     assert "third entry" in result.stdout
+    assert "happy" in result.stdout
 
 
 def test_recent_pushes_cli(tmp_path, monkeypatch):
@@ -96,6 +104,7 @@ def test_recent_pushes_cli(tmp_path, monkeypatch):
             "summary": "details1",
             "artifacts_paths": [],
             "sentiment": "neutral",
+            "emotion": "calm",
             "rationale": "first push",
         },
         {
@@ -106,6 +115,7 @@ def test_recent_pushes_cli(tmp_path, monkeypatch):
             "summary": "details2",
             "artifacts_paths": [],
             "sentiment": "neutral",
+            "emotion": "calm",
             "rationale": "second push",
         },
         {
@@ -116,6 +126,7 @@ def test_recent_pushes_cli(tmp_path, monkeypatch):
             "summary": "other entry",
             "artifacts_paths": [],
             "sentiment": "neutral",
+            "emotion": "calm",
         },
     ]
 
