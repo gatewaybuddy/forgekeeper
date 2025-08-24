@@ -27,6 +27,8 @@ def main() -> None:
             auto_push=ROADMAP_AUTO_PUSH,
             rationale="Periodic roadmap checkpoint",
         )
+    from forgekeeper.sprint_planner import update_sprint_plan
+    update_sprint_plan()
     _check_reviewed_tasks()
     from forgekeeper.pipeline.runner import main as runner_main
 

@@ -351,16 +351,15 @@ to execute pending actions. Its poll frequency and retry backoff are
 configurable via the `OUTBOX_POLL_INTERVAL`, `OUTBOX_BASE_DELAY`, and
 `OUTBOX_MAX_DELAY` environment variables.
 
-## Optional `roadmap_updater` workflow
+## Automated sprint planning and roadmap updates
 
-The optional `roadmap_updater.py` module appends a markdown section to
-`Roadmap.md` summarizing recent commits and memory entries. To keep the roadmap
-fresh automatically, call
-`forgekeeper.roadmap_updater.start_periodic_updates(interval_seconds)` to run
-updates in a background thread. When running in fully autonomous mode,
-`roadmap_committer.py` extends this workflow by committing those updates
-without manual prompts via
-`forgekeeper.roadmap_committer.start_periodic_commits(interval_seconds)`.
+On startup the backend writes the next sprint plan to `SprintPlan.md` using
+`sprint_planner.update_sprint_plan`. To keep the roadmap fresh automatically,
+set `ROADMAP_COMMIT_INTERVAL` (seconds) and optionally `ROADMAP_AUTO_PUSH=true`.
+The backend spawns a background thread via
+`roadmap_committer.start_periodic_commits` that regenerates the sprint plan and
+commits updates to both `Roadmap.md` and `SprintPlan.md` at the configured
+interval.
 
 Periodic commit behavior is controlled via two environment variables:
 
