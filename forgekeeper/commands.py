@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
-from forgekeeper.task_queue import TaskQueue
+from forgekeeper.tasks.queue import TaskQueue
 from forgekeeper.memory import episodic
 
 MODULE_DIR = Path(__file__).resolve().parent

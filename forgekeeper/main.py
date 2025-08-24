@@ -17,7 +17,7 @@ from forgekeeper.config import (
     ROADMAP_AUTO_PUSH,
 )
 from forgekeeper.self_review import run_self_review, review_change_set
-from forgekeeper.task_queue import TaskQueue
+from forgekeeper.tasks.queue import TaskQueue
 from forgekeeper.memory.episodic import append_entry
 from forgekeeper.vcs.pr_api import create_draft_pr
 from forgekeeper.roadmap_committer import start_periodic_commits
