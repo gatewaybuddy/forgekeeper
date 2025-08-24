@@ -31,6 +31,7 @@ pwsh scripts/install.ps1
 
 The PowerShell variant also accepts `-Defaults` as an alias for `--defaults`.
 
+
 During execution the installer prompts for three items:
 
 1. **Setup type** – local single‑user or multi‑agent distributed (Docker)

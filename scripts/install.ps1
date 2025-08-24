@@ -5,11 +5,13 @@ Usage: pwsh scripts/install.ps1 [-h|--help] [--defaults|--yes|-Defaults]
 Options:
   -h, --help              Display this help message and exit
   --defaults, --yes, -Defaults  Run non-interactively with default choices
+
 #>
 Set-StrictMode -Version Latest
 
 [CmdletBinding()]
 param(
+
     [Alias('h')][switch]$Help,
     [Alias('yes')][switch]$Defaults
 )
@@ -25,6 +27,7 @@ if ($Help) {
 
 $useDefaults = $Defaults
 
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $envFile = Join-Path $rootDir '.env'
@@ -33,6 +36,7 @@ if ($useDefaults) {
     $choice = '1'
     $modelDir = './models'
     $install = 'y'
+
 } else {
     Write-Host 'Select setup type:'
     Write-Host '[1] Local single-user'
@@ -51,6 +55,7 @@ if ($useDefaults) {
     if ([string]::IsNullOrWhiteSpace($modelDir)) { $modelDir = './models' }
     $install = Read-Host 'Install Node dependencies and launch services? [y/N]'
 }
+
 
 $env:MODEL_DIR = $modelDir
 

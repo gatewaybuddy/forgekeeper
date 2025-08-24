@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
+
 # Usage: install.sh [--defaults|--yes] [--help|-h]
 #   --defaults, --yes  Run non-interactively with default choices
 #   -h, --help         Display this help message and exit
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$ROOT_DIR/.env"
+usage() {
+  cat <<'EOF'
+Usage: install.sh [--defaults|--yes] [--help]
 
 usage() {
   cat <<'EOF'
@@ -22,6 +23,7 @@ DEFAULTS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
+
       usage
       exit 0
       ;;
@@ -37,10 +39,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+
 if $DEFAULTS; then
   choice="1"
   model_dir="./models"
   install_node="y"
+
 else
   echo "Select setup type:"
   echo "[1] Local single-user"
@@ -57,6 +61,7 @@ else
         ;;
     esac
   done
+
 
   read -rp "Model storage directory [./models]: " model_dir
   model_dir=${model_dir:-./models}
