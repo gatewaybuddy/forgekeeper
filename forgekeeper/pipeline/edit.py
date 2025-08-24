@@ -3,7 +3,8 @@ from pathlib import Path
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
-from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
+from forgekeeper.code_edit.llm_diff import generate_code_edit
+from forgekeeper.code_edit.patcher import apply_unified_diff
 from forgekeeper.change_stager import diff_and_stage_changes
 
 MODULE_DIR = Path(__file__).resolve().parents[1]

@@ -3,7 +3,8 @@ from pathlib import Path
 
 from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
-from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
+from forgekeeper.code_edit.llm_diff import generate_code_edit
+from forgekeeper.code_edit.patcher import apply_unified_diff
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.logger import get_logger
