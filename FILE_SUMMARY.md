@@ -223,18 +223,21 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tasks.md`: Current task list  
 - `test.bat`: Curl-based local test script  
 - `tests/fixtures/component.tsx`: Test React component fixture  
-- `tests/fixtures/sample.ts`: Sample TypeScript utility  
-- `tests/test_change_stager.py`: Tests for change stager  
-- `tests/test_chat_session.py`: Chat session tests  
-- `tests/test_code_editor.py`: Code editor tests  
-- `tests/test_commands.py`: Command tests  
-- `tests/test_embeddings.py`: Embedding tests  
-- `tests/test_episodic_memory.py`: Episodic memory tests  
-- `tests/test_git_committer.py`: Git committer tests  
-- `tests/test_git_committer_checks.py`: Committer check tests  
-- `tests/test_git_committer_sandbox.py`: Git committer sandbox tests  
-- `tests/test_goal_manager.py`: Goal manager tests  
-- `tests/test_harmony_tool_call.py`: Harmony tool-call tests  
+- `tests/fixtures/sample.ts`: Sample TypeScript utility
+- `tests/git_committer/conftest.py`: Shared fixtures for Git committer tests
+- `tests/git_committer/test_abort_paths.py`: Git committer abort path tests
+- `tests/git_committer/test_checks.py`: Check command selection tests
+- `tests/git_committer/test_push.py`: Push and changelog tests
+- `tests/test_change_stager.py`: Tests for change stager
+- `tests/test_chat_session.py`: Chat session tests
+- `tests/test_code_editor.py`: Code editor tests
+- `tests/test_commands.py`: Command tests
+- `tests/test_embeddings.py`: Embedding tests
+- `tests/test_episodic_memory.py`: Episodic memory tests
+- `tests/test_git_committer_checks.py`: Committer check tests
+- `tests/test_git_committer_sandbox.py`: Git committer sandbox tests
+- `tests/test_goal_manager.py`: Goal manager tests
+- `tests/test_harmony_tool_call.py`: Harmony tool-call tests
 - `tests/test_high_level_goal_manager.py`: High-level goal manager tests  
 - `tests/test_inline_tool_call.py`: Inline tool-call tests  
 - `tests/test_llm_benchmark.py`: LLM benchmark tests  
