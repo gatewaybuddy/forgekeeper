@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple
 
 from .agent.communication import broadcast_context, get_shared_context
 from .telemetry import record_agent_result
+from .memory import query_similar_tasks
 
 # Registry mapping agent names to their keyword triggers and communication
 # protocol.  Each entry maps to ``{"keywords": set[str], "protocol": str}``.
@@ -74,12 +75,30 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
     for part in parts:
         agent, protocol = _choose_agent(part)
         broadcast_context("planner", f"{agent}: {part}")
-        subtasks.append({"agent": agent, "task": part, "protocol": protocol, "context": context_log})
+        memory_context = query_similar_tasks(part)
+        subtasks.append(
+            {
+                "agent": agent,
+                "task": part,
+                "protocol": protocol,
+                "context": context_log,
+                "memory_context": memory_context,
+            }
+        )
     if not subtasks:
         agent, protocol = _choose_agent(task)
         text = task.strip()
         broadcast_context("planner", f"{agent}: {text}")
-        subtasks.append({"agent": agent, "task": text, "protocol": protocol, "context": context_log})
+        memory_context = query_similar_tasks(text)
+        subtasks.append(
+            {
+                "agent": agent,
+                "task": text,
+                "protocol": protocol,
+                "context": context_log,
+                "memory_context": memory_context,
+            }
+        )
     return subtasks
 
 

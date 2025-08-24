@@ -74,3 +74,9 @@ def test_goal_manager_routes_and_handoffs_between_agents():
     msgs_coder = get_direct_messages("coder")
     assert msgs_coder == [{"from": "researcher", "message": "handoff complete: research data"}]
     assert get_shared_context()[-1] == {"agent": "coder", "message": "fix code"}
+
+
+def test_planner_includes_memory_context(monkeypatch):
+    tasks = split_for_agents("alpha and beta")
+    assert "memory_context" in tasks[0]
+    assert isinstance(tasks[0]["memory_context"], list)
