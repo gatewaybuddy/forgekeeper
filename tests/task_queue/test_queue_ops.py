@@ -55,7 +55,9 @@ labels: [test]
 
     monkeypatch.setattr(fk_main, "TASK_FILE", tasks_md)
     monkeypatch.setattr(fk_main, "STATE_PATH", state_path)
-    monkeypatch.setattr(fk_main, "execute_pipeline", lambda task, state: False)
+    from forgekeeper.pipeline import loop as fk_loop
+    monkeypatch.setattr(fk_loop, "run", lambda state, path: None)
+    monkeypatch.setattr(fk_main, "load_state", lambda path: {})
 
     fk_main.main()
 

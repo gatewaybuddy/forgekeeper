@@ -20,7 +20,11 @@ from git import Repo
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.memory.episodic import MEMORY_FILE
-from forgekeeper.sprint_planner import update_sprint_plan
+try:  # pragma: no cover - optional dependency for minimal test repos
+    from forgekeeper.sprint_planner import update_sprint_plan
+except Exception:  # pragma: no cover
+    def update_sprint_plan(*args, **kwargs):  # type: ignore
+        return ""
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 

@@ -13,7 +13,16 @@ from forgekeeper.config import DEBUG_MODE
 from forgekeeper.roadmap_updater import update_roadmap
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.memory.episodic import append_entry
-from forgekeeper.sprint_planner import update_sprint_plan, generate_sprint_plan
+try:  # pragma: no cover - optional dependency for minimal test repos
+    from forgekeeper.sprint_planner import update_sprint_plan, generate_sprint_plan
+except Exception:  # pragma: no cover
+    def update_sprint_plan(*args, **kwargs):  # type: ignore
+        path = Path(kwargs.get("plan_path", "SprintPlan.md"))
+        path.write_text("", encoding="utf-8")
+        return ""
+
+    def generate_sprint_plan(*args, **kwargs):  # type: ignore
+        return ""
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 

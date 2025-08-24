@@ -1,7 +1,10 @@
 import argparse
 import os
 
-from forgekeeper.llm import get_llm
+try:  # pragma: no cover - best effort for optional import during tests
+    from forgekeeper.llm import get_llm
+except Exception:  # pragma: no cover - allow tests to import module
+    get_llm = None
 
 PROMPT = "Say hello from Forgekeeper."
 
