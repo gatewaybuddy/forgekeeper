@@ -6,6 +6,7 @@
 |-----------|--------|
 | Core | Done |
 | Automation | Done |
+| Autonomy | In Progress |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
@@ -18,6 +19,10 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 
 ## ⏳ Backlog
 
+- [ ] FK-301: Autonomous task execution from high-level goals (P1)
+- [ ] FK-302: Emotion tagging for memory reflections (P2)
+- [ ] FK-303: Self-generated roadmap and sprint plans (P2)
+- [ ] FK-304: Optional remote push with changelog and justification (P3)
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
 - [x] FK-105: Test commit check command selection (P1)
