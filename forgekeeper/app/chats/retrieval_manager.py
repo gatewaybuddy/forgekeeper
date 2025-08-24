@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 
 from typing import Optional, Dict, List
 
-from .memory_bank import MemoryBank, evaluate_relevance
+from .memory_bank import MemoryBank
+from forgekeeper.app.memory.relevance import evaluate_relevance
 
 
 class RetrievalManager:
@@ -39,6 +40,8 @@ class RetrievalManager:
         """
 
         now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
 
         filters = filters or {}
 

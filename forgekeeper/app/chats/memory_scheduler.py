@@ -31,6 +31,8 @@ class MemoryScheduler:
     def review(self, now: Optional[datetime] = None) -> List[Dict]:
         """Return memory entries that should be reviewed."""
         now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         entries = self.memory_bank.list_entries()
         to_review: List[Dict] = []
         for entry in entries:
@@ -39,6 +41,8 @@ class MemoryScheduler:
                 last_dt = datetime.fromisoformat(last)
             except Exception:
                 continue
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
             days_old = (now - last_dt).days
             if days_old >= self.review_days or entry.get("type") in {"goal", "task", "reflection"}:
                 to_review.append(entry)
@@ -48,6 +52,8 @@ class MemoryScheduler:
     def cleanup(self, now: Optional[datetime] = None) -> None:
         """Trim memory if it exceeds ``max_entries``."""
         now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
 
         entries = self.memory_bank.list_entries()
         if len(entries) <= self.max_entries:
@@ -56,9 +62,12 @@ class MemoryScheduler:
         def last_time(e: Dict) -> datetime:
             ts = e.get("last_accessed") or e.get("timestamp")
             try:
-                return datetime.fromisoformat(ts)
+                dt = datetime.fromisoformat(ts)
             except Exception:
                 return datetime.min
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
 
         entries.sort(key=last_time)
         excess = entries[:-self.max_entries]

@@ -1,62 +1,10 @@
-"""High level memory management built on the vector store."""
-
 from __future__ import annotations
 
-import json
-import uuid
-
 from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
-from typing import List, Dict, Optional
-import math
-import re
-from forgekeeper.app.memory import backend, store
-
-def evaluate_relevance(memory_item: Dict, context: str, *, now: Optional[datetime] = None) -> float:
-    """Return a relevance score between 0 and 1 for ``memory_item``.
-
-    Parameters
-    ----------
-    memory_item : Dict
-        Dictionary containing ``content`` and metadata fields including
-        ``timestamp`` and ``type``.
-    context : str
-        The conversation or task context to evaluate against.
-    now : datetime, optional
-
-        Timestamp used for recency comparison. Defaults to ``datetime.now(timezone.utc)``.
-
-
-    The heuristic combines recency, keyword overlap and type weighting.
-    """
-
-
-    now = now or datetime.now(timezone.utc)
-
-    timestamp = memory_item.get("timestamp")
-    try:
-        item_time = datetime.fromisoformat(timestamp) if timestamp else now
-    except ValueError:
-        item_time = now
-
-    # Recency score with exponential decay (30 day half-life)
-    days_old = (now - item_time).total_seconds() / 86400
-    recency_score = math.exp(-days_old / 30)
-
-    # Keyword overlap between memory content and context
-    context_words = set(re.findall(r"\w+", context.lower()))
-    item_words = set(re.findall(r"\w+", memory_item.get("content", "").lower()))
-    if context_words:
-        match_score = len(context_words & item_words) / len(context_words)
-    else:
-        match_score = 0.0
-
-    # Type weighting
-    important_types = {"goal", "task", "reflection"}
-    type_score = 1.0 if memory_item.get("type") in important_types else 0.0
-
-    score = recency_score * 0.4 + match_score * 0.4 + type_score * 0.2
-    return max(0.0, min(score, 1.0))
+from forgekeeper.app.memory import bank as store_bank
+from forgekeeper.app.memory.relevance import evaluate_relevance
 
 
 class MemoryBank:
@@ -71,124 +19,41 @@ class MemoryBank:
         *,
         session_id: str,
         type: str,
-        tags: List[str] | None = None,
+        tags: Optional[List[str]] = None,
     ) -> str:
-        """Store ``content`` and return the new entry id."""
-        entry_id = str(uuid.uuid4())
-
         timestamp = datetime.now(timezone.utc).isoformat()
-
-        metadata = {
-            "project_id": self.project_id,
-            "session_id": session_id,
-            "role": "memory",
-            "type": type,
-            # store tags as an explicit list for easier querying
-            "tags": tags or [],
-            "last_accessed": timestamp,
-            "timestamp": timestamp,
-        }
-        store.collection.add(
-            documents=[content],
-            embeddings=backend.embed([content]),
-            ids=[entry_id],
-            metadatas=[metadata],
+        return store_bank.add_entry(
+            self.project_id,
+            content,
+            session_id=session_id,
+            type=type,
+            tags=tags,
+            timestamp=timestamp,
         )
-        return entry_id
 
     def update_entry(self, entry_id: str, new_content: str) -> None:
-        """Replace the stored content for ``entry_id``."""
-        store.update_entry(self.project_id, entry_id, new_content)
+        store_bank.update_entry(self.project_id, entry_id, new_content)
 
     def touch_entry(self, entry_id: str) -> None:
-        """Update the ``last_accessed`` timestamp for ``entry_id``."""
-        results = store.collection.get(
-            ids=[entry_id],
-            include=["documents", "metadatas"],
-            where={"project_id": self.project_id},
-        )
-        if not results.get("ids"):
-            return
-        doc = results["documents"][0]
-        meta = results["metadatas"][0]
-        meta["last_accessed"] = datetime.now(timezone.utc).isoformat()
-
-        store.collection.update(
-            ids=[entry_id],
-            documents=[doc],
-            embeddings=backend.embed([doc]),
-            metadatas=[{**meta, "project_id": self.project_id}],
-        )
+        timestamp = datetime.now(timezone.utc).isoformat()
+        store_bank.touch_entry(self.project_id, entry_id, timestamp=timestamp)
 
     def delete_entries(
         self,
-        ids: List[str] | None = None,
+        ids: Optional[List[str]] = None,
         *,
-        filters: Dict[str, str] | None = None,
+        filters: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Delete entries by ``ids`` or matching metadata ``filters``."""
-        if ids:
-            store.collection.delete(ids=ids, where={"project_id": self.project_id})
-            return
-        if filters:
-            query = {"project_id": self.project_id, **filters}
-            store.collection.delete(where=query)
+        store_bank.delete_entries(self.project_id, ids=ids, filters=filters)
 
-    def list_entries(self, filters: Dict[str, str] | None = None) -> List[Dict]:
-        """Return a list of stored entries with optional metadata filtering."""
-        results = store.collection.get(
-            include=["documents", "metadatas", "ids"],
-            where={"project_id": self.project_id},
-        )
-        entries = [
-            {
-                "id": i,
-                "content": doc,
-                **meta,
-            }
-            for i, doc, meta in zip(
-                results.get("ids", []),
-                results.get("documents", []),
-                results.get("metadatas", []),
-            )
-        ]
-        if filters:
-            def matches(e: Dict) -> bool:
-                return all(e.get(k) == v for k, v in filters.items())
-
-            entries = [e for e in entries if matches(e)]
-        return entries
+    def list_entries(self, filters: Optional[Dict[str, str]] = None) -> List[Dict]:
+        return store_bank.list_entries(self.project_id, filters)
 
     def save(self, filepath: str) -> None:
-        """Save all entries to ``filepath`` as JSON."""
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(self.list_entries(), f, indent=2)
+        store_bank.save(self.project_id, filepath)
 
     def load(self, filepath: str) -> None:
-        """Load entries from ``filepath`` back into the vector database."""
-        with open(filepath, "r", encoding="utf-8") as f:
-            items = json.load(f)
-        for item in items:
-            metadata = {k: item[k] for k in item if k not in {"id", "content"}}
-            metadata["project_id"] = self.project_id
-            store.collection.add(
-                documents=[item["content"]],
-                embeddings=backend.embed([item["content"]]),
-                ids=[item["id"]],
-                metadatas=[metadata],
-            )
+        store_bank.load(self.project_id, filepath)
 
 
-if __name__ == "__main__":
-    from forgekeeper.logger import get_logger
-    from forgekeeper.config import DEBUG_MODE
-
-    log = get_logger(__name__, debug=DEBUG_MODE)
-    bank = MemoryBank("default")
-    eid = bank.add_entry(
-        "Example memory", session_id="demo", type="note", tags=["demo"]
-    )
-    bank.update_entry(eid, "Updated example memory")
-    log.info(bank.list_entries({"session_id": "demo"}))
-    bank.delete_entries([eid])
-
+__all__ = ["MemoryBank", "evaluate_relevance", "datetime", "timezone"]
