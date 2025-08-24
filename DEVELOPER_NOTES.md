@@ -30,3 +30,11 @@ call: function_name(arg=value, ...)
 Arguments follow Python keyword syntax and are converted into a dictionary
 before being dispatched through the functions registry. Prompt templates should
 describe this pattern so models know how to invoke tools.
+
+## Episodic Memory Emotion Tags
+
+Each call to `forgekeeper.memory.episodic.append_entry` may include an
+``emotion`` string in addition to ``sentiment``. The emotion tag captures the
+assistant's reported feeling about the task and is stored in
+``.forgekeeper/memory/episodic.jsonl``. The browsing utilities display both
+sentiment and emotion for recent entries to aid debugging and reflection.

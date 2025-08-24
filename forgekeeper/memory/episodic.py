@@ -19,9 +19,14 @@ def append_entry(
     summary: str,
     artifacts_paths: Sequence[str] | None,
     sentiment: str | None = None,
+    emotion: str | None = None,
     rationale: str | None = None,
 ) -> None:
-    """Append a task attempt entry to the episodic memory file."""
+    """Append a task attempt entry to the episodic memory file.
+
+    The entry captures status, changed files, summary text, and optional
+    sentiment and emotion tags for later review.
+    """
     entry = {
         "task_id": task_id,
         "title": title,
@@ -30,6 +35,7 @@ def append_entry(
         "summary": summary,
         "artifacts_paths": list(artifacts_paths or []),
         "sentiment": sentiment or "neutral",
+        "emotion": emotion or "neutral",
     }
     if rationale is not None:
         entry["rationale"] = rationale
@@ -52,7 +58,7 @@ def _tail(n: int, raw: bool = True) -> None:
         Number of entries to display.
     raw:
         When ``True`` the JSON for each entry is printed. Otherwise a formatted
-        summary including status and sentiment is shown.
+        summary including status, sentiment, and emotion is shown.
     """
     if not MEMORY_FILE.exists():
         return
@@ -71,14 +77,17 @@ def _tail(n: int, raw: bool = True) -> None:
             tid = data.get("task_id", "")
             status = data.get("status", "")
             sentiment = data.get("sentiment", "")
+            emotion = data.get("emotion", "")
             summary = data.get("summary", "")
             rationale = data.get("rationale")
             extra = f" | rationale: {rationale}" if rationale else ""
-            print(f"[{tid}] {status} ({sentiment}) - {summary}{extra}")
+            print(
+                f"[{tid}] {status} ({sentiment}, {emotion}) - {summary}{extra}"
+            )
 
 
 def _recent_pushes(n: int) -> None:
-    """Display the last *n* push entries with their rationales."""
+    """Display the last *n* push entries with their rationales and emotions."""
     if not MEMORY_FILE.exists():
         return
     with MEMORY_FILE.open("r", encoding="utf-8") as fh:
@@ -87,8 +96,9 @@ def _recent_pushes(n: int) -> None:
     for entry in reversed(pushes):
         tid = entry.get("task_id", "")
         title = entry.get("title", "")
+        emotion = entry.get("emotion", "")
         rationale = entry.get("rationale", "")
-        print(f"[{tid}] {title} - {rationale}")
+        print(f"[{tid}] {title} ({emotion}) - {rationale}")
 
 
 def main(argv: Sequence[str] | None = None) -> None:
