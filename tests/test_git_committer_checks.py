@@ -50,13 +50,16 @@ def test_git_committer_checks(monkeypatch, staged, expected_keys):
         def __init__(self, files):
             self.git = FakeGit(files)
             self.active_branch = types.SimpleNamespace(name="main")
+            self.working_tree_dir = "."
 
         def is_dirty(self, **kwargs):
             return False
 
     monkeypatch.setattr(gc, "Repo", lambda *a, **k: FakeRepo(staged))
     monkeypatch.setattr(
-        gc.self_review, "review_staged_changes", lambda task_id: {"passed": True, "staged_files": staged}
+        gc.pre_review.self_review,
+        "review_staged_changes",
+        lambda task_id: {"passed": True, "staged_files": staged},
     )
 
     task_id = "case" + ("_".join(f.replace("/", "_").replace(".", "_") for f in staged) or "none")
