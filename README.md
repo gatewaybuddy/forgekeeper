@@ -124,7 +124,7 @@ adjust task scores.
 When new goals are created, Forgekeeper queries this embedding store for
 semantically similar past tasks using the helpers in
 `memory/embeddings.py`. The retrieved summaries are attached to the goal and
-surfaced through `task_queue.py`, where they adjust each task's priority so
+surfaced through `forgekeeper.tasks.queue.TaskQueue`, where they adjust each task's priority so
 that memories of failures or successes influence scheduling and provide
 additional context during execution.
 
@@ -290,7 +290,7 @@ labels: [demo]
 Detailed description...
 ```
 
-`forgekeeper.task_queue.TaskQueue` parses this file and returns the next task
+`forgekeeper.tasks.queue.TaskQueue` parses this file and returns the next task
 based on priority. Manage tasks via the command helpers:
 
 ```bash
