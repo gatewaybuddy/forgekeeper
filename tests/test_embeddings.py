@@ -7,7 +7,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from forgekeeper.memory.embeddings import LocalEmbedder, cosine_similarity
+from forgekeeper.memory.embedding import LocalEmbedder, cosine_similarity
 from forgekeeper import file_analyzer
 
 

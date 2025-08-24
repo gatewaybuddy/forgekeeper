@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from forgekeeper.memory.embeddings import LocalEmbedder, cosine_similarity
+from forgekeeper.memory.embedding import LocalEmbedder, cosine_similarity
 
 
 def rank_file_relevance(task_prompt: str, summary: str) -> float:

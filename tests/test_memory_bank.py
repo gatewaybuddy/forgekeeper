@@ -54,19 +54,20 @@ class DummyCollection:
 
 def setup_bank(monkeypatch):
     collection = DummyCollection()
-    stub = types.SimpleNamespace(
-        collection=collection,
-        embed=lambda texts: [[0.0] * len(t) for t in texts],
+    backend_stub = types.SimpleNamespace(
+        embed=lambda texts: [[0.0] * len(t) for t in texts]
     )
+    store_stub = types.SimpleNamespace(collection=collection)
 
     def update_entry(project_id, entry_id, new_content):
         collection.update([entry_id], [new_content], [None], [None])
 
-    stub.update_entry = update_entry
-    monkeypatch.setitem(sys.modules, 'app.chats.memory_vector', stub)
+    store_stub.update_entry = update_entry
+    monkeypatch.setitem(sys.modules, 'forgekeeper.app.memory.backend', backend_stub)
+    monkeypatch.setitem(sys.modules, 'forgekeeper.app.memory.store', store_stub)
 
     import importlib
-    from app.chats import memory_bank as mb  # reload so stub is used
+    from forgekeeper.app.chats import memory_bank as mb  # reload so stub is used
     importlib.reload(mb)
     return mb.MemoryBank("proj"), collection
 
@@ -97,7 +98,7 @@ def test_add_update_list_delete(monkeypatch):
     assert entry_id not in store.store
 
 def test_evaluate_relevance_scores():
-    from app.chats.memory_bank import evaluate_relevance
+    from forgekeeper.app.chats.memory_bank import evaluate_relevance
     now = datetime(2024, 1, 1)
 
     recent_goal = {

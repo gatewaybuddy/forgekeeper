@@ -1,6 +1,6 @@
 from forgekeeper.app.chats.memory_store import summarize_thoughts, get_memory, save_message
 from forgekeeper import recursive_thinker
-from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
+from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.llm import get_llm

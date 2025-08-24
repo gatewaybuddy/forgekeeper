@@ -53,25 +53,26 @@ class DummyCollection:
 
 def setup_bank(monkeypatch):
     collection = DummyCollection()
-    stub = types.SimpleNamespace(
-        collection=collection,
-        embed=lambda texts: [[0.0] * len(t) for t in texts],
+    backend_stub = types.SimpleNamespace(
+        embed=lambda texts: [[0.0] * len(t) for t in texts]
     )
+    store_stub = types.SimpleNamespace(collection=collection)
 
     def update_entry(project_id, entry_id, new_content):
         collection.update([entry_id], [new_content], [None], [None])
 
-    stub.update_entry = update_entry
-    monkeypatch.setitem(sys.modules, 'app.chats.memory_vector', stub)
+    store_stub.update_entry = update_entry
+    monkeypatch.setitem(sys.modules, 'forgekeeper.app.memory.backend', backend_stub)
+    monkeypatch.setitem(sys.modules, 'forgekeeper.app.memory.store', store_stub)
 
     import importlib
-    from app.chats import memory_bank as mb
+    from forgekeeper.app.chats import memory_bank as mb
     importlib.reload(mb)
     return mb.MemoryBank("proj"), collection
 
 def test_retrieve_top_items(monkeypatch):
     bank, store = setup_bank(monkeypatch)
-    from app.chats import memory_bank as mb
+    from forgekeeper.app.chats import memory_bank as mb
 
     now = datetime(2024, 1, 2)
 
@@ -96,7 +97,7 @@ def test_retrieve_top_items(monkeypatch):
 
     monkeypatch.setattr(mb, 'datetime', datetime)
 
-    from app.chats.retrieval_manager import RetrievalManager
+    from forgekeeper.app.chats.retrieval_manager import RetrievalManager
 
     manager = RetrievalManager(bank)
     results = manager.retrieve('mission', top_n=2, filters={'session_id': 's1'}, now=now)

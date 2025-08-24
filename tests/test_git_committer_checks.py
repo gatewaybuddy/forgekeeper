@@ -10,10 +10,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import forgekeeper.config as config
-import forgekeeper.git_committer as gc
-
-
 @pytest.mark.parametrize(
     "staged, expected_keys",
     [
@@ -27,18 +23,21 @@ import forgekeeper.git_committer as gc
 def test_git_committer_checks(monkeypatch, staged, expected_keys):
     monkeypatch.setenv("CHECKS_PY", "bash -c 'echo PYOUT; echo PYERR 1>&2'")
     monkeypatch.setenv("CHECKS_TS", "bash -c 'echo TSOUT; echo TSERR 1>&2'")
-
+    config = importlib.import_module("forgekeeper.config")
+    git_checks = importlib.import_module("forgekeeper.git.checks")
     importlib.reload(config)
+    importlib.reload(git_checks)
+    gc = importlib.import_module("forgekeeper.git_committer")
     importlib.reload(gc)
 
     captured = {}
-    orig_run_checks = gc._run_checks
+    orig_run_commands = gc.git_checks._run_commands
 
     def capture(commands, task_id):
         captured["commands"] = list(commands)
-        return orig_run_checks(commands, task_id)
+        return orig_run_commands(commands, task_id)
 
-    monkeypatch.setattr(gc, "_run_checks", capture)
+    monkeypatch.setattr(gc.git_checks, "_run_commands", capture)
 
     class FakeGit:
         def __init__(self, files):
@@ -69,9 +68,9 @@ def test_git_committer_checks(monkeypatch, staged, expected_keys):
 
     expected_commands = []
     if "py" in expected_keys:
-        expected_commands.extend(gc.CHECKS_PY)
+        expected_commands.extend(config.CHECKS_PY)
     if "ts" in expected_keys:
-        expected_commands.extend(gc.CHECKS_TS)
+        expected_commands.extend(config.CHECKS_TS)
 
     assert captured.get("commands", []) == expected_commands
 
