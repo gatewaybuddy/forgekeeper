@@ -1,7 +1,7 @@
 """High-level goal orchestration utilities.
 
 This module provides a thin manager that, when autonomy mode is active,
-automatically dispatches tasks through the existing :mod:`task_pipeline`
+automatically dispatches tasks through the existing :mod:`pipeline`
 without requiring user prompts.  In addition to simple dispatching the
 manager contains a lightweight planning algorithm which decomposes a goal's
 natural language description into an explicit subtask graph.  Clauses are
@@ -23,7 +23,7 @@ from forgekeeper.config import (
     ROADMAP_COMMIT_INTERVAL,
     ROADMAP_AUTO_PUSH,
 )
-from forgekeeper.task_pipeline import TaskPipeline
+from forgekeeper.pipeline import TaskPipeline
 from types import SimpleNamespace
 
 from forgekeeper.roadmap_committer import start_periodic_commits
