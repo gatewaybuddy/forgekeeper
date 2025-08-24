@@ -31,6 +31,15 @@ TASK_FILE = MODULE_DIR.parent / "tasks.md"
 log = get_logger(__name__, debug=DEBUG_MODE)
 
 
+def _execute_pipeline(task: dict, state: dict) -> bool:
+    """Thin wrapper around :func:`forgekeeper.pipeline.execute_pipeline`.
+
+    Tests patch this helper to avoid executing the full agent pipeline. The
+    function simply forwards the call to :func:`execute_pipeline`.
+    """
+
+    return execute_pipeline(task, state)
+
 def _mark_task_needs_review(task_id: str) -> None:
     """Update ``tasks.md`` to mark the given task as ``needs_review``."""
     path = TASK_FILE
