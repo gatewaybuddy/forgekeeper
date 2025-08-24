@@ -4,10 +4,12 @@ This document defines the autonomous agents currently active—or planned—with
 
 ## Roles and Coordination
 
-Forgekeeper orchestrates two primary agents that collaborate on tasks:
+Forgekeeper orchestrates several specialized agents that collaborate on tasks:
 
 - **Core** – reflective reasoning and emotional context manager
 - **Coder** – code generation and debugging expert
+- **Researcher** – information gathering and analysis specialist
+- **Reviewer** – output evaluator and quality gate
 
 A lightweight planner breaks user requests into subtasks, assigns each
 to the appropriate agent, and records brief status messages in a shared
@@ -44,13 +46,38 @@ context log so later steps can build on earlier work.
 
 ---
 
+### 🔬 Researcher (LLM TBD)
+- **Role**: Information gathering and analysis specialist
+- **Responsibilities**:
+  - Investigate topics and surface relevant context
+  - Query external resources and summarize findings
+  - Provide background knowledge for downstream agents
+- **Special Abilities**:
+  - Direct messaging to deliver results to specific agents
+  - Lightweight synthesis of gathered data
+
+---
+
+### 📝 Reviewer (LLM TBD)
+- **Role**: Output evaluator and quality gate
+- **Responsibilities**:
+  - Review completed work for correctness and completeness
+  - Suggest revisions or further testing
+  - Validate that task objectives were met before handoff
+- **Special Abilities**:
+  - Broadcasts feedback to shared context
+  - Acts as final arbiter before tasks are marked complete
+
 ## 🗂️ Delegation Strategy
 
 Forgekeeper splits complex requests into smaller steps and assigns each
 step to the most suitable agent.
 
-1. The planning module decomposes tasks and labels subtasks for either the
-   **Core** or **Coder** agent using simple keyword heuristics.
+1. The planning module decomposes tasks and labels subtasks for the
+   **Core**, **Coder**, **Researcher**, **Reviewer**, or any dynamically
+   registered agent using simple keyword heuristics.  Each subtask also
+   receives a reference to the shared context and the list of available
+   agents so participants can coordinate directly.
 2. The high-level goal manager routes each subtask to its designated agent.
    - **Broadcast** subtasks are appended to the shared context log.
    - **Direct** subtasks send a message straight to the target agent.
@@ -58,7 +85,9 @@ step to the most suitable agent.
      the previous agent to the next so downstream work has the necessary
      context.
 3. Later subtasks consult this log to carry forward prior decisions and
-   maintain continuity.
+   maintain continuity.  Agents may also look at the ``available_agents`` list
+   provided by the planner to share context or send messages to other
+   participants.
 
 ---
 

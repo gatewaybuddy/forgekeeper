@@ -44,7 +44,7 @@ def test_subtask_distribution_across_agents():
     assert tasks[1]["agent"] == "coder"
     assert tasks[1]["task"] == "implement the algorithm"
     assert tasks[1]["protocol"] == "broadcast"
-    assert tasks[2]["agent"] == "core"
+    assert tasks[2]["agent"] == "reviewer"
     assert tasks[2]["task"] == "review results"
     assert tasks[2]["protocol"] == "broadcast"
 
@@ -74,3 +74,17 @@ def test_goal_manager_routes_and_handoffs_between_agents():
     msgs_coder = get_direct_messages("coder")
     assert msgs_coder == [{"from": "researcher", "message": "handoff complete: research data"}]
     assert get_shared_context()[-1] == {"agent": "coder", "message": "fix code"}
+
+
+def test_available_agents_shared_across_subtasks():
+    register_agent("analyst", {"analyze"}, protocol="direct")
+    task = (
+        "research problem and implement fix and review output and analyze metrics"
+    )
+    tasks = split_for_agents(task)
+    names = {step["agent"] for step in tasks}
+    assert names == {"researcher", "coder", "reviewer", "analyst"}
+    available = tasks[0]["available_agents"]
+    assert set(available) >= names
+    for step in tasks[1:]:
+        assert step["available_agents"] is available
