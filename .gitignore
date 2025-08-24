@@ -12,6 +12,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Diagnostics
+NVIDIA System Information*.txt
+
 # IDE files
 .vscode/
 .idea/
