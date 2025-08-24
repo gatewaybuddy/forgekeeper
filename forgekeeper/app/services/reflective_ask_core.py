@@ -1,5 +1,5 @@
 from forgekeeper.app.chats.memory_store import summarize_thoughts, get_memory, save_message
-from forgekeeper import recursive_thinker
+from thoughts import get_last_summary
 from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
@@ -12,7 +12,7 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 def reflective_ask_core(prompt: str, session_id: str, passes: int = 3) -> str:
     system_prompt = build_system_prompt(session_id)
     memory_summary = summarize_thoughts(session_id)
-    rt_summary = recursive_thinker.get_last_summary()
+    rt_summary = get_last_summary()
     if rt_summary.get("summary"):
         memory_summary += (
             f"\n\nRecent reflection ({rt_summary.get('emotion', 'neutral')}): "
