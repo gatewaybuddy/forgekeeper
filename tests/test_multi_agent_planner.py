@@ -6,7 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from forgekeeper.multi_agent_planner import register_agent, split_for_agents
-from forgekeeper.high_level_goal_manager import HighLevelGoalManager
+from goal_manager import HighLevelGoalManager
 from forgekeeper.agent.communication import (
     send_direct_message,
     get_direct_messages,
@@ -64,7 +64,11 @@ def test_goal_manager_routes_and_handoffs_between_agents():
     comm._SHARED_CONTEXT.clear()
     comm._DIRECT_MESSAGES.clear()
     manager = HighLevelGoalManager(autonomous=False)
-    manager._dispatch_subtasks("research data and fix code")
+    from goal_manager import delegator
+
+    delegator._dispatch_subtasks(
+        "research data and fix code", manager.success_history
+    )
     msgs_researcher = get_direct_messages("researcher")
     assert msgs_researcher == [{"from": "goal_manager", "message": "research data"}]
     msgs_coder = get_direct_messages("coder")
