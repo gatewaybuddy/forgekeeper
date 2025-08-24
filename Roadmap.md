@@ -24,7 +24,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 #### Supporting Modules
 - `forgekeeper/forgekeeper_safe_update.py` orchestrates a retryable self-edit cycle and restarts the agent.
 - `forgekeeper/git_committer.py` commits staged changes and runs lint/test checks before pushing.
-- `forgekeeper/self_review.py` reviews recent commits and logs check results for the active task.
+- `forgekeeper/self_review/` reviews recent commits and logs check results for the active task.
 
 ### Phase 2: Semi-Autonomous Execution (Complete)
 
@@ -52,7 +52,7 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
-- [x] Diff-aware self-review with task-scoped tests in `self_review.py`
+- [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `high_level_goal_manager.py`
 
 ---

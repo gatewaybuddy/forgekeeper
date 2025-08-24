@@ -33,7 +33,7 @@ epics:
       - id: M-021
         title: Diff-aware self-review with task-scoped tests
         status: done
-        links: ["forgekeeper/self_review.py"]
+        links: ["forgekeeper/self_review/"]
       - id: M-022
         title: Subtask expansion in goal management
         status: done

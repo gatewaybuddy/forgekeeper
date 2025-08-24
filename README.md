@@ -329,7 +329,7 @@ the most recent commit and logs the undo to episodic memory.
 `git_committer.py` provides `commit_and_push_changes`, which runs language-
 specific checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing
 results under `logs/<task_id>/commit-checks.json`. After committing, run
-`self_review.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
+`self_review/checks.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
 reasoning on the latest commit, verify the commit message references the active
 task, and save a summary to `logs/<task_id>/self-review.json`.
 
