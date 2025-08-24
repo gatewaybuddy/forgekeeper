@@ -24,12 +24,18 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ## ⏳ Backlog
 
 
+
+- [ ] M-030: Autonomous task execution from high-level goals (P1)
+- [ ] M-031: Emotion tagging for memory reflections (P2)
+- [ ] M-032: Self-generated roadmap and sprint plans (P2)
+- [ ] M-033: Optional remote push with changelog and justification (P3)
 - [x] FK-301: Implement emotion tagging for memory reflections (P1)
 - [ ] FK-302: Consolidate CRUD operations into shared module (P2)
 - [ ] FK-303: Unify goal manager components (P1)
 - [ ] FK-304: Generate sprints and roadmap automatically (P3)
 - [ ] FK-305: Autonomous task execution from high-level goals (P1)
 - [ ] FK-306: Optional remote push with changelog and justification (P3)
+
 
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
@@ -177,31 +183,35 @@ Create an automated process that builds sprint plans and roadmap updates from th
 - [ ] Documentation explains usage
 
 ---
-id: FK-305
+
+id: M-030
+
 title: Autonomous task execution from high-level goals (P1)
 status: todo
 epic: R-003
 owner: agent
-labels: [planner, autonomy]
+labels: [autonomy, planner]
 ---
-Enable Forgekeeper to expand high-level goals into executable subtasks and run them autonomously.
+Allow Forgekeeper to autonomously expand high-level goals into actionable tasks and execute them.
 
 **AC**
-- [ ] High-level goals expand into actionable tasks
-- [ ] Tasks run without manual intervention
-- [ ] Tests cover goal decomposition and execution flow
+- [ ] Goals are converted into executable tasks automatically
+- [ ] Top task executes without manual triggers
+- [ ] Execution outcomes are logged via self-review
 
 ---
-id: FK-306
+id: M-033
+
 title: Optional remote push with changelog and justification (P3)
 status: todo
 epic: R-003
 owner: agent
-labels: [git, workflow]
+
+labels: [git, automation]
 ---
-Provide an optional mechanism to push commits to a remote repository along with a changelog and justification.
+When permitted, push commits to a remote repository with a generated changelog and rationale.
 
 **AC**
-- [ ] CLI flag enables remote push with changelog
-- [ ] Commit messages include justification details
-- [ ] Push is skipped when flag is absent
+- [ ] Push step can be toggled or approved
+- [ ] Generated changelog summarizes commit contents
+- [ ] Push includes justification for changes
