@@ -20,17 +20,24 @@ configuration and choose how Forgekeeper runs:
 ./scripts/install.sh
 ```
 
+Use `--help`/`-h` to display usage or pass `--defaults` (alias `--yes`) to
+apply all defaults without interactive prompts.
+
 PowerShell users can invoke the equivalent script:
 
 ```powershell
 pwsh scripts/install.ps1
 ```
 
+The PowerShell variant also accepts `-Defaults` as an alias for `--defaults`.
+
 During execution the installer prompts for three items:
 
 1. **Setup type** – local single‑user or multi‑agent distributed (Docker)
 2. **Model storage directory** – defaults to `./models`
 3. **Dependency installation** – install Node/Python dependencies and launch services
+
+Use `--defaults` to skip these questions and apply the default values.
 
 Rerun the installer any time to switch between local and multi‑agent modes or
 to change the model directory.
