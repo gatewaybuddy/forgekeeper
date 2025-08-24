@@ -8,7 +8,15 @@ $envFile = Join-Path $rootDir '.env'
 Write-Host 'Select setup type:'
 Write-Host '[1] Local single-user'
 Write-Host '[2] Multi-agent distributed (Docker)'
-$choice = Read-Host 'Enter choice [1-2]'
+$choice = ''
+while ($true) {
+    $choice = Read-Host 'Enter choice [1-2]'
+    switch ($choice) {
+        '1' { break }
+        '2' { break }
+        default { Write-Host 'Invalid choice. Please enter 1 or 2.' }
+    }
+}
 
 $modelDir = Read-Host 'Model storage directory [./models]'
 if ([string]::IsNullOrWhiteSpace($modelDir)) { $modelDir = './models' }
