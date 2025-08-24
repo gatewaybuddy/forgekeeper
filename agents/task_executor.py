@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from forgekeeper.app.chats.memory_store import get_memory, set_memory
+from forgekeeper.app.chats.memory import get_memory, set_memory
 from forgekeeper.change_stager import diff_and_stage_changes
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.git_committer import commit_and_push_changes

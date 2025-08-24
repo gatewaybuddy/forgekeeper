@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import summarize_thoughts, get_memory, save_message
+from forgekeeper.app.chats.memory import summarize_thoughts, get_memory, save_message
 from thoughts import get_last_summary
 from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt

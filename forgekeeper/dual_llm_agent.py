@@ -1,7 +1,7 @@
 from forgekeeper.load_env import init_env
 init_env()
 
-from forgekeeper.app.chats.memory_store import summarize_thoughts
+from forgekeeper.app.chats.memory import summarize_thoughts
 from forgekeeper.app.services.llm_router import (
     get_core_model_name,
     get_coder_model_name,

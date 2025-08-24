@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import save_message
+from forgekeeper.app.chats.memory import save_message
 from forgekeeper.agent.tool_utils import build_tool_specs, execute_tool_call
 from forgekeeper.llm.clients import openai_compat_client
 
