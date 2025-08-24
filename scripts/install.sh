@@ -1,28 +1,34 @@
 #!/usr/bin/env bash
-# Usage: install.sh [--defaults|--yes] [--help]
-#   --defaults, --yes   Use default answers for all prompts
-#   --help              Show this help message
+
+# Usage: install.sh [--defaults|--yes] [--help|-h]
+#   --defaults, --yes  Run non-interactively with default choices
+#   -h, --help         Display this help message and exit
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage: install.sh [--defaults|--yes] [--help]
 
+usage() {
+  cat <<'EOF'
+Usage: install.sh [--defaults|--yes] [--help|-h]
+
 Options:
-  --defaults, --yes   Use default answers for all prompts
-  --help              Show this help message and exit
+  --defaults, --yes  Run non-interactively with default choices
+  -h, --help         Display this help message and exit
 EOF
 }
 
-USE_DEFAULTS=0
+DEFAULTS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --help)
+    -h|--help)
+
       usage
       exit 0
       ;;
     --defaults|--yes)
-      USE_DEFAULTS=1
+      DEFAULTS=true
       shift
       ;;
     *)
@@ -33,13 +39,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$ROOT_DIR/.env"
 
-if (( USE_DEFAULTS )); then
+if $DEFAULTS; then
   choice="1"
-  echo "Using default setup type: Local single-user"
+  model_dir="./models"
+  install_node="y"
+
 else
   echo "Select setup type:"
   echo "[1] Local single-user"
@@ -56,15 +61,15 @@ else
         ;;
     esac
   done
-fi
 
-if (( USE_DEFAULTS )); then
-  model_dir="./models"
-  echo "Using default model storage directory: $model_dir"
-else
+
   read -rp "Model storage directory [./models]: " model_dir
   model_dir=${model_dir:-./models}
+  install_node=""
+  echo
+  read -rp "Install Node dependencies and launch services? [y/N]: " install_node
 fi
+
 export MODEL_DIR="$model_dir"
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -76,16 +81,13 @@ else
   echo "MODEL_DIR=$model_dir" >> "$ENV_FILE"
 fi
 
-if (( USE_DEFAULTS )); then
-  install_node="n"
-else
-  echo
-  read -rp "Install Node dependencies and launch services? [y/N]: " install_node
-fi
-
 if [[ "$install_node" =~ ^[Yy]$ ]]; then
   if [ "$choice" = "2" ]; then
-    "$SCRIPT_DIR/setup_docker_env.sh" --defaults
+    if $DEFAULTS; then
+      "$SCRIPT_DIR/setup_docker_env.sh" --defaults
+    else
+      "$SCRIPT_DIR/setup_docker_env.sh"
+    fi
     if grep -q '^MODEL_DIR=' "$ENV_FILE"; then
       sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$model_dir|" "$ENV_FILE"
     else
