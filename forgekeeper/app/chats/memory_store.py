@@ -1,4 +1,4 @@
-from forgekeeper.app.memory.store import store_memory_entry
+from forgekeeper.app.memory import collection as memory_collection
 import json
 import os
 from typing import Callable, Dict, Any
@@ -45,12 +45,12 @@ def save_message(session_id, role, content, internal=False, project_id="default"
         "timestamp": datetime.utcnow().isoformat(),
     })
     set_memory(session_id, memory)
-    store_memory_entry(
+    memory_collection.add_entry(
         project_id,
-        session_id,
-        role,
         content,
+        session_id=session_id,
         type="internal" if internal else "dialogue",
+        tags=None,
     )
 
 def reset_memory(session_id):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -14,20 +13,23 @@ def add_entry(
     type: str,
     tags: Optional[List[str]] = None,
     timestamp: Optional[str] = None,
+    last_accessed: Optional[str] = None,
+    entry_id: Optional[str] = None,
 ) -> str:
     """Store ``content`` and return the new entry id."""
-    entry_id = str(uuid.uuid4())
+    from . import backend, store
+    entry_id = entry_id or str(uuid.uuid4())
     timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+    last_accessed = last_accessed or timestamp
     metadata = {
         "project_id": project_id,
         "session_id": session_id,
         "role": "memory",
         "type": type,
         "tags": tags or [],
-        "last_accessed": timestamp,
+        "last_accessed": last_accessed,
         "timestamp": timestamp,
     }
-    from . import backend, store
     store.collection.add(
         documents=[content],
         embeddings=backend.embed([content]),
@@ -116,23 +118,10 @@ def list_entries(
     return entries
 
 
-def save(project_id: str, filepath: str) -> None:
-    """Save all entries for ``project_id`` to ``filepath`` as JSON."""
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(list_entries(project_id), f, indent=2)
-
-
-def load(project_id: str, filepath: str) -> None:
-    """Load entries from ``filepath`` back into the vector database."""
-    from . import backend, store
-    with open(filepath, "r", encoding="utf-8") as f:
-        items = json.load(f)
-    for item in items:
-        metadata = {k: item[k] for k in item if k not in {"id", "content"}}
-        metadata["project_id"] = project_id
-        store.collection.add(
-            documents=[item["content"]],
-            embeddings=backend.embed([item["content"]]),
-            ids=[item["id"]],
-            metadatas=[metadata],
-        )
+__all__ = [
+    "add_entry",
+    "update_entry",
+    "touch_entry",
+    "delete_entries",
+    "list_entries",
+]
