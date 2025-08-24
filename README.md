@@ -252,9 +252,9 @@ These are the commands run as part of the automated commit checks (`CHECKS_PY` a
 `forgekeeper/memory/episodic.py` records short reflections about each task
 attempt in `.forgekeeper/memory/episodic.jsonl`. Entries are appended via
 `append_entry`, which stores the task ID, outcome, changed files, a free-form
-summary, sentiment, and any artifact paths for later review. The CLI helper
-`python -m forgekeeper.memory.episodic --browse N` pretty-prints the last `N`
-reflections (use `--review` for raw JSON) so developers can audit recent
+summary, sentiment, emotion, and any artifact paths for later review. The CLI
+helper `python -m forgekeeper.memory.episodic --browse N` pretty-prints the last
+`N` reflections (use `--review` for raw JSON) so developers can audit recent
 activity. `TaskQueue` loads these entries and derives a *memory weight* where
 failures push tasks back and successes bring them forward in priority.
 
