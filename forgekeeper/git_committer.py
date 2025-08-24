@@ -2,94 +2,16 @@
 
 from datetime import datetime
 from pathlib import Path
-import json
-import shlex
-import subprocess
 from typing import Iterable, Optional
 
 from git import Repo
 from forgekeeper.logger import get_logger
-from forgekeeper.config import (
-    DEBUG_MODE,
-    RUN_COMMIT_CHECKS,
-    CHECKS_PY,
-    CHECKS_TS,
-    ENABLE_OUTBOX,
-)
-from forgekeeper import self_review, diff_validator, sandbox
+from forgekeeper.config import DEBUG_MODE, RUN_COMMIT_CHECKS
+from forgekeeper import self_review, diff_validator
 from forgekeeper.memory.episodic import append_entry
-
-if ENABLE_OUTBOX:
-    try:  # pragma: no cover - optional dependency in tests
-        from forgekeeper import outbox
-    except Exception:  # pragma: no cover
-        outbox = None
-else:  # pragma: no cover - when disabled
-    outbox = None
+from forgekeeper.git import checks as git_checks, sandbox, outbox
 
 log = get_logger(__name__, debug=DEBUG_MODE)
-
-
-def _run_checks(commands: Optional[Iterable[str]], task_id: str) -> dict:
-    """Run shell commands, capturing output and writing logs."""
-    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
-    log_dir.mkdir(parents=True, exist_ok=True)
-    artifacts_path = log_dir / "commit-checks.json"
-
-    if commands is None:
-        commands = list(CHECKS_PY) + list(CHECKS_TS)
-    else:
-        commands = list(commands)
-
-    results = []
-    passed = True
-    for command in commands:
-        log.info(f"Running {command}")
-        result = subprocess.run(
-            shlex.split(command), capture_output=True, text=True
-        )
-        results.append(
-            {
-                "command": command,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
-        )
-        if result.returncode != 0:
-            passed = False
-            log.error(
-                "\n".join(
-                    [
-                        f"Command failed: {command}",
-                        f"stdout:\n{result.stdout}",
-                        f"stderr:\n{result.stderr}",
-                    ]
-                )
-            )
-
-    artifacts_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
-
-    # Display results for each command so callers can see lint/test output
-    for r in results:
-        status = "passed" if r["returncode"] == 0 else "failed"
-        log.info(f"Check {r['command']} {status}")
-        if r["stdout"].strip():
-            log.info(f"stdout:\n{r['stdout']}")
-        if r["stderr"].strip():
-            log.info(f"stderr:\n{r['stderr']}")
-
-    failing = [r["command"] for r in results if r["returncode"] != 0]
-    if passed:
-        log.info(f"All {len(results)} checks passed")
-    else:
-        log.error(f"Checks failed: {', '.join(failing)}")
-
-    return {
-        "passed": passed,
-        "artifacts_path": str(artifacts_path),
-        "results": results,
-    }
 
 
 def _commit_and_push_impl(
@@ -97,7 +19,7 @@ def _commit_and_push_impl(
     create_branch: bool = False,
     branch_prefix: str = "forgekeeper/self-edit",
     run_checks: bool = RUN_COMMIT_CHECKS,
-    checks: Optional[Iterable[str]] = None,
+    commands: Optional[Iterable[str]] = None,
     autonomous: bool = False,
     task_id: str = "manual",
     auto_push: bool = False,
@@ -151,29 +73,29 @@ def _commit_and_push_impl(
             "aborted": True,
         }
 
-    sandbox_result = {"passed": True, "artifacts_path": "", "results": []}
-    if run_checks:
-        sandbox_result = sandbox.run_sandbox_checks(files, task_id=task_id)
-        if not sandbox_result.get("passed", False):
-            log.error("Aborting commit due to failing sandbox checks")
-            append_entry(
-                task_id,
-                commit_message,
-                "sandbox-failed",
-                files,
-                "Sandbox checks failed",
-                [sandbox_result.get("artifacts_path")]
-                if sandbox_result.get("artifacts_path")
-                else [],
-            )
-            sandbox_result.update(
-                {
-                    "pre_review": pre_review,
-                    "diff_validation": diff_validation,
-                    "aborted": True,
-                }
-            )
-            return sandbox_result
+    sandbox_result = sandbox.run_sandbox_checks(
+        files, task_id=task_id, run_checks=run_checks
+    )
+    if not sandbox_result.get("passed", False):
+        log.error("Aborting commit due to failing sandbox checks")
+        append_entry(
+            task_id,
+            commit_message,
+            "sandbox-failed",
+            files,
+            "Sandbox checks failed",
+            [sandbox_result.get("artifacts_path")]
+            if sandbox_result.get("artifacts_path")
+            else [],
+        )
+        sandbox_result.update(
+            {
+                "pre_review": pre_review,
+                "diff_validation": diff_validation,
+                "aborted": True,
+            }
+        )
+        return sandbox_result
 
     check_result = {
         "passed": True,
@@ -184,14 +106,7 @@ def _commit_and_push_impl(
         "sandbox": sandbox_result,
     }
     if run_checks:
-        run_py = any(f.endswith(".py") for f in files)
-        run_ts = any(f.endswith(suf) for f in files for suf in (".ts", ".tsx"))
-        commands = []
-        if run_py:
-            commands.extend(CHECKS_PY)
-        if run_ts:
-            commands.extend(CHECKS_TS)
-        check_result.update(_run_checks(commands, task_id))
+        check_result.update(git_checks.run_checks(files, task_id, commands))
         if not check_result["passed"]:
             log.error("Aborting commit due to failing checks")
             check_result["aborted"] = True
@@ -319,7 +234,7 @@ def commit_and_push_changes(
     create_branch: bool = False,
     branch_prefix: str = "forgekeeper/self-edit",
     run_checks: bool = RUN_COMMIT_CHECKS,
-    checks: Optional[Iterable[str]] = None,
+    commands: Optional[Iterable[str]] = None,
     autonomous: bool = False,
     task_id: str = "manual",
     auto_push: bool = False,
@@ -335,18 +250,15 @@ def commit_and_push_changes(
         "create_branch": create_branch,
         "branch_prefix": branch_prefix,
         "run_checks": run_checks,
-        "checks": checks,
+        "commands": commands,
         "autonomous": autonomous,
         "task_id": task_id,
         "auto_push": auto_push or autonomous,
     }
-    if ENABLE_OUTBOX and outbox is not None:
-        action = {
-            "module": __name__,
-            "function": "_commit_and_push_impl",
-            "args": [],
-            "kwargs": kwargs,
-        }
-        with outbox.pending_action(action):
-            return _commit_and_push_impl(**kwargs)
-    return _commit_and_push_impl(**kwargs)
+    action = {
+        "module": __name__,
+        "function": "_commit_and_push_impl",
+        "args": [],
+        "kwargs": kwargs,
+    }
+    return outbox.run_with_outbox(action, _commit_and_push_impl, **kwargs)

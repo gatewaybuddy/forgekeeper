@@ -17,10 +17,11 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
         "logger.py",
         "git_committer.py",
         "outbox.py",
-
         "diff_validator.py",
+        "sandbox.py",
     ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
+    shutil.copytree(ROOT / "forgekeeper" / "git", pkg_dir / "git")
     mem_dir = pkg_dir / "memory"
     mem_dir.mkdir()
     for name in ["__init__.py", "episodic.py", "embeddings.py"]:
@@ -59,6 +60,11 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
         repo_dir / ".forgekeeper/memory/episodic.jsonl",
     )
     importlib.reload(gc)
+    monkeypatch.setattr(
+        gc.sandbox,
+        "run_sandbox_checks",
+        lambda files, task_id, run_checks=True: {"passed": True, "artifacts_path": "", "results": []},
+    )
     monkeypatch.chdir(repo_dir)
     return repo_dir, gc
 

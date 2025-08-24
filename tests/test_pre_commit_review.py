@@ -43,6 +43,11 @@ def setup_repo(tmp_path, monkeypatch):
     importlib.reload(sr)
     gc = importlib.import_module("forgekeeper.git_committer")
     importlib.reload(gc)
+    monkeypatch.setattr(
+        gc.self_review,
+        "review_staged_changes",
+        lambda task_id: {"passed": False, "staged_files": ["foo.py"]},
+    )
     return repo_dir, gc
 
 
