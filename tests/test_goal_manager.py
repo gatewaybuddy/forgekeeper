@@ -14,7 +14,7 @@ def test_goal_lifecycle(tmp_path, monkeypatch):
     goals_file = tmp_path / "goals.json"
     log_file = tmp_path / "goals.log"
     monkeypatch.setattr(gm.storage, "GOALS_FILE", goals_file)
-    monkeypatch.setattr(gm.storage, "GOAL_LOG_FILE", log_file)
+    monkeypatch.setattr(gm.progress, "GOAL_LOG_FILE", log_file)
 
     assert gm.load_goals() == []
 

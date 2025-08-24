@@ -30,7 +30,7 @@ def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
         captured["desc"] = desc
         return "gid"
 
-    monkeypatch.setattr(tp.goal_manager, "add_goal", fake_add_goal)
+    monkeypatch.setattr(tp.goal_storage, "add_goal", fake_add_goal)
 
     task = pipeline.next_task()
     assert task is not None
