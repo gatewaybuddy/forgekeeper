@@ -175,9 +175,9 @@ labels: [planning, automation]
 Create an automated process that builds sprint plans and roadmap updates from the backlog.
 
 **AC**
-- [ ] Command outputs upcoming sprint plan and roadmap
-- [ ] Generated documents reflect task priorities
-- [ ] Documentation explains usage
+- [x] Command outputs upcoming sprint plan and roadmap
+- [x] Generated documents reflect task priorities
+- [x] Documentation explains usage
 
 ---
 
