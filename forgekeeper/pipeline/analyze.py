@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from forgekeeper.file_summarizer import summarize_repository
+from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE

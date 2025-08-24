@@ -1,3 +1,4 @@
+
 """Compatibility wrapper for legacy memory_store imports.
 
 This module re-exports the memory utilities now provided by
@@ -38,3 +39,4 @@ __all__ = [
     "update_memory_entries",
     "default_relevance_check",
 ]
+

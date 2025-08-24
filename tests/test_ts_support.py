@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from forgekeeper.file_summarizer import summarize_file
+from forgekeeper.summarizer import summarize_file
 from forgekeeper.file_analyzer import analyze_repo_for_task
 
 

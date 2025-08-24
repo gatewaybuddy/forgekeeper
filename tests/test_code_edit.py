@@ -6,8 +6,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import forgekeeper.code_editor as code_editor
-from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
+import forgekeeper.code_edit.llm_diff as llm_diff
+from forgekeeper.code_edit.llm_diff import generate_code_edit
+from forgekeeper.code_edit.patcher import apply_unified_diff
 
 
 def test_generate_code_edit_returns_diff(monkeypatch, tmp_path):
@@ -30,7 +31,7 @@ def test_generate_code_edit_returns_diff(monkeypatch, tmp_path):
         captured["prompt"] = prompt
         return diff
 
-    monkeypatch.setattr(code_editor, "ask_coder", fake_ask)
+    monkeypatch.setattr(llm_diff, "ask_coder", fake_ask)
 
     patch = generate_code_edit(
         "update value", str(file_path), "simple file", "PEP8 guidelines"

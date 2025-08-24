@@ -39,6 +39,7 @@ def init_repo(tmp_path: Path, monkeypatch, smoke_exit: int):
     importlib.reload(config)
     sr = importlib.import_module("forgekeeper.self_review")
     importlib.reload(sr)
+    importlib.reload(sr.checks)
     return repo_dir, sr
 
 
@@ -83,23 +84,25 @@ def _stub_pipeline(monkeypatch, tmp_path, commit_result, review_result, self_res
     sys.modules.pop("forgekeeper", None)
     sys.modules.pop("forgekeeper.pipeline", None)
     from forgekeeper import pipeline
+    import forgekeeper.pipeline.update as update_mod
+
     (tmp_path / "forgekeeper").mkdir(exist_ok=True)
-    monkeypatch.setattr(pipeline, "summarize_repository", lambda: {})
-    monkeypatch.setattr(pipeline, "analyze_repo_for_task", lambda *_: [])
-    monkeypatch.setattr(pipeline, "generate_code_edit", lambda *a, **k: "")
-    monkeypatch.setattr(pipeline, "apply_unified_diff", lambda *_: [])
-    monkeypatch.setattr(pipeline, "diff_and_stage_changes", lambda *a, **k: None)
+    monkeypatch.setattr(update_mod, "summarize_repository", lambda: {})
+    monkeypatch.setattr(update_mod, "analyze_repo_for_task", lambda *_: [])
+    monkeypatch.setattr(update_mod, "generate_code_edit", lambda *a, **k: "")
+    monkeypatch.setattr(update_mod, "apply_unified_diff", lambda *_: [])
+    monkeypatch.setattr(update_mod, "diff_and_stage_changes", lambda *a, **k: None)
     monkeypatch.setattr(
-        pipeline,
+        update_mod,
         "commit_and_push_changes",
         lambda *a, **k: {"passed": commit_result},
     )
     monkeypatch.setattr(
-        pipeline.self_review,
+        update_mod.self_review,
         "review_change_set",
         lambda *_: {"passed": review_result},
     )
-    monkeypatch.setattr(pipeline, "run_self_review", lambda *_: self_result)
+    monkeypatch.setattr(update_mod, "run_self_review", lambda *_: self_result)
     return pipeline
 
 

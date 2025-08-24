@@ -55,6 +55,92 @@ class TaskQueue:
     def _memory_weight(self, text: str, key: str | None = None) -> tuple[float, list[str]]:
         return memory_weight(text, self.memory_stats, self.memory_embedder, key)
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    def _find_canonical_tasks(self, content: str) -> List[dict]:
+        """Parse canonical task frontmatter blocks from ``tasks.md`` content."""
+
+        tasks: List[dict] = []
+        if "## Canonical Tasks" not in content:
+            return tasks
+
+        section = content.split("## Canonical Tasks", 1)[1]
+        lines = section.splitlines()
+        i = 0
+        while i < len(lines):
+            if lines[i].strip() == "---":
+                i += 1
+                fm_lines: List[str] = []
+                while i < len(lines) and lines[i].strip() != "---":
+                    fm_lines.append(lines[i])
+                    i += 1
+                if i >= len(lines):
+                    break
+                i += 1
+                try:
+                    data = yaml.safe_load("\n".join(fm_lines))
+                except Exception:
+                    continue
+                if not isinstance(data, dict):
+                    continue
+                status = str(data.get("status", "")).strip()
+                if status not in {"todo", "in_progress"}:
+                    continue
+                title = str(data.get("title", ""))
+                match = re.search(r"\(P([0-3])\)", title)
+                priority = int(match.group(1)) if match else 2
+                labels = data.get("labels") or []
+                tasks.append(
+                    {
+                        "id": data.get("id"),
+                        "title": title,
+                        "status": status,
+                        "labels": labels,
+                        "priority": priority,
+                    }
+                )
+            else:
+                i += 1
+        return tasks
+
+    def _select_best_task(self, canonical: List[dict], tasks: List[Task]) -> Optional[dict]:
+        """Apply memory weighting and choose the best task from candidates."""
+
+        best: Optional[dict] = None
+        best_score: Optional[float] = None
+        best_related: list[str] = []
+
+        for data in canonical:
+            key = str(data.get("id") or "").strip() or None
+            mem_wt, related = self._memory_weight(data["title"], key)
+            data["memory_weight"] = mem_wt
+            score = data["priority"] + float(mem_wt)
+            if best_score is None or score < best_score:
+                best = data
+                best_score = score
+                best_related = related
+
+        if best is None:
+            for task in tasks:
+                if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
+                    mem_wt, related = self._memory_weight(task.description)
+                    score = task.priority + float(mem_wt)
+                    if best_score is None or score < best_score:
+                        best = {
+                            "id": "",
+                            "title": task.description,
+                            "status": task.status,
+                            "labels": [],
+                            "priority": task.priority,
+                            "memory_weight": mem_wt,
+                        }
+                        best_score = score
+                        best_related = related
+
+        if best is not None:
+            best["memory_context"] = best_related
+        return best
+
     def next_task(self) -> Optional[dict]:
         try:
             content = self.path.read_text(encoding="utf-8")
@@ -62,76 +148,8 @@ class TaskQueue:
             content = ""
 
         self.refresh_memory()
-        best: Optional[dict] = None
-        best_score: Optional[float] = None
-        best_related: list[str] = []
-
-        if "## Canonical Tasks" in content:
-            section = content.split("## Canonical Tasks", 1)[1]
-            lines = section.splitlines()
-            i = 0
-            while i < len(lines):
-                if lines[i].strip() == "---":
-                    i += 1
-                    fm_lines: List[str] = []
-                    while i < len(lines) and lines[i].strip() != "---":
-                        fm_lines.append(lines[i])
-                        i += 1
-                    if i >= len(lines):
-                        break
-                    i += 1
-                    try:
-                        data = yaml.safe_load("\n".join(fm_lines))
-                    except Exception:
-                        continue
-                    if not isinstance(data, dict):
-                        continue
-                    status = str(data.get("status", "")).strip()
-                    if status not in {"todo", "in_progress"}:
-                        continue
-                    title = str(data.get("title", ""))
-                    match = re.search(r"\(P([0-3])\)", title)
-                    priority = int(match.group(1)) if match else 2
-                    labels = data.get("labels") or []
-                    key = str(data.get("id") or "").strip() or None
-                    mem_wt, related = self._memory_weight(title, key)
-                    task = {
-                        "id": data.get("id"),
-                        "title": title,
-                        "status": status,
-                        "labels": labels,
-                        "priority": priority,
-                        "memory_weight": mem_wt,
-                    }
-                    score = priority + float(mem_wt)
-                    if best_score is None or score < best_score:
-                        best = task
-                        best_score = score
-                        best_related = related
-                else:
-                    i += 1
-        if best:
-            best["memory_context"] = best_related
-            return best
-
-        for task in self.list_tasks():
-            if task.status in {"todo", "in_progress"} and task.priority < self.SECTION_PRIORITY["Completed"]:
-                mem_wt, related = self._memory_weight(task.description)
-                score = task.priority + float(mem_wt)
-                if best is None or score < best_score:
-                    best = {
-                        "id": "",
-                        "title": task.description,
-                        "status": task.status,
-                        "labels": [],
-                        "priority": task.priority,
-                        "memory_weight": mem_wt,
-                    }
-                    best_score = score
-                    best_related = related
-        if best:
-            best["memory_context"] = best_related
-        return best
+        canonical = self._find_canonical_tasks(content)
+        return self._select_best_task(canonical, self.list_tasks())
 
     def get_task(self, description: str) -> Optional[Task]:
         for task in self.list_tasks():

@@ -12,8 +12,8 @@ your `PATH` before running the PowerShell examples.
 
 ## Environment file
 
-Run the installer to create or update the `.env` configuration and choose how
-Forgekeeper runs:
+Use the installer as the main entry point to create or update the `.env`
+configuration and choose how Forgekeeper runs:
 
 ```bash
 ./scripts/install.sh
@@ -25,23 +25,22 @@ PowerShell users can invoke the equivalent script:
 pwsh scripts/install.ps1
 ```
 
-The installer prompts for three items:
+During execution the installer prompts for three items:
 
 1. **Setup type** – local single‑user or multi‑agent distributed (Docker)
 2. **Model storage directory** – defaults to `./models`
-3. **Dependency install** – whether to install Node/Python dependencies and
-   launch services
+3. **Dependency installation** – install Node/Python dependencies and launch services
 
-You can rerun the installer at any time to switch between local and
-multi‑agent modes or change the model directory.
+Rerun the installer any time to switch between local and multi‑agent modes or
+to change the model directory.
 
-*Advanced*: Direct `setup_env*` or `setup_docker_env*` scripts remain available
-for manual configuration.
+*Advanced*: The legacy `setup_env*` and `setup_docker_env*` scripts remain
+available for manual configuration.
 
 ## Installation
 
 The installer above also handles dependency installation and service startup
-based on the selected mode. Rerun it to switch between local and
+based on the selected mode. Rerun it whenever you switch between local and
 multi‑agent setups.
 
 *Advanced*: To run individual setup scripts directly, use:
