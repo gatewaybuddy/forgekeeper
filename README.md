@@ -26,6 +26,16 @@ PowerShell users can invoke the equivalent script:
 pwsh scripts/install.ps1
 ```
 
+Both installers accept `--help` to display options and `--defaults` (alias
+`--yes`) to run non-interactively using default answers—handy for CI or
+provisioning tools:
+
+```bash
+./scripts/install.sh --defaults
+# or
+pwsh scripts/install.ps1 -Defaults
+```
+
 During execution the installer prompts for three items:
 
 1. **Setup type** – local single‑user or multi‑agent distributed (Docker)
