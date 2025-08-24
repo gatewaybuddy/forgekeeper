@@ -1,0 +1,269 @@
+# Repository File Summary
+
+Below is a one-line summary for every tracked file in the repository, grouped by directory path.
+
+- `.env.example`: Example environment configuration for Docker-based development  
+- `.gitattributes`: Auto-detect text files and normalize line endings  
+- `.github/ISSUE_TEMPLATE/config.yml`: Disable blank issues  
+- `.github/ISSUE_TEMPLATE/epic_roadmap.md`: Issue template header  
+- `.github/ISSUE_TEMPLATE/spike.md`: Issue template header  
+- `.github/ISSUE_TEMPLATE/task.md`: Issue template header  
+- `.github/PULL_REQUEST_TEMPLATE/bugfix.md`: Bugfix PR template  
+- `.github/PULL_REQUEST_TEMPLATE/docs.md`: Docs PR template  
+- `.github/PULL_REQUEST_TEMPLATE/feature.md`: Feature PR template  
+- `.github/PULL_REQUEST_TEMPLATE/hotfix.md`: Hotfix PR template  
+- `.github/PULL_REQUEST_TEMPLATE/infra-chore.md`: Infrastructure/Chore PR template  
+- `.github/PULL_REQUEST_TEMPLATE/refactor.md`: Refactor PR template  
+- `.github/pull_request_template.md`: Template chooser for PRs  
+- `.github/workflows/auto-label.yml`: GitHub Action to auto-label PRs  
+- `.github/workflows/merge-gates.yml`: Merge-gate workflow  
+- `.github/workflows/roadmap-preview.yml`: Roadmap preview workflow  
+- `.github/workflows/roadmap-sync.yml`: Roadmap synchronization workflow  
+- `.gitignore`: Ignore Node, Python and environment files  
+- `AGENTS.md`: Guidelines for Forgekeeper agents  
+- `DEVELOPER_NOTES.md`: Developer notes  
+- `Dockerfile`: Build Python 3.11-slim image  
+- `Dockerfile.vllm`: CUDA-based image for vLLM  
+- `Makefile`: Build and utility targets  
+- `NVIDIA System Information 05-05-2025 12-10-55.txt`: GPU system report  
+- `README.md`: Forgekeeper project overview  
+- `Roadmap.md`: Development roadmap  
+- `backend/Dockerfile`: Build environment for Node backend  
+- `backend/package-lock.json`: Backend dependency lockfile  
+- `backend/package.json`: Backend package definition  
+- `backend/prisma/migrations/20240507120000_add_outbox/migration.sql`: Prisma migration script  
+- `backend/prisma/schema.prisma`: Prisma schema definition  
+- `backend/src/index.ts`: Express application entrypoint  
+- `backend/src/outboxWorker.ts`: Prisma outbox worker  
+- `backend/src/resolvers.ts`: GraphQL resolvers  
+- `backend/src/schema.ts`: GraphQL schema  
+- `backend/tsconfig.json`: TypeScript configuration  
+- `docker-compose.yml`: Multi-service Docker orchestration  
+- `forgekeeper/__init__.py`: Forgekeeper package marker  
+- `forgekeeper/__pycache__/console_chat.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/__pycache__/console_chat.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/__pycache__/dual_llm_agent.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/__pycache__/load_env.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/agent/__init__.py`: Agent utilities package marker  
+- `forgekeeper/agent/agent.py`: Core agent implementation  
+- `forgekeeper/agent/communication.py`: Inter-agent communication utilities  
+- `forgekeeper/agent/tool_utils.py`: Helpers for OpenAI-style tool calls  
+- `forgekeeper/app/chats/__pycache__/memory_store.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/chats/__pycache__/memory_vector.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/chats/chat_session.py`: Chat session model/logic  
+- `forgekeeper/app/chats/conversation_memory.json`: Example conversation memory  
+- `forgekeeper/app/chats/conversations.json`: Stored conversations  
+- `forgekeeper/app/chats/distillation_controller.py`: Placeholder for attention distillation utilities  
+- `forgekeeper/app/chats/memory_bank.py`: High-level memory management  
+- `forgekeeper/app/chats/memory_scheduler.py`: Scheduled memory maintenance tools  
+- `forgekeeper/app/chats/memory_store.py`: Persist memory entries to vector store  
+- `forgekeeper/app/chats/memory_vector.py`: MongoDB-backed vector memory utilities  
+- `forgekeeper/app/chats/retrieval_manager.py`: Relevant memory retrieval helpers  
+- `forgekeeper/app/interpreter/__pycache__/intent_parser.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/interpreter/__pycache__/prompt_mapper.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/interpreter/prompt_mapper.py`: Prompt mapping utilities  
+- `forgekeeper/app/routes/__pycache__/chat_routes.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/routes/chat_routes.py`: Flask chat API routes  
+- `forgekeeper/app/self/proposal_engine.py`: Self-proposal engine (placeholder)  
+- `forgekeeper/app/services/__pycache__/code_catcher.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/code_catcher.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/file_writer.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/file_writer.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/function_loader.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/function_loader.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/llm_router.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/llm_service.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/llm_service_llamacpp.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/llm_service_llamacpp.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/llm_service_openai.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/prompt_formatting.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/__pycache__/reflective_ask_core.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/services/code_catcher.py`: Code retrieval utilities  
+- `forgekeeper/app/services/conversation_service.py`: Conversation management service  
+- `forgekeeper/app/services/file_writer.py`: Write content to disk  
+- `forgekeeper/app/services/function_loader.py`: Dynamically load functions  
+- `forgekeeper/app/services/llm_router.py`: Route requests to different LLM backends  
+- `forgekeeper/app/services/llm_service.py`: Base LLM service helpers  
+- `forgekeeper/app/services/llm_service_openai.py`: OpenAI API implementation  
+- `forgekeeper/app/services/llm_service_openai_harmony.py`: Local OpenAI-Harmony model service  
+- `forgekeeper/app/services/local_llm.py`: llama.cpp-based local LLM  
+- `forgekeeper/app/services/prompt_formatting.py`: Build memory-aware prompts  
+- `forgekeeper/app/services/reflective_ask_core.py`: Memory-aware reflective question logic  
+- `forgekeeper/app/shared/__pycache__/models.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/utils/__pycache__/json_helpers.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/utils/__pycache__/system_prompt_builder.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/app/utils/harmony_parser.py`: Parse Harmony tool/action calls  
+- `forgekeeper/app/utils/json_helpers.py`: JSON helper functions  
+- `forgekeeper/app/utils/prompt_guard.py`: Prompt validation/guarding  
+- `forgekeeper/app/utils/system_prompt_builder.py`: Construct system prompts from memory  
+- `forgekeeper/change_stager.py`: Diffing and staging utilities  
+- `forgekeeper/code_editor.py`: Modify source files with a coding LLM  
+- `forgekeeper/commands.py`: Command helpers for Forgekeeper  
+- `forgekeeper/config.py`: Configuration loader  
+- `forgekeeper/deprecated/console_chat.py`: Deprecated console chat entry  
+- `forgekeeper/deprecated/console_chat_llamacpp.py`: Deprecated llama.cpp console chat  
+- `forgekeeper/deprecated/langchain_gpt4o_tester.py`: Deprecated LangChain helper for GPT-4o  
+- `forgekeeper/diff_validator.py`: Cross-file diff validation  
+- `forgekeeper/dual_llm_agent.py`: Dual-LLM agent initialization  
+- `forgekeeper/file_analyzer.py`: Source file analysis helpers  
+- `forgekeeper/file_summarizer.py`: AST-based summarizer  
+- `forgekeeper/forgekeeper_safe_update.py`: Safe update placeholder (do not edit)  
+- `forgekeeper/functions/__pycache__/describe_function.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/describe_function.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/list_functions.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/list_functions.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/read_file.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/read_file.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/say_hello.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/say_hello.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/write_file.cpython-310.pyc`: Python bytecode  
+- `forgekeeper/functions/__pycache__/write_file.cpython-313.pyc`: Python bytecode  
+- `forgekeeper/functions/describe_function.py`: Describe a function’s source  
+- `forgekeeper/functions/introspect_state.py`: Load conversation memory for inspection  
+- `forgekeeper/functions/kai_starter_pack_summary.json`: Example summary data  
+- `forgekeeper/functions/list_functions.py`: List available functions  
+- `forgekeeper/functions/read_file.py`: Read file contents via config-guarded API  
+- `forgekeeper/functions/remember_identity.py`: Store user identity in memory  
+- `forgekeeper/functions/remember_name.py`: Store user name in memory  
+- `forgekeeper/functions/say_hello.py`: Friendly greeting function  
+- `forgekeeper/functions/summarize_conversation.py`: Summarize stored conversation  
+- `forgekeeper/functions/write_file.py`: Write file contents via config-guarded API  
+- `forgekeeper/git_committer.py`: Commit and push updates  
+- `forgekeeper/goal_manager.py`: Manage goals  
+- `forgekeeper/goals.json`: Saved goals  
+- `forgekeeper/high_level_goal_manager.py`: High-level goal orchestration  
+- `forgekeeper/llm/__init__.py`: LLM utilities package marker  
+- `forgekeeper/llm/benchmark.py`: LLM benchmarking helpers  
+- `forgekeeper/llm/clients/__init__.py`: LLM client utilities package marker  
+- `forgekeeper/llm/clients/openai_compat_client.py`: OpenAI-compatible HTTP client  
+- `forgekeeper/llm/llama_cpp_impl.py`: llama.cpp integration  
+- `forgekeeper/llm/llm_service_vllm.py`: vLLM wrapper for core and coder agents  
+- `forgekeeper/llm/provider.py`: Abstract LLM provider API  
+- `forgekeeper/llm/transformers_impl.py`: Transformers-based implementation  
+- `forgekeeper/llm/vllm_impl.py`: vLLM implementation  
+- `forgekeeper/load_env.py`: Environment initializer  
+- `forgekeeper/logger.py`: Logging utilities  
+- `forgekeeper/main.py`: Main Forgekeeper entrypoint  
+- `forgekeeper/main_llamacpp.py`: Flask server for llama.cpp backend  
+- `forgekeeper/memory/__init__.py`: Memory utilities package marker  
+- `forgekeeper/memory/embeddings.py`: Embedding utilities  
+- `forgekeeper/memory/episodic.py`: Episodic memory helpers  
+- `forgekeeper/multi_agent_planner.py`: Delegate tasks to specialized agents  
+- `forgekeeper/outbox.py`: Outbox model utilities  
+- `forgekeeper/outbox_worker.py`: Outbox worker  
+- `forgekeeper/pipeline.py`: Pipeline utilities  
+- `forgekeeper/recursive_thinker.py`: Background recursive thinker  
+- `forgekeeper/roadmap_committer.py`: Commit synthesized roadmap updates  
+- `forgekeeper/roadmap_updater.py`: Draft and append roadmap updates  
+- `forgekeeper/run_console`: Windows batch to run console  
+- `forgekeeper/sandbox.py`: Run diffs in isolated worktree  
+- `forgekeeper/self_review.py`: Review recent work vs. active task  
+- `forgekeeper/state.json`: Current state storage  
+- `forgekeeper/state_manager.py`: Manage state persistence  
+- `forgekeeper/task_pipeline.py`: Scheduler for tasks in `tasks.md`  
+- `forgekeeper/task_queue.py`: Task queue with episodic memory weighting  
+- `forgekeeper/telemetry.py`: Telemetry utilities  
+- `forgekeeper/user_interface.py`: Minimal UI abstraction  
+- `forgekeeper/vcs/__init__.py`: Version control utilities package marker  
+- `forgekeeper/vcs/pr_api.py`: PR API helpers  
+- `frontend/.gitignore`: Ignore frontend build artifacts  
+- `frontend/Dockerfile`: Build React app with Vite  
+- `frontend/README.md`: Frontend overview  
+- `frontend/eslint.config.js`: ESLint configuration  
+- `frontend/index.html`: Frontend HTML entry  
+- `frontend/package-lock.json`: Frontend dependency lockfile  
+- `frontend/package.json`: Frontend package definition  
+- `frontend/public/vite.svg`: SVG asset  
+- `frontend/src/App.css`: Root CSS styles  
+- `frontend/src/App.tsx`: Main React component with state/reducer  
+- `frontend/src/ContextMenu.tsx`: Context menu component  
+- `frontend/src/ConversationList.tsx`: List of conversations  
+- `frontend/src/ConversationView.tsx`: Conversation view component  
+- `frontend/src/FolderTree.tsx`: Folder tree component  
+- `frontend/src/LogPanel.tsx`: Log panel component  
+- `frontend/src/ProjectSelector.tsx`: Project selection component  
+- `frontend/src/PromptInput.tsx`: Prompt input component  
+- `frontend/src/SyncIndicator.tsx`: Sync status indicator  
+- `frontend/src/apolloClient.ts`: Apollo client setup  
+- `frontend/src/assets/react.svg`: SVG asset  
+- `frontend/src/graphql.ts`: GraphQL queries  
+- `frontend/src/index.css`: Global CSS  
+- `frontend/src/main.tsx`: React root bootstrap  
+- `frontend/src/toast.ts`: Toast message helper  
+- `frontend/src/types.ts`: Shared TypeScript interfaces  
+- `frontend/tsconfig.json`: TypeScript config for frontend  
+- `frontend/vite.config.js`: Vite configuration  
+- `intent_test_log.txt`: Intent test log  
+- `mqtt_forgekeeper_listener.py`: MQTT listener for tasks  
+- `requirements.txt`: Python dependencies (e.g., GitPython)  
+- `roadmap.yaml`: Roadmap milestones configuration  
+- `run_console.bat`: Windows batch for console runner  
+- `run_console/__init__.py`: Interactive console runner  
+- `run_console/__main__.py`: Streaming console entry  
+- `run_console_llamacpp.bat`: Windows batch for llama.cpp console  
+- `run_server_llamacpp.bat`: Windows batch for llama.cpp server  
+- `scripts/fft_visualizer.py`: FFT visualization script  
+- `scripts/llm_benchmark.py`: Benchmark different LLMs  
+- `scripts/llm_smoke_test.py`: Basic LLM smoke test  
+- `scripts/run_vllm_coder.bat`: Windows batch to run vLLM coder  
+- `scripts/run_vllm_coder.sh`: Shell script to run vLLM coder  
+- `scripts/run_vllm_core.bat`: Windows batch to run vLLM core  
+- `scripts/run_vllm_core.sh`: Shell script to run vLLM core  
+- `scripts/setup_dev_env.ps1`: PowerShell dev-env setup  
+- `scripts/setup_dev_env.sh`: Shell dev-env setup  
+- `scripts/setup_docker_env.ps1`: PowerShell Docker env setup  
+- `scripts/setup_docker_env.sh`: Shell Docker env setup  
+- `scripts/setup_env.ps1`: PowerShell env setup  
+- `scripts/setup_env.sh`: Shell env setup  
+- `scripts/update_requirements.py`: Update requirements file  
+- `start.bat`: Start `main_llamacpp.py`  
+- `tasks.md`: Current task list  
+- `test.bat`: Curl-based local test script  
+- `tests/fixtures/component.tsx`: Test React component fixture  
+- `tests/fixtures/sample.ts`: Sample TypeScript utility  
+- `tests/test_change_stager.py`: Tests for change stager  
+- `tests/test_chat_session.py`: Chat session tests  
+- `tests/test_code_editor.py`: Code editor tests  
+- `tests/test_commands.py`: Command tests  
+- `tests/test_embeddings.py`: Embedding tests  
+- `tests/test_episodic_memory.py`: Episodic memory tests  
+- `tests/test_git_committer.py`: Git committer tests  
+- `tests/test_git_committer_checks.py`: Committer check tests  
+- `tests/test_git_committer_sandbox.py`: Git committer sandbox tests  
+- `tests/test_goal_manager.py`: Goal manager tests  
+- `tests/test_harmony_tool_call.py`: Harmony tool-call tests  
+- `tests/test_high_level_goal_manager.py`: High-level goal manager tests  
+- `tests/test_inline_tool_call.py`: Inline tool-call tests  
+- `tests/test_llm_benchmark.py`: LLM benchmark tests  
+- `tests/test_main_periodic_commits.py`: Periodic commit tests  
+- `tests/test_mark_done_if_merged.py`: Mark-done-if-merged tests  
+- `tests/test_memory_bank.py`: Memory bank tests  
+- `tests/test_memory_scheduler.py`: Memory scheduler tests  
+- `tests/test_multi_agent_planner.py`: Multi-agent planner tests  
+- `tests/test_openai_tool_call.py`: OpenAI tool-call tests  
+- `tests/test_outbox.py`: Outbox tests  
+- `tests/test_outbox_replay.py`: Outbox replay tests  
+- `tests/test_outbox_worker.py`: Outbox worker tests  
+- `tests/test_pr_integration.py`: PR integration tests  
+- `tests/test_pre_commit_review.py`: Pre-commit review tests  
+- `tests/test_prompt_guard.py`: Prompt guard tests  
+- `tests/test_recursive_thinker_summary.py`: Recursive thinker summary tests  
+- `tests/test_retrieval_manager.py`: Retrieval manager tests  
+- `tests/test_review_change_set.py`: Change-set review tests  
+- `tests/test_roadmap_committer.py`: Roadmap committer tests  
+- `tests/test_roadmap_sync.py`: Roadmap sync tests  
+- `tests/test_roadmap_updater.py`: Roadmap updater tests  
+- `tests/test_safe_update.py`: Safe update tests  
+- `tests/test_sandbox.py`: Sandbox tests  
+- `tests/test_self_review.py`: Self-review tests  
+- `tests/test_self_review_smoke.py`: Self-review smoke tests  
+- `tests/test_spawn_followup_task.py`: Follow-up task tests  
+- `tests/test_task_pipeline.py`: Task pipeline tests  
+- `tests/test_task_queue.py`: Task queue tests  
+- `tests/test_ts_support.py`: TypeScript support tests  
+- `tools/auto_label_pr.py`: CLI to auto-label PRs  
+- `tools/mark_done_if_merged.py`: Mark tasks done if PR merged  
+- `tools/preview_task_status.py`: Preview task statuses  
+- `tools/propose_pr.py`: Script to propose a PR  
+- `tools/roadmap_sync.py`: Sync roadmap with progress  
+- `tools/smoke_backend.py`: Backend smoke test script  
