@@ -13,8 +13,9 @@ def init_repo(tmp_path: Path, monkeypatch, smoke_exit: int):
     repo_dir = tmp_path / "repo"
     pkg_dir = repo_dir / "forgekeeper"
     pkg_dir.mkdir(parents=True)
-    for name in ["__init__.py", "config.py", "logger.py", "self_review.py", "state_manager.py"]:
+    for name in ["__init__.py", "config.py", "logger.py", "state_manager.py"]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
+    shutil.copytree(ROOT / "forgekeeper" / "self_review", pkg_dir / "self_review")
     (pkg_dir / "user_interface.py").write_text(
         "def display_check_results(report):\n    return None\n",
         encoding="utf-8",

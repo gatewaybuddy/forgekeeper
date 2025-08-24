@@ -24,7 +24,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 #### Supporting Modules
 - `forgekeeper/forgekeeper_safe_update.py` orchestrates a retryable self-edit cycle and restarts the agent.
 - `forgekeeper/git_committer.py` commits staged changes and runs lint/test checks before pushing.
-- `forgekeeper/self_review.py` reviews recent commits and logs check results for the active task.
+- `forgekeeper/self_review/` reviews recent commits and logs check results for the active task.
 
 ### Phase 2: Semi-Autonomous Execution (Complete)
 
@@ -52,7 +52,7 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
-- [x] Diff-aware self-review with task-scoped tests in `self_review.py`
+- [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `high_level_goal_manager.py`
 
 ---
@@ -413,3 +413,66 @@ Recent commits: refactor task queue into modular tasks package, chore: update ro
 - Committed changes on work: chore: update roadmap
 - Push failed: Remote named 'origin' didn't exist
 - Recent commits: chore: update roadmap, chore: update roadmap, Merge pull request #238 from gatewaybuddy/codex/move-pipeline-steps-to-new-package; Recent memory: Push failed: Remote named 'origin' didn't exist, Recent commits: Merge pull request #238 from gatewaybuddy/codex/move-pipeline-steps-to-new-package, refactor: modularize pipeline steps, Merge pull request #237 from gatewaybuddy/codex/update-setup_dev_env.ps1-for-npm-tasks, Committed changes on work: chore: update roadmap
+
+## Update 2025-08-24 04:40 UTC
+### Summary
+Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+
+### Recent Commits
+- Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules
+- Merge branch 'main' into codex/create-parser-and-memory-weighting-modules
+- Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+- Merge branch 'main' into codex/refactor-memory-module-structure
+- refactor memory modules
+
+## Update 2025-08-24 04:41 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+
+### Recent Commits
+- chore: update roadmap
+- Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules
+- Merge branch 'main' into codex/create-parser-and-memory-weighting-modules
+- Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+- Merge branch 'main' into codex/refactor-memory-module-structure
+
+### Recent Memory
+- Committed changes on work: chore: update roadmap
+- Push failed: Remote named 'origin' didn't exist
+- Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+
+## Update 2025-08-24 04:42 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules
+- Merge branch 'main' into codex/create-parser-and-memory-weighting-modules
+- Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+
+### Recent Memory
+- Committed changes on work: chore: update roadmap
+- Push failed: Remote named 'origin' didn't exist
+- Recent commits: chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+- Attempt 1 for task 'Persist me (P1)' did not complete the pipeline.
+- Attempt 1 for task 'Persist me (P1)' did not complete the pipeline.
+
+## Update 2025-08-24 04:42 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: Attempt 1 for task 'Persist me (P1)' did not complete the pipeline., Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- chore: update roadmap
+- Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules
+- Merge branch 'main' into codex/create-parser-and-memory-weighting-modules
+
+### Recent Memory
+- Attempt 1 for task 'Persist me (P1)' did not complete the pipeline.
+- Committed changes on work: chore: update roadmap
+- Push failed: Remote named 'origin' didn't exist
+- Recent commits: chore: update roadmap, chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: chore: update roadmap, Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules; Recent memory: Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist, Recent commits: Merge pull request #242 from gatewaybuddy/codex/create-parser-and-memory-weighting-modules, Merge branch 'main' into codex/create-parser-and-memory-weighting-modules, Merge pull request #243 from gatewaybuddy/codex/refactor-memory-module-structure
+- Attempt 1 for task 'Persist me (P1)' did not complete the pipeline.

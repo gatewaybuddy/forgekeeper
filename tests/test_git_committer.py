@@ -27,7 +27,9 @@ def init_repo(tmp_path: Path, monkeypatch, checks_py: str, checks_ts: str):
     for name in ["__init__.py", "episodic.py", "embeddings.py"]:
         shutil.copy(ROOT / "forgekeeper" / "memory" / name, mem_dir / name)
     # minimal self_review stub
-    (pkg_dir / "self_review.py").write_text(
+    sr_pkg = pkg_dir / "self_review"
+    sr_pkg.mkdir()
+    (sr_pkg / "__init__.py").write_text(
         "import subprocess\n"
         "def review_staged_changes(task_id):\n"
         "    result = subprocess.run(['git','diff','--name-only','--cached'], capture_output=True, text=True, check=True)\n"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-from forgekeeper.memory.embeddings import (
+from forgekeeper.memory import (
     LocalEmbedder,
     load_episodic_memory,
     retrieve_similar_tasks,

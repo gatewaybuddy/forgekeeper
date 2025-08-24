@@ -46,7 +46,7 @@ def cmd_add(queue: TaskQueue, args: argparse.Namespace) -> None:
     required.  Optional metadata may be supplied via command-line flags.
     """
 
-    from forgekeeper.task_pipeline import sanitize_and_insert_tasks
+    from forgekeeper.tasks.inserter import sanitize_and_insert_tasks
 
     labels = [l.strip() for l in (args.labels or "").split(",") if l.strip()]
     task = {

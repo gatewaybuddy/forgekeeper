@@ -12,61 +12,44 @@ your `PATH` before running the PowerShell examples.
 
 ## Environment file
 
-Create or update the `.env` configuration used by the run scripts.
-
-Run the helper to install dependencies and copy `.env.example` to `.env`.
-The script asks where models should be stored and can run in a simple or
-custom mode for optional component selection:
+Run the installer to create or update the `.env` configuration and choose how
+Forgekeeper runs:
 
 ```bash
-./scripts/setup_env.sh
+./scripts/install.sh
 ```
 
-PowerShell users can run the equivalent script:
+PowerShell users can invoke the equivalent script:
 
 ```powershell
-pwsh scripts/setup_env.ps1
+pwsh scripts/install.ps1
 ```
 
-Alternatively, run the Docker setup script for interactive prompts. It gathers values and writes `.env` automatically:
+The installer prompts for three items:
 
-```bash
-./scripts/setup_docker_env.sh
-```
+1. **Setup type** – local single‑user or multi‑agent distributed (Docker)
+2. **Model storage directory** – defaults to `./models`
+3. **Dependency install** – whether to install Node/Python dependencies and
+   launch services
 
-PowerShell:
+You can rerun the installer at any time to switch between local and
+multi‑agent modes or change the model directory.
 
-```powershell
-pwsh scripts/setup_docker_env.ps1
-```
-
-## Docker environment
-
-Use the interactive helper to gather values, write `.env`, and start the Docker services:
-
-```bash
-./scripts/setup_docker_env.sh
-```
-
-From PowerShell:
-
-```powershell
-pwsh scripts/setup_docker_env.ps1
-```
+*Advanced*: Direct `setup_env*` or `setup_docker_env*` scripts remain available
+for manual configuration.
 
 ## Installation
 
-Run the helper script to install Python and Node dependencies for local development:
+The installer above also handles dependency installation and service startup
+based on the selected mode. Rerun it to switch between local and
+multi‑agent setups.
 
-```bash
-./scripts/setup_dev_env.sh
-```
+*Advanced*: To run individual setup scripts directly, use:
 
-From PowerShell:
-
-```powershell
-pwsh scripts/setup_dev_env.ps1
-```
+- `scripts/setup_dev_env.sh` / `scripts/setup_dev_env.ps1` for local
+  development
+- `scripts/setup_docker_env.sh` / `scripts/setup_docker_env.ps1` for the
+  Docker‑based stack
 
 Alternatively, follow the manual steps below.
 
@@ -329,7 +312,7 @@ the most recent commit and logs the undo to episodic memory.
 `git_committer.py` provides `commit_and_push_changes`, which runs language-
 specific checks defined in `CHECKS_PY` and `CHECKS_TS` on staged files, storing
 results under `logs/<task_id>/commit-checks.json`. After committing, run
-`self_review.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
+`self_review/checks.py`'s `review_change_set(task_id)` to apply pytest hooks and LLM
 reasoning on the latest commit, verify the commit message references the active
 task, and save a summary to `logs/<task_id>/self-review.json`.
 

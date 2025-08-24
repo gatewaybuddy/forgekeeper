@@ -18,12 +18,12 @@ def setup_repo(tmp_path, monkeypatch):
         "__init__.py",
         "config.py",
         "logger.py",
-        "self_review.py",
         "state_manager.py",
         "git_committer.py",
         "user_interface.py",
     ]:
         shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
+    shutil.copytree(ROOT / "forgekeeper" / "self_review", pkg_dir / "self_review")
     tools_dir = repo_dir / "tools"
     tools_dir.mkdir()
     (tools_dir / "smoke_backend.py").write_text("import sys; sys.exit(0)\n", encoding="utf-8")

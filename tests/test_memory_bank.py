@@ -98,7 +98,7 @@ def test_add_update_list_delete(monkeypatch):
     assert entry_id not in store.store
 
 def test_evaluate_relevance_scores():
-    from forgekeeper.app.chats.memory_bank import evaluate_relevance
+    from forgekeeper.app.memory.relevance import evaluate_relevance
     now = datetime(2024, 1, 1)
 
     recent_goal = {
