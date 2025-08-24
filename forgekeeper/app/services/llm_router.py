@@ -10,7 +10,7 @@ log.debug("Backend from env: %s", os.getenv("LLM_BACKEND"))
 # === Backend Setup ===
 if BACKEND == "openai":
     # Use OpenAI‑compatible Harmony backend for both core and coder
-    from forgekeeper.app.services.llm_service_openai_harmony import ask_llm as backend_ask
+    from forgekeeper.app.services.harmony.service import ask_llm as backend_ask
 
     SYSTEM_MESSAGE = os.getenv("OPENAI_SYSTEM_PROMPT", "")
     REASONING = os.getenv("OPENAI_REASONING_EFFORT")
