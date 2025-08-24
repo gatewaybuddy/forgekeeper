@@ -106,7 +106,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/diff_validator.py`: Cross-file diff validation  
 - `forgekeeper/dual_llm_agent.py`: Dual-LLM agent initialization  
 - `forgekeeper/file_analyzer.py`: Source file analysis helpers  
-- `forgekeeper/file_summarizer.py`: AST-based summarizer  
+- `forgekeeper/summarizer/`: Repository and source file summarization utilities
 - `forgekeeper/forgekeeper_safe_update.py`: Safe update placeholder (do not edit)  
 - `forgekeeper/functions/__pycache__/describe_function.cpython-310.pyc`: Python bytecode  
 - `forgekeeper/functions/__pycache__/describe_function.cpython-313.pyc`: Python bytecode  

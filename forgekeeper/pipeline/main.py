@@ -6,7 +6,7 @@ import json
 
 from forgekeeper.tasks.queue import TaskQueue
 from forgekeeper import goal_manager
-from forgekeeper.file_summarizer import summarize_repository
+from forgekeeper.summarizer import summarize_repository
 from forgekeeper.file_analyzer import analyze_repo_for_task
 from forgekeeper.code_editor import generate_code_edit, apply_unified_diff
 from forgekeeper.change_stager import diff_and_stage_changes
