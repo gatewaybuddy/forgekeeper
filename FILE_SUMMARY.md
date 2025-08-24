@@ -133,7 +133,9 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/llm/__init__.py`: LLM utilities package marker  
 - `forgekeeper/llm/benchmark.py`: LLM benchmarking helpers  
 - `forgekeeper/llm/clients/__init__.py`: LLM client utilities package marker  
-- `forgekeeper/llm/clients/openai_compat_client.py`: OpenAI-compatible HTTP client  
+- `forgekeeper/llm/clients/client.py`: OpenAI-compatible HTTP client
+- `forgekeeper/llm/clients/config.py`: Base URL resolution helpers
+- `forgekeeper/llm/clients/stream.py`: SSE streaming utilities
 - `forgekeeper/llm/llama_cpp_impl.py`: llama.cpp integration  
 - `forgekeeper/llm/llm_service_vllm.py`: vLLM wrapper for core and coder agents  
 - `forgekeeper/llm/provider.py`: Abstract LLM provider API  
