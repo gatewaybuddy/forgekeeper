@@ -9,6 +9,8 @@
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
+Sprint plans are generated from active goals and the tasks in this file using `forgekeeper/sprint_planner.py`. The resulting `SprintPlan.md` is reviewed alongside periodic roadmap commits.
+
 ---
 
 ## 🛠️ Active Tasks
