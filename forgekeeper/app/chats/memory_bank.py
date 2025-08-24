@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from forgekeeper.app.memory import bank as store_bank
+from forgekeeper.app.memory import collection as store_collection
+from forgekeeper.app.memory import serialize as store_serialize
 from forgekeeper.app.memory.relevance import evaluate_relevance
 
 
@@ -22,7 +23,7 @@ class MemoryBank:
         tags: Optional[List[str]] = None,
     ) -> str:
         timestamp = datetime.now(timezone.utc).isoformat()
-        return store_bank.add_entry(
+        return store_collection.add_entry(
             self.project_id,
             content,
             session_id=session_id,
@@ -32,11 +33,11 @@ class MemoryBank:
         )
 
     def update_entry(self, entry_id: str, new_content: str) -> None:
-        store_bank.update_entry(self.project_id, entry_id, new_content)
+        store_collection.update_entry(self.project_id, entry_id, new_content)
 
     def touch_entry(self, entry_id: str) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
-        store_bank.touch_entry(self.project_id, entry_id, timestamp=timestamp)
+        store_collection.touch_entry(self.project_id, entry_id, timestamp=timestamp)
 
     def delete_entries(
         self,
@@ -44,16 +45,16 @@ class MemoryBank:
         *,
         filters: Optional[Dict[str, str]] = None,
     ) -> None:
-        store_bank.delete_entries(self.project_id, ids=ids, filters=filters)
+        store_collection.delete_entries(self.project_id, ids=ids, filters=filters)
 
     def list_entries(self, filters: Optional[Dict[str, str]] = None) -> List[Dict]:
-        return store_bank.list_entries(self.project_id, filters)
+        return store_collection.list_entries(self.project_id, filters)
 
     def save(self, filepath: str) -> None:
-        store_bank.save(self.project_id, filepath)
+        store_serialize.save(self.project_id, filepath)
 
     def load(self, filepath: str) -> None:
-        store_bank.load(self.project_id, filepath)
+        store_serialize.load(self.project_id, filepath)
 
 
 __all__ = ["MemoryBank", "evaluate_relevance", "datetime", "timezone"]
