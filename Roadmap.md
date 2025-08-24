@@ -54,6 +54,7 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 - [x] Multi-file edit support in `task_pipeline.py`
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `high_level_goal_manager.py`
+- [x] Consolidated conversation handling behind GraphQL service
 
 ---
 

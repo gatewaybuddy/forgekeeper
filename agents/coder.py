@@ -1,10 +1,16 @@
 from forgekeeper.app.chats.memory import save_message
+from forgekeeper.app.services.graphql_client import send_message
 from forgekeeper.agent.tool_utils import build_tool_specs, execute_tool_call
 from forgekeeper.llm.clients import openai_compat_client
 
 
 def ask_coder(prompt, session_id):
     """Send ``prompt`` to the coder model and handle tool calls."""
+    send_message(
+        "forgekeeper/task",
+        {"conversationId": session_id, "role": "user", "content": prompt},
+        project_id=session_id,
+    )
     save_message(session_id, "user", prompt, project_id=session_id)
     messages = [{"role": "user", "content": prompt}]
     tools = build_tool_specs()
@@ -24,5 +30,10 @@ def ask_coder(prompt, session_id):
         message = openai_compat_client.chat("coder", messages)
 
     content = message.get("content", "")
+    send_message(
+        "forgekeeper/task",
+        {"conversationId": session_id, "role": "assistant", "content": content},
+        project_id=session_id,
+    )
     save_message(session_id, "assistant", content, project_id=session_id)
     return content

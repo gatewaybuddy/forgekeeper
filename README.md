@@ -1,6 +1,7 @@
 # Forgekeeper
 
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
+All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
 
 ## PowerShell 7

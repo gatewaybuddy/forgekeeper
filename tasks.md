@@ -31,6 +31,7 @@ This file tracks current, pending, and completed tasks for Forgekeeper developme
 ## ✅ Completed
 
 - [x] Improve multi-agent planning and delegation across tasks
+- [x] Replace file-based conversation helpers with GraphQL service
 - [x] Pin Python and Node dependencies for reproducible installs
 - [x] Provide cross-platform setup script to automate environment creation
 - [x] Complete tasks independently with user review
