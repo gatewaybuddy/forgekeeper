@@ -1,7 +1,7 @@
 import os, re, subprocess, sys, textwrap
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from tools.roadmap_sync import parse_tasks_md  # reuse
+from forgekeeper.tasks.parser import parse_tasks_md
 
 PRIORITY_PAT = re.compile(r"\((P\d)\)")
 
