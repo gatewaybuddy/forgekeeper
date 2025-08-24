@@ -38,7 +38,11 @@ if ! $USE_DEFAULTS; then
 else
   cp "$ROOT_DIR/.env.example" "$ENV_FILE"
   if [[ -n "${MODEL_DIR:-}" ]]; then
-    sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$MODEL_DIR|" "$ENV_FILE"
+    if grep -q '^MODEL_DIR=' "$ENV_FILE"; then
+      sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$MODEL_DIR|" "$ENV_FILE"
+    else
+      echo "MODEL_DIR=$MODEL_DIR" >> "$ENV_FILE"
+    fi
   fi
   set -a
   . "$ENV_FILE"
@@ -120,6 +124,9 @@ VLLM_TP=$VLLM_TP
 VLLM_MAX_MODEL_LEN=$VLLM_MAX_MODEL_LEN
 VLLM_GPU_MEMORY_UTILIZATION=$VLLM_GPU_MEMORY_UTILIZATION
 EOF2
+  if [[ -n "${MODEL_DIR:-}" ]]; then
+    echo "MODEL_DIR=$MODEL_DIR" >> "$ENV_FILE"
+  fi
 fi
 
 # --- ensure shared network ---
