@@ -45,9 +45,26 @@ def register_agent(name: str, keywords: set[str], protocol: str = "broadcast") -
     }
 
 
-# Register the built-in agents.
-register_agent("coder", {"code", "bug", "implement", "fix", "refactor"}, protocol="broadcast")
+# Register the built-in agents.  Besides the traditional ``core`` and
+# ``coder`` agents we also expose a ``researcher`` for information gathering
+# and a ``reviewer`` for result validation.  Additional agents may be
+# registered at runtime using :func:`register_agent`.
+register_agent(
+    "coder",
+    {"code", "bug", "implement", "fix", "refactor"},
+    protocol="broadcast",
+)
 register_agent("core", set(), protocol="broadcast")
+register_agent(
+    "researcher",
+    {"research", "investigate", "study", "analyze"},
+    protocol="direct",
+)
+register_agent(
+    "reviewer",
+    {"review", "evaluate", "test", "assess"},
+    protocol="broadcast",
+)
 
 
 def split_for_agents(task: str) -> List[Dict[str, object]]:
@@ -70,11 +87,13 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
     """
 
     context_log = get_shared_context()
+    available_agents = list(_AGENT_REGISTRY.keys())
     parts = [p.strip() for p in task.replace("\n", " ").split(" and ") if p.strip()]
     subtasks: List[Dict[str, object]] = []
     for part in parts:
         agent, protocol = _choose_agent(part)
         broadcast_context("planner", f"{agent}: {part}")
+
         memory_context = query_similar_tasks(part)
         subtasks.append(
             {
@@ -83,6 +102,7 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
                 "protocol": protocol,
                 "context": context_log,
                 "memory_context": memory_context,
+                "available_agents": available_agents
             }
         )
     if not subtasks:
@@ -90,13 +110,15 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
         text = task.strip()
         broadcast_context("planner", f"{agent}: {text}")
         memory_context = query_similar_tasks(text)
+
         subtasks.append(
             {
                 "agent": agent,
                 "task": text,
                 "protocol": protocol,
-                "context": context_log,
-                "memory_context": memory_context,
+                "context": context
+                "memory_context": memory_context
+                "available_agents": available_agents
             }
         )
     return subtasks

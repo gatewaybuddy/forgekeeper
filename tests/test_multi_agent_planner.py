@@ -44,7 +44,7 @@ def test_subtask_distribution_across_agents():
     assert tasks[1]["agent"] == "coder"
     assert tasks[1]["task"] == "implement the algorithm"
     assert tasks[1]["protocol"] == "broadcast"
-    assert tasks[2]["agent"] == "core"
+    assert tasks[2]["agent"] == "reviewer"
     assert tasks[2]["task"] == "review results"
     assert tasks[2]["protocol"] == "broadcast"
 
@@ -74,7 +74,6 @@ def test_goal_manager_routes_and_handoffs_between_agents():
     msgs_coder = get_direct_messages("coder")
     assert msgs_coder == [{"from": "researcher", "message": "handoff complete: research data"}]
     assert get_shared_context()[-1] == {"agent": "coder", "message": "fix code"}
-
 
 def test_planner_includes_memory_context(monkeypatch):
     tasks = split_for_agents("alpha and beta")
