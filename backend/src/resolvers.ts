@@ -23,11 +23,11 @@ const resolvers = {
     listFolders: async (_: any, __: any, { prisma }: Context) => {
       const folders = await crud.findMany(prisma, 'folder');
       const map: Record<string, any> = {};
-      folders.forEach(f => {
+      folders.forEach((f: any) => {
         map[f.name] = { name: f.name, children: [] };
       });
       const roots: any[] = [];
-      folders.forEach(f => {
+      folders.forEach((f: any) => {
         const node = map[f.name];
         if (f.parent) {
           map[f.parent]?.children.push(node);
@@ -139,6 +139,22 @@ const resolvers = {
     renameFolder: async (_: any, { oldName, newName }: any, { prisma }: Context) => {
       await crud.update(prisma, 'folder', { where: { name: oldName }, data: { name: newName } as any });
       await crud.updateMany(prisma, 'folder', { where: { parent: oldName }, data: { parent: newName } });
+      return true;
+    },
+
+    appendMessage: async (
+      _: any,
+      { conversationId, role, content }: any,
+      { prisma }: Context,
+    ) => {
+      await crud.create(prisma, 'message', {
+        id: uuidv4(),
+        role,
+        content,
+        timestamp: new Date().toISOString(),
+        tokens: countTokensStub(content),
+        conversationId,
+      });
       return true;
     },
 

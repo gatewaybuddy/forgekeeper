@@ -238,3 +238,14 @@ Recent commits: Merge pull request #302 from gatewaybuddy/codex/create-reusable-
 - Merge pull request #301 from gatewaybuddy/codex/mark-completed-milestones-and-remove-duplicates
 - docs: add roadmap update entry
 - Merge pull request #300 from gatewaybuddy/codex/remove-personal-system-information-file
+
+## Update 2025-08-24 07:55 UTC
+### Summary
+Recent commits: Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304), Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+
+### Recent Commits
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+- refactor: drop deprecated goal manager alias
