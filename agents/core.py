@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import (
+from forgekeeper.app.chats.memory import (
     save_message,
     summarize_thoughts,
     get_memory,

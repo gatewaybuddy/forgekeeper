@@ -1,6 +1,6 @@
 
 import uuid
-from forgekeeper.app.chats.memory_store import save_message, load_memory
+from forgekeeper.app.chats.memory import save_message, load_memory
 from forgekeeper.app.self.proposal_engine import propose_code_change
 from forgekeeper.app.interpreter.prompt_mapper import interpret_prompt
 from forgekeeper.llm.clients import openai_compat_client

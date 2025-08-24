@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import load_memory
+from forgekeeper.app.chats.memory import load_memory
 
 def summarize_conversation(session_id: str) -> str:
     memory = load_memory(session_id)

@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import get_memory
+from forgekeeper.app.chats.memory import get_memory
 
 def build_system_prompt(session_id: str) -> str:
     memory = get_memory(session_id)

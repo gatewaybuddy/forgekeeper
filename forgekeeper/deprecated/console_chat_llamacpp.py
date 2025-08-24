@@ -4,10 +4,13 @@ from pathlib import Path
 from llama_cpp import Llama
 from dotenv import load_dotenv
 
-from forgekeeper.app.chats.memory_store import (
-    get_memory, save_message,
-    set_think_aloud, grant_think_aloud_consent,
-    summarize_thoughts, request_think_aloud
+from forgekeeper.app.chats.memory import (
+    get_memory,
+    save_message,
+    set_think_aloud,
+    grant_think_aloud_consent,
+    summarize_thoughts,
+    request_think_aloud,
 )
 
 from forgekeeper.functions.list_functions import list_functions

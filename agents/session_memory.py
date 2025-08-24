@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory_store import get_memory, set_memory
+from forgekeeper.app.chats.memory import get_memory, set_memory
 
 
 def add_goal(session_id: str, goal: str) -> None:

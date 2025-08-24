@@ -1,6 +1,6 @@
 # forgekeeper/app/chat_session.py
 
-from forgekeeper.app.chats.memory_store import load_memory, save_message
+from forgekeeper.app.chats.memory import load_memory, save_message, reset_memory
 from forgekeeper.app.services.llm_service import ask_llm
 
 class ChatSession:
@@ -25,6 +25,5 @@ class ChatSession:
         return response
 
     def clear(self):
-        from forgekeeper.app.chats.memory_store import clear_memory
-        clear_memory(self.session_id)
+        reset_memory(self.session_id)
         self.history = []

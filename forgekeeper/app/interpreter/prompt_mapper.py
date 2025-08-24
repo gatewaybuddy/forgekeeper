@@ -1,8 +1,10 @@
 import os
-from forgekeeper.app.chats.memory_store import (
-    set_think_aloud, grant_think_aloud_consent,
-    summarize_thoughts, request_think_aloud,
-    get_memory
+from forgekeeper.app.chats.memory import (
+    set_think_aloud,
+    grant_think_aloud_consent,
+    summarize_thoughts,
+    request_think_aloud,
+    get_memory,
 )
 from forgekeeper.app.utils.prompt_guard import verify_prompt
 
