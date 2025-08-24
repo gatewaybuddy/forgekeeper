@@ -1,6 +1,7 @@
 # Forgekeeper
 
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
+All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
 
 ## PowerShell 7
@@ -252,9 +253,9 @@ These are the commands run as part of the automated commit checks (`CHECKS_PY` a
 `forgekeeper/memory/episodic.py` records short reflections about each task
 attempt in `.forgekeeper/memory/episodic.jsonl`. Entries are appended via
 `append_entry`, which stores the task ID, outcome, changed files, a free-form
-summary, sentiment, and any artifact paths for later review. The CLI helper
-`python -m forgekeeper.memory.episodic --browse N` pretty-prints the last `N`
-reflections (use `--review` for raw JSON) so developers can audit recent
+summary, sentiment, emotion, and any artifact paths for later review. The CLI
+helper `python -m forgekeeper.memory.episodic --browse N` pretty-prints the last
+`N` reflections (use `--review` for raw JSON) so developers can audit recent
 activity. `TaskQueue` loads these entries and derives a *memory weight* where
 failures push tasks back and successes bring them forward in priority.
 
@@ -302,8 +303,9 @@ python -m forgekeeper.commands done 0   # mark task 0 completed
 For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
 priority item, runs analysis and code edits, stages multiple files, and commits
 the result end-to-end without manual intervention. The high-level goal manager
-can automatically split complex tasks into subtasks for this pipeline. If a
-generated change needs to be rolled back, `TaskPipeline.undo_last_task` reverts
+can automatically split complex tasks into subtasks for this pipeline.
+The underlying goal storage and utilities now live in the standalone `goal_manager` package (`import goal_manager`) for easy reuse across modules.
+If a generated change needs to be rolled back, `TaskPipeline.undo_last_task` reverts
 the most recent commit and logs the undo to episodic memory.
 
 ## Self-review & commit-check workflow

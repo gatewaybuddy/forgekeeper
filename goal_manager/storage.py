@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .state_manager import load_state
-from .memory.embedding import load_episodic_memory, similar_task_summaries
+from forgekeeper.state_manager import load_state
+from forgekeeper.memory.embedding import load_episodic_memory, similar_task_summaries
 
 GOALS_FILE = Path("forgekeeper/goals.json")
 GOAL_LOG_FILE = Path("forgekeeper/goals.log")
@@ -166,3 +166,4 @@ def log_goal_progress(goal_id: str, note: str) -> None:
     with open(GOAL_LOG_FILE, "a", encoding="utf-8") as f:
         json.dump(entry, f)
         f.write("\n")
+
