@@ -302,8 +302,9 @@ python -m forgekeeper.commands done 0   # mark task 0 completed
 For a fully automated workflow, `TaskPipeline.run_next_task` pulls the highest
 priority item, runs analysis and code edits, stages multiple files, and commits
 the result end-to-end without manual intervention. The high-level goal manager
-can automatically split complex tasks into subtasks for this pipeline. If a
-generated change needs to be rolled back, `TaskPipeline.undo_last_task` reverts
+can automatically split complex tasks into subtasks for this pipeline.
+The underlying goal storage and utilities now live in the standalone `goal_manager` package (`import goal_manager`) for easy reuse across modules.
+If a generated change needs to be rolled back, `TaskPipeline.undo_last_task` reverts
 the most recent commit and logs the undo to episodic memory.
 
 ## Self-review & commit-check workflow

@@ -21,7 +21,7 @@ try:  # pragma: no cover
 except Exception:  # pragma: no cover
     def start_periodic_commits(*args, **kwargs):  # type: ignore
         return None
-from forgekeeper import goal_manager
+from . import storage as goal_manager
 
 from .planner import Subtask, _build_subtask_graph
 from .delegator import _dispatch_subtasks
