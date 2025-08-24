@@ -9,7 +9,7 @@ from forgekeeper.config import DEBUG_MODE
 from forgekeeper.git_committer import commit_and_push_changes
 from forgekeeper.logger import get_logger
 from forgekeeper.memory.episodic import append_entry
-from forgekeeper.task_pipeline import TaskPipeline
+from forgekeeper.pipeline import TaskPipeline
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 

@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import forgekeeper.task_pipeline as tp
+import forgekeeper.pipeline.main as tp
 
 
 def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
@@ -85,7 +85,7 @@ def test_run_next_task_executes_chain(tmp_path, monkeypatch):
             )
 
     monkeypatch.setattr(tp, "generate_code_edit", fake_generate)
-    monkeypatch.setattr(tp, "commit_and_push_changes", lambda *a, **k: {"passed": True})
+    monkeypatch.setattr(tp, "commit_with_log", lambda *a, **k: {"passed": True})
 
     staged: list[str] = []
 
