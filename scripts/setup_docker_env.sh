@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Path to the repository's root-level .env file
 ENV_FILE="$ROOT_DIR/.env"
-MODELS_DIR="$ROOT_DIR/forgekeeper/models"
+MODELS_DIR="${MODEL_DIR:-$ROOT_DIR/forgekeeper/models}"
 mkdir -p "$MODELS_DIR"
 mapfile -t MODELS < <(find "$MODELS_DIR" -maxdepth 1 -type f -printf "%f\n")
 NET_NAME="forgekeeper-net"
