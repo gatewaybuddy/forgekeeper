@@ -27,7 +27,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 - [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [ ] M-033: Optional remote push with changelog and justification (P3)
-- [ ] FK-303: Unify goal manager components (P1)
+- [x] FK-303: Unify goal manager components (P1)
 
 
 - [x] Expose task insertion utility via CLI for manual task creation
@@ -42,6 +42,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## ✅ Completed
 
+- [x] FK-303: Unify goal manager components (P1)
 - [x] FK-302: Consolidate CRUD operations into shared module (P2)
 - [x] M-031: Emotion tagging for memory reflections
 - [x] M-032: Self-generated roadmap and sprint plans
@@ -151,7 +152,7 @@ Unify scattered create/read/update/delete logic under a single interface to redu
 ---
 id: FK-303
 title: Unify goal manager components (P1)
-status: todo
+status: done
 epic: R-003
 owner: agent
 labels: [planner, architecture]
@@ -159,9 +160,9 @@ labels: [planner, architecture]
 Merge fragmented goal-management logic into a single orchestrator for consistent task routing.
 
 **AC**
-- [ ] Legacy managers deprecated
-- [ ] Unified manager handles subtask expansion and agent delegation
-- [ ] Migration tests ensure parity with previous behavior
+- [x] Legacy managers deprecated
+- [x] Unified manager handles subtask expansion and agent delegation
+- [x] Migration tests ensure parity with previous behavior
 
 ---
 id: FK-304
