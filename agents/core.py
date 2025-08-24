@@ -8,7 +8,7 @@ from forgekeeper.app.services.graphql_client import send_message
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
 from forgekeeper.agent.tool_utils import build_tool_specs, execute_tool_call
-from forgekeeper.llm.clients import openai_compat_client
+from forgekeeper.llm.clients import client
 from forgekeeper.app.utils.json_helpers import extract_json
 
 
@@ -31,7 +31,7 @@ def ask_core(prompt, session_id):
     )
     messages = [{"role": "user", "content": full_prompt}]
     tools = build_tool_specs()
-    message = openai_compat_client.chat("core", messages, tools=tools)
+    message = client.chat("core", messages, tools=tools)
     tool_calls = message.get("tool_calls") or []
     if tool_calls:
         messages.append(message)
@@ -44,7 +44,7 @@ def ask_core(prompt, session_id):
                     "content": result,
                 }
             )
-        message = openai_compat_client.chat("core", messages)
+        message = client.chat("core", messages)
 
     content = message.get("content", "")
     send_message(

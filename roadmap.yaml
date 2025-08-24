@@ -44,7 +44,7 @@ epics:
         description: Execute tasks derived from high-level goals without manual triggers
       - id: M-031
         title: Emotion tagging for memory
-        status: todo
+        status: done
       - id: M-032
         title: Sprint and roadmap generation
         status: todo

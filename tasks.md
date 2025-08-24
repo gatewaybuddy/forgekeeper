@@ -24,10 +24,18 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ## ⏳ Backlog
 
 
+
 - [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [ ] M-031: Emotion tagging for memory reflections (P2)
 - [ ] M-032: Self-generated roadmap and sprint plans (P2)
 - [ ] M-033: Optional remote push with changelog and justification (P3)
+- [x] FK-301: Implement emotion tagging for memory reflections (P1)
+- [ ] FK-302: Consolidate CRUD operations into shared module (P2)
+- [ ] FK-303: Unify goal manager components (P1)
+- [ ] FK-304: Generate sprints and roadmap automatically (P3)
+- [ ] FK-305: Autonomous task execution from high-level goals (P1)
+- [ ] FK-306: Optional remote push with changelog and justification (P3)
+
 
 - [x] Expose task insertion utility via CLI for manual task creation
 - [x] FK-201: Transactional outbox for resolvers (P1)
@@ -117,7 +125,7 @@ Make `smoke_backend.py` detect missing `backend/`, `npm`, or `node` and exit gra
 ---
 id: FK-301
 title: Implement emotion tagging for memory reflections (P1)
-status: todo
+status: done
 epic: R-002
 owner: agent
 labels: [memory, analysis]
@@ -125,9 +133,9 @@ labels: [memory, analysis]
 Enable emotion tagging in the memory reflection pipeline so logs record emotional context.
 
 **AC**
-- [ ] Emotional labels attach to new memory entries
-- [ ] Stored emotions persist across sessions
-- [ ] Unit tests cover positive, negative, and neutral cases
+- [x] Emotional labels attach to new memory entries
+- [x] Stored emotions persist across sessions
+- [x] Unit tests cover positive, negative, and neutral cases
 
 ---
 id: FK-302
@@ -175,7 +183,9 @@ Create an automated process that builds sprint plans and roadmap updates from th
 - [ ] Documentation explains usage
 
 ---
+
 id: M-030
+
 title: Autonomous task execution from high-level goals (P1)
 status: todo
 epic: R-003
@@ -191,10 +201,12 @@ Allow Forgekeeper to autonomously expand high-level goals into actionable tasks 
 
 ---
 id: M-033
+
 title: Optional remote push with changelog and justification (P3)
 status: todo
 epic: R-003
 owner: agent
+
 labels: [git, automation]
 ---
 When permitted, push commits to a remote repository with a generated changelog and rationale.
