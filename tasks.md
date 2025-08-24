@@ -27,7 +27,6 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 - [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [ ] M-033: Optional remote push with changelog and justification (P3)
-- [ ] FK-302: Consolidate CRUD operations into shared module (P2)
 - [ ] FK-303: Unify goal manager components (P1)
 
 
@@ -43,6 +42,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## ✅ Completed
 
+- [x] FK-302: Consolidate CRUD operations into shared module (P2)
 - [x] M-031: Emotion tagging for memory reflections
 - [x] M-032: Self-generated roadmap and sprint plans
 - [x] Improve multi-agent planning and delegation across tasks
@@ -136,7 +136,7 @@ Enable emotion tagging in the memory reflection pipeline so logs record emotiona
 ---
 id: FK-302
 title: Consolidate CRUD operations into shared module (P2)
-status: todo
+status: done
 epic: R-003
 owner: agent
 labels: [backend, refactor]
@@ -144,9 +144,9 @@ labels: [backend, refactor]
 Unify scattered create/read/update/delete logic under a single interface to reduce duplication.
 
 **AC**
-- [ ] Existing modules delegate CRUD to shared utility
-- [ ] Duplicate functions removed
-- [ ] Tests updated for new interface
+- [x] Existing modules delegate CRUD to shared utility
+- [x] Duplicate functions removed
+- [x] Tests updated for new interface
 
 ---
 id: FK-303
