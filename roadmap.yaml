@@ -47,9 +47,10 @@ epics:
         status: done
       - id: M-032
         title: Sprint and roadmap generation
-        status: todo
+        status: done
       - id: M-033
         title: Optional remote push with justification
         status: todo
         description: Push commits to a remote repository with a changelog and reasoning
 
+# Updated 2025-08-24

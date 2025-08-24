@@ -26,15 +26,9 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 - [ ] M-030: Autonomous task execution from high-level goals (P1)
-- [ ] M-031: Emotion tagging for memory reflections (P2)
-- [ ] M-032: Self-generated roadmap and sprint plans (P2)
 - [ ] M-033: Optional remote push with changelog and justification (P3)
-- [x] FK-301: Implement emotion tagging for memory reflections (P1)
 - [ ] FK-302: Consolidate CRUD operations into shared module (P2)
 - [ ] FK-303: Unify goal manager components (P1)
-- [ ] FK-304: Generate sprints and roadmap automatically (P3)
-- [ ] FK-305: Autonomous task execution from high-level goals (P1)
-- [ ] FK-306: Optional remote push with changelog and justification (P3)
 
 
 - [x] Expose task insertion utility via CLI for manual task creation
@@ -49,6 +43,8 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## ✅ Completed
 
+- [x] M-031: Emotion tagging for memory reflections
+- [x] M-032: Self-generated roadmap and sprint plans
 - [x] Improve multi-agent planning and delegation across tasks
 - [x] Replace file-based conversation helpers with GraphQL service
 - [x] Pin Python and Node dependencies for reproducible installs
@@ -170,7 +166,7 @@ Merge fragmented goal-management logic into a single orchestrator for consistent
 ---
 id: FK-304
 title: Generate sprints and roadmap automatically (P3)
-status: todo
+status: done
 epic: R-004
 owner: agent
 labels: [planning, automation]
