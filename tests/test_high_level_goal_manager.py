@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 def test_autonomous_manager_triggers_pipeline(tmp_path, monkeypatch):
-    import forgekeeper.high_level_goal_manager as hgm
+    import goal_manager.manager as hgm
 
     class DummyTask:
         description = "demo"
@@ -32,7 +32,7 @@ def test_autonomous_manager_triggers_pipeline(tmp_path, monkeypatch):
 
 
 def test_manager_no_autonomy(tmp_path, monkeypatch):
-    import forgekeeper.high_level_goal_manager as hgm
+    import goal_manager.manager as hgm
 
     class DummyPipeline:
         def next_task(self):
@@ -46,7 +46,7 @@ def test_manager_no_autonomy(tmp_path, monkeypatch):
 
 
 def test_complex_goal_breakdown(tmp_path, monkeypatch):
-    import forgekeeper.high_level_goal_manager as hgm
+    import goal_manager.manager as hgm
 
     class DummyTask:
         description = "write unit tests and update docs"
@@ -81,7 +81,8 @@ def test_complex_goal_breakdown(tmp_path, monkeypatch):
 
 
 def test_label_based_agent_selection(tmp_path, monkeypatch):
-    import forgekeeper.high_level_goal_manager as hgm
+    import goal_manager.manager as hgm
+    import goal_manager.delegator as delegator
 
     messages = []
 
@@ -90,7 +91,11 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
             return {"title": "write docs", "labels": ["agent:coder"]}
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
-    monkeypatch.setattr(hgm, "split_for_agents", lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}])
+    monkeypatch.setattr(
+        delegator,
+        "split_for_agents",
+        lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}],
+    )
     monkeypatch.setattr(hgm.pipeline_main, "main", lambda: None)
     monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
@@ -98,8 +103,8 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
     def fake_bc(agent, message):
         messages.append((agent, message))
 
-    monkeypatch.setattr(hgm, "broadcast_context", fake_bc)
-    monkeypatch.setattr(hgm, "send_direct_message", lambda *a, **k: None)
+    monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
+    monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)
     mgr.run()
@@ -111,7 +116,8 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
 
 
 def test_success_history_agent_selection(monkeypatch):
-    import forgekeeper.high_level_goal_manager as hgm
+    import goal_manager.manager as hgm
+    import goal_manager.delegator as delegator
 
     messages = []
 
@@ -121,7 +127,7 @@ def test_success_history_agent_selection(monkeypatch):
 
     monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(
-        hgm,
+        delegator,
         "split_for_agents",
         lambda d: [{"agent": "core", "task": d, "protocol": "broadcast"}],
     )
@@ -130,12 +136,14 @@ def test_success_history_agent_selection(monkeypatch):
     def fake_bc(agent, message):
         messages.append((agent, message))
 
-    monkeypatch.setattr(hgm, "broadcast_context", fake_bc)
-    monkeypatch.setattr(hgm, "send_direct_message", lambda *a, **k: None)
+    monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
+    monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
     mgr = hgm.HighLevelGoalManager(autonomous=True)
     mgr.success_history["coder"] = 3
-    agent, _ = mgr._dispatch_subtasks("second step")
+    agent, _ = delegator._dispatch_subtasks(
+        "second step", mgr.success_history
+    )
 
     assert agent == "coder"
     assert messages[0] == (
