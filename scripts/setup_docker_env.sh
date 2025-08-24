@@ -10,6 +10,11 @@ mkdir -p "$MODELS_DIR"
 mapfile -t MODELS < <(find "$MODELS_DIR" -maxdepth 1 -type f -printf "%f\n")
 NET_NAME="forgekeeper-net"
 
+USE_DEFAULTS=false
+if [[ "${1:-}" == "--defaults" ]]; then
+  USE_DEFAULTS=true
+fi
+
 # --- dependency checks ---
 command -v docker >/dev/null 2>&1 || {
   echo "❌ docker not found. Install Docker Desktop first." >&2
@@ -26,9 +31,16 @@ else
 fi
 
 # --- load existing env if present ---
-set -a
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
-set +a
+if ! $USE_DEFAULTS; then
+  set -a
+  [ -f "$ENV_FILE" ] && . "$ENV_FILE"
+  set +a
+else
+  cp "$ROOT_DIR/.env.example" "$ENV_FILE"
+  set -a
+  . "$ENV_FILE"
+  set +a
+fi
 
 prompt_var () {
   local var="$1" default="$2"
@@ -74,22 +86,23 @@ choose_model () {
   fi
 }
 
-# --- gather env vars (editable on rerun) ---
-prompt_var FRONTEND_PORT 3000
-prompt_var BACKEND_PORT 8000
-prompt_var PYTHON_PORT 5000
-prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper
-prompt_secret OPENAI_API_KEY ""
-prompt_var LLM_BACKEND vllm
-prompt_var VLLM_PORT_CORE 8001
-prompt_var VLLM_PORT_CODER 8002
-choose_model VLLM_MODEL_CORE
-choose_model VLLM_MODEL_CODER
-prompt_var VLLM_TP 1
-prompt_var VLLM_MAX_MODEL_LEN 4096
-prompt_var VLLM_GPU_MEMORY_UTILIZATION 0.9
+if ! $USE_DEFAULTS; then
+  # --- gather env vars (editable on rerun) ---
+  prompt_var FRONTEND_PORT 3000
+  prompt_var BACKEND_PORT 8000
+  prompt_var PYTHON_PORT 5000
+  prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper
+  prompt_secret OPENAI_API_KEY ""
+  prompt_var LLM_BACKEND vllm
+  prompt_var VLLM_PORT_CORE 8001
+  prompt_var VLLM_PORT_CODER 8002
+  choose_model VLLM_MODEL_CORE
+  choose_model VLLM_MODEL_CODER
+  prompt_var VLLM_TP 1
+  prompt_var VLLM_MAX_MODEL_LEN 4096
+  prompt_var VLLM_GPU_MEMORY_UTILIZATION 0.9
 
-cat >"$ENV_FILE" <<EOF2
+  cat >"$ENV_FILE" <<EOF2
 FRONTEND_PORT=$FRONTEND_PORT
 BACKEND_PORT=$BACKEND_PORT
 PYTHON_PORT=$PYTHON_PORT
@@ -104,6 +117,7 @@ VLLM_TP=$VLLM_TP
 VLLM_MAX_MODEL_LEN=$VLLM_MAX_MODEL_LEN
 VLLM_GPU_MEMORY_UTILIZATION=$VLLM_GPU_MEMORY_UTILIZATION
 EOF2
+fi
 
 # --- ensure shared network ---
 docker network inspect "$NET_NAME" >/dev/null 2>&1 || docker network create "$NET_NAME"
