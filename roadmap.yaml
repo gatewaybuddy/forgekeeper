@@ -41,13 +41,15 @@ epics:
       - id: M-030
         title: Autonomous task execution
         status: todo
+        description: Execute tasks derived from high-level goals without manual triggers
       - id: M-031
         title: Emotion tagging for memory
-        status: todo
+        status: done
       - id: M-032
         title: Sprint and roadmap generation
         status: todo
       - id: M-033
         title: Optional remote push with justification
         status: todo
+        description: Push commits to a remote repository with a changelog and reasoning
 

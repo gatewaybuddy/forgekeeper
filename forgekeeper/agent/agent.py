@@ -3,7 +3,7 @@ import uuid
 from forgekeeper.app.chats.memory import save_message, load_memory
 from forgekeeper.app.self.proposal_engine import propose_code_change
 from forgekeeper.app.interpreter.prompt_mapper import interpret_prompt
-from forgekeeper.llm.clients import openai_compat_client
+from forgekeeper.llm.clients import client
 from .tool_utils import build_tool_specs, execute_tool_call
 
 class ForgeAgent:
@@ -34,7 +34,7 @@ class ForgeAgent:
         prompt = self.format_prompt(user_input)
         messages = [{"role": "user", "content": prompt}]
         tools = build_tool_specs()
-        message = openai_compat_client.chat("core", messages, tools=tools)
+        message = client.chat("core", messages, tools=tools)
         tool_calls = message.get("tool_calls") or []
         if tool_calls:
             messages.append(message)
@@ -42,7 +42,7 @@ class ForgeAgent:
                 result = execute_tool_call(call)
                 save_message(self.session_id, "tool", result, project_id=self.session_id)
                 messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
-            message = openai_compat_client.chat("core", messages)
+            message = client.chat("core", messages)
 
         content = message.get("content", "")
         save_message(self.session_id, "assistant", content, project_id=self.session_id)

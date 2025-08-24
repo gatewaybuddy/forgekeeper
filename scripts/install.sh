@@ -5,9 +5,9 @@
 #   -h, --help         Display this help message and exit
 set -euo pipefail
 
-usage() {
-  cat <<'EOF'
-Usage: install.sh [--defaults|--yes] [--help]
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$ROOT_DIR/.env"
 
 usage() {
   cat <<'EOF'
@@ -72,13 +72,15 @@ fi
 
 export MODEL_DIR="$model_dir"
 
-if [ ! -f "$ENV_FILE" ]; then
-  cp "$ROOT_DIR/.env.example" "$ENV_FILE"
-fi
-if grep -q '^MODEL_DIR=' "$ENV_FILE"; then
-  sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$model_dir|" "$ENV_FILE"
-else
-  echo "MODEL_DIR=$model_dir" >> "$ENV_FILE"
+if [ "$choice" = "1" ]; then
+  if [ ! -f "$ENV_FILE" ]; then
+    cp "$ROOT_DIR/.env.example" "$ENV_FILE"
+  fi
+  if grep -q '^MODEL_DIR=' "$ENV_FILE"; then
+    sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$model_dir|" "$ENV_FILE"
+  else
+    echo "MODEL_DIR=$model_dir" >> "$ENV_FILE"
+  fi
 fi
 
 if [[ "$install_node" =~ ^[Yy]$ ]]; then
@@ -87,11 +89,6 @@ if [[ "$install_node" =~ ^[Yy]$ ]]; then
       "$SCRIPT_DIR/setup_docker_env.sh" --defaults
     else
       "$SCRIPT_DIR/setup_docker_env.sh"
-    fi
-    if grep -q '^MODEL_DIR=' "$ENV_FILE"; then
-      sed -i "s|^MODEL_DIR=.*|MODEL_DIR=$model_dir|" "$ENV_FILE"
-    else
-      echo "MODEL_DIR=$model_dir" >> "$ENV_FILE"
     fi
   else
     "$SCRIPT_DIR/setup_dev_env.sh"

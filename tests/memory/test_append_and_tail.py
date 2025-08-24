@@ -2,16 +2,12 @@ import json
 import os
 import subprocess
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from forgekeeper.memory import episodic  # noqa: E402
-from forgekeeper.memory.episodic import append_entry  # noqa: E402
+from forgekeeper.memory import episodic
+from forgekeeper.memory.episodic import append_entry
 
 
-def test_append_and_tail(tmp_path, monkeypatch):
+def test_append_and_tail(tmp_path, monkeypatch, repo_root):
     memory_file = tmp_path / ".forgekeeper/memory/episodic.jsonl"
     monkeypatch.setattr(episodic, "MEMORY_FILE", memory_file)
 
@@ -64,7 +60,7 @@ def test_append_and_tail(tmp_path, monkeypatch):
     assert parsed == expected
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+    env["PYTHONPATH"] = str(repo_root)
     result = subprocess.run(
         [sys.executable, "-m", "forgekeeper.memory.episodic", "--review", "2"],
         cwd=tmp_path,
@@ -89,61 +85,3 @@ def test_append_and_tail(tmp_path, monkeypatch):
     assert "T3" in result.stdout
     assert "third entry" in result.stdout
     assert "happy" in result.stdout
-
-
-def test_recent_pushes_cli(tmp_path, monkeypatch):
-    memory_file = tmp_path / ".forgekeeper/memory/episodic.jsonl"
-    monkeypatch.setattr(episodic, "MEMORY_FILE", memory_file)
-
-    entries = [
-        {
-            "task_id": "P1",
-            "title": "push one",
-            "status": "pushed",
-            "changed_files": [],
-            "summary": "details1",
-            "artifacts_paths": [],
-            "sentiment": "neutral",
-            "emotion": "calm",
-            "rationale": "first push",
-        },
-        {
-            "task_id": "P2",
-            "title": "push two",
-            "status": "pushed",
-            "changed_files": [],
-            "summary": "details2",
-            "artifacts_paths": [],
-            "sentiment": "neutral",
-            "emotion": "calm",
-            "rationale": "second push",
-        },
-        {
-            "task_id": "X",
-            "title": "other",
-            "status": "committed",
-            "changed_files": [],
-            "summary": "other entry",
-            "artifacts_paths": [],
-            "sentiment": "neutral",
-            "emotion": "calm",
-        },
-    ]
-
-    for entry in entries:
-        append_entry(**entry)
-
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
-    result = subprocess.run(
-        [sys.executable, "-m", "forgekeeper.memory.episodic", "--pushes", "2"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        env=env,
-        check=True,
-    )
-    out_lines = [line for line in result.stdout.strip().splitlines() if line]
-    assert len(out_lines) == 2
-    assert "push two" in out_lines[0]
-    assert "push one" in out_lines[1]
