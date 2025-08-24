@@ -25,3 +25,4 @@ def test_outcome_logged_to_memory(init_repo):
     assert "committed" in statuses
     committed_entry = entries[statuses.index("committed")]
     assert committed_entry["task_id"] == "t5"
+    assert committed_entry["changed_files"] == ["baz.py"]
