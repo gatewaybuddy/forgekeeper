@@ -9,6 +9,9 @@ RUN_COMMIT_CHECKS = os.getenv("RUN_COMMIT_CHECKS", "true").lower() == "true"
 AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
 """Enable fully autonomous task execution."""
 
+AUTO_PUSH = os.getenv("AUTO_PUSH", "false").lower() == "true"
+"""Whether commits should be pushed to the remote automatically."""
+
 ENABLE_OUTBOX = os.getenv("ENABLE_OUTBOX", "true").lower() == "true"
 """Persist tool actions to an outbox and replay them on restart."""
 
