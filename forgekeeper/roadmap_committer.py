@@ -55,6 +55,7 @@ def commit_roadmap_update(
         autonomous=True,
         task_id="roadmap-update",
         auto_push=auto_push,
+        rationale=rationale,
     )
 
     summary = _extract_summary(section)

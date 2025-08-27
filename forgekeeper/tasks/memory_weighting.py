@@ -11,12 +11,19 @@ from forgekeeper.memory import (
 )
 
 
-def load_memory_summaries(task_file: Path) -> tuple[Dict[str, Dict[str, int | str]], LocalEmbedder]:
+def load_memory_summaries(
+    task_file: Path,
+) -> tuple[Dict[str, Dict[str, int | str]], LocalEmbedder | None]:
     """Load episodic memory summaries and associated embedder for ``task_file``."""
 
     mem_path = task_file.parent / ".forgekeeper" / "memory" / "episodic.jsonl"
     db_path = mem_path.parent.parent / "episodic_vectors.sqlite"
-    embedder, summary = load_episodic_memory(mem_path, db_path)
+    try:
+        embedder, summary = load_episodic_memory(mem_path, db_path)
+    except Exception:  # pragma: no cover - best effort
+        return {}, None
+    if not isinstance(summary, dict):
+        return {}, None
     return summary, embedder
 
 

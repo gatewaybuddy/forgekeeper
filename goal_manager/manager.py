@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
+import threading
+import time
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import (
@@ -11,6 +13,7 @@ from forgekeeper.config import (
     AUTONOMY_MODE,
     ROADMAP_COMMIT_INTERVAL,
     ROADMAP_AUTO_PUSH,
+    GOAL_RUN_INTERVAL,
 )
 try:  # pragma: no cover - graceful fallback for missing dependencies
     from forgekeeper.task_pipeline import TaskPipeline  # type: ignore
@@ -42,6 +45,9 @@ class HighLevelGoalManager:
         default_factory=lambda: {"core": 0, "coder": 0}
     )
 
+    loop_thread: threading.Thread | None = field(init=False, default=None, repr=False)
+    stop_event: threading.Event = field(init=False, default_factory=threading.Event, repr=False)
+
     def __post_init__(self) -> None:
         self.pipeline = TaskPipeline() if TaskPipeline else None
         if self.autonomous and ROADMAP_COMMIT_INTERVAL > 0:
@@ -51,6 +57,8 @@ class HighLevelGoalManager:
                 auto_push=ROADMAP_AUTO_PUSH,
                 rationale="Periodic roadmap checkpoint",
             )
+        if self.autonomous and GOAL_RUN_INTERVAL > 0:
+            self._start_periodic_run()
 
     # ------------------------------------------------------------------
     def record_result(self, agent: str, success: bool) -> None:
@@ -130,6 +138,29 @@ class HighLevelGoalManager:
             pipeline_main.main()
             executed = True
         return executed
+
+    # ------------------------------------------------------------------
+    def _start_periodic_run(self) -> None:
+        """Start a background thread that invokes ``run`` periodically."""
+
+        def _loop() -> None:
+            while not self.stop_event.is_set():
+                time.sleep(GOAL_RUN_INTERVAL)
+                try:
+                    self.run()
+                except Exception as exc:  # pragma: no cover - best effort
+                    log.error("Periodic goal execution failed: %s", exc)
+
+        self.loop_thread = threading.Thread(target=_loop, daemon=True)
+        self.loop_thread.start()
+
+    # ------------------------------------------------------------------
+    def shutdown(self) -> None:
+        """Signal the periodic runner to stop."""
+
+        self.stop_event.set()
+        if self.loop_thread and self.loop_thread.is_alive():
+            self.loop_thread.join(timeout=0.1)
 
 
 __all__ = ["HighLevelGoalManager"]
