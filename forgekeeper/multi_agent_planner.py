@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager
+import re
 from typing import Dict, List, Tuple
 
 from .agent.communication import broadcast_context, get_shared_context
@@ -70,15 +71,32 @@ register_agent(
 )
 
 
+def _split_description(description: str) -> List[str]:
+    """Return individual task clauses from ``description``.
+
+    The parser uses a permissive regex to separate clauses joined by common
+    conjunctions or punctuation such as ``and``, ``then``, commas, or
+    newlines. Empty fragments are discarded.
+    """
+
+    parts = [
+        p.strip()
+        for p in re.split(r"\band then\b|\bthen\b|\band\b|;|,|\.\s|\n", description)
+        if p.strip()
+    ]
+    return parts
+
+
 def split_for_agents(task: str) -> List[Dict[str, object]]:
     """Split ``task`` into subtasks and assign them to agents.
 
     Parameters
     ----------
     task:
-        Free-form task description which may contain multiple steps joined
-        by the word ``and``. The splitting strategy is intentionally
-        lightweight and may be refined in the future.
+        Free-form task description which may contain multiple steps joined by
+        common conjunctions or punctuation (e.g. ``and``, ``then``, commas,
+        semicolons). The splitting strategy is intentionally lightweight and
+        may be refined in the future.
 
     Returns
     -------
@@ -94,7 +112,7 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
     context_log = get_shared_context()
     available_agents = list(_AGENT_REGISTRY.keys())
 
-    parts = [p.strip() for p in task.replace("\n", " ").split(" and ") if p.strip()]
+    parts = _split_description(task)
     subtasks: List[Dict[str, object]] = []
 
     for part in parts:
