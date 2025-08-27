@@ -49,9 +49,9 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 ### Phase 3: Full Local Autonomy (In Progress)
 
 - [x] M-030: Autonomous task execution based on high-level goals
- - [x] M-031: Emotion tagging for memory reflections
+- [x] M-031: Emotion tagging for memory reflections
 - [x] M-032: Self-generated roadmap and sprint plans
- - [x] M-033: Optional push to remote repo with changelog and justification
+- [x] M-033: Optional push to remote repo with changelog and justification
 
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
@@ -80,12 +80,8 @@ Forgekeeper will become a memory-driven, self-reflective development environment
 
 ## 🔄 Update History
 
-Last update: 2025-08-24 07:55 UTC
-Recent commits: enabled periodic goal manager execution and added autonomous tests.
-Outstanding work: M-033: Optional remote push with changelog and justification.
-
-Last update: 2025-08-24 07:57 UTC
-Recent commits: added setup script prompts and goal manager refactor.
+Last update: 2025-08-26 03:00 UTC
+Recent commits: documented AUTO_PUSH flag and finalized M-033.
 Outstanding work: tasks "Persist me (P1)" and "Demo task (P1)" require follow-up; latest self-review reported failing tests.
 
 
@@ -465,3 +461,13 @@ Recent commits: chore: update roadmap, chore: update roadmap, chore: update road
 - Attempt 1 for task 'demo' succeeded.
 - Committed changes on work: chore: update roadmap
 
+## Update 2025-08-27 23:03 UTC
+### Summary
+Recent commits: Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr, Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr, test: stabilize suite by skipping self-review pipelines
+
+### Recent Commits
+- Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr
+- Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr
+- test: stabilize suite by skipping self-review pipelines
+- Merge pull request #309 from gatewaybuddy/codex/create-forgekeeper/sandbox-module
+- Merge branch 'main' into codex/create-forgekeeper/sandbox-module

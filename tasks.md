@@ -25,7 +25,6 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 
-- [ ] M-033: Optional remote push with changelog and justification (P3)
 - [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [x] FK-303: Unify goal manager components (P1)
 
@@ -202,7 +201,7 @@ Allow Forgekeeper to autonomously expand high-level goals into actionable tasks 
 id: M-033
 
 title: Optional remote push with changelog and justification (P3)
-status: todo
+status: done
 epic: R-003
 owner: agent
 
@@ -211,6 +210,6 @@ labels: [git, automation]
 When permitted, push commits to a remote repository with a generated changelog and rationale.
 
 **AC**
-- [ ] Push step can be toggled or approved
-- [ ] Generated changelog summarizes commit contents
-- [ ] Push includes justification for changes
+- [x] Push step can be toggled or approved
+- [x] Generated changelog summarizes commit contents
+- [x] Push includes justification for changes
