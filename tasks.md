@@ -26,6 +26,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 - [ ] M-033: Optional remote push with changelog and justification (P3)
+- [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [x] FK-303: Unify goal manager components (P1)
 
 
@@ -46,6 +47,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [x] M-031: Emotion tagging for memory reflections
 - [x] M-032: Self-generated roadmap and sprint plans
 - [x] M-030: Autonomous task execution from high-level goals (P1)
+- [x] M-033: Optional remote push with changelog and justification (P3)
 - [x] Improve multi-agent planning and delegation across tasks
 - [x] Replace file-based conversation helpers with GraphQL service
 - [x] Pin Python and Node dependencies for reproducible installs
