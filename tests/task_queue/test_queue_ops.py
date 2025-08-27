@@ -56,7 +56,15 @@ labels: [test]
     monkeypatch.setattr(fk_main, "TASK_FILE", tasks_md)
     monkeypatch.setattr(fk_main, "STATE_PATH", state_path)
     from forgekeeper.pipeline import loop as fk_loop
-    monkeypatch.setattr(fk_loop, "run", lambda state, path: None)
+    from forgekeeper.tasks.queue import TaskQueue
+    from forgekeeper.state_manager import save_state
+
+    def fake_run(state, path):
+        queue = TaskQueue(tasks_md)
+        state.update({"current_task": queue.next_task()})
+        save_state(state, path)
+
+    monkeypatch.setattr(fk_loop, "run", fake_run)
     monkeypatch.setattr(fk_main, "load_state", lambda path: {})
 
     fk_main.main()

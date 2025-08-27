@@ -238,3 +238,151 @@ Recent commits: Merge pull request #302 from gatewaybuddy/codex/create-reusable-
 - Merge pull request #301 from gatewaybuddy/codex/mark-completed-milestones-and-remove-duplicates
 - docs: add roadmap update entry
 - Merge pull request #300 from gatewaybuddy/codex/remove-personal-system-information-file
+
+## Update 2025-08-24 07:56 UTC
+### Summary
+Recent commits: Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304), Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+
+### Recent Commits
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+- refactor: drop deprecated goal manager alias
+
+## Update 2025-08-24 07:58 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304); Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-08-24 07:58 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-08-26 02:43 UTC
+### Summary
+Recent commits: feat: add episodic embedding lookup and planning context, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304)
+
+### Recent Commits
+- feat: add episodic embedding lookup and planning context
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+
+## Update 2025-08-26 02:45 UTC
+### Summary
+Recent commits: chore: update roadmap, feat: add episodic embedding lookup and planning context, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- feat: add episodic embedding lookup and planning context
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- 
+- Attempt 1 for task 'Demo task (P1)' succeeded.
+
+## Update 2025-08-26 02:46 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, feat: add episodic embedding lookup and planning context; Recent memory: No staged changes to commit, , Attempt 1 for task 'Demo task (P1)' succeeded.
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- feat: add episodic embedding lookup and planning context
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+
+### Recent Memory
+- No staged changes to commit
+- 
+- Attempt 1 for task 'Demo task (P1)' succeeded.
+- Committed changes on work: chore: update roadmap
+- Push failed: Remote named 'origin' didn't exist
+
+## Update 2025-08-26 02:46 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, feat: add episodic embedding lookup and planning context; Recent memory: No staged changes to commit, , Attempt 1 for task 'Demo task (P1)' succeeded.
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- feat: add episodic embedding lookup and planning context
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+
+### Recent Memory
+- No staged changes to commit
+- 
+- Attempt 1 for task 'Demo task (P1)' succeeded.
+- Committed changes on work: chore: update roadmap
+- Push failed: Remote named 'origin' didn't exist
+
+## Update 2025-08-26 02:49 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- chore: update roadmap
+- feat: add episodic embedding lookup and planning context
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-08-26 02:50 UTC
+### Summary
+Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- chore: update roadmap
+- chore: update roadmap
+- chore: update roadmap
+- feat: add episodic embedding lookup and planning context
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
