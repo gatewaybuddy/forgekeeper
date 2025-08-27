@@ -1,13 +1,13 @@
 """Memory utilities for Forgekeeper."""
 
-from .embedding import (
+from .embeddings import (
     LocalEmbedder,
-    SimpleTfidfVectorizer,
-    cosine_similarity,
     load_episodic_memory,
     retrieve_similar_tasks,
     similar_task_summaries,
+    query_similar_tasks,
 )
+from .embedding import SimpleTfidfVectorizer, cosine_similarity
 
 __all__ = [
     'LocalEmbedder',
@@ -16,4 +16,5 @@ __all__ = [
     'load_episodic_memory',
     'retrieve_similar_tasks',
     'similar_task_summaries',
+    'query_similar_tasks',
 ]

@@ -76,6 +76,12 @@ def test_goal_manager_routes_and_handoffs_between_agents():
     assert get_shared_context()[-1] == {"agent": "coder", "message": "fix code"}
 
 
+
+def test_planner_includes_memory_context(monkeypatch):
+    tasks = split_for_agents("alpha and beta")
+    assert "memory_context" in tasks[0]
+    assert isinstance(tasks[0]["memory_context"], list)
+
 def test_available_agents_shared_across_subtasks():
     register_agent("analyst", {"analyze"}, protocol="direct")
     task = (
@@ -88,3 +94,4 @@ def test_available_agents_shared_across_subtasks():
     assert set(available) >= names
     for step in tasks[1:]:
         assert step["available_agents"] is available
+

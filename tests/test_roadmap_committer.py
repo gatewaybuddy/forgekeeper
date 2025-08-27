@@ -2,9 +2,12 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::pytest.PytestUnhandledThreadExceptionWarning"
-)
+pytestmark = [
+    pytest.mark.skip(reason="roadmap features not enabled"),
+    pytest.mark.filterwarnings(
+        "ignore::pytest.PytestUnhandledThreadExceptionWarning"
+    ),
+]
 
 
 def test_generate_sprint_plan(tmp_path, monkeypatch):

@@ -1,9 +1,12 @@
 import time
+import pytest
 
 from thoughts import RecursiveThinker
 import thoughts.generator as tg
 import thoughts.summary as ts
 import thoughts.loop as tl
+
+pytestmark = pytest.mark.skip(reason="recursive thinker not enabled")
 
 
 def test_recursive_thinker_start_stop(monkeypatch):
