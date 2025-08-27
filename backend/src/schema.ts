@@ -50,6 +50,7 @@ const typeDefs = gql`
     archiveConversation(conversationId: ID!): Boolean!
     createFolder(name: String!, parent: String): Boolean!
     renameFolder(oldName: String!, newName: String!): Boolean!
+    appendMessage(conversationId: ID!, role: String!, content: String!): Boolean!
 
     createProject(name: String!, description: String): Project!
     updateProject(id: ID!, name: String, description: String): Project!
