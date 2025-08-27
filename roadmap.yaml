@@ -40,7 +40,7 @@ epics:
         links: ["goal_manager/manager.py"]
       - id: M-030
         title: Autonomous task execution
-        status: todo
+        status: done
         description: Execute tasks derived from high-level goals without manual triggers
       - id: M-031
         title: Emotion tagging for memory
