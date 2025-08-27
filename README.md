@@ -108,7 +108,7 @@ npm run dev --prefix backend
 
 ### Start the backend
 ```bash
-python -m forgekeeper.main
+python -m forgekeeper
 ```
 
 ### Start the frontend
@@ -121,10 +121,18 @@ npm run dev --prefix frontend
 Forgekeeper includes a small console that interacts solely through the GraphQL API, allowing the running backend and LLM services to generate replies. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
-python -m persistent_console
+python -m forgekeeper pconsole
 ```
 
 The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See [persistent_console](persistent_console) for implementation details.
+
+### Interactive console
+
+For a simple direct console without GraphQL persistence, run:
+
+```bash
+python -m forgekeeper console
+```
 
 ## Memory-based retrieval
 
