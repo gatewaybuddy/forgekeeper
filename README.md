@@ -339,6 +339,10 @@ Before committing, `diff_validator.validate_staged_diffs()` scans staged Python
 files for definitions removed from one file but still referenced in another,
 catching cross-file inconsistencies early.
 
+The push step is controlled by the `AUTO_PUSH` environment variable. When set to
+`true`, `commit_and_push_changes` uses `commit_ops.push_branch` to push commits
+automatically and records the changelog path and rationale in episodic memory.
+
 To review recent automated pushes, run:
 
 ```bash
