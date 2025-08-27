@@ -52,7 +52,7 @@ def run_sandbox_checks(
     if diff_text is None:
         diff_text = repo.git.diff("--staged")
 
-    log_dir = Path(__file__).resolve().parents[1] / "logs" / task_id
+    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
     artifacts_path = log_dir / "sandbox-checks.json"
 
