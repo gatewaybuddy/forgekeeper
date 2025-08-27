@@ -108,9 +108,9 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/llm/vllm_impl.py`: vLLM implementation  
 - `forgekeeper/load_env.py`: Environment initializer  
 - `forgekeeper/logger.py`: Logging utilities  
-- `forgekeeper/main.py`: Main Forgekeeper entrypoint  
-- `forgekeeper/main_llamacpp.py`: Flask server for llama.cpp backend  
-- `forgekeeper/memory/__init__.py`: Memory utilities package marker  
+- `forgekeeper/__main__.py`: Command-line entry point with subcommands
+- `forgekeeper/main.py`: Main Forgekeeper entrypoint
+- `forgekeeper/memory/__init__.py`: Memory utilities package marker
 - `forgekeeper/memory/embeddings.py`: Embedding utilities  
 - `forgekeeper/memory/episodic.py`: Episodic memory helpers  
 - `forgekeeper/multi_agent_planner.py`: Delegate tasks to specialized agents  
@@ -119,8 +119,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/pipeline.py`: Pipeline utilities  
 - `forgekeeper/recursive_thinker.py`: Background recursive thinker  
 - `forgekeeper/roadmap_committer.py`: Commit synthesized roadmap updates  
-- `forgekeeper/roadmap_updater.py`: Draft and append roadmap updates  
-- `forgekeeper/run_console`: Windows batch to run console  
+- `forgekeeper/roadmap_updater.py`: Draft and append roadmap updates
 - `forgekeeper/sandbox.py`: Run diffs in isolated worktree  
 - `forgekeeper/self_review.py`: Review recent work vs. active task  
 - `forgekeeper/state.json`: Current state storage  
@@ -168,12 +167,9 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `mqtt_forgekeeper_listener.py`: MQTT listener for tasks  
 - `requirements.txt`: Python dependencies (e.g., GitPython)  
 - `roadmap.yaml`: Roadmap milestones configuration  
-- `run_console.bat`: Windows batch for console runner  
-- `run_console/__init__.py`: Interactive console runner  
-- `run_console/__main__.py`: Streaming console entry  
-- `run_console_llamacpp.bat`: Windows batch for llama.cpp console  
-- `run_server_llamacpp.bat`: Windows batch for llama.cpp server  
-- `scripts/fft_visualizer.py`: FFT visualization script  
+- `run_console/__init__.py`: Interactive console runner
+- `run_console/__main__.py`: Streaming console entry
+- `scripts/fft_visualizer.py`: FFT visualization script
 - `scripts/llm_benchmark.py`: Benchmark different LLMs  
 - `scripts/llm_smoke_test.py`: Basic LLM smoke test  
 - `scripts/run_vllm_coder.bat`: Windows batch to run vLLM coder  
@@ -187,10 +183,8 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `scripts/setup_env.ps1`: PowerShell env setup  
 - `scripts/setup_env.sh`: Shell env setup  
 - `scripts/update_requirements.py`: Update requirements file  
-- `start.bat`: Start `main_llamacpp.py`  
-- `tasks.md`: Current task list  
-- `test.bat`: Curl-based local test script  
-- `tests/fixtures/component.tsx`: Test React component fixture  
+- `tasks.md`: Current task list
+- `tests/fixtures/component.tsx`: Test React component fixture
 - `tests/fixtures/sample.ts`: Sample TypeScript utility
 - `tests/git_committer/conftest.py`: Shared fixtures for Git committer tests
 - `tests/git_committer/test_abort_paths.py`: Commit abort tests for failing checks
