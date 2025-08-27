@@ -11,9 +11,12 @@ Forgekeeper orchestrates several specialized agents that collaborate on tasks:
 - **Researcher** – information gathering and analysis specialist
 - **Reviewer** – output evaluator and quality gate
 
-A lightweight planner breaks user requests into subtasks, assigns each
-to the appropriate agent, and records brief status messages in a shared
-context log so later steps can build on earlier work.
+A lightweight planner can coordinate any number of these agents. It
+breaks user requests into subtasks, assigns each to the appropriate
+participant, and records brief status messages in a shared context log
+so later steps can build on earlier work. Each subtask also carries the
+list of available agents, enabling peers to exchange direct messages or
+reference the same broadcast log for richer collaboration.
 
 ---
 

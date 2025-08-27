@@ -118,7 +118,7 @@ npm run dev --prefix frontend
 
 ### Persistent CLI
 
-Forgekeeper includes a small console that stores conversation history via the GraphQL API. Start the GraphQL service and backend first, then launch the CLI:
+Forgekeeper includes a small console that interacts solely through the GraphQL API, allowing the running backend and LLM services to generate replies. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
 python -m persistent_console
@@ -338,6 +338,10 @@ task, and save a summary to `logs/<task_id>/self-review.json`.
 Before committing, `diff_validator.validate_staged_diffs()` scans staged Python
 files for definitions removed from one file but still referenced in another,
 catching cross-file inconsistencies early.
+
+The push step is controlled by the `AUTO_PUSH` environment variable. When set to
+`true`, `commit_and_push_changes` uses `commit_ops.push_branch` to push commits
+automatically and records the changelog path and rationale in episodic memory.
 
 To review recent automated pushes, run:
 
