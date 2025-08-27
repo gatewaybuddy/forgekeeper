@@ -108,7 +108,7 @@ npm run dev --prefix backend
 
 ### Start the backend
 ```bash
-python -m forgekeeper.main
+python -m forgekeeper
 ```
 
 ### Start the frontend
@@ -121,10 +121,16 @@ npm run dev --prefix frontend
 Forgekeeper includes a small console that stores conversation history via the GraphQL API. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
-python -m persistent_console
+python -m forgekeeper persistent-console
 ```
 
-The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See [persistent_console](persistent_console) for implementation details.
+For a transient console without history use:
+
+```bash
+python -m forgekeeper console
+```
+
+The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See `forgekeeper/cli.py` for implementation details.
 
 ## Memory-based retrieval
 
