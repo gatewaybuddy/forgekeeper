@@ -118,7 +118,7 @@ npm run dev --prefix frontend
 
 ### Persistent CLI
 
-Forgekeeper includes a small console that stores conversation history via the GraphQL API. Start the GraphQL service and backend first, then launch the CLI:
+Forgekeeper includes a small console that interacts solely through the GraphQL API, allowing the running backend and LLM services to generate replies. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
 python -m persistent_console
