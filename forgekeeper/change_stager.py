@@ -17,6 +17,7 @@ from git import Repo
 
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.logger import get_logger
+from forgekeeper.sandbox import run_sandbox_checks
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -28,6 +29,7 @@ def diff_and_stage_changes(
     auto_stage: bool = True,
     dry_run: bool = False,
     task_id: str = "manual",
+    run_sandbox: bool = True,
 ) -> Dict[str, object]:
     """Compare original and modified content and stage via Git if changed.
 
@@ -45,6 +47,8 @@ def diff_and_stage_changes(
         When ``True`` no changes are written or staged.
     task_id: str, optional
         Identifier used for log directory naming.
+    run_sandbox: bool, optional
+        If ``True`` run sandbox checks before staging.
 
     Returns
     -------
@@ -109,6 +113,14 @@ def diff_and_stage_changes(
         result = _write_log(sorted(set(staged_before + [rel_path])), "dry-run")
         log.info(f"Dry run enabled; skipping write and stage for {file_path}")
         return result
+
+    sandbox_result = {"passed": True}
+    if run_sandbox:
+        sandbox_result = run_sandbox_checks([rel_path], diff_text=diff_text, task_id=task_id)
+        if not sandbox_result.get("passed", True):
+            log.error(f"Sandbox checks failed for {file_path}")
+            p.write_text(original_code, encoding="utf-8")
+            return {"files": [], "outcome": "sandbox-failed", "sandbox": sandbox_result}
 
     try:
         p.write_text(modified_code, encoding="utf-8")
