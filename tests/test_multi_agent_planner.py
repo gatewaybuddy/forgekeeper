@@ -95,3 +95,13 @@ def test_available_agents_shared_across_subtasks():
     for step in tasks[1:]:
         assert step["available_agents"] is available
 
+
+def test_planner_handles_various_separators():
+    register_agent("analyst", {"analyze"}, protocol="direct")
+    description = (
+        "research data, then implement feature; review results and analyze metrics"
+    )
+    tasks = split_for_agents(description)
+    agents = [step["agent"] for step in tasks]
+    assert agents == ["researcher", "coder", "reviewer", "analyst"]
+
