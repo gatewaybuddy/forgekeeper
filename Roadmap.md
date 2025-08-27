@@ -80,9 +80,14 @@ Forgekeeper will become a memory-driven, self-reflective development environment
 
 ## 🔄 Update History
 
+Last update: 2025-08-27 23:03 UTC
+Recent commits: enabled periodic goal manager execution and added autonomous tests.
+Outstanding work: M-033: Optional remote push with changelog and justification.
+
 Last update: 2025-08-26 03:00 UTC
 Recent commits: documented AUTO_PUSH flag and finalized M-033.
 Outstanding work: tasks "Persist me (P1)" and "Demo task (P1)" require follow-up; latest self-review reported failing tests.
+
 
 
 ## Update 2025-08-24 06:49 UTC
@@ -461,7 +466,9 @@ Recent commits: chore: update roadmap, chore: update roadmap, chore: update road
 - Attempt 1 for task 'demo' succeeded.
 - Committed changes on work: chore: update roadmap
 
+
 ## Update 2025-08-27 23:03 UTC
+
 ### Summary
 Recent commits: Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr, Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr, test: stabilize suite by skipping self-review pipelines
 
@@ -471,3 +478,38 @@ Recent commits: Merge pull request #313 from gatewaybuddy/codex/implement-embedd
 - test: stabilize suite by skipping self-review pipelines
 - Merge pull request #309 from gatewaybuddy/codex/create-forgekeeper/sandbox-module
 - Merge branch 'main' into codex/create-forgekeeper/sandbox-module
+
+
+## Update 2025-08-27 23:02 UTC
+### Summary
+Recent commits: Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr, Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr, test: stabilize suite by skipping self-review pipelines
+
+### Recent Commits
+- Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr
+- Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr
+- test: stabilize suite by skipping self-review pipelines
+- Merge pull request #309 from gatewaybuddy/codex/create-forgekeeper/sandbox-module
+- Merge branch 'main' into codex/create-forgekeeper/sandbox-module
+
+## Update 2025-08-27 23:02 UTC
+### Summary
+Recent commits: Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr, Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr, test: stabilize suite by skipping self-review pipelines
+
+### Recent Commits
+- Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr
+- Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr
+- test: stabilize suite by skipping self-review pipelines
+- Merge pull request #309 from gatewaybuddy/codex/create-forgekeeper/sandbox-module
+- Merge branch 'main' into codex/create-forgekeeper/sandbox-module
+
+## Update 2025-08-27 23:02 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr, Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr
+
+### Recent Commits
+- chore: update roadmap
+- Merge pull request #313 from gatewaybuddy/codex/implement-embedding-based-storage-and-apis-3vmxcr
+- Merge branch 'main' into codex/implement-embedding-based-storage-and-apis-3vmxcr
+- test: stabilize suite by skipping self-review pipelines
+- Merge pull request #309 from gatewaybuddy/codex/create-forgekeeper/sandbox-module
+
