@@ -9,6 +9,9 @@ RUN_COMMIT_CHECKS = os.getenv("RUN_COMMIT_CHECKS", "true").lower() == "true"
 AUTONOMY_MODE = os.getenv("AUTONOMY_MODE", "false").lower() == "true"
 """Enable fully autonomous task execution."""
 
+AUTO_PUSH = os.getenv("AUTO_PUSH", "false").lower() == "true"
+"""Whether commits should be pushed to the remote automatically."""
+
 ENABLE_OUTBOX = os.getenv("ENABLE_OUTBOX", "true").lower() == "true"
 """Persist tool actions to an outbox and replay them on restart."""
 
@@ -26,6 +29,9 @@ ROADMAP_COMMIT_INTERVAL = int(os.getenv("ROADMAP_COMMIT_INTERVAL", "3600"))
 
 ROADMAP_AUTO_PUSH = os.getenv("ROADMAP_AUTO_PUSH", "false").lower() == "true"
 """Whether periodic roadmap commits should be pushed automatically."""
+
+GOAL_RUN_INTERVAL = int(os.getenv("GOAL_RUN_INTERVAL", "60"))
+"""Seconds between automatic HighLevelGoalManager.run invocations."""
 
 _checks_py = os.getenv("CHECKS_PY")
 if _checks_py:

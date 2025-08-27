@@ -37,16 +37,15 @@ def step_edit(task: str, state: dict) -> bool:
         if not patch.strip():
             continue
         try:
-            changed = apply_unified_diff(patch)
+            apply_unified_diff(patch)
         except Exception as exc:
             log.error(f"Patch apply failed for {file_path}: {exc}")
             continue
-        if not changed:
-            continue
         modified_code = p.read_text(encoding="utf-8")
-        diff_and_stage_changes(original_code, modified_code, file_path)
-        patch_texts.append(patch)
-        changed_files.extend(changed)
+        result = diff_and_stage_changes(original_code, modified_code, file_path)
+        if result.get("files"):
+            patch_texts.append(patch)
+            changed_files.extend(result["files"])
     if patch_texts:
         (log_dir / "patch.diff").write_text("\n".join(patch_texts), encoding="utf-8")
         (log_dir / "files.json").write_text(

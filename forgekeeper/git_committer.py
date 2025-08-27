@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 
 from git import Repo
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE, RUN_COMMIT_CHECKS
+from forgekeeper.config import DEBUG_MODE, RUN_COMMIT_CHECKS, AUTO_PUSH
 from forgekeeper.memory.episodic import append_entry
 from forgekeeper.git import (
     checks as git_checks,
@@ -26,7 +26,8 @@ def _commit_and_push_impl(
     commands: Optional[Iterable[str]] = None,
     autonomous: bool = False,
     task_id: str = "manual",
-    auto_push: bool = False,
+    auto_push: bool = AUTO_PUSH,
+    rationale: str | None = None,
 ) -> dict:
     """Internal helper performing commit/push logic."""
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
@@ -89,7 +90,7 @@ def _commit_and_push_impl(
         return check_result
     if not commit_result.get("committed"):
         check_result["pushed"] = False
-        check_result["rationale"] = commit_message
+        check_result["rationale"] = rationale or commit_message
         return check_result
 
     push_result = commit_ops.push_branch(
@@ -102,9 +103,10 @@ def _commit_and_push_impl(
         auto_push,
         check_result["changelog_path"],
         check_result["changelog"],
+        rationale,
     )
     check_result["pushed"] = push_result.get("pushed", False)
-    check_result["rationale"] = commit_message
+    check_result["rationale"] = rationale or commit_message
     return check_result
 
 
@@ -116,7 +118,8 @@ def commit_and_push_changes(
     commands: Optional[Iterable[str]] = None,
     autonomous: bool = False,
     task_id: str = "manual",
-    auto_push: bool = False,
+    auto_push: bool = AUTO_PUSH,
+    rationale: str | None = None,
 ) -> dict:
     """Commit staged changes and optionally push them on a new branch.
 
@@ -133,6 +136,7 @@ def commit_and_push_changes(
         "autonomous": autonomous,
         "task_id": task_id,
         "auto_push": auto_push or autonomous,
+        "rationale": rationale,
     }
     action = {
         "module": __name__,

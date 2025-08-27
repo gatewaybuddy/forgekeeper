@@ -116,6 +116,16 @@ python -m forgekeeper.main
 npm run dev --prefix frontend
 ```
 
+### Persistent CLI
+
+Forgekeeper includes a small console that stores conversation history via the GraphQL API. Start the GraphQL service and backend first, then launch the CLI:
+
+```bash
+python -m persistent_console
+```
+
+The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See [persistent_console](persistent_console) for implementation details.
+
 ## Memory-based retrieval
 
 Forgekeeper stores episodic task summaries and embeds them for quick

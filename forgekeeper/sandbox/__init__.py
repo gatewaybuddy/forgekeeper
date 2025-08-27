@@ -1,4 +1,4 @@
-"""Run staged diffs in an isolated worktree to verify tests pass."""
+"""Run code changes in an isolated Git worktree."""
 
 from __future__ import annotations
 
@@ -20,19 +20,24 @@ log = get_logger(__name__, debug=DEBUG_MODE)
 
 def run_sandbox_checks(
     files: Iterable[str],
+    diff_text: str | None = None,
     commands: Optional[Iterable[str]] = None,
     task_id: str = "manual",
 ) -> dict:
-    """Apply staged diffs to a temporary worktree and run tests.
+    """Apply a diff to a temporary worktree and run test commands.
 
     Parameters
     ----------
     files:
-        Iterable of staged file paths used to determine which checks to run.
+        Iterable of file paths used to determine which checks to run.
+    diff_text:
+        Unified diff to apply inside the sandbox. When ``None`` the staged
+        diff of the current repository is used.
     commands:
-        Optional explicit commands to run inside the sandbox. If not provided,
-        commands are selected based on the file extensions in ``files`` using
-        :data:`forgekeeper.config.CHECKS_PY` and :data:`forgekeeper.config.CHECKS_TS`.
+        Optional explicit commands to run inside the sandbox. If not
+        provided, commands are selected based on file extensions in
+        ``files`` using :data:`forgekeeper.config.CHECKS_PY` and
+        :data:`forgekeeper.config.CHECKS_TS`.
     task_id:
         Identifier used for log directory naming.
 
@@ -44,8 +49,10 @@ def run_sandbox_checks(
     """
 
     repo = Repo(Path(__file__).resolve().parent, search_parent_directories=True)
-    diff_text = repo.git.diff("--staged")
-    log_dir = Path(__file__).resolve().parent.parent / "logs" / task_id
+    if diff_text is None:
+        diff_text = repo.git.diff("--staged")
+
+    log_dir = Path(__file__).resolve().parents[1] / "logs" / task_id
     log_dir.mkdir(parents=True, exist_ok=True)
     artifacts_path = log_dir / "sandbox-checks.json"
 
