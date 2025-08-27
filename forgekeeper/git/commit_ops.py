@@ -107,6 +107,7 @@ def push_branch(
     auto_push: bool,
     changelog_path: str,
     changelog: str,
+    rationale: str | None = None,
 ) -> dict:
     """Push ``branch_name`` to the remote repository."""
 
@@ -138,7 +139,7 @@ def push_branch(
             files,
             f"Push failed: {exc}",
             [changelog_path] if changelog else [],
-            rationale=commit_message,
+            rationale=rationale or commit_message,
         )
         return {"pushed": False}
 
@@ -155,7 +156,7 @@ def push_branch(
             files,
             summary,
             [changelog_path] if changelog else [],
-            rationale=commit_message,
+            rationale=rationale or commit_message,
         )
     return {"pushed": pushed}
 
