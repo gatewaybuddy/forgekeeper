@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Sequence
 
+from .embeddings import store_task_embedding
+
 MEMORY_FILE = Path(".forgekeeper/memory/episodic.jsonl")
 
 
@@ -46,6 +48,11 @@ def append_entry(
         os.fsync(fd)
     finally:
         os.close(fd)
+    try:
+        store_task_embedding(task_id, summary, mem_path=MEMORY_FILE)
+    except Exception:
+        pass
+
 
 def _tail(n: int, raw: bool = True) -> None:
     """Print the last *n* entries from the episodic memory.

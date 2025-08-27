@@ -138,7 +138,7 @@ def push_branch(
             "push-failed",
             files,
             f"Push failed: {exc}",
-            [changelog_path] if changelog else [],
+            [changelog_path] if changelog_path else [],
             rationale=rationale or commit_message,
         )
         return {"pushed": False}
@@ -155,7 +155,7 @@ def push_branch(
             "pushed",
             files,
             summary,
-            [changelog_path] if changelog else [],
+            [changelog_path] if changelog_path else [],
             rationale=rationale or commit_message,
         )
     return {"pushed": pushed}

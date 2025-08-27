@@ -5,6 +5,7 @@ import sys
 
 from forgekeeper.memory import episodic
 from forgekeeper.memory.episodic import append_entry
+from forgekeeper.memory.embedding import LocalEmbedder
 
 
 def test_append_and_tail(tmp_path, monkeypatch, repo_root):
@@ -85,3 +86,7 @@ def test_append_and_tail(tmp_path, monkeypatch, repo_root):
     assert "T3" in result.stdout
     assert "third entry" in result.stdout
     assert "happy" in result.stdout
+    db_path = tmp_path / ".forgekeeper" / "episodic_vectors.sqlite"
+    assert db_path.is_file()
+    embedder = LocalEmbedder(db_path=db_path)
+    assert embedder.get_embedding("T1") is not None
