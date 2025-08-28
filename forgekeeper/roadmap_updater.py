@@ -9,8 +9,10 @@ autonomously.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
@@ -99,10 +101,46 @@ def draft_update(
     return "\n".join(lines) + "\n"
 
 
+_UPDATE_RE = re.compile(
+    r"^## Update (?P<ts>[^\n]+)\n(?P<body>.*?)(?=^## Update |\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def _parse_updates(text: str) -> tuple[str, OrderedDict[str, str]]:
+    """Return the file preamble and ordered update sections."""
+
+    sections: OrderedDict[str, str] = OrderedDict()
+    preamble = text
+    last_end = 0
+    for match in _UPDATE_RE.finditer(text):
+        ts = match.group("ts").strip()
+        body = match.group(0).rstrip()
+        sections[ts] = body
+        if last_end == 0:
+            preamble = text[: match.start()].rstrip()
+        last_end = match.end()
+    return preamble, sections
+
+
 def append_update(section: str, roadmap_path: Path | None = None) -> None:
+    """Append ``section`` to ``Roadmap.md`` ensuring unique timestamps."""
+
     path = roadmap_path or Path("Roadmap.md")
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
-    text = existing.rstrip() + "\n\n" + section
+    preamble, updates = _parse_updates(existing)
+
+    m = re.match(r"^## Update ([^\n]+)", section)
+    if not m:  # pragma: no cover - defensive
+        return
+    ts = m.group(1).strip()
+    updates[ts] = section.strip()
+
+    parts = []
+    if preamble:
+        parts.append(preamble)
+    parts.extend(updates.values())
+    text = "\n\n".join(parts) + "\n"
     path.write_text(text, encoding="utf-8")
 
 
