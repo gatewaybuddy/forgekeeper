@@ -285,6 +285,18 @@ helper `python -m forgekeeper.memory.episodic --browse N` pretty-prints the last
 activity. `TaskQueue` loads these entries and derives a *memory weight* where
 failures push tasks back and successes bring them forward in priority.
 
+## Agent Packages
+
+Forgekeeper exposes two agent-oriented subpackages:
+
+- `forgekeeper.agent` – the foundational :class:`ForgeAgent` implementation and
+  shared utilities like communication helpers and tool execution.
+- `forgekeeper.agents` – higher-level wrappers such as `ask_core`/`ask_coder`
+  that power the legacy multi-agent planner.
+
+Use the former for building new agent behaviors and the latter for compatibility
+with the existing planning pipeline.
+
 ## Multi-agent Planning
 Forgekeeper uses a lightweight planner to split complex user requests
 into ordered subtasks. Each subtask is tagged for either the **Core** or

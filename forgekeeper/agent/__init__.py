@@ -1,8 +1,9 @@
-"""Agent package providing core agent utilities.
+"""Foundational agent utilities and :class:`ForgeAgent`.
 
-The package exposes a lazy attribute loader so that importing submodules like
-``communication`` does not eagerly import heavier dependencies such as the main
-``ForgeAgent`` class.
+This subpackage provides the core agent implementation along with shared
+helpers like :mod:`communication` and :mod:`tool_utils`.  It is distinct from
+``forgekeeper.agents`` which contains legacy task-specific wrappers (``ask_core``,
+``ask_coder`` and friends) used by the multi-agent planner.
 """
 
 from importlib import import_module
