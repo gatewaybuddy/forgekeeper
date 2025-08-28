@@ -20,10 +20,10 @@ configuration and choose how Forgekeeper runs:
 ./scripts/install.sh
 ```
 
-Add `--docker-mongo` to launch a temporary MongoDB container if the
-`mongod` command is unavailable. Use `--help`/`-h` to display usage or pass
-`--defaults` (alias `--yes`) to apply all defaults without interactive
-prompts.
+If the `mongod` command is missing, the installer offers to launch a
+temporary MongoDB container (defaults to "yes"). Use `--help`/`-h` to
+display usage or pass `--defaults` (alias `--yes`) to apply all defaults
+without interactive prompts.
 
 PowerShell users can invoke the equivalent script:
 
@@ -49,13 +49,14 @@ available for manual configuration.
 
 ## MongoDB
 
-The GraphQL service requires a running MongoDB instance. The installer warns
-if the `mongod` command cannot be found. Install MongoDB manually (for
+The GraphQL service requires a running MongoDB instance. If the `mongod`
+command is unavailable, the installer prompts to start a Dockerized MongoDB
+instance (defaulting to starting it). The container is reused on subsequent
+runs; stop it with `docker stop forgekeeper-mongo` and remove it with
+`docker rm forgekeeper-mongo`. Alternatively, install MongoDB manually (for
 example, `brew tap mongodb/brew && brew install mongodb-community` on macOS or
-`sudo apt-get install -y mongodb-org` on Ubuntu) or run
-`./scripts/install.sh --docker-mongo` to start a Dockerized MongoDB instance.
-The `docker-compose.yml` file also includes a `mongodb` service for
-container-based development.
+`sudo apt-get install -y mongodb-org` on Ubuntu). The `docker-compose.yml`
+file also includes a `mongodb` service for container-based development.
 
 ## Installation
 

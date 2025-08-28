@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
-# Usage: install.sh [--defaults|--yes] [--docker-mongo] [--help|-h]
+# Usage: install.sh [--defaults|--yes] [--help|-h]
 #   --defaults, --yes  Run non-interactively with default choices
-#   --docker-mongo     Start a MongoDB Docker container if mongod is missing
 #   -h, --help         Display this help message and exit
 set -euo pipefail
 
@@ -12,17 +11,15 @@ ENV_FILE="$ROOT_DIR/.env"
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [--defaults|--yes] [--docker-mongo] [--help|-h]
+Usage: install.sh [--defaults|--yes] [--help|-h]
 
 Options:
   --defaults, --yes  Run non-interactively with default choices
-  --docker-mongo     Start a MongoDB Docker container if mongod is missing
   -h, --help         Display this help message and exit
 EOF
 }
 
 DEFAULTS=false
-DOCKER_MONGO=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
@@ -34,10 +31,6 @@ while [[ $# -gt 0 ]]; do
       DEFAULTS=true
       shift
       ;;
-    --docker-mongo)
-      DOCKER_MONGO=true
-      shift
-      ;;
     *)
       echo "Unknown option: $1" >&2
       usage
@@ -47,19 +40,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-if $DOCKER_MONGO; then
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "❌ docker is required for --docker-mongo" >&2
-    exit 1
-  fi
-  if [ -z "$(docker ps -q -f name=forgekeeper-mongo)" ]; then
-    docker run -d --name forgekeeper-mongo -p 27017:27017 mongo:6 >/dev/null
-    echo "✅ Started MongoDB container 'forgekeeper-mongo'."
+if ! command -v mongod >/dev/null 2>&1; then
+  start_docker_mongo=""
+  if $DEFAULTS; then
+    start_docker_mongo="y"
   else
-    echo "MongoDB container 'forgekeeper-mongo' already running."
+    read -rp "mongod not found. Start Dockerized MongoDB container? [Y/n]: " start_docker_mongo
   fi
-elif ! command -v mongod >/dev/null 2>&1; then
-  echo "⚠️ mongod not found. Install MongoDB or rerun with --docker-mongo." >&2
+  if [[ "$start_docker_mongo" =~ ^([Yy]|)$ ]]; then
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "❌ docker is required to run MongoDB container." >&2
+      exit 1
+    fi
+    if [ -n "$(docker ps -aq -f name=^forgekeeper-mongo$)" ]; then
+      if [ -n "$(docker ps -q -f name=^forgekeeper-mongo$)" ]; then
+        echo "MongoDB container 'forgekeeper-mongo' already running."
+      else
+        docker start forgekeeper-mongo >/dev/null
+        echo "✅ Started existing MongoDB container 'forgekeeper-mongo'."
+      fi
+    else
+      docker run -d --name forgekeeper-mongo -p 27017:27017 mongo:6 >/dev/null
+      echo "✅ Started MongoDB container 'forgekeeper-mongo'."
+    fi
+  else
+    echo "⚠️ mongod not found. Install MongoDB manually." >&2
+  fi
 fi
 
 if $DEFAULTS; then

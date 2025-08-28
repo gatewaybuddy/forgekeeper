@@ -284,3 +284,14 @@ Recent commits: Merge pull request #344 from gatewaybuddy/codex/create-start_loc
 - Merge pull request #343 from gatewaybuddy/codex/modify-setup_dev_env.sh-for-optional-execution
 - feat: allow setup script to launch services
 - Merge pull request #342 from gatewaybuddy/codex/clean-up-duplicate-update-sections
+
+## Update 2025-08-28 05:27 UTC
+### Summary
+Recent commits: Merge pull request #345 from gatewaybuddy/codex/update-installation-instructions-and-scripts, feat: optional Dockerized MongoDB and warnings, Merge pull request #344 from gatewaybuddy/codex/create-start_local_stack.sh-script
+
+### Recent Commits
+- Merge pull request #345 from gatewaybuddy/codex/update-installation-instructions-and-scripts
+- feat: optional Dockerized MongoDB and warnings
+- Merge pull request #344 from gatewaybuddy/codex/create-start_local_stack.sh-script
+- Add unified start script for local development
+- Merge pull request #343 from gatewaybuddy/codex/modify-setup_dev_env.sh-for-optional-execution
