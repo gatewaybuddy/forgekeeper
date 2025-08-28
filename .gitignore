@@ -11,6 +11,7 @@ Thumbs.db
 
 # Logs
 *.log
+intent_test_log.txt
 
 # Diagnostics
 NVIDIA System Information*.txt
@@ -26,6 +27,7 @@ vector_store/
 # Forgekeeper runtime data
 .forgekeeper/
 forgekeeper/outbox/
+conversation_memory.json
 
 # Build output
 backend/dist/
