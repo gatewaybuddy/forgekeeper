@@ -1,4 +1,11 @@
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
+
 from forgekeeper.load_env import init_env
+
 init_env()
 
 from forgekeeper.app.chats.memory import summarize_thoughts
