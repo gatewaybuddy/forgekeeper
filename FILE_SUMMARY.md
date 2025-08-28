@@ -65,9 +65,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/chats/memory/maintenance.py`: from typing import Any, Callable, Dict
 - `forgekeeper/app/chats/memory/think_aloud.py`: from .crud import load_memory, set_memory
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
-- `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
 - `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
-- `forgekeeper/app/chats/retrieval_manager.py`: """Utilities for selecting relevant memory entries."""
 - `forgekeeper/app/interpreter/prompt_mapper.py`: import os
 - `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
 - `forgekeeper/app/memory/backend.py`: from __future__ import annotations
@@ -288,7 +286,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_mark_done_if_merged.py`: from pathlib import Path
 - `tests/test_memory_bank.py`: import types
 - `tests/test_memory_query.py`: import json
-- `tests/test_memory_scheduler.py`: import types
 - `tests/test_multi_agent_planner.py`: import sys
 - `tests/test_openai_tool_call.py`: from flask import Flask
 - `tests/test_outbox.py`: import sys
@@ -298,7 +295,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_pre_commit_review.py`: import os
 - `tests/test_prompt_guard.py`: import sys
 - `tests/test_recursive_thinker_loop.py`: import time
-- `tests/test_retrieval_manager.py`: import types
 - `tests/test_review_change_set.py`: import json
 - `tests/test_review_staged_changes.py`: import json
 - `tests/test_roadmap_committer.py`: from pathlib import Path
