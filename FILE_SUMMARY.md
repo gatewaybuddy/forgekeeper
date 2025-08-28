@@ -216,7 +216,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `goal_manager/planner.py`: from __future__ import annotations
 - `goal_manager/progress.py`: from __future__ import annotations
 - `goal_manager/storage.py`: from __future__ import annotations
-- `intent_test_log.txt`: 🧠 Testing: create a function for me that greets a user by name.
 - `mqtt_forgekeeper_listener.py`: """MQTT listener for Forgekeeper tasks.
 - `persistent_console/__init__.py`: (empty file)
 - `persistent_console/__main__.py`: from __future__ import annotations
