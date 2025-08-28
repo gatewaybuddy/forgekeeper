@@ -54,6 +54,13 @@ epics:
         title: Optional remote push with justification
         status: done
         description: Push commits to a remote repository with a changelog and reasoning
+  - id: R-009
+    title: Phase 4: Memory optimization
+    kpis: []
+    milestones:
+      - id: FK-405
+        title: Attention distillation for GraphQL chat memory
+        status: todo
 
 
 # Updated 2025-08-28

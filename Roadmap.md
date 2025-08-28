@@ -69,6 +69,7 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 - Agent collaboration for multi-role task completion
 - Sandbox simulation environment for testing code changes
 - Real-time CLI or browser interface with natural conversation loop
+- <a id="fk-405"></a>[FK-405](tasks.md#fk-405): Attention distillation for GraphQL chat memory
 
 ---
 
@@ -150,6 +151,35 @@ Recent commits: chore: update roadmap, Merge pull request #335 from gatewaybuddy
 - docs: ensure single update block per run
 - Merge pull request #334 from gatewaybuddy/codex/remove-fk303-from-backlog
 - chore: clean backlog of completed tasks
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-08-28 04:18 UTC
+### Summary
+Recent commits: Merge pull request #336 from gatewaybuddy/codex/delete-intent_test_log.txt-and-conversation_memory.json, chore: ignore legacy logs, Merge pull request #335 from gatewaybuddy/codex/merge-duplicate-entries-in-roadmap.md
+
+### Recent Commits
+- Merge pull request #336 from gatewaybuddy/codex/delete-intent_test_log.txt-and-conversation_memory.json
+- chore: ignore legacy logs
+- Merge pull request #335 from gatewaybuddy/codex/merge-duplicate-entries-in-roadmap.md
+- docs: ensure single update block per run
+- Merge pull request #334 from gatewaybuddy/codex/remove-fk303-from-backlog
+
+## Update 2025-08-28 04:20 UTC
+### Summary
+Recent commits: docs: link FK-405 roadmap entry, chore: update roadmap, Merge pull request #336 from gatewaybuddy/codex/delete-intent_test_log.txt-and-conversation_memory.json; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- docs: link FK-405 roadmap entry
+- chore: update roadmap
+- Merge pull request #336 from gatewaybuddy/codex/delete-intent_test_log.txt-and-conversation_memory.json
+- chore: ignore legacy logs
+- Merge pull request #335 from gatewaybuddy/codex/merge-duplicate-entries-in-roadmap.md
 
 ### Recent Memory
 - No staged changes to commit
