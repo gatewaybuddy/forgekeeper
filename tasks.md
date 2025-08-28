@@ -26,6 +26,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 
+- [ ] FK-405: Implement attention distillation for chat memory (P3)
 - [x] FK-303: Unify goal manager components (P1)
 
 
