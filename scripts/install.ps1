@@ -87,3 +87,5 @@ if ($install -match '^[Yy]') {
 } else {
     Write-Host 'Skipping dependency installation and service launch.'
 }
+
+Write-Host "To start the stack later, run scripts/start_local_stack.sh"

@@ -96,3 +96,5 @@ if [[ "$install_node" =~ ^[Yy]$ ]]; then
 else
   echo "Skipping dependency installation and service launch."
 fi
+
+echo "To start the stack later, run $SCRIPT_DIR/start_local_stack.sh"
