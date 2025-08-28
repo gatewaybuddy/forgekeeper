@@ -26,6 +26,10 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 
+- [ ] FK-401: Vectorized memory retrieval (P1)
+- [ ] FK-402: Multi-agent collaboration framework (P2)
+- [ ] FK-403: Sandbox execution environment (P2)
+- [ ] FK-404: Real-time conversation interface (P3)
 - [ ] FK-405: Implement attention distillation for chat memory (P3)
 - [x] FK-303: Unify goal manager components (P1)
 
@@ -214,3 +218,63 @@ When permitted, push commits to a remote repository with a generated changelog a
 - [x] Push step can be toggled or approved
 - [x] Generated changelog summarizes commit contents
 - [x] Push includes justification for changes
+
+---
+id: FK-401
+title: Vectorized memory retrieval (P1)
+status: todo
+epic: R-005
+owner: agent
+labels: [memory, retrieval]
+---
+Add vector search to retrieve relevant memories using embeddings.
+
+**AC**
+- [ ] Memory entries indexed with vector embeddings
+- [ ] Similarity queries return relevant context
+- [ ] Tests cover indexing and lookup performance
+
+---
+id: FK-402
+title: Multi-agent collaboration framework (P2)
+status: todo
+epic: R-006
+owner: agent
+labels: [agents, collaboration]
+---
+Enable coordinated task execution across multiple agents with shared context.
+
+**AC**
+- [ ] Agents exchange messages via common protocol
+- [ ] Tasks support collaborative handoff between roles
+- [ ] Integration tests validate multi-agent workflows
+
+---
+id: FK-403
+title: Sandbox execution environment (P2)
+status: todo
+epic: R-007
+owner: agent
+labels: [sandbox, testing]
+---
+Provide isolated runtime to safely execute code changes without affecting host.
+
+**AC**
+- [ ] Sandbox restricts filesystem and network access
+- [ ] Execution results captured for review
+- [ ] Documentation explains sandbox limitations
+
+---
+id: FK-404
+title: Real-time conversation interface (P3)
+status: todo
+epic: R-008
+owner: agent
+labels: [interface, realtime]
+---
+Offer live conversational interface with streaming responses and session control.
+
+**AC**
+- [ ] Interface streams responses in real time
+- [ ] Users can interrupt or resume conversations
+- [ ] Usage examples documented
