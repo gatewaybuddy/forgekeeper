@@ -17,7 +17,7 @@ from git import Repo
 
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.logger import get_logger
-from forgekeeper.sandbox import run_sandbox_checks
+from forgekeeper.git.sandbox import run_sandbox_checks
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 

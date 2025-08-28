@@ -21,7 +21,6 @@ def init_repo(tmp_path, monkeypatch):
             "git_committer.py",
             "outbox.py",
             "diff_validator.py",
-            "sandbox.py",
         ]:
             shutil.copy(ROOT / "forgekeeper" / name, pkg_dir / name)
         shutil.copytree(ROOT / "forgekeeper" / "git", pkg_dir / "git")
