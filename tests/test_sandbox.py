@@ -3,7 +3,7 @@ import json
 import shutil
 from pathlib import Path
 
-import forgekeeper.sandbox as sb
+import forgekeeper.git.sandbox as sb
 
 
 def test_sandbox_runs_commands(monkeypatch, tmp_path):
@@ -20,6 +20,7 @@ def test_sandbox_runs_commands(monkeypatch, tmp_path):
     class FakeRepo:
         def __init__(self):
             self.git = FakeGit()
+            self.working_tree_dir = str(tmp_path)
 
     monkeypatch.setattr(sb, "Repo", lambda *a, **k: FakeRepo())
 
