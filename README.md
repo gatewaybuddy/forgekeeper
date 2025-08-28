@@ -61,6 +61,13 @@ multi‑agent setups.
 
 Alternatively, follow the manual steps below.
 
+If you removed existing `node_modules` directories, reinstall the Node dependencies:
+
+```bash
+npm install --prefix backend
+npm install --prefix frontend
+```
+
 ### Backend (Python)
 1. Create a virtual environment (optional):
    ```bash
