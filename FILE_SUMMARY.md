@@ -59,13 +59,14 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""
 - `forgekeeper/app/chats/chat_session.py`: # forgekeeper/app/chat_session.py
 - `forgekeeper/app/chats/conversation_memory.json`: {
-- `forgekeeper/app/chats/distillation_controller.py`: """Stub utilities for future attention distillation."""
 - `forgekeeper/app/chats/memory/__init__.py`: from .crud import (
 - `forgekeeper/app/chats/memory/crud.py`: import json
 - `forgekeeper/app/chats/memory/maintenance.py`: from typing import Any, Callable, Dict
 - `forgekeeper/app/chats/memory/think_aloud.py`: from .crud import load_memory, set_memory
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
 - `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
+- `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
+- `forgekeeper/app/chats/retrieval_manager.py`: """Utilities for selecting relevant memory entries."""
 - `forgekeeper/app/interpreter/prompt_mapper.py`: import os
 - `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
 - `forgekeeper/app/memory/backend.py`: from __future__ import annotations
