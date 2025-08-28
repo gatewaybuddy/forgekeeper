@@ -1,11 +1,13 @@
-import os
-from typing import Any
-
 """Deprecated Transformers-based LLM provider.
 
 Forgekeeper now prefers vLLM servers. This module remains only for backwards
 compatibility and will be removed in a future release.
 """
+
+import os
+from typing import Any
+
+from forgekeeper.config import DEFAULT_TINY_MODEL
 
 from .provider import LLMProvider
 
@@ -29,9 +31,7 @@ class TransformersLLMProvider(LLMProvider):
         from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
         import torch
 
-        model_path = os.getenv("FK_MODEL_PATH")
-        if not model_path:
-            raise ValueError("FK_MODEL_PATH environment variable must be set")
+        model_path = os.getenv("FK_MODEL_PATH", DEFAULT_TINY_MODEL)
 
         dtype_str = os.getenv("FK_DTYPE", "bf16").lower()
         dtype_name = DTYPE_MAP.get(dtype_str, "bfloat16")
@@ -42,7 +42,7 @@ class TransformersLLMProvider(LLMProvider):
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path, torch_dtype=dtype
         )
-        self.model.to(device)
+        self.model.to(torch.device(device))  # type: ignore[arg-type]
 
     def generate(self, prompt: str, **kwargs: Any) -> str:
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
