@@ -10,6 +10,8 @@
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
+Conversation history now persists exclusively through the GraphQL service, replacing the old file-based memory path.
+
 Sprint plans are generated from active goals and the tasks in this file using `forgekeeper/sprint_planner.py`. The resulting `SprintPlan.md` is reviewed alongside periodic roadmap commits.
 
 ---
@@ -30,7 +32,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-402: Multi-agent collaboration framework (P2)
 - [ ] FK-403: Sandbox execution environment (P2)
 - [ ] FK-404: Real-time conversation interface (P3)
-- [ ] FK-405: Implement attention distillation for chat memory (P3)
+- [ ] FK-405: Implement attention distillation for GraphQL chat memory (P3)
 - [x] FK-303: Unify goal manager components (P1)
 
 

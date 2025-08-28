@@ -60,7 +60,7 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 - [x] Multi-file edit support in `task_pipeline.py`
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `goal_manager/manager.py`
-- [x] Consolidated conversation handling behind GraphQL service
+- [x] Consolidated conversation handling behind a single GraphQL storage path
 
 ---
 

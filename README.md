@@ -128,7 +128,7 @@ The current conversation ID is saved in `.forgekeeper/cli_state.json` so session
 
 ### Interactive console
 
-For a simple direct console without GraphQL persistence, run:
+For a simple console that persists chats via GraphQL, run:
 
 ```bash
 python -m forgekeeper console

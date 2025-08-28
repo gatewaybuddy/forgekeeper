@@ -57,12 +57,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/agent/agent.py`: import uuid
 - `forgekeeper/agent/communication.py`: """Inter-agent communication utilities.
 - `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""
-- `forgekeeper/app/chats/chat_session.py`: # forgekeeper/app/chat_session.py
-- `forgekeeper/app/chats/conversation_memory.json`: {
-- `forgekeeper/app/chats/memory/__init__.py`: from .crud import (
-- `forgekeeper/app/chats/memory/crud.py`: import json
-- `forgekeeper/app/chats/memory/maintenance.py`: from typing import Any, Callable, Dict
-- `forgekeeper/app/chats/memory/think_aloud.py`: from .crud import load_memory, set_memory
+- `forgekeeper/app/chats/chat_session.py`: "Simple chat session backed by the GraphQL conversation service."
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
 - `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
 - `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
@@ -80,7 +75,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/services/code_catcher.py`: import os
 - `forgekeeper/app/services/file_writer.py`: # forgekeeper/app/services/file_writer.py
 - `forgekeeper/app/services/function_loader.py`: import os
-- `forgekeeper/app/services/graphql_client.py`: import os
+- `forgekeeper/app/services/graphql_client.py`: GraphQL helpers for sending, listing, and managing conversation messages
 - `forgekeeper/app/services/harmony/config.py`: """Configuration and model loading for Harmony service."""
 - `forgekeeper/app/services/harmony/prompt_utils.py`: """Prompt utilities for Harmony service."""
 - `forgekeeper/app/services/harmony/service.py`: """Harmony service entry point."""
