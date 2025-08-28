@@ -25,20 +25,11 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `DEVELOPER_NOTES.md`: # Developer Notes
 - `Dockerfile`: FROM python:3.11-slim
 - `Dockerfile.vllm`: FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
-- `FILE_SUMMARY.md`: # Repository File Summary
+- `FILE_SUMMARY.md`: Updated 2025-08-28
 - `Makefile`: .PHONY: sync-roadmap propose-next-pr
 - `README.md`: # Forgekeeper
 - `Roadmap.md`: # 🛤️ Forgekeeper Development Roadmap
 - `SprintPlan.md`: ## Next Sprint Plan
-- `forgekeeper/agents/__init__.py`: """Legacy task-specific agent helpers.
-- `forgekeeper/agents/coder.py`: from forgekeeper.app.chats.memory import save_message
-- `forgekeeper/agents/coder_io.py`: from __future__ import annotations
-- `forgekeeper/agents/core.py`: from forgekeeper.app.chats.memory import (
-- `forgekeeper/agents/router.py`: import re
-- `forgekeeper/agents/session_memory.py`: from forgekeeper.app.chats.memory import get_memory, set_memory
-- `forgekeeper/agents/task_committer.py`: from __future__ import annotations
-- `forgekeeper/agents/task_executor.py`: from __future__ import annotations
-- `forgekeeper/agents/task_retriever.py`: from __future__ import annotations
 - `backend/Dockerfile`: FROM node:18-alpine
 - `backend/package-lock.json`: {
 - `backend/package.json`: {
@@ -53,15 +44,21 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `docker-compose.yml`: version: "3.9"
 - `forgekeeper/__init__.py`: # Forgekeeper package
 - `forgekeeper/__main__.py`: from __future__ import annotations
-- `forgekeeper/agent/__init__.py`: """Foundational agent utilities and :class:`ForgeAgent`.
-- `forgekeeper/agent/agent.py`: import uuid
+- `forgekeeper/agent/__init__.py`: """Foundational agent utilities and :class:\`ForgeAgent\`.
+- `forgekeeper/agent/agent.py`: 
 - `forgekeeper/agent/communication.py`: """Inter-agent communication utilities.
 - `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""
-- `forgekeeper/app/chats/chat_session.py`: "Simple chat session backed by the GraphQL conversation service."
+- `forgekeeper/agents/__init__.py`: """Legacy task-specific agent helpers.
+- `forgekeeper/agents/coder.py`: from forgekeeper.app.chats.memory import save_message
+- `forgekeeper/agents/coder_io.py`: from __future__ import annotations
+- `forgekeeper/agents/core.py`: from forgekeeper.app.chats.memory import (
+- `forgekeeper/agents/router.py`: import re
+- `forgekeeper/agents/session_memory.py`: from forgekeeper.app.chats.memory import get_memory, set_memory
+- `forgekeeper/agents/task_committer.py`: from __future__ import annotations
+- `forgekeeper/agents/task_executor.py`: from __future__ import annotations
+- `forgekeeper/agents/task_retriever.py`: from __future__ import annotations
+- `forgekeeper/app/chats/chat_session.py`: """Simple chat session backed by the GraphQL conversation service."""
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
-- `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
-- `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
-- `forgekeeper/app/chats/retrieval_manager.py`: """Utilities for selecting relevant memory entries."""
 - `forgekeeper/app/interpreter/prompt_mapper.py`: import os
 - `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
 - `forgekeeper/app/memory/backend.py`: from __future__ import annotations
@@ -71,11 +68,11 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/memory/serialize.py`: from __future__ import annotations
 - `forgekeeper/app/memory/store.py`: from __future__ import annotations
 - `forgekeeper/app/routes/chat_routes.py`: from flask import Blueprint, request, jsonify
-- `forgekeeper/app/self/proposal_engine.py`: import os
+- `forgekeeper/app/self/proposal_engine.py`: 
 - `forgekeeper/app/services/code_catcher.py`: import os
 - `forgekeeper/app/services/file_writer.py`: # forgekeeper/app/services/file_writer.py
 - `forgekeeper/app/services/function_loader.py`: import os
-- `forgekeeper/app/services/graphql_client.py`: GraphQL helpers for sending, listing, and managing conversation messages
+- `forgekeeper/app/services/graphql_client.py`: import os
 - `forgekeeper/app/services/harmony/config.py`: """Configuration and model loading for Harmony service."""
 - `forgekeeper/app/services/harmony/prompt_utils.py`: """Prompt utilities for Harmony service."""
 - `forgekeeper/app/services/harmony/service.py`: """Harmony service entry point."""
@@ -98,7 +95,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/diff_validator.py`: """Validate cross-file consistency of staged diffs.
 - `forgekeeper/file_analyzer.py`: import json
 - `forgekeeper/forgekeeper_safe_update.py`: # DO NOT EDIT: Safe Update Runner
-- `forgekeeper/functions/describe_function.py`: def describe_function(name):
+- `forgekeeper/functions/describe_function.py`: 
 - `forgekeeper/functions/introspect_state.py`: from forgekeeper.app.chats.memory import load_memory
 - `forgekeeper/functions/kai_starter_pack_summary.json`: {
 - `forgekeeper/functions/list_functions.py`: import os
@@ -113,7 +110,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/git/commit_ops.py`: """Commit and push helper functions."""
 - `forgekeeper/git/outbox.py`: """Helper for executing actions with the outbox."""
 - `forgekeeper/git/pre_review.py`: """Pre-commit review helpers."""
-- `forgekeeper/git/sandbox.py`: """Wrapper utilities for sandboxed checks."""
+- `forgekeeper/git/sandbox.py`: """Run code changes in an isolated Git worktree."""
 - `forgekeeper/git/sandbox_checks.py`: """Helpers for running sandbox checks."""
 - `forgekeeper/git_committer.py`: """Utilities for committing and pushing Forgekeeper updates."""
 - `forgekeeper/goals.json`: []
@@ -157,7 +154,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/pipeline/utils.py`: import re
 - `forgekeeper/roadmap_committer.py`: """Automatically commit roadmap updates by synthesizing recent progress."""
 - `forgekeeper/roadmap_updater.py`: """Utilities to draft and append roadmap updates.
-- `forgekeeper/sandbox.py`: """Run code changes in an isolated Git worktree."""
 - `forgekeeper/self_review/__init__.py`: """Self-review utilities for Forgekeeper."""
 - `forgekeeper/self_review/checks.py`: """Run lint/test checks on code changes."""
 - `forgekeeper/self_review/core.py`: """Core utilities for self-review checks."""
@@ -217,7 +213,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `goal_manager/progress.py`: from __future__ import annotations
 - `goal_manager/storage.py`: from __future__ import annotations
 - `mqtt_forgekeeper_listener.py`: """MQTT listener for Forgekeeper tasks.
-- `persistent_console/__init__.py`: (empty file)
+- `persistent_console/__init__.py`: 
 - `persistent_console/__main__.py`: from __future__ import annotations
 - `requirements.txt`: GitPython==3.1.45
 - `roadmap.yaml`: milestones:
@@ -256,7 +252,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/memory/test_append_and_tail.py`: import json
 - `tests/memory/test_cli_utils.py`: import os
 - `tests/task_queue/conftest.py`: import sys
-- `tests/task_queue/test_parser.py`: def test_front_matter_skips_completed(queue_from_text):
+- `tests/task_queue/test_parser.py`: 
 - `tests/task_queue/test_queue_helpers.py`: from forgekeeper.tasks.queue import TaskQueue
 - `tests/task_queue/test_queue_ops.py`: import json
 - `tests/task_queue/test_weighting.py`: from forgekeeper.tasks.queue import TaskQueue
@@ -308,7 +304,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tools/auto_label_pr.py`: #!/usr/bin/env python3
 - `tools/labels/__init__.py`: """Label parsing and GitHub API helpers."""
 - `tools/labels/github_api.py`: """GitHub label management helpers."""
-- `tools/labels/parser.py`: """Parse `tasks.md` blocks for metadata used in PR labeling."""
+- `tools/labels/parser.py`: """Parse \`tasks.md\` blocks for metadata used in PR labeling."""
 - `tools/mark_done_if_merged.py`: import os
 - `tools/preview_task_status.py`: import os, re, sys, json, subprocess
 - `tools/propose_pr.py`: import os, re, subprocess, sys, textwrap
