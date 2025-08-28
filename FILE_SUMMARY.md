@@ -30,15 +30,15 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `README.md`: # Forgekeeper
 - `Roadmap.md`: # 🛤️ Forgekeeper Development Roadmap
 - `SprintPlan.md`: ## Next Sprint Plan
-- `agents/__init__.py`: from forgekeeper.load_env import init_env
-- `agents/coder.py`: from forgekeeper.app.chats.memory import save_message
-- `agents/coder_io.py`: from __future__ import annotations
-- `agents/core.py`: from forgekeeper.app.chats.memory import (
-- `agents/router.py`: import re
-- `agents/session_memory.py`: from forgekeeper.app.chats.memory import get_memory, set_memory
-- `agents/task_committer.py`: from __future__ import annotations
-- `agents/task_executor.py`: from __future__ import annotations
-- `agents/task_retriever.py`: from __future__ import annotations
+- `forgekeeper/agents/__init__.py`: """Legacy task-specific agent helpers.
+- `forgekeeper/agents/coder.py`: from forgekeeper.app.chats.memory import save_message
+- `forgekeeper/agents/coder_io.py`: from __future__ import annotations
+- `forgekeeper/agents/core.py`: from forgekeeper.app.chats.memory import (
+- `forgekeeper/agents/router.py`: import re
+- `forgekeeper/agents/session_memory.py`: from forgekeeper.app.chats.memory import get_memory, set_memory
+- `forgekeeper/agents/task_committer.py`: from __future__ import annotations
+- `forgekeeper/agents/task_executor.py`: from __future__ import annotations
+- `forgekeeper/agents/task_retriever.py`: from __future__ import annotations
 - `backend/Dockerfile`: FROM node:18-alpine
 - `backend/package-lock.json`: {
 - `backend/package.json`: {
@@ -53,7 +53,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `docker-compose.yml`: version: "3.9"
 - `forgekeeper/__init__.py`: # Forgekeeper package
 - `forgekeeper/__main__.py`: from __future__ import annotations
-- `forgekeeper/agent/__init__.py`: """Agent package providing core agent utilities.
+- `forgekeeper/agent/__init__.py`: """Foundational agent utilities and :class:`ForgeAgent`.
 - `forgekeeper/agent/agent.py`: import uuid
 - `forgekeeper/agent/communication.py`: """Inter-agent communication utilities.
 - `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""

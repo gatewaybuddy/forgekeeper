@@ -1,3 +1,11 @@
+"""Legacy task-specific agent helpers.
+
+This package hosts the higher-level ``ask_*`` functions and orchestration
+utilities used by the multi-agent planner.  It remains separate from
+``forgekeeper.agent`` which provides the foundational :class:`ForgeAgent`
+implementation and shared communication helpers.
+"""
+
 from forgekeeper.load_env import init_env
 init_env()
 

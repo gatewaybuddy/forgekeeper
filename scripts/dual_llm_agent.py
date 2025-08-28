@@ -19,7 +19,7 @@ from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
-from agents import route_intent, execute_next_task
+from forgekeeper.agents import route_intent, execute_next_task
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
