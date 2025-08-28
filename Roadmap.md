@@ -65,11 +65,11 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 ---
 
 ## 🧠 Future Capabilities
-- Vectorized memory summaries for long-term planning
-- Agent collaboration for multi-role task completion
-- Sandbox simulation environment for testing code changes
-- Real-time CLI or browser interface with natural conversation loop
-- <a id="fk-405"></a>[FK-405](tasks.md#fk-405): Attention distillation for GraphQL chat memory
+- <a id="fk-401"></a>[FK-401](tasks.md#fk-401): Vectorized memory retrieval (P1)
+- <a id="fk-402"></a>[FK-402](tasks.md#fk-402): Multi-agent collaboration framework (P2)
+- <a id="fk-403"></a>[FK-403](tasks.md#fk-403): Sandbox execution environment (P2)
+- <a id="fk-404"></a>[FK-404](tasks.md#fk-404): Real-time conversation interface (P3)
+- <a id="fk-405"></a>[FK-405](tasks.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
 
 ---
 
@@ -220,6 +220,35 @@ Recent commits: chore: clean node modules and note reinstall steps, chore: updat
 - Merge pull request #339 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary-jixdzs
 - Merge pull request #338 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary
 - chore: refresh file summary
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-08-28 04:57 UTC
+### Summary
+Recent commits: Merge pull request #340 from gatewaybuddy/codex/clean-up-node_modules-directories, chore: update roadmap, Merge pull request #339 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary-jixdzs
+
+### Recent Commits
+- Merge pull request #340 from gatewaybuddy/codex/clean-up-node_modules-directories
+- chore: update roadmap
+- Merge pull request #339 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary-jixdzs
+- Merge pull request #338 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary
+- chore: refresh file summary
+
+## Update 2025-08-28 04:58 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #340 from gatewaybuddy/codex/clean-up-node_modules-directories, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- Merge pull request #340 from gatewaybuddy/codex/clean-up-node_modules-directories
+- chore: update roadmap
+- Merge pull request #339 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary-jixdzs
+- Merge pull request #338 from gatewaybuddy/codex/run-file-summarization-tool-and-update-summary
 
 ### Recent Memory
 - No staged changes to commit

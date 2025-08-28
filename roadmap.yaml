@@ -54,12 +54,40 @@ epics:
         title: Optional remote push with justification
         status: done
         description: Push commits to a remote repository with a changelog and reasoning
+  - id: R-005
+    title: Vectorized memory retrieval
+    kpis: []
+    milestones:
+      - id: FK-401
+        title: Vectorized memory retrieval (P1)
+        status: todo
+  - id: R-006
+    title: Multi-agent collaboration framework
+    kpis: []
+    milestones:
+      - id: FK-402
+        title: Multi-agent collaboration framework (P2)
+        status: todo
+  - id: R-007
+    title: Sandbox execution environment
+    kpis: []
+    milestones:
+      - id: FK-403
+        title: Sandbox execution environment (P2)
+        status: todo
+  - id: R-008
+    title: Real-time conversation interface
+    kpis: []
+    milestones:
+      - id: FK-404
+        title: Real-time conversation interface (P3)
+        status: todo
   - id: R-009
     title: Phase 4: Memory optimization
     kpis: []
     milestones:
       - id: FK-405
-        title: Attention distillation for GraphQL chat memory
+        title: Attention distillation for GraphQL chat memory (P3)
         status: todo
 
 
