@@ -36,12 +36,11 @@ During execution the installer prompts for three items:
 
 1. **Setup type** – local single‑user or multi‑agent distributed (Docker)
 2. **Model storage directory** – defaults to `./models`
-3. **Dependency installation** – install Node/Python dependencies and launch services
+3. **Dependency installation** – install Node/Python dependencies and launch services (backend, Python agent, frontend)
 
 Use `--defaults` to skip these questions and apply the default values.
 
-Rerun the installer any time to switch between local and multi‑agent modes or
-to change the model directory.
+When the third option is enabled for the local setup, the installer runs `scripts/setup_dev_env.sh --launch-services` to start the GraphQL service, Python agent, and frontend. Rerun the installer any time to switch between local and multi‑agent modes or to change the model directory.
 
 *Advanced*: The legacy `setup_env*` and `setup_docker_env*` scripts remain
 available for manual configuration.
@@ -55,7 +54,7 @@ multi‑agent setups.
 *Advanced*: To run individual setup scripts directly, use:
 
 - `scripts/setup_dev_env.sh` / `scripts/setup_dev_env.ps1` for local
-  development
+  development (add `--launch-services` to start all services after setup)
 - `scripts/setup_docker_env.sh` / `scripts/setup_docker_env.ps1` for the
   Docker‑based stack
 
@@ -107,6 +106,8 @@ npm install --prefix frontend
    ```
 
 ## Running
+
+If you chose to launch services during installation or ran `scripts/setup_dev_env.sh --launch-services`, the GraphQL service, Python agent, and frontend will already be running. Use the commands below to start them manually if needed.
 
 ### Start the GraphQL service
 ```bash
