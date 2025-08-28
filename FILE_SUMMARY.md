@@ -65,7 +65,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/app/chats/memory/think_aloud.py`: from .crud import load_memory, set_memory
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
 - `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
-- `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
 - `forgekeeper/app/chats/retrieval_manager.py`: """Utilities for selecting relevant memory entries."""
 - `forgekeeper/app/interpreter/prompt_mapper.py`: import os
 - `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
