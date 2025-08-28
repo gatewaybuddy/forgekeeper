@@ -33,16 +33,6 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-403: Sandbox execution environment (P2)
 - [ ] FK-404: Real-time conversation interface (P3)
 - [ ] FK-405: Implement attention distillation for GraphQL chat memory (P3)
-- [x] FK-303: Unify goal manager components (P1)
-
-
-- [x] Expose task insertion utility via CLI for manual task creation
-- [x] FK-201: Transactional outbox for resolvers (P1)
-- [x] FK-105: Test commit check command selection (P1)
-- [x] FK-106: Test task queue prioritization (P1)
-- [x] FK-107: Validate episodic memory logging (P1)
-- [x] FK-108: Test mark_done_if_merged flow (P1)
-- [x] FK-109: Test LocalEmbedder storage and retrieval (P1)
 
 ---
 
@@ -96,6 +86,13 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 - [x] Design multi-step planning framework for complex tasks
 - [x] Implement cross-file validation for code edits
+- [x] Expose task insertion utility via CLI for manual task creation
+- [x] FK-201: Transactional outbox for resolvers (P1)
+- [x] FK-105: Test commit check command selection (P1)
+- [x] FK-106: Test task queue prioritization (P1)
+- [x] FK-107: Validate episodic memory logging (P1)
+- [x] FK-108: Test mark_done_if_merged flow (P1)
+- [x] FK-109: Test LocalEmbedder storage and retrieval (P1)
 ---
 
 ## Canonical Tasks
