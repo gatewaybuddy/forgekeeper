@@ -100,9 +100,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/code_edit/patcher.py`: """Utilities for applying unified diff patches."""
 - `forgekeeper/commands.py`: from __future__ import annotations
 - `forgekeeper/config.py`: import os
-- `forgekeeper/deprecated/console_chat.py`: import os
-- `forgekeeper/deprecated/console_chat_llamacpp.py`: import os
-- `forgekeeper/deprecated/langchain_gpt4o_tester.py`: """Deprecated LangChain helper for GPT‑4o.
 - `forgekeeper/diff_validator.py`: """Validate cross-file consistency of staged diffs.
 - `forgekeeper/file_analyzer.py`: import json
 - `forgekeeper/forgekeeper_safe_update.py`: # DO NOT EDIT: Safe Update Runner
