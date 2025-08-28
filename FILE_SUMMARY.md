@@ -105,7 +105,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/deprecated/console_chat_llamacpp.py`: import os
 - `forgekeeper/deprecated/langchain_gpt4o_tester.py`: """Deprecated LangChain helper for GPT‑4o.
 - `forgekeeper/diff_validator.py`: """Validate cross-file consistency of staged diffs.
-- `forgekeeper/dual_llm_agent.py`: from forgekeeper.load_env import init_env
 - `forgekeeper/file_analyzer.py`: import json
 - `forgekeeper/forgekeeper_safe_update.py`: # DO NOT EDIT: Safe Update Runner
 - `forgekeeper/functions/describe_function.py`: def describe_function(name):
@@ -234,6 +233,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `roadmap.yaml`: milestones:
 - `run_console/__init__.py`: """Interactive console runner using streaming responses."""
 - `run_console/__main__.py`: """Simple streaming console for manual testing."""
+- `scripts/dual_llm_agent.py`: from pathlib import Path
 - `scripts/fft_visualizer.py`: import argparse
 - `scripts/install.ps1`: #!/usr/bin/env pwsh
 - `scripts/install.sh`: #!/usr/bin/env bash
