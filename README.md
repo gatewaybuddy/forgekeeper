@@ -196,11 +196,11 @@ additional context during execution.
 
 Forgekeeper bundles a small GPT‑2 model for lightweight development. It
 requires no GPU and is useful for verifying the stack or running tests quickly.
-Enable it by switching to the `transformers` backend and letting the default
-model download automatically:
+Enable it by setting `USE_TINY_MODEL=true`, which automatically switches to
+the `transformers` backend and lets the default model download automatically:
 
 ```bash
-export FK_LLM_IMPL=transformers
+export USE_TINY_MODEL=true
 export FK_DEVICE=cpu
 export FK_DTYPE=float32
 python -m forgekeeper
@@ -208,8 +208,8 @@ python -m forgekeeper
 
 The tiny model is **not** instruction tuned and has a very limited context
 window, so responses will differ from full-size models. Use it only for
-development or smoke tests; for real tasks switch back to larger models via
-`vllm` or a custom `FK_MODEL_PATH`.
+development or smoke tests. Unset `USE_TINY_MODEL` (or set it to `false`) to
+switch back to larger models via `vllm` or a custom `FK_MODEL_PATH`.
 
 ### GPT-OSS-20B Model Setup
 
