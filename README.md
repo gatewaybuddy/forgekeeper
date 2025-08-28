@@ -134,6 +134,16 @@ For a simple direct console without GraphQL persistence, run:
 python -m forgekeeper console
 ```
 
+### Dual LLM agent CLI
+
+An experimental console that routes prompts through the Core and Coder models directly is available under `scripts/dual_llm_agent.py`:
+
+```bash
+python scripts/dual_llm_agent.py
+```
+
+End multi-line prompts with `<<END>>`. Type `summarize` to view memory, `nexttask` to execute the next task, or `exit` to quit.
+
 ## Memory-based retrieval
 
 Forgekeeper stores episodic task summaries and embeds them for quick

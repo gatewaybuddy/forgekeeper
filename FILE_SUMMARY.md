@@ -59,14 +59,13 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""
 - `forgekeeper/app/chats/chat_session.py`: # forgekeeper/app/chat_session.py
 - `forgekeeper/app/chats/conversation_memory.json`: {
-- `forgekeeper/app/chats/distillation_controller.py`: """Stub utilities for future attention distillation."""
 - `forgekeeper/app/chats/memory/__init__.py`: from .crud import (
 - `forgekeeper/app/chats/memory/crud.py`: import json
 - `forgekeeper/app/chats/memory/maintenance.py`: from typing import Any, Callable, Dict
 - `forgekeeper/app/chats/memory/think_aloud.py`: from .crud import load_memory, set_memory
 - `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
-- `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
 - `forgekeeper/app/chats/memory_store.py`: """Compatibility wrapper for legacy memory_store imports.
+- `forgekeeper/app/chats/memory_scheduler.py`: """Tools for scheduled memory maintenance."""
 - `forgekeeper/app/chats/retrieval_manager.py`: """Utilities for selecting relevant memory entries."""
 - `forgekeeper/app/interpreter/prompt_mapper.py`: import os
 - `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
@@ -101,11 +100,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `forgekeeper/code_edit/patcher.py`: """Utilities for applying unified diff patches."""
 - `forgekeeper/commands.py`: from __future__ import annotations
 - `forgekeeper/config.py`: import os
-- `forgekeeper/deprecated/console_chat.py`: import os
-- `forgekeeper/deprecated/console_chat_llamacpp.py`: import os
-- `forgekeeper/deprecated/langchain_gpt4o_tester.py`: """Deprecated LangChain helper for GPT‑4o.
 - `forgekeeper/diff_validator.py`: """Validate cross-file consistency of staged diffs.
-- `forgekeeper/dual_llm_agent.py`: from forgekeeper.load_env import init_env
 - `forgekeeper/file_analyzer.py`: import json
 - `forgekeeper/forgekeeper_safe_update.py`: # DO NOT EDIT: Safe Update Runner
 - `forgekeeper/functions/describe_function.py`: def describe_function(name):
@@ -234,6 +229,7 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `roadmap.yaml`: milestones:
 - `run_console/__init__.py`: """Interactive console runner using streaming responses."""
 - `run_console/__main__.py`: """Simple streaming console for manual testing."""
+- `scripts/dual_llm_agent.py`: from pathlib import Path
 - `scripts/fft_visualizer.py`: import argparse
 - `scripts/install.ps1`: #!/usr/bin/env pwsh
 - `scripts/install.sh`: #!/usr/bin/env bash
@@ -288,7 +284,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_mark_done_if_merged.py`: from pathlib import Path
 - `tests/test_memory_bank.py`: import types
 - `tests/test_memory_query.py`: import json
-- `tests/test_memory_scheduler.py`: import types
 - `tests/test_multi_agent_planner.py`: import sys
 - `tests/test_openai_tool_call.py`: from flask import Flask
 - `tests/test_outbox.py`: import sys
@@ -298,7 +293,6 @@ Below is a one-line summary for every tracked file in the repository, grouped by
 - `tests/test_pre_commit_review.py`: import os
 - `tests/test_prompt_guard.py`: import sys
 - `tests/test_recursive_thinker_loop.py`: import time
-- `tests/test_retrieval_manager.py`: import types
 - `tests/test_review_change_set.py`: import json
 - `tests/test_review_staged_changes.py`: import json
 - `tests/test_roadmap_committer.py`: from pathlib import Path
