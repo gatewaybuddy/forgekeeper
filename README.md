@@ -20,8 +20,10 @@ configuration and choose how Forgekeeper runs:
 ./scripts/install.sh
 ```
 
-Use `--help`/`-h` to display usage or pass `--defaults` (alias `--yes`) to
-apply all defaults without interactive prompts.
+Add `--docker-mongo` to launch a temporary MongoDB container if the
+`mongod` command is unavailable. Use `--help`/`-h` to display usage or pass
+`--defaults` (alias `--yes`) to apply all defaults without interactive
+prompts.
 
 PowerShell users can invoke the equivalent script:
 
@@ -44,6 +46,16 @@ When the third option is enabled for the local setup, the installer runs `script
 
 *Advanced*: The legacy `setup_env*` and `setup_docker_env*` scripts remain
 available for manual configuration.
+
+## MongoDB
+
+The GraphQL service requires a running MongoDB instance. The installer warns
+if the `mongod` command cannot be found. Install MongoDB manually (for
+example, `brew tap mongodb/brew && brew install mongodb-community` on macOS or
+`sudo apt-get install -y mongodb-org` on Ubuntu) or run
+`./scripts/install.sh --docker-mongo` to start a Dockerized MongoDB instance.
+The `docker-compose.yml` file also includes a `mongodb` service for
+container-based development.
 
 ## Installation
 
@@ -89,7 +101,8 @@ npm install --prefix frontend
    cd backend
    npm install
    ```
-2. Configure the MongoDB connection string:
+2. Configure the MongoDB connection string (use `mongodb` as the host when
+   running the Docker service):
    ```bash
    export DATABASE_URL="mongodb://localhost:27017/forgekeeper"
    ```
