@@ -91,7 +91,7 @@ if [[ "$install_node" =~ ^[Yy]$ ]]; then
       "$SCRIPT_DIR/setup_docker_env.sh"
     fi
   else
-    "$SCRIPT_DIR/setup_dev_env.sh"
+    "$SCRIPT_DIR/setup_dev_env.sh" --launch-services
   fi
 else
   echo "Skipping dependency installation and service launch."
