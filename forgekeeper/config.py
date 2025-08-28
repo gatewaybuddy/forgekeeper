@@ -1,5 +1,8 @@
 import os
 
+DEFAULT_TINY_MODEL = "sshleifer/tiny-gpt2"
+"""Fallback Hugging Face model used for lightweight tests."""
+
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 """Global debug flag used across the project."""
 

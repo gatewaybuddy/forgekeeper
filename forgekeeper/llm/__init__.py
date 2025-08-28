@@ -1,11 +1,17 @@
 import os
 
+from forgekeeper.config import DEFAULT_TINY_MODEL
 from .provider import LLMProvider
 
 
 def get_llm() -> LLMProvider:
     """Return an LLM provider based on environment configuration."""
-    impl = os.getenv("FK_LLM_IMPL", "vllm").lower()
+    impl_env = os.getenv("FK_LLM_IMPL")
+    model_path = os.getenv("FK_MODEL_PATH", DEFAULT_TINY_MODEL)
+    if not impl_env:
+        impl = "transformers" if model_path == DEFAULT_TINY_MODEL else "vllm"
+    else:
+        impl = impl_env.lower()
     if impl == "transformers":
         from .transformers_impl import TransformersLLMProvider
 
