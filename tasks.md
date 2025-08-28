@@ -6,7 +6,7 @@
 |-----------|--------|
 | Core | Done |
 | Automation | Done |
-| Autonomy | In Progress |
+| Autonomy | Done |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
@@ -26,8 +26,6 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 
 
-- [ ] M-033: Optional remote push with changelog and justification (P3)
-- [ ] M-030: Autonomous task execution from high-level goals (P1)
 - [x] FK-303: Unify goal manager components (P1)
 
 
