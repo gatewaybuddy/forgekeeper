@@ -295,3 +295,14 @@ Recent commits: Merge pull request #345 from gatewaybuddy/codex/update-installat
 - Merge pull request #344 from gatewaybuddy/codex/create-start_local_stack.sh-script
 - Add unified start script for local development
 - Merge pull request #343 from gatewaybuddy/codex/modify-setup_dev_env.sh-for-optional-execution
+
+## Update 2025-08-28 05:44 UTC
+### Summary
+Recent commits: Merge pull request #347 from gatewaybuddy/codex/add-default-tiny-model-support, test: verify default tiny transformers model, Merge pull request #346 from gatewaybuddy/codex/improve-mongodb-installation-script
+
+### Recent Commits
+- Merge pull request #347 from gatewaybuddy/codex/add-default-tiny-model-support
+- test: verify default tiny transformers model
+- Merge pull request #346 from gatewaybuddy/codex/improve-mongodb-installation-script
+- Prompt to launch Docker MongoDB when mongod is absent
+- Merge pull request #345 from gatewaybuddy/codex/update-installation-instructions-and-scripts
