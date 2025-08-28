@@ -32,7 +32,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-402: Multi-agent collaboration framework (P2)
 - [ ] FK-403: Sandbox execution environment (P2)
 - [ ] FK-404: Real-time conversation interface (P3)
-- [ ] FK-405: Implement attention distillation for GraphQL chat memory (P3)
+- [ ] [FK-405](Roadmap.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
 
 ---
 
@@ -277,3 +277,19 @@ Offer live conversational interface with streaming responses and session control
 - [ ] Interface streams responses in real time
 - [ ] Users can interrupt or resume conversations
 - [ ] Usage examples documented
+
+---
+id: FK-405
+title: Implement attention distillation for GraphQL chat memory (P3)
+status: todo
+epic: R-009
+owner: agent
+labels: [memory, attention]
+links: ["Roadmap.md#fk-405"]
+---
+Introduce attention distillation to refine GraphQL chat memory retrieval.
+
+**AC**
+- [ ] Distill attention weights into compact representations
+- [ ] Retrieval leverages distilled attention summaries
+- [ ] Tests validate improved context accuracy
