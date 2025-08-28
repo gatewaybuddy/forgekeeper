@@ -6,7 +6,7 @@ from typing import Iterable
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import DEBUG_MODE
-from forgekeeper.git import sandbox
+from .sandbox import run_sandbox_checks
 from forgekeeper.memory.episodic import append_entry
 
 
@@ -23,7 +23,7 @@ def _run_sandbox_checks(
 ) -> dict:
     """Run sandbox checks and record failures."""
 
-    sandbox_result = sandbox.run_sandbox_checks(files, task_id=task_id, run_checks=run_checks)
+    sandbox_result = run_sandbox_checks(files, task_id=task_id, run_checks=run_checks)
     if not sandbox_result.get("passed", False):
         log.error("Aborting commit due to failing sandbox checks")
         append_entry(
