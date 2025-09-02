@@ -461,3 +461,17 @@ Each autonomous roadmap commit logs its rationale to `.forgekeeper/memory/episod
 
 ---
 This guide is intended to streamline installation and clarify component interactions.
+
+## Agentic Memory Plane — Quick Start
+
+Run memory agents on text:
+
+```bash
+echo "This is teh best." | python -m forgekeeper.cli.memory_plane run
+```
+
+List available agents:
+
+```bash
+python -m forgekeeper.cli.memory_plane list
+```
