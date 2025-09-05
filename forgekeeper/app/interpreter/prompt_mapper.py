@@ -1,11 +1,11 @@
 import os
-from forgekeeper.app.chats.memory import (
+from forgekeeper.app.chats.memory_service import get_memory
+from forgekeeper.app.chats.think_aloud import (
     set_think_aloud,
     grant_think_aloud_consent,
-    summarize_thoughts,
     request_think_aloud,
-    get_memory,
 )
+from thoughts import summarize_thoughts
 from forgekeeper.app.utils.prompt_guard import verify_prompt
 
 DEFAULT_SYS_PROMPT = os.getenv("DEFAULT_SYS_PROMPT", "You are ForgeKeeper, a helpful AI assistant and code crafter.")
@@ -70,6 +70,6 @@ def interpret_prompt(user_input, session_id, llm=None):
         return "Okay, internal thoughts will stay private."
 
     if "summarize what you've been thinking" in lowered or "what have you been thinking" in lowered:
-        return summarize_thoughts(session_id)
+        return summarize_thoughts()
 
     return None

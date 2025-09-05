@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory import save_message
+from forgekeeper.app.chats.memory_service import save_message
 from forgekeeper.app.services.graphql_client import send_message
 from forgekeeper.agent.tool_utils import build_tool_specs, execute_tool_call
 from forgekeeper.llm.clients import client

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from forgekeeper.app.chats.memory import get_memory, set_memory
+from forgekeeper.app.chats.memory_service import get_memory, set_memory
 from forgekeeper.pipeline import TaskPipeline
 
 

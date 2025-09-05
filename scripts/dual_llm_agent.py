@@ -8,7 +8,7 @@ from forgekeeper.load_env import init_env
 
 init_env()
 
-from forgekeeper.app.chats.memory import summarize_thoughts
+from thoughts import summarize_thoughts
 from forgekeeper.app.services.llm_router import (
     get_core_model_name,
     get_coder_model_name,
@@ -37,7 +37,7 @@ if __name__ == "__main__":
                 exit()
             elif line.strip().lower() == "summarize":
                 log.info("\n🧠 Memory Summary:\n")
-                log.info(summarize_thoughts("session_kai"))
+                log.info(summarize_thoughts())
                 log.info("\n" + "-" * 50 + "\n")
                 break
             elif line.strip().lower() == "nexttask":
@@ -51,7 +51,7 @@ if __name__ == "__main__":
                 exit()
             elif line.strip().lower() == "summarize":
                 log.info("\n🧠 Memory Summary:\n")
-                log.info(summarize_thoughts("session_kai"))
+                log.info(summarize_thoughts())
                 log.info("\n" + "-" * 50 + "\n")
                 break
             elif line.strip().lower() == "nexttask":

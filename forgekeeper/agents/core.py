@@ -1,9 +1,6 @@
-from forgekeeper.app.chats.memory import (
-    save_message,
-    summarize_thoughts,
-    get_memory,
-)
-from forgekeeper.app.chats.memory_vector import retrieve_similar_entries
+from forgekeeper.app.chats.memory_service import save_message, get_memory
+from thoughts import summarize_thoughts
+from forgekeeper.app.memory.retrieval import retrieve_similar_entries
 from forgekeeper.app.services.graphql_client import send_message
 from forgekeeper.app.services.prompt_formatting import build_memory_prompt
 from forgekeeper.app.utils.system_prompt_builder import build_system_prompt
@@ -15,7 +12,7 @@ from forgekeeper.app.utils.json_helpers import extract_json
 def ask_core(prompt, session_id):
     """Send ``prompt`` to the core model and handle tool calls."""
     system_prompt = build_system_prompt(session_id)
-    context = summarize_thoughts(session_id)
+    context = summarize_thoughts()
     memory = get_memory(session_id)
     prompt_mode = memory.get("prompt_mode", "inst")
     retrieved = retrieve_similar_entries(session_id, session_id, prompt, top_k=3)

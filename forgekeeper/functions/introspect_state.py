@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory import load_memory
+from forgekeeper.app.chats.memory_service import load_memory
 
 def introspect_state(session_id: str) -> str:
     memory = load_memory(session_id)

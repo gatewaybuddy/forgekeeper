@@ -1,4 +1,4 @@
-from forgekeeper.app.chats.memory import get_memory, set_memory
+from forgekeeper.app.chats.memory_service import get_memory, set_memory
 
 def remember_name(session_id: str, name: str) -> str:
     memory = get_memory(session_id)
