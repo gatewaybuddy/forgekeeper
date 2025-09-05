@@ -24,7 +24,7 @@ def test_cli_run_and_shadow():
     lines = out.strip().splitlines()
     assert lines[0] == "This is the best."
     data = json.loads("\n".join(lines[1:]))
-    assert any(s["type"] == "patch" for s in data)
+    assert any(s["kind"] == "patch" for s in data)
 
     out_shadow = run_cli(["shadow"], "This is teh best.")
     lines = out_shadow.strip().splitlines()

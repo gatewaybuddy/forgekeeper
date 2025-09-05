@@ -8,14 +8,26 @@ import yaml
 from .base import MemoryAgent
 
 
+REQUIRED_FIELDS = {"id": str, "kind": str, "system_prompt": str}
+
+
+def _validate(spec: Dict[str, Any]) -> bool:
+    for key, typ in REQUIRED_FIELDS.items():
+        if key not in spec or not isinstance(spec[key], typ):
+            return False
+    return True
+
+
 def load_agent_specs(directory: Path) -> List[Dict[str, Any]]:
     specs: List[Dict[str, Any]] = []
     for pattern in ("*.yml", "*.yaml"):
         for path in directory.glob(pattern):
             try:
-                specs.append(yaml.safe_load(path.read_text(encoding="utf-8")))
+                data = yaml.safe_load(path.read_text(encoding="utf-8"))
             except Exception:
                 continue
+            if isinstance(data, dict) and _validate(data):
+                specs.append(data)
     return specs
 
 

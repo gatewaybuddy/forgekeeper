@@ -19,7 +19,7 @@ class DummyAgent:
     def match(self, event: Event) -> bool:
         return True
 
-    def act(self, event: Event):
+    def act(self, event: Event, retriever=None):
         return [self.suggestion] if self.suggestion else []
 
     def learn(self, feedback):
@@ -29,38 +29,54 @@ class DummyAgent:
 def test_ranking_and_merge():
     patches = [
         Suggestion(
-            "patch", "p1", span=(0, 3), replacement="AAA", agent_id="a1", confidence=0.9
+            kind="patch",
+            data={"replacement": "AAA"},
+            span=(0, 3),
+            agent_id="a1",
+            confidence=0.9,
         ),
         Suggestion(
-            "patch", "p2", span=(0, 3), replacement="BBB", agent_id="a2", confidence=0.5
+            kind="patch",
+            data={"replacement": "BBB"},
+            span=(0, 3),
+            agent_id="a2",
+            confidence=0.5,
         ),
     ]
     agents = [
         DummyAgent("a1", suggestion=patches[0]),
         DummyAgent("a2", suggestion=patches[1]),
         DummyAgent(
-            "a3", suggestion=Suggestion("prompt_aug", "", agent_id="a3", confidence=0.4)
+            "a3",
+            suggestion=Suggestion(
+                kind="prompt_aug", data={}, agent_id="a3", confidence=0.4
+            ),
         ),
         DummyAgent(
-            "a4", suggestion=Suggestion("annotation", "", agent_id="a4", confidence=0.4)
+            "a4",
+            suggestion=Suggestion(
+                kind="annotation", data={}, agent_id="a4", confidence=0.4
+            ),
         ),
         DummyAgent(
-            "a5", suggestion=Suggestion("route", "", agent_id="a5", confidence=0.4)
+            "a5",
+            suggestion=Suggestion(kind="route", data={}, agent_id="a5", confidence=0.4),
         ),
         DummyAgent(
-            "a6", suggestion=Suggestion("score", "", agent_id="a6", confidence=0.4)
+            "a6",
+            suggestion=Suggestion(kind="score", data={}, agent_id="a6", confidence=0.4),
         ),
     ]
     orch = MemoryOrchestrator(agents)
     event = Event("x", {"text": "abc"})
     suggestions = orch.handle(event)
-    assert [s.type for s in suggestions] == [
+    assert [s.kind for s in suggestions] == [
         "patch",
         "prompt_aug",
         "annotation",
         "route",
         "score",
     ]
-    assert suggestions[0].replacement == "AAA"
+    assert suggestions[0].data["replacement"] == "AAA"
     result = orch.apply_patches("abc", suggestions)
     assert result == "AAA"
