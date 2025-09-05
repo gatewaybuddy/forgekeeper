@@ -1,10 +1,13 @@
+"""Memory orchestrator which coordinates agents and applies suggestions."""
+
 from __future__ import annotations
 
-from collections import defaultdict
+from dataclasses import asdict
 from typing import Dict, Iterable, List, Literal
 
-from .base import Event, MemoryAgent, Suggestion
-
+from .base import Event, MemoryAgent, RetrievalProvider, Suggestion
+from .metrics import append_op, increment
+from .reflector import Reflector
 
 _TYPE_RANK = {
     "patch": 0,
@@ -22,14 +25,17 @@ class MemoryOrchestrator:
         self,
         agents: Iterable[MemoryAgent],
         mode: Literal["interactive", "deepthink"] = "interactive",
+        retriever: RetrievalProvider | None = None,
     ) -> None:
         self.agents = list(agents)
         self.mode = mode
-        self.metrics: Dict[str, Dict[str, int]] = defaultdict(
-            lambda: {"proposed": 0, "applied": 0}
-        )
+        self.retriever = retriever
+        self.reflector = Reflector()
 
+    # ------------------------------------------------------------------
     def handle(self, event: Event) -> List[Suggestion]:
+        """Return ranked suggestions for ``event``."""
+
         suggestions: List[Suggestion] = []
         for agent in self.agents:
             modes = getattr(agent, "modes", {"interactive", "deepthink"})
@@ -37,23 +43,26 @@ class MemoryOrchestrator:
                 continue
             if not agent.match(event):
                 continue
-            acts = agent.act(event)
+            acts = agent.act(event, self.retriever)
             for s in acts:
                 if not s.agent_id:
                     s.agent_id = agent.id
                 if not s.confidence:
                     s.confidence = agent.confidence
                 suggestions.append(s)
-            self.metrics[agent.id]["proposed"] += len(acts)
-
-        # merge overlapping patches preferring higher confidence
+                increment(agent.id, "proposed")
         suggestions = self._merge_patches(suggestions)
-        suggestions.sort(key=lambda s: (_TYPE_RANK.get(s.type, 99), -s.confidence))
+        if self.mode == "interactive":
+            suggestions = self.reflector.review(suggestions, event)
+        suggestions.sort(
+            key=lambda s: (_TYPE_RANK.get(s.kind, 99), -s.confidence, s.agent_id)
+        )
         return suggestions
 
+    # ------------------------------------------------------------------
     def _merge_patches(self, suggestions: List[Suggestion]) -> List[Suggestion]:
-        patches = [s for s in suggestions if s.type == "patch" and s.span]
-        others = [s for s in suggestions if s.type != "patch" or not s.span]
+        patches = [s for s in suggestions if s.kind == "patch" and s.span]
+        others = [s for s in suggestions if s.kind != "patch" or not s.span]
         patches.sort(key=lambda s: (-s.confidence, s.span[0]))
         kept: List[Suggestion] = []
         used: List[tuple[int, int]] = []
@@ -65,23 +74,28 @@ class MemoryOrchestrator:
         kept.sort(key=lambda s: s.span[0])
         return kept + others
 
+    # ------------------------------------------------------------------
     def apply_patches(self, text: str, suggestions: Iterable[Suggestion]) -> str:
         patches = [
             s
             for s in suggestions
-            if s.type == "patch" and s.span and s.replacement is not None
+            if s.kind == "patch" and s.span and "replacement" in s.data
         ]
         patches.sort(key=lambda s: s.span[0])
-        result = []
+        result: List[str] = []
         last = 0
         for s in patches:
             start, end = s.span
             result.append(text[last:start])
-            result.append(s.replacement)
+            result.append(str(s.data["replacement"]))
             last = end
-            self.metrics[s.agent_id]["applied"] += 1
+            increment(s.agent_id, "applied")
+            append_op({"agent_id": s.agent_id, "suggestion": asdict(s)})
         result.append(text[last:])
         return "".join(result)
 
+    # ------------------------------------------------------------------
     def metrics_snapshot(self) -> Dict[str, Dict[str, int]]:
-        return {k: dict(v) for k, v in self.metrics.items()}
+        from .metrics import snapshot
+
+        return snapshot()

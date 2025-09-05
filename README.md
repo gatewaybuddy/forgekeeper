@@ -475,3 +475,18 @@ List available agents:
 ```bash
 python -m forgekeeper.cli.memory_plane list
 ```
+
+Dump a built-in agent to YAML:
+
+```bash
+python -m forgekeeper.cli.memory_plane dump mem.reflex.teh-typo
+```
+
+Example output snippet:
+
+```yaml
+id: mem.reflex.teh-typo
+kind: reflex
+system_prompt: |-
+  Replace the common typo 'teh' with 'the' while avoiding identifiers and URLs.
+```

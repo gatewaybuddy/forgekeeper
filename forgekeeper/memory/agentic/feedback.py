@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Dict, Literal
 
 from .base import Suggestion
+from .metrics import increment
 from .registry import all as all_agents
 
 """Simple feedback utilities for memory agents.
@@ -20,6 +21,7 @@ def record_application(
 ) -> None:
     _ = suggestion  # unused but kept for future metadata
     _STATS[agent_id][outcome] += 1
+    increment(agent_id, outcome)
 
 
 def credit_assignment() -> None:
