@@ -7,6 +7,7 @@
 | Core | Done |
 | Automation | Done |
 | Autonomy | Done |
+| Memory Orchestration | Planned |
 
 This file tracks current, pending, and completed tasks for Forgekeeper development. Tasks may be fulfilled manually by Cody or automatically by Forgekeeper itself as capabilities improve.
 
@@ -33,6 +34,9 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-403: Sandbox execution environment (P2)
 - [ ] FK-404: Real-time conversation interface (P3)
 - [ ] [FK-405](Roadmap.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
+- [ ] [FK-406](Roadmap.md#fk-406): Document memory agent architecture (P1)
+- [ ] [FK-407](Roadmap.md#fk-407): Integrate memory agents into orchestration layer (P2)
+- [ ] [FK-408](Roadmap.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
 
 ---
 
@@ -293,3 +297,51 @@ Introduce attention distillation to refine GraphQL chat memory retrieval.
 - [ ] Distill attention weights into compact representations
 - [ ] Retrieval leverages distilled attention summaries
 - [ ] Tests validate improved context accuracy
+
+---
+id: FK-406
+title: Document memory agent architecture (P1)
+status: todo
+epic: R-010
+owner: agent
+labels: [memory, docs]
+links: ["Roadmap.md#fk-406"]
+---
+Create documentation for memory agents, their interactions, and extension points.
+
+**AC**
+- [ ] Outline current memory agent roles and interfaces
+- [ ] Provide examples of extension hooks
+- [ ] Reference update process in docs
+
+---
+id: FK-407
+title: Integrate memory agents into orchestration layer (P2)
+status: todo
+epic: R-010
+owner: agent
+labels: [memory, integration]
+links: ["Roadmap.md#fk-407"]
+---
+Embed memory agents into the existing planner so tasks can leverage persistent context.
+
+**AC**
+- [ ] Orchestration layer loads and updates memory agents
+- [ ] Tasks can query and store memories via shared interface
+- [ ] Integration tests cover agent coordination
+
+---
+id: FK-408
+title: Expand memory agents with heuristics and feedback loops (P2)
+status: todo
+epic: R-010
+owner: agent
+labels: [memory, heuristics]
+links: ["Roadmap.md#fk-408"]
+---
+Add adaptive heuristics and feedback loops to improve memory agent performance over time.
+
+**AC**
+- [ ] Implement heuristic scoring for memory relevance
+- [ ] Feedback loops adjust heuristics based on outcomes
+- [ ] Metrics captured to evaluate improvements

@@ -5,6 +5,8 @@ milestones:
     status: done
   - epic: autonomy
     status: done
+  - epic: memory_orchestration
+    status: planned
 
 epics:
   - id: R-001
@@ -88,6 +90,14 @@ epics:
     milestones:
       - id: FK-405
         title: Attention distillation for GraphQL chat memory (P3)
+        status: todo
+
+  - id: R-010
+    title: Agentic memory orchestration
+    kpis: []
+    milestones:
+      - id: M-040
+        title: Agentic memory orchestration and extensions
         status: todo
 
 
