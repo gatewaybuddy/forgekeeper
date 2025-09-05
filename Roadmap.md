@@ -11,6 +11,7 @@ This roadmap outlines the staged evolution of Forgekeeper into a self-improving 
 | Core | Done |
 | Automation | Done |
 | Autonomy | Done |
+| Memory Orchestration | Planned |
 
 ### Phase 1: Human-Guided Autonomy (Complete)
 - [x] Define agents and roles in `AGENTS.md`
@@ -56,6 +57,12 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
 
+### Phase 4: Agentic Memory Orchestration (Planned)
+
+- Document memory agent architecture and extension points
+- Integrate memory agents into the orchestration layer
+- Expand memory agents with new heuristics and feedback loops
+
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
@@ -70,6 +77,9 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 - <a id="fk-403"></a>[FK-403](tasks.md#fk-403): Sandbox execution environment (P2)
 - <a id="fk-404"></a>[FK-404](tasks.md#fk-404): Real-time conversation interface (P3)
 - <a id="fk-405"></a>[FK-405](tasks.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
+- <a id="fk-406"></a>[FK-406](tasks.md#fk-406): Document memory agent architecture (P1)
+- <a id="fk-407"></a>[FK-407](tasks.md#fk-407): Integrate memory agents into orchestration layer (P2)
+- <a id="fk-408"></a>[FK-408](tasks.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
 
 ---
 
