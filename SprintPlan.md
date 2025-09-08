@@ -1,6 +1,6 @@
 ## Next Sprint Plan
 ### Goals
-- write docs
+- demo
 
 ### Tasks
 - FK-401: Vectorized memory retrieval (P1)
