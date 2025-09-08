@@ -143,11 +143,15 @@ If you chose to launch services during installation or ran `scripts/setup_dev_en
 #### macOS/Linux
 ```bash
 ./scripts/start_local_stack.sh
+# or from repo root:
+./start.sh
 ```
 
 #### Windows PowerShell
 ```powershell
 pwsh scripts/start_local_stack.ps1
+# or from repo root:
+pwsh ./start.ps1
 ```
 
 These scripts launch the GraphQL service, Python agent, and frontend concurrently. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
