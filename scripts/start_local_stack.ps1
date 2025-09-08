@@ -1,11 +1,11 @@
 #!/usr/bin/env pwsh
-Set-StrictMode -Version Latest
-
 [CmdletBinding()]
 param(
     [switch]$Detach,
     [string]$LogDir
 )
+
+Set-StrictMode -Version Latest
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
@@ -91,4 +91,3 @@ else {
         }
     }
 }
-
