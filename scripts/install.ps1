@@ -32,6 +32,36 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $envFile = Join-Path $rootDir '.env'
 
+if (-not (Get-Command mongod -ErrorAction SilentlyContinue)) {
+    $startDockerMongo = ''
+    if ($useDefaults) {
+        $startDockerMongo = 'y'
+    } else {
+        $startDockerMongo = Read-Host 'mongod not found. Start Dockerized MongoDB container? [Y/n]'
+    }
+    if ($startDockerMongo -match '^([Yy]|)$') {
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            Write-Error '❌ docker is required to run MongoDB container.'
+            exit 1
+        }
+        $existing = docker ps -aq -f name=^forgekeeper-mongo$
+        if ($existing) {
+            $running = docker ps -q -f name=^forgekeeper-mongo$
+            if ($running) {
+                Write-Host "MongoDB container 'forgekeeper-mongo' already running."
+            } else {
+                docker start forgekeeper-mongo | Out-Null
+                Write-Host "✅ Started existing MongoDB container 'forgekeeper-mongo'."
+            }
+        } else {
+            docker run -d --name forgekeeper-mongo -p 27017:27017 mongo:6 | Out-Null
+            Write-Host "✅ Started MongoDB container 'forgekeeper-mongo'."
+        }
+    } else {
+        Write-Warning '⚠️ mongod not found. Install MongoDB manually.'
+    }
+}
+
 if ($useDefaults) {
     $choice = '1'
     $modelDir = './models'
@@ -88,4 +118,4 @@ if ($install -match '^[Yy]') {
     Write-Host 'Skipping dependency installation and service launch.'
 }
 
-Write-Host "To start the stack later, run scripts/start_local_stack.sh"
+Write-Host "To start the stack later, run scripts/start_local_stack.ps1"

@@ -51,12 +51,15 @@ available for manual configuration.
 
 The GraphQL service requires a running MongoDB instance. If the `mongod`
 command is unavailable, the installer prompts to start a Dockerized MongoDB
-instance (defaulting to starting it). The container is reused on subsequent
-runs; stop it with `docker stop forgekeeper-mongo` and remove it with
-`docker rm forgekeeper-mongo`. Alternatively, install MongoDB manually (for
-example, `brew tap mongodb/brew && brew install mongodb-community` on macOS or
-`sudo apt-get install -y mongodb-org` on Ubuntu). The `docker-compose.yml`
-file also includes a `mongodb` service for container-based development.
+instance (defaulting to starting it). On Windows, the PowerShell installer
+(`scripts/install.ps1`) will automatically reuse an existing
+`forgekeeper-mongo` container or create one using `mongo:6`. The container is
+reused on subsequent runs; stop it with `docker stop forgekeeper-mongo` and
+remove it with `docker rm forgekeeper-mongo`. Alternatively, install MongoDB
+manually (for example, `brew tap mongodb/brew && brew install mongodb-community`
+on macOS or `sudo apt-get install -y mongodb-org` on Ubuntu). The
+`docker-compose.yml` file also includes a `mongodb` service for
+container-based development.
 
 ## Installation
 
