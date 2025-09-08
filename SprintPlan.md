@@ -1,6 +1,7 @@
 ## Next Sprint Plan
 ### Goals
-- demo
+- write unit tests and update docs
+- write unit tests
 
 ### Tasks
 - FK-401: Vectorized memory retrieval (P1)
