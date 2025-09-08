@@ -1,12 +1,49 @@
-# React + Vite
+# Forgekeeper Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the React UI for Forgekeeper. It speaks exclusively to the GraphQL service and reflects conversation state and logs stored by the backend.
 
-Currently, two official plugins are available:
+## Prerequisites
+- Node 18+
+- The GraphQL service running locally (default `http://localhost:4000/graphql`). See the root `README.md` for setup.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Install
 
-## Expanding the ESLint configuration
+Run installs from the repository root:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install --prefix frontend
+```
+
+## Configure
+
+The frontend uses `VITE_GRAPHQL_URL` to find the API. When not set, it defaults to `http://localhost:4000/graphql`.
+
+Create `frontend/.env.local` if you need a custom URL:
+
+```
+VITE_GRAPHQL_URL=http://localhost:4000/graphql
+```
+
+## Develop
+
+```bash
+npm run dev --prefix frontend
+```
+
+Open the printed local URL. The app requires the GraphQL service and the Python agent to be running if you want to generate responses.
+
+## Build
+
+```bash
+npm run build --prefix frontend
+```
+
+## Lint
+
+```bash
+npm run lint --prefix frontend
+```
+
+## Notes
+- The UI is intentionally minimal and focuses on conversations, task activity, and logs.
+- For first-time users, prefer the guided installer described in the root `README.md` to bring up the full stack (GraphQL, Python agent, frontend).
