@@ -199,8 +199,9 @@ additional context during execution.
 
 Forgekeeper bundles a small GPT‑2 model for lightweight development. It
 requires no GPU and is useful for verifying the stack or running tests quickly.
-Enable it by setting `USE_TINY_MODEL=true`, which automatically switches to
-the `transformers` backend and lets the default model download automatically:
+Enable it by setting `USE_TINY_MODEL=true`, which forces the bundled model even
+if `FK_MODEL_PATH` or `FK_LLM_IMPL` are configured, switches to the
+`transformers` backend, and lets the default model download automatically:
 
 ```bash
 export USE_TINY_MODEL=true

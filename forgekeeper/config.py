@@ -4,7 +4,7 @@ DEFAULT_TINY_MODEL = "sshleifer/tiny-gpt2"
 """Fallback Hugging Face model used for lightweight tests."""
 
 USE_TINY_MODEL = os.getenv("USE_TINY_MODEL", "false").lower() == "true"
-"""Toggle to force using the bundled tiny model instead of a production model."""
+"""Force the bundled tiny model and ignore any production model settings."""
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 """Global debug flag used across the project."""

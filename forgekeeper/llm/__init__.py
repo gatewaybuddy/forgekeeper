@@ -9,6 +9,8 @@ def get_llm() -> LLMProvider:
     impl_env = os.getenv("FK_LLM_IMPL")
 
     if USE_TINY_MODEL:
+        os.environ["FK_MODEL_PATH"] = DEFAULT_TINY_MODEL
+        os.environ.pop("FK_LLM_IMPL", None)
         impl = "transformers"
     else:
         model_path = os.getenv("FK_MODEL_PATH", DEFAULT_TINY_MODEL)
