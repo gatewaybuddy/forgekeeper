@@ -4,6 +4,18 @@ Forgekeeper is a self-evolving agent framework that combines a React frontend, a
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
 
+## First-Run Checklist
+
+1. Install PowerShell 7 (`pwsh`) on Windows/macOS/Linux and ensure it is on `PATH`.
+2. Run the guided installer to generate `.env`, set model paths, and (optionally) launch services:
+   - Bash: `./scripts/install.sh --defaults`
+   - PowerShell: `pwsh scripts/install.ps1 -Defaults`
+3. If `mongod` is not installed, allow the installer to start the Dockerized `forgekeeper-mongo` container (reused across runs).
+4. Optional: choose vLLM or a local Transformers model and confirm env vars in `.env` (see vLLM section below).
+5. Verify the stack with smoke tests:
+   - Backend wiring: `python tools/smoke_backend.py`
+   - LLM: `python scripts/llm_smoke_test.py`
+
 ## PowerShell 7
 
 Several setup scripts use the `pwsh` command, which is part of PowerShell 7.
@@ -232,11 +244,14 @@ export FK_DTYPE=bf16
 export FK_DEVICE=cuda
 ```
 
-Optionally, point to a running `vllm` server:
+Optionally, point to a running `vllm` server (single endpoint):
 
 ```bash
 export FK_LLM_IMPL=vllm
-export FK_API_BASE=http://localhost:8000/v1
+# For a single vLLM endpoint, set both bases (or use FK_API_BASE for backward-compat):
+export FK_CORE_API_BASE=http://localhost:8000/v1
+export FK_CODER_API_BASE=http://localhost:8000/v1
+# Backward-compat (deprecated): export FK_API_BASE=http://localhost:8000/v1
 ```
 
 ### vLLM Backend
@@ -296,6 +311,9 @@ Other Forgekeeper services can then be launched via `docker compose up`.
 `FK_CODER_API_BASE` to send requests to the appropriate server. If the coder
 model or base URL is missing, requests automatically fall back to the core
 model.
+
+When running a single vLLM endpoint for both models, set both variables to the
+same base URL (or use `FK_API_BASE` for backward compatibility).
 
 #### Verification
 
@@ -465,6 +483,19 @@ Each autonomous roadmap commit logs its rationale to `.forgekeeper/memory/episod
 
 ---
 This guide is intended to streamline installation and clarify component interactions.
+
+## Contributor Flow (Docs and Planning)
+
+- Installer-driven bring-up: `./scripts/install.sh --defaults` or `pwsh scripts/install.ps1 -Defaults`.
+- Roadmap/Sprint auto-updates: set environment and run the backend.
+  - `ROADMAP_COMMIT_INTERVAL=3600` (seconds; set `0` to disable)
+  - `ROADMAP_AUTO_PUSH=true` (optional, pushes commits after creation)
+- Manually update planning docs:
+  - Regenerate sprint plan: `python -m forgekeeper.sprint_planner`
+  - Browse recent memories: `python -m forgekeeper.memory.episodic --browse 10`
+- Open a development console:
+  - Persistent CLI (GraphQL-backed): `python -m forgekeeper pconsole`
+  - Simple console: `python -m forgekeeper console`
 
 ## Agentic Memory Plane — Quick Start
 
