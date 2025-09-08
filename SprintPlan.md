@@ -1,4 +1,7 @@
 ## Next Sprint Plan
+### Goals
+- write docs
+
 ### Tasks
 - FK-401: Vectorized memory retrieval (P1)
 - FK-402: Multi-agent collaboration framework (P2)
