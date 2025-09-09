@@ -99,6 +99,21 @@ $content += "MODEL_DIR=$modelDir"
 Set-Content -Path $envFile -Value $content
 
 if ($install -match '^[Yy]') {
+    # Ensure vLLM Python package is available
+    $python = $null
+    $venvPython = Join-Path $rootDir '.venv/Scripts/python.exe'
+    if (Test-Path $venvPython) { $python = $venvPython }
+    elseif (Get-Command python3 -ErrorAction SilentlyContinue) { $python = 'python3' }
+    elseif (Get-Command python -ErrorAction SilentlyContinue) { $python = 'python' }
+    if ($python) {
+        $hasVllm = $false
+        try { & $python -c "import vllm" 2>$null; $hasVllm = $true } catch { $hasVllm = $false }
+        if (-not $hasVllm) {
+            Write-Host '📦 Installing vLLM Python package (if compatible with your environment)...'
+            try { & $python -m pip install -U vllm } catch { Write-Warning '⚠️ vLLM installation failed. Install manually if required.' }
+        }
+    }
+
     if ($choice -eq '2') {
         if ($useDefaults) {
             & (Join-Path $scriptDir 'setup_docker_env.ps1') -Defaults

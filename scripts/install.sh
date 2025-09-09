@@ -112,6 +112,15 @@ if [ "$choice" = "1" ]; then
 fi
 
 if [[ "$install_node" =~ ^[Yy]$ ]]; then
+  # Ensure vLLM Python package is available (best-effort)
+  if command -v python3 >/dev/null 2>&1; then PY=python3; elif command -v python >/dev/null 2>&1; then PY=python; else PY=""; fi
+  if [ -n "$PY" ]; then
+    if ! "$PY" -c 'import vllm' >/dev/null 2>&1; then
+      echo "📦 Installing vLLM Python package (if compatible with your environment)..."
+      "$PY" -m pip install -U vllm || echo "⚠️ vLLM installation failed. Install manually if required." >&2
+    fi
+  fi
+
   if [ "$choice" = "2" ]; then
     if $DEFAULTS; then
       "$SCRIPT_DIR/setup_docker_env.sh" --defaults

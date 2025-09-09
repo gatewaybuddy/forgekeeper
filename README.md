@@ -154,7 +154,13 @@ pwsh scripts/start_local_stack.ps1
 pwsh ./start.ps1
 ```
 
-These scripts launch the GraphQL service, Python agent, and frontend concurrently. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
+These scripts launch the GraphQL service, Python agent, and frontend concurrently, and will also attempt to launch a local vLLM server if it is not yet healthy. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
+
+Startup flags:
+- PowerShell: `pwsh ./start.ps1 [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-Detach] [-LogDir <dir>]`
+- Bash: `./start.sh [--debug] [--require-vllm] [--vllm-wait-seconds 120] [--require-backend] [--backend-wait-seconds 60]`
+
+Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` (and `--require-backend` on Bash), they block until services are healthy or time out.
 
 ### Start the GraphQL service
 ```bash
@@ -170,6 +176,8 @@ python -m forgekeeper
 ```bash
 npm run dev --prefix frontend
 ```
+
+Vite dev server proxies `/graphql` to the backend at `http://localhost:4000` during development, so the app works at `http://localhost:5173/` without extra config.
 
 ### Persistent CLI
 
@@ -238,6 +246,20 @@ The tiny model is **not** instruction tuned and has a very limited context
 window, so responses will differ from full-size models. Use it only for
 development or smoke tests. Unset `USE_TINY_MODEL` (or set it to `false`) to
 switch back to larger models via `vllm` or a custom `FK_MODEL_PATH`.
+
+## vLLM (single server) configuration
+
+Use one local vLLM server for both "core" and "coder" agents:
+
+1) Set `.env`:
+- `VLLM_MODEL_CORE=./models/<your-model>` (e.g., `./models/gpt-oss-20b`)
+- `VLLM_MODEL_CODER=./models/<your-model>` or leave unset
+- `FK_CORE_API_BASE=http://localhost:8001`
+- `FK_CODER_API_BASE=http://localhost:8001`
+
+2) Start the stack via `./start.sh` or `pwsh ./start.ps1` (optionally require vLLM with `--require-vllm`/`-RequireVLLM`).
+
+3) Health check: `http://localhost:8001/healthz` should return 200. The scripts will try to launch `scripts/run_vllm_core.(sh|bat)` automatically if needed.
 
 ### GPT-OSS-20B Model Setup
 

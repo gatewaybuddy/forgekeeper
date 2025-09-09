@@ -16,9 +16,9 @@ npm install --prefix frontend
 
 ## Configure
 
-The frontend uses `VITE_GRAPHQL_URL` to find the API. When not set, it defaults to `http://localhost:4000/graphql`.
+During development, Vite proxies `/graphql` to `http://localhost:4000`, so no extra config is required when running the backend locally. The app is served at `http://localhost:5173/`.
 
-Create `frontend/.env.local` if you need a custom URL:
+If you prefer an explicit URL, you may create `frontend/.env.local` and set:
 
 ```
 VITE_GRAPHQL_URL=http://localhost:4000/graphql
@@ -30,7 +30,7 @@ VITE_GRAPHQL_URL=http://localhost:4000/graphql
 npm run dev --prefix frontend
 ```
 
-Open the printed local URL. The app requires the GraphQL service and the Python agent to be running if you want to generate responses.
+Open the printed local URL. The app requires the GraphQL service and the Python agent to be running to generate responses.
 
 ## Build
 

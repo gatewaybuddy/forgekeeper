@@ -3,8 +3,8 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
-import typeDefs from './schema.js';
-import resolvers from './resolvers.js';
+import typeDefs from './schema';
+import resolvers from './resolvers';
 import { PrismaClient } from '@prisma/client';
 
 async function main() {

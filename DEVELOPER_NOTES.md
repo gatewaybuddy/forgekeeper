@@ -38,3 +38,11 @@ Each call to `forgekeeper.memory.episodic.append_entry` may include an
 assistant's reported feeling about the task and is stored in
 ``.forgekeeper/memory/episodic.jsonl``. The browsing utilities display both
 sentiment and emotion for recent entries to aid debugging and reflection.
+## Startup Flags and Debugging
+
+Use the root wrappers to start the stack and enable verbose diagnostics:
+
+- PowerShell: `pwsh ./start.ps1 -Verbose [-RequireVLLM] [-VLLMWaitSeconds 120]`
+- Bash: `./start.sh --debug [--require-vllm] [--vllm-wait-seconds 120]`
+
+These set `DEBUG_MODE=true` and print additional logs. With the strict flags, startup waits for the local vLLM server (`/healthz`) before launching other services; without them, startup proceeds after a brief wait.
