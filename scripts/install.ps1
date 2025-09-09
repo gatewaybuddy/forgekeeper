@@ -7,14 +7,14 @@ Options:
   --defaults, --yes, -Defaults  Run non-interactively with default choices
 
 #>
-Set-StrictMode -Version Latest
-
 [CmdletBinding()]
 param(
 
     [Alias('h')][switch]$Help,
     [Alias('yes')][switch]$Defaults
 )
+
+Set-StrictMode -Version Latest
 
 function Show-Usage {
     Get-Content $MyInvocation.MyCommand.Path | Select-String '^Usage:' -Context 0,4 | ForEach-Object { $_.Context.PostContext + $_.Line }
