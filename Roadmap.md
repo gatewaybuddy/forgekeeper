@@ -435,3 +435,14 @@ Recent commits: chore: update roadmap, fix(ps1): resolve Start-Process failures 
 - Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
 - Committed changes on main: chore: update roadmap
 - Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+
+## Update 2025-09-09 04:10 UTC
+### Summary
+Improve local DX: unify vLLM to a single server for both agents, add strict/non-strict vLLM startup, wire Vite dev proxy, and add verbose logging flags to start wrappers.
+
+### Recent Commits
+- feat(start): add -RequireVLLM/-VLLMWaitSeconds and -Verbose flags (PS); mirror flags in Bash
+- feat(start): auto-load .env and start vLLM if not healthy; health checks with timeouts
+- fix(backend): ts-node resolves TS sources by removing .js extensions in imports
+- feat(frontend): proxy /graphql to backend in dev
+- docs: update README, frontend README, AGENTS with startup flags and vLLM config
