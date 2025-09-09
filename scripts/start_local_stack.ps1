@@ -15,6 +15,7 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     Write-Error '? npm is required but was not found.'
     exit 1
 }
+$npmPath = (Get-Command npm -ErrorAction Stop).Source
 
 $python = $null
 $venvPython = Join-Path '.venv' 'Scripts/python.exe'
@@ -65,9 +66,9 @@ if ($Detach) {
     Write-Host "🔧 Detach mode: starting services and returning control."
     Write-Host "📝 Logs: $LogDir"
 
-    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
-    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
-    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
+    $backend = Start-Process -FilePath $npmPath -ArgumentList @('run','dev','--prefix','backend') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
+    $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+    $frontend = Start-Process -FilePath $npmPath -ArgumentList @('run','dev','--prefix','frontend') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
 
     $meta = [ordered]@{
         backendPid  = $backend.Id
@@ -84,9 +85,9 @@ if ($Detach) {
 }
 else {
     Write-Host "🚀 Starting services in this window. Press Ctrl+C to stop all."
-    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -WorkingDirectory $rootDir -NoNewWindow -PassThru
-    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -WorkingDirectory $rootDir -NoNewWindow -PassThru
-    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    $backend = Start-Process -FilePath $npmPath -ArgumentList @('run','dev','--prefix','backend') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    $frontend = Start-Process -FilePath $npmPath -ArgumentList @('run','dev','--prefix','frontend') -WorkingDirectory $rootDir -NoNewWindow -PassThru
 
     $processes = @($backend, $pythonProc, $frontend)
     try {
