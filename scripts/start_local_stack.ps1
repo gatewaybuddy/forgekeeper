@@ -4,7 +4,9 @@ param(
     [switch]$Detach,
     [string]$LogDir,
     [switch]$RequireVLLM,
-    [int]$VLLMWaitSeconds = 90
+    [int]$VLLMWaitSeconds = 90,
+    [switch]$RequireBackend,
+    [int]$BackendWaitSeconds = 60
 )
 
 Set-StrictMode -Version Latest
@@ -162,7 +164,29 @@ else {
         try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
         if (-not $ok) {
             Write-Host "⚙️  Launching vLLM core server..."
-            $vllmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -WindowStyle Minimized -PassThru
+            $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+            $fgLogDir = Join-Path $rootDir (Join-Path 'logs' "start-fg-$ts")
+            New-Item -Force -ItemType Directory -Path $fgLogDir | Out-Null
+            $vllmOut = Join-Path $fgLogDir 'vllm_core.out.log'
+            $vllmErr = Join-Path $fgLogDir 'vllm_core.err.log'
+
+            $hasVllm = $false
+            try { & $python -c "import vllm" 2>$null; $hasVllm = $true } catch { $hasVllm = $false }
+            $useDocker = -not $hasVllm
+            if ($useDocker -and -not (Get-Command docker -ErrorAction SilentlyContinue)) {
+                Write-Warning 'vLLM not available in Python and docker not found; cannot launch vLLM automatically.'
+            }
+
+            if ($useDocker) {
+                # Start dockerized vLLM detached; logs via docker logs
+                Write-Host '🐳 Starting dockerized vLLM (forgekeeper-vllm-core)...'
+                & pwsh -NoProfile -File (Join-Path $rootDir 'scripts/start_vllm_core_docker.ps1') | Tee-Object -FilePath $vllmOut | Out-Null
+                $vllmProc = $null  # managed by docker, not this shell
+                Write-Host '👉 View logs: docker logs -f forgekeeper-vllm-core'
+            } else {
+                $vllmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                Write-Host "📝 vLLM logs: $vllmOut, $vllmErr"
+            }
             $initialWait = if ($RequireVLLM) { $VLLMWaitSeconds } else { [Math]::Min(10, $VLLMWaitSeconds) }
             $deadline = (Get-Date).AddSeconds($initialWait)
             do {
@@ -188,13 +212,20 @@ else {
 
     $backendPort = if ($env:PORT) { [int]$env:PORT } else { 4000 }
     $backendHealth = "http://localhost:$backendPort/health"
-    $initialBWait = if ($RequireVLLM) { 60 } else { 10 }  # default 60s if strict backend wait is later added; for now, short wait
+    $initialBWait = if ($RequireBackend) { $BackendWaitSeconds } else { [Math]::Min(10, $BackendWaitSeconds) }
     $deadlineB = (Get-Date).AddSeconds($initialBWait)
     do {
         Start-Sleep -Seconds 1
         try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri $backendHealth; $bOk = $r.StatusCode -eq 200 } catch { $bOk = $false }
     } while (-not $bOk -and (Get-Date) -lt $deadlineB)
-    if ($bOk) { Write-Host "✅ Backend is healthy at $backendHealth" } else { Write-Warning "⚠️ Backend not healthy yet at $backendHealth; continuing" }
+    if ($bOk) { Write-Host "✅ Backend is healthy at $backendHealth" } else {
+        if ($RequireBackend) {
+            Write-Error "❌ Backend did not become healthy at $backendHealth; aborting due to -RequireBackend"
+            exit 1
+        } else {
+            Write-Warning "⚠️ Backend not healthy yet at $backendHealth; continuing"
+        }
+    }
 
     $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
     $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru

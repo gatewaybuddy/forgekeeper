@@ -114,11 +114,27 @@ fi
 if [[ "$install_node" =~ ^[Yy]$ ]]; then
   # Ensure vLLM Python package is available (best-effort)
   if command -v python3 >/dev/null 2>&1; then PY=python3; elif command -v python >/dev/null 2>&1; then PY=python; else PY=""; fi
+  HAVE_VLLM=0
   if [ -n "$PY" ]; then
-    if ! "$PY" -c 'import vllm' >/dev/null 2>&1; then
+    if "$PY" - <<'PY' >/dev/null 2>&1; then
+import vllm
+PY
+      HAVE_VLLM=1
+    else
       echo "📦 Installing vLLM Python package (if compatible with your environment)..."
-      "$PY" -m pip install -U vllm || echo "⚠️ vLLM installation failed. Install manually if required." >&2
+      "$PY" -m pip install -U vllm || echo "⚠️ vLLM installation failed. Will try Dockerized vLLM if available." >&2
+      if "$PY" - <<'PY' >/dev/null 2>&1; then
+import vllm
+PY
+        HAVE_VLLM=1
+      fi
     fi
+  fi
+  if [ $HAVE_VLLM -eq 0 ] && command -v docker >/dev/null 2>&1; then
+    echo "🐳 Pulling vLLM Docker image (vllm/vllm-openai:latest)..."
+    docker pull vllm/vllm-openai:latest || echo "⚠️ Failed to pull vLLM image. Install Docker Desktop with GPU support." >&2
+  elif [ $HAVE_VLLM -eq 0 ]; then
+    echo "⚠️ vLLM not available and Docker not found. Install Docker Desktop (with NVIDIA GPU support) or install vLLM in Python environment." >&2
   fi
 
   if [ "$choice" = "2" ]; then
