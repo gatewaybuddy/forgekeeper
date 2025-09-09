@@ -17,13 +17,21 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 
 $python = $null
-if (Get-Command python3 -ErrorAction SilentlyContinue) {
+$venvPython = Join-Path '.venv' 'Scripts/python.exe'
+if (Test-Path $venvPython) {
+    $python = $venvPython
+} elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
     $python = 'python3'
 } elseif (Get-Command python -ErrorAction SilentlyContinue) {
     $python = 'python'
 } else {
     Write-Error '? python is required but was not found.'
     exit 1
+}
+
+# Default Prisma connection string if not set
+if (-not $env:DATABASE_URL) {
+    $env:DATABASE_URL = 'mongodb://localhost:27017/forgekeeper'
 }
 
 # Ensure MongoDB is running (local or Docker)
@@ -57,9 +65,9 @@ if ($Detach) {
     Write-Host "🔧 Detach mode: starting services and returning control."
     Write-Host "📝 Logs: $LogDir"
 
-    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
-    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
-    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
+    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
+    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
 
     $meta = [ordered]@{
         backendPid  = $backend.Id
@@ -75,10 +83,10 @@ if ($Detach) {
     exit 0
 }
 else {
-    Write-Host "🚀 Starting services (child processes). Press Ctrl+C here to stop all."
-    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -PassThru
-    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -PassThru
-    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -PassThru
+    Write-Host "🚀 Starting services in this window. Press Ctrl+C to stop all."
+    $backend = Start-Process npm -ArgumentList 'run dev --prefix backend' -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    $pythonProc = Start-Process $python -ArgumentList '-m forgekeeper' -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    $frontend = Start-Process npm -ArgumentList 'run dev --prefix frontend' -WorkingDirectory $rootDir -NoNewWindow -PassThru
 
     $processes = @($backend, $pythonProc, $frontend)
     try {
