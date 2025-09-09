@@ -5,7 +5,9 @@ param(
     [switch]$Detach,
     [string]$LogDir,
     [switch]$RequireVLLM,
-    [int]$VLLMWaitSeconds = 90
+    [int]$VLLMWaitSeconds = 90,
+    [switch]$RequireBackend,
+    [int]$BackendWaitSeconds = 60
 )
 
 Set-StrictMode -Version Latest
@@ -23,6 +25,8 @@ Options:
   -Verbose           Print extra diagnostics and set DEBUG_MODE=true.
   -RequireVLLM       Wait for vLLM health; abort if not healthy in time.
   -VLLMWaitSeconds   Seconds to wait for vLLM when -RequireVLLM (default 90).
+  -RequireBackend    Wait for backend health; abort if not healthy in time.
+  -BackendWaitSeconds Seconds to wait for backend when -RequireBackend (default 60).
   -Help, -h, -?      Show this help message and exit.
 
 Examples:
@@ -43,13 +47,15 @@ if (-not (Test-Path $target)) {
     exit 1
 }
 
-# Forward recognized parameters to the underlying script
-$forward = @()
-if ($PSBoundParameters.ContainsKey('Detach')) { $forward += '-Detach' }
-if ($PSBoundParameters.ContainsKey('LogDir') -and $LogDir) { $forward += @('-LogDir', $LogDir) }
-if ($PSBoundParameters.ContainsKey('RequireVLLM')) { $forward += '-RequireVLLM' }
-if ($PSBoundParameters.ContainsKey('VLLMWaitSeconds')) { $forward += @('-VLLMWaitSeconds', $VLLMWaitSeconds) }
-if ($PSBoundParameters.ContainsKey('Verbose')) { $forward += '-Verbose' }
+# Forward recognized parameters to the underlying script using splatting
+$splat = @{}
+if ($PSBoundParameters.ContainsKey('Detach')) { $splat.Detach = $true }
+if ($PSBoundParameters.ContainsKey('LogDir') -and $LogDir) { $splat.LogDir = $LogDir }
+if ($PSBoundParameters.ContainsKey('RequireVLLM')) { $splat.RequireVLLM = $true }
+if ($PSBoundParameters.ContainsKey('VLLMWaitSeconds')) { $splat.VLLMWaitSeconds = [int]$VLLMWaitSeconds }
+if ($PSBoundParameters.ContainsKey('RequireBackend')) { $splat.RequireBackend = $true }
+if ($PSBoundParameters.ContainsKey('BackendWaitSeconds')) { $splat.BackendWaitSeconds = [int]$BackendWaitSeconds }
+if ($PSBoundParameters.ContainsKey('Verbose')) { $splat.Verbose = $true }
 
-& $target @forward
+& $target @splat
 

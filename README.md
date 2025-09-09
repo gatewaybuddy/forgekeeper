@@ -157,10 +157,10 @@ pwsh ./start.ps1
 These scripts launch the GraphQL service, Python agent, and frontend concurrently, and will also attempt to launch a local vLLM server if it is not yet healthy. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
 
 Startup flags:
-- PowerShell: `pwsh ./start.ps1 [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-Detach] [-LogDir <dir>]`
+- PowerShell: `pwsh ./start.ps1 [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-RequireBackend] [-BackendWaitSeconds 60] [-Detach] [-LogDir <dir>]`
 - Bash: `./start.sh [--debug] [--require-vllm] [--vllm-wait-seconds 120] [--require-backend] [--backend-wait-seconds 60]`
 
-Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` (and `--require-backend` on Bash), they block until services are healthy or time out.
+Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
 
 ### Start the GraphQL service
 ```bash
@@ -257,9 +257,9 @@ Use one local vLLM server for both "core" and "coder" agents:
 - `FK_CORE_API_BASE=http://localhost:8001`
 - `FK_CODER_API_BASE=http://localhost:8001`
 
-2) Start the stack via `./start.sh` or `pwsh ./start.ps1` (optionally require vLLM with `--require-vllm`/`-RequireVLLM`).
+2) Start the stack via `./start.sh` or `pwsh ./start.ps1` (optionally require vLLM with `--require-vllm`/`-RequireVLLM`). If vLLM is not installed in Python, the start scripts will attempt to launch a Dockerized vLLM server using the `vllm/vllm-openai:latest` image (requires Docker Desktop with GPU support).
 
-3) Health check: `http://localhost:8001/healthz` should return 200. The scripts will try to launch `scripts/run_vllm_core.(sh|bat)` automatically if needed.
+3) Health check: `http://localhost:8001/healthz` should return 200. The scripts will try to launch a local Python vLLM server (`scripts/run_vllm_core.(sh|bat)`) or a Dockerized server (`scripts/start_vllm_core_docker.(ps1|sh)`) automatically if needed.
 
 ### GPT-OSS-20B Model Setup
 

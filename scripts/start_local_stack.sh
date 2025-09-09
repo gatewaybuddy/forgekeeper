@@ -134,8 +134,20 @@ VLLM_HEALTH="${FK_CORE_API_BASE%/}/healthz"
 if ! curl -sSf "$VLLM_HEALTH" >/dev/null 2>&1; then
   echo "⚙️  Launching vLLM core server..."
   mkdir -p logs
-  nohup bash scripts/run_vllm_core.sh > logs/vllm_core.out 2> logs/vllm_core.err &
-  VLLM_PID=$!
+  if python - <<'PY' >/dev/null 2>&1; then
+import vllm
+PY
+  then
+    nohup bash scripts/run_vllm_core.sh > logs/vllm_core.out 2> logs/vllm_core.err &
+    VLLM_PID=$!
+    echo "📝 vLLM logs: logs/vllm_core.out, logs/vllm_core.err"
+  elif command -v docker >/dev/null 2>&1; then
+    echo "🐳 Starting dockerized vLLM (forgekeeper-vllm-core)..."
+    bash scripts/start_vllm_core_docker.sh > logs/vllm_core.out 2> logs/vllm_core.err || true
+    echo "👉 View logs: docker logs -f forgekeeper-vllm-core"
+  else
+    echo "⚠️ vLLM not available in Python and docker not found; continuing without LLM." >&2
+  fi
   # Wait for health (strict or non-strict)
   local_wait=$VLLM_WAIT_SECONDS
   $REQUIRE_VLLM || local_wait=$(( local_wait < 10 ? local_wait : 10 ))

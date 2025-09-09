@@ -110,7 +110,14 @@ if ($install -match '^[Yy]') {
         try { & $python -c "import vllm" 2>$null; $hasVllm = $true } catch { $hasVllm = $false }
         if (-not $hasVllm) {
             Write-Host '📦 Installing vLLM Python package (if compatible with your environment)...'
-            try { & $python -m pip install -U vllm } catch { Write-Warning '⚠️ vLLM installation failed. Install manually if required.' }
+            try { & $python -m pip install -U vllm } catch { Write-Warning '⚠️ vLLM installation failed. Will try Dockerized vLLM if available.' }
+            try { & $python -c "import vllm" 2>$null; $hasVllm = $true } catch { $hasVllm = $false }
+        }
+        if (-not $hasVllm -and (Get-Command docker -ErrorAction SilentlyContinue)) {
+            Write-Host '🐳 Pulling vLLM Docker image (vllm/vllm-openai:latest)...'
+            try { docker pull vllm/vllm-openai:latest | Out-Null } catch { Write-Warning '⚠️ Failed to pull vLLM image. Install Docker Desktop with GPU support.' }
+        } elseif (-not $hasVllm) {
+            Write-Warning '⚠️ vLLM not available and Docker not found. Install Docker Desktop (with NVIDIA GPU support) or install vLLM in Python environment.'
         }
     }
 
