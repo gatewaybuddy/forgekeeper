@@ -2,16 +2,25 @@
 node_modules/
 .env
 .env.local
+# Ignore any other env variants but keep example
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 
 # OS-generated files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Logs
 *.log
 intent_test_log.txt
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Diagnostics
 NVIDIA System Information*.txt
@@ -35,3 +44,33 @@ dist/
 
 # Local model weights
 forgekeeper/models/
+models/
+
+# Python virtualenvs and caches
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.cache/
+htmlcov/
+.coverage
+coverage.xml
+.ipynb_checkpoints/
+
+# Node tool caches
+.eslintcache
+.parcel-cache
+.turbo
+
+# Local helper scripts (do not commit)
+local-push.ps1
+.tmp/
+tmp/
+temp/
+
+# Local helper scripts (do not commit)
+local-push.ps1
