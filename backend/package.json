@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node --esm src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "worker": "ts-node src/outboxWorker.ts",
+    "worker": "ts-node --esm src/outboxWorker.ts",
     "test": "echo \"No tests\""
   },
   "dependencies": {
