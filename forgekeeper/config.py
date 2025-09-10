@@ -137,3 +137,13 @@ else:
     GITHUB_TOKEN_ENV_KEYS = ["GH_TOKEN", "GITHUB_TOKEN"]
 """Environment variables inspected for a GitHub token."""
 
+# GitHub automation flags
+AUTO_PR = os.getenv("AUTO_PR", "false").lower() == "true"
+"""When true, create a draft PR automatically after pushing a branch."""
+
+PR_BASE = os.getenv("PR_BASE", "main")
+"""Default base branch for pull requests."""
+
+AUTO_MERGE = os.getenv("AUTO_MERGE", "false").lower() == "true"
+"""When true, attempt to enable auto-merge on created PRs via gh CLI."""
+

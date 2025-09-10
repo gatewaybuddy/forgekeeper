@@ -9,7 +9,8 @@ from typing import Iterable
 from git import Repo
 
 from forgekeeper.logger import get_logger
-from forgekeeper.config import DEBUG_MODE
+from forgekeeper.config import DEBUG_MODE, AUTO_PR
+from forgekeeper.vcs import pr_api
 from forgekeeper.memory.episodic import append_entry
 
 
@@ -113,9 +114,34 @@ def push_branch(
 
     pushed = False
     try:
-        origin = repo.remote()
+        # Ensure a remote exists; create 'origin' from env if missing
+        try:
+            origin = repo.remote()
+        except Exception:
+            origin = None
+        if origin is None:
+            import os
+
+            url = os.getenv("GIT_REMOTE_URL")
+            if not url:
+                slug = os.getenv("GITHUB_REPOSITORY")
+                if slug:
+                    url = f"https://github.com/{slug}.git"
+            if url:
+                try:
+                    origin = repo.create_remote("origin", url)
+                    log.info("Created remote 'origin' -> %s", url)
+                except Exception as exc:
+                    log.error("Failed to create remote 'origin': %s", exc)
+                    origin = None
+        if origin is None:
+            raise RuntimeError("Remote named 'origin' didn't exist and could not be created; set GIT_REMOTE_URL or configure a remote")
         if autonomous or auto_push:
-            origin.push(branch_name)
+            try:
+                origin.push(branch_name)
+            except Exception:
+                # Attempt setting upstream on first push
+                repo.git.push("--set-upstream", "origin", branch_name)
             pushed = True
             log.info("Pushed to remote")
         else:
@@ -125,7 +151,10 @@ def push_branch(
                 .lower()
                 in {"y", "yes"}
             ):
-                origin.push(branch_name)
+                try:
+                    origin.push(branch_name)
+                except Exception:
+                    repo.git.push("--set-upstream", "origin", branch_name)
                 pushed = True
                 log.info("Pushed to remote")
             else:
@@ -158,5 +187,16 @@ def push_branch(
             [changelog_path] if changelog_path else [],
             rationale=rationale or commit_message,
         )
+        # Optionally create a draft PR after pushing
+        if AUTO_PR:
+            try:
+                task = {"id": task_id, "title": commit_message}
+                if pr_api.gh_available():
+                    pr = pr_api.create_draft_pr_via_gh(task)
+                else:
+                    pr = pr_api.create_draft_pr(task)
+                log.info("Draft PR created: #%s %s", pr.get("number", "?"), pr.get("html_url", ""))
+            except Exception as exc:  # pragma: no cover - network/gh issues
+                log.error("Failed to create PR automatically: %s", exc)
     return {"pushed": pushed}
 

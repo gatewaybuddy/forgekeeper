@@ -1,7 +1,7 @@
 ## Next Sprint Plan
 ### Tasks
-- FK-401: Vectorized memory retrieval (P1)
-- FK-402: Multi-agent collaboration framework (P2)
-- FK-403: Sandbox execution environment (P2)
-- FK-404: Real-time conversation interface (P3)
-- [FK-405](Roadmap.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
+- FK-351: Compose profiles for modular deploys (P1)
+- FK-352: Gateway registry + weighted routing (P1)
+- FK-353: Extract forgekeeper-core and client packages (P1)
+- FK-354: Agent worker entrypoint with outbox polling (P1)
+- FK-355: Multi-node deployment guide and examples (P2)
