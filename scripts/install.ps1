@@ -99,6 +99,21 @@ $content += "MODEL_DIR=$modelDir"
 Set-Content -Path $envFile -Value $content
 
 if ($install -match '^[Yy]') {
+    Write-Host ''
+    Write-Host '🔧 Inference stack (optional):'
+    if (Get-Command docker -ErrorAction SilentlyContinue) {
+        $startInfer = if ($useDefaults) { 'y' } else { Read-Host 'Start local GPU inference stack now? [Y/n]' }
+        if ($startInfer -match '^([Yy]|)$') {
+            if (Get-Command make -ErrorAction SilentlyContinue) {
+                Push-Location $rootDir; make inference-up; Pop-Location
+            } else {
+                Write-Warning "GNU make not found; you can start it later with 'make -C forgekeeper inference-up' or via docker compose."
+            }
+            Write-Host 'Tip: Configure FGK_INFER_URL and FGK_INFER_KEY in .env to use the gateway.'
+        }
+    } else {
+        Write-Warning 'Docker not found; inference stack requires Docker + NVIDIA runtime. See DOCS_INFERENCE.md'
+    }
     # Ensure vLLM Python package is available
     $python = $null
     $venvPython = Join-Path $rootDir '.venv/Scripts/python.exe'

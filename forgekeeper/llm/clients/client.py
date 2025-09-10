@@ -44,12 +44,62 @@ def chat(
     }
 
     prompt_text = "".join(m.get("content", "") for m in messages)
+    headers = {}
+    api_key = (
+        __import__('os').environ.get('FK_API_KEY')
+        or __import__('os').environ.get('FGK_INFER_KEY')
+        or None
+    )
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
     if stream:
         payload["stream"] = True
-        return _sse_request(url, payload, model_alias, stream_handler)
+        # _sse_request currently does not accept headers; perform inline request for streaming
+        import requests
+        import json as _json
+        prompt_text = "".join(m.get("content", "") for m in messages)
+        completion_chunks: list[str] = []
+        start = time.time()
+        from forgekeeper.telemetry import (
+            estimate_tokens,
+            log_stream_backpressure,
+            log_stream_end,
+            log_stream_start,
+            log_stream_token,
+        )
+        log_stream_start(model_alias)
+        with requests.post(url, json=payload, headers=headers, stream=True) as response:
+            response.raise_for_status()
+            for line in response.iter_lines(decode_unicode=True):
+                if not line:
+                    log_stream_backpressure(model_alias)
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                data = line[6:]
+                if data.strip() == "[DONE]":
+                    break
+                event = _json.loads(data)
+                delta = event["choices"][0].get("delta", {})
+                token = delta.get("content")
+                if token is None:
+                    token = event["choices"][0].get("text")
+                if token:
+                    completion_chunks.append(token)
+                    if stream_handler:
+                        stream_handler(token)
+                    log_stream_token(model_alias, token)
+                    yield token
+        latency = time.time() - start
+        prompt_tokens = estimate_tokens(prompt_text)
+        completion_tokens = estimate_tokens("".join(completion_chunks))
+        log_stream_end(model_alias)
+        _log_metrics(model_alias, prompt_text, "".join(completion_chunks), latency, {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens})
+        return
 
     start = time.time()
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
     latency = time.time() - start
     data = response.json()
@@ -82,7 +132,7 @@ def completion(
         return _sse_request(url, payload, model_alias, stream_handler)
 
     start = time.time()
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
     latency = time.time() - start
     data = response.json()

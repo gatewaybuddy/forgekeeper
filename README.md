@@ -162,6 +162,8 @@ Startup flags:
 
 Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
 
+For a timeline of recent environment and DX changes, see `DEVLOG.md`.
+
 ### Start the GraphQL service
 ```bash
 npm run dev --prefix backend

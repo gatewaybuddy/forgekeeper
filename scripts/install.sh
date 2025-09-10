@@ -112,6 +112,21 @@ if [ "$choice" = "1" ]; then
 fi
 
 if [[ "$install_node" =~ ^[Yy]$ ]]; then
+  echo ""
+  echo "🔧 Inference stack (optional):"
+  if command -v docker >/dev/null 2>&1; then
+    if $DEFAULTS; then start_infer="y"; else read -rp "Start local GPU inference stack now? [Y/n]: " start_infer; fi
+    if [[ "$start_infer" =~ ^([Yy]|)$ ]]; then
+      if command -v make >/dev/null 2>&1; then
+        ( cd "$ROOT_DIR" && make inference-up ) || true
+      else
+        echo "⚠️ GNU make not found; you can start it later with 'make -C forgekeeper inference-up' or via docker compose." >&2
+      fi
+      echo "Tip: Configure FGK_INFER_URL and FGK_INFER_KEY in .env to use the gateway."
+    fi
+  else
+    echo "⚠️ Docker not found; inference stack requires Docker + NVIDIA runtime. See DOCS_INFERENCE.md" >&2
+  fi
   # Ensure vLLM Python package is available (best-effort)
   if command -v python3 >/dev/null 2>&1; then PY=python3; elif command -v python >/dev/null 2>&1; then PY=python; else PY=""; fi
   HAVE_VLLM=0
