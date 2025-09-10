@@ -74,6 +74,50 @@ if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BAS
 Write-DebugLog "FK_CORE_API_BASE=$env:FK_CORE_API_BASE"
 Write-DebugLog "FK_CODER_API_BASE=$env:FK_CODER_API_BASE"
 
+# Inference Gateway integration
+if (-not $env:FGK_USE_INFERENCE) { $env:FGK_USE_INFERENCE = '1' }
+if ($env:FGK_USE_INFERENCE -ne '0') {
+    if (-not $env:FGK_INFER_URL) { $env:FGK_INFER_URL = 'http://localhost:8080' }
+    if (-not $env:FGK_INFER_KEY) { $env:FGK_INFER_KEY = 'dev-key' }
+    $env:FK_CORE_API_BASE = $env:FGK_INFER_URL
+    $env:FK_CODER_API_BASE = $env:FGK_INFER_URL
+    $env:FK_API_KEY = $env:FGK_INFER_KEY
+    Write-DebugLog "Using inference gateway at $env:FGK_INFER_URL"
+    try {
+        $health = ($env:FGK_INFER_URL.TrimEnd('/')) + '/healthz'
+        $ok = $false
+        try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $r.StatusCode -eq 200 } catch { $ok = $false }
+        if (-not $ok) {
+            if (Get-Command make -ErrorAction SilentlyContinue) {
+                $reply = Read-Host 'Start local inference stack now? [Y/n]'
+                if ($reply -match '^([Yy]|)$') {
+                    pushd $rootDir; make inference-up; popd
+                }
+            } else {
+                Write-Warning "'make' not found; start inference stack manually (see DOCS_INFERENCE.md)."
+            }
+        }
+    } catch { Write-Warning "Inference gateway pre-check failed: $($_.Exception.Message)" }
+    if (-not $env:VLLM_MODEL_CORE) {
+        Write-Host 'Select model for VLLM_MODEL_CORE:'
+        Write-Host '  [1] mistralai/Mistral-7B-Instruct'
+        Write-Host '  [2] WizardLM/WizardCoder-15B-V1.0'
+        Write-Host '  [3] gpt-oss-20b-harmony'
+        Write-Host '  [4] Custom'
+        $choice = Read-Host 'Enter choice [1-4]'
+        switch ($choice) {
+            '2' { $env:VLLM_MODEL_CORE = 'WizardLM/WizardCoder-15B-V1.0' }
+            '3' { $env:VLLM_MODEL_CORE = 'gpt-oss-20b-harmony' }
+            '4' { $env:VLLM_MODEL_CORE = (Read-Host 'Enter model id') }
+            default { $env:VLLM_MODEL_CORE = 'mistralai/Mistral-7B-Instruct' }
+        }
+    }
+    if (-not $env:VLLM_MODEL_CODER) {
+        $reply = Read-Host 'Use WizardCoder for coder model? [Y/n]'
+        if ($reply -match '^([Yy]|)$') { $env:VLLM_MODEL_CODER = 'WizardLM/WizardCoder-15B-V1.0' } else { $env:VLLM_MODEL_CODER = $env:VLLM_MODEL_CORE }
+    }
+}
+
 # Ensure MongoDB is running (local or Docker)
 if (-not (Get-Process mongod -ErrorAction SilentlyContinue)) {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -171,7 +215,8 @@ else {
             $vllmErr = Join-Path $fgLogDir 'vllm_core.err.log'
 
             $hasVllm = $false
-            try { & $python -c "import vllm" 2>$null; $hasVllm = $true } catch { $hasVllm = $false }
+            $null = & $python -c "import vllm" 2>$null
+            if ($LASTEXITCODE -eq 0) { $hasVllm = $true }
             $useDocker = -not $hasVllm
             if ($useDocker -and -not (Get-Command docker -ErrorAction SilentlyContinue)) {
                 Write-Warning 'vLLM not available in Python and docker not found; cannot launch vLLM automatically.'
@@ -184,7 +229,9 @@ else {
                 $vllmProc = $null  # managed by docker, not this shell
                 Write-Host '👉 View logs: docker logs -f forgekeeper-vllm-core'
             } else {
-                $vllmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                # Launch local Python vLLM using the same interpreter we detected
+                $args = @('-m','vllm.entrypoints.openai.api_server','--host','0.0.0.0','--port',$env:VLLM_PORT_CORE,'--model',$env:VLLM_MODEL_CORE,'--tensor-parallel-size',($env:VLLM_TP ?? '1'),'--max-model-len',($env:VLLM_MAX_MODEL_LEN ?? '4096'),'--gpu-memory-utilization',($env:VLLM_GPU_MEMORY_UTILIZATION ?? '0.9'))
+                $vllmProc = Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
                 Write-Host "📝 vLLM logs: $vllmOut, $vllmErr"
             }
             $initialWait = if ($RequireVLLM) { $VLLMWaitSeconds } else { [Math]::Min(10, $VLLMWaitSeconds) }

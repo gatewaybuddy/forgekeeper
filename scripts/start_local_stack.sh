@@ -13,6 +13,7 @@ REQUIRE_VLLM=false
 VLLM_WAIT_SECONDS=90
 REQUIRE_BACKEND=false
 BACKEND_WAIT_SECONDS=60
+USE_INFERENCE=${FGK_USE_INFERENCE:-1}
 
 usage() {
   cat <<'EOF'
@@ -27,6 +28,7 @@ Options:
   --vllm-wait-seconds N   Seconds to wait for vLLM when required (default 90).
   --require-backend       Wait for backend health; abort if not healthy.
   --backend-wait-seconds N  Seconds to wait for backend when required (default 60).
+  --no-inference          Disable inference gateway integration for this run.
   -h, --help              Show this help and exit.
 EOF
 }
@@ -43,6 +45,8 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_BACKEND=true; shift ;;
     --backend-wait-seconds)
       BACKEND_WAIT_SECONDS="${2:-60}"; shift 2 ;;
+    --no-inference)
+      USE_INFERENCE=0; shift ;;
     -h|--help)
       usage; exit 0 ;;
     *)
@@ -89,6 +93,68 @@ debug_log "DEBUG_MODE=$DEBUG_MODE"
 : "${FK_CODER_API_BASE:=${FK_CORE_API_BASE}}"
 debug_log "FK_CORE_API_BASE=$FK_CORE_API_BASE"
 debug_log "FK_CODER_API_BASE=$FK_CODER_API_BASE"
+
+# ------------------------------------------------------------
+# Inference Gateway integration (feature-flagged)
+# ------------------------------------------------------------
+if [ "$USE_INFERENCE" != "0" ]; then
+  : "${FGK_INFER_URL:=http://localhost:8080}"
+  : "${FGK_INFER_KEY:=dev-key}"
+  export FK_CORE_API_BASE="$FGK_INFER_URL"
+  export FK_CODER_API_BASE="$FGK_INFER_URL"
+  export FK_API_KEY="$FGK_INFER_KEY"
+  debug_log "Using inference gateway at $FGK_INFER_URL"
+
+  # Health check and optional auto-start via Makefile if compose is available
+  if ! curl -sSf "${FGK_INFER_URL%/}/healthz" >/dev/null 2>&1; then
+    echo "ℹ️ Inference gateway not responding at ${FGK_INFER_URL%/}/healthz"
+    if command -v make >/dev/null 2>&1; then
+      read -r -p "Start local inference stack now? [Y/n] " reply
+      reply=${reply:-Y}
+      if [[ $reply =~ ^[Yy]$ ]]; then
+        make inference-up || true
+        # wait briefly for health
+        deadline=$((SECONDS+60))
+        until curl -sSf "${FGK_INFER_URL%/}/healthz" >/dev/null 2>&1 || [ $SECONDS -ge $deadline ]; do
+          sleep 2
+        done
+      fi
+    else
+      echo "⚠️ 'make' not found; start inference stack manually (see DOCS_INFERENCE.md)." >&2
+    fi
+  fi
+
+  # Model selection prompt if not set in env
+  select_model() {
+    local var_name="$1"; local current_val="${!var_name:-}"
+    if [ -n "$current_val" ]; then return 0; fi
+    echo "Select model for $var_name:"
+    echo "  [1] mistralai/Mistral-7B-Instruct"
+    echo "  [2] WizardLM/WizardCoder-15B-V1.0"
+    echo "  [3] gpt-oss-20b-harmony"
+    echo "  [4] Custom (enter HF id/name)"
+    read -r -p "Enter choice [1-4]: " choice
+    case "$choice" in
+      1|"" ) export "$var_name"="mistralai/Mistral-7B-Instruct" ;;
+      2) export "$var_name"="WizardLM/WizardCoder-15B-V1.0" ;;
+      3) export "$var_name"="gpt-oss-20b-harmony" ;;
+      4) read -r -p "Enter model id: " mid; export "$var_name"="$mid" ;;
+      *) export "$var_name"="mistralai/Mistral-7B-Instruct" ;;
+    esac
+  }
+
+  select_model VLLM_MODEL_CORE
+  # Prefer WizardCoder for coder if unset
+  if [ -z "${VLLM_MODEL_CODER:-}" ]; then
+    read -r -p "Use WizardCoder for coder model? [Y/n] " reply
+    reply=${reply:-Y}
+    if [[ $reply =~ ^[Yy]$ ]]; then
+      export VLLM_MODEL_CODER="WizardLM/WizardCoder-15B-V1.0"
+    else
+      export VLLM_MODEL_CODER="$VLLM_MODEL_CORE"
+    fi
+  fi
+fi
 
 # Ensure MongoDB is available before starting services
 if pgrep mongod >/dev/null 2>&1; then

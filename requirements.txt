@@ -6,6 +6,7 @@ openai-harmony==0.0.4
 paho-mqtt==2.1.0
 pymongo==4.14.0
 pytest==8.4.1
+httpx==0.26.0
 python-dotenv==1.1.1
 requests==2.32.4
 strawberry-graphql==0.278.1

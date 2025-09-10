@@ -14,6 +14,7 @@ from forgekeeper.telemetry import log_server_launch
 from forgekeeper.llm.clients import client, config as client_config
 from forgekeeper.app.utils.prompt_guard import verify_prompt
 from forgekeeper.app.utils.json_helpers import extract_json
+from forgekeeper.inference_backends.harmony import render_harmony
 
 log = get_logger(__name__, debug=DEBUG_MODE)
 
@@ -95,8 +96,13 @@ class _RemoteLLM:
 
     def ask(self, prompt: str, **overrides: Any) -> str:
         prompt = verify_prompt(prompt)
-        messages = [{"role": "user", "content": prompt}]
         params = {**_alias_settings(self.alias), **overrides}
+        model_name = params.get("model")
+        if model_name == "gpt-oss-20b-harmony":
+            harmony = render_harmony([{ "role": "user", "content": prompt }], None)
+            messages = [{"role": "user", "content": harmony}]
+        else:
+            messages = [{"role": "user", "content": prompt}]
 
         # If the coder model or its base URL are missing, fallback immediately to core.
         if self.alias == "coder":

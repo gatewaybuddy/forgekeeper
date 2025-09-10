@@ -154,13 +154,44 @@ pwsh scripts/start_local_stack.ps1
 pwsh ./start.ps1
 ```
 
-These scripts launch the GraphQL service, Python agent, and frontend concurrently, and will also attempt to launch a local vLLM server if it is not yet healthy. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
+These scripts launch the GraphQL service, Python agent, and frontend concurrently. By default Forgekeeper routes LLM calls through a local OpenAI‑compatible gateway and will offer to start the GPU inference stack if not running. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
 
 Startup flags:
 - PowerShell: `pwsh ./start.ps1 [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-RequireBackend] [-BackendWaitSeconds 60] [-Detach] [-LogDir <dir>]`
 - Bash: `./start.sh [--debug] [--require-vllm] [--vllm-wait-seconds 120] [--require-backend] [--backend-wait-seconds 60]`
 
 Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
+
+For a timeline of recent environment and DX changes, see `DEVLOG.md`.
+
+### Inference Gateway (Default)
+
+Forgekeeper routes LLM traffic via a lightweight OpenAI‑compatible gateway by default.
+
+- Bring up the GPU‑backed inference stack (Docker + NVIDIA runtime required):
+
+```bash
+make -C forgekeeper inference-up
+```
+
+- Health check and quick load test:
+
+```bash
+make -C forgekeeper sanity
+make -C forgekeeper load-test
+```
+
+- On startup, if models are not set, you will be prompted to select:
+  - Core: Mistral-7B-Instruct (default)
+  - Coder: WizardCoder-15B (default), or re-use core
+
+- To disable the gateway for a run:
+
+```bash
+FGK_USE_INFERENCE=0 ./scripts/start_local_stack.sh
+```
+
+See `DOCS_INFERENCE.md` for details, configuration, and service layout.
 
 ### Start the GraphQL service
 ```bash
