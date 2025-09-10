@@ -6,11 +6,12 @@ from pathlib import Path
 import os
 import re
 import subprocess
+import shutil
 from typing import Any, Dict, Set
 
 import requests
 
-from forgekeeper.config import GITHUB_TOKEN_ENV_KEYS
+from forgekeeper.config import GITHUB_TOKEN_ENV_KEYS, PR_BASE, AUTO_MERGE
 from tools.auto_label_pr import (
     add_labels_to_pr,
     parse_tasks_md,
@@ -86,7 +87,7 @@ def create_draft_pr(task: Dict[str, Any], tasks_file: str = "tasks.md") -> Dict[
     payload = {
         "title": title,
         "head": branch,
-        "base": "main",
+        "base": PR_BASE,
         "body": body,
         "draft": True,
     }
@@ -96,3 +97,44 @@ def create_draft_pr(task: Dict[str, Any], tasks_file: str = "tasks.md") -> Dict[
 
     add_labels_to_pr(slug, pr["number"], labels, token)
     return pr
+
+
+def gh_available() -> bool:
+    return shutil.which("gh") is not None
+
+
+def _gh(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["gh", *args], capture_output=True, text=True)
+
+
+def create_draft_pr_via_gh(task: Dict[str, Any], tasks_file: str = "tasks.md") -> Dict[str, Any]:
+    labels = _labels_for_task(task["id"], tasks_file)
+    template = _template_for_labels(labels)
+    title = f"feat: {task['title']} [{task['id']}]"
+    # Create PR as draft against configured base
+    res = _gh("pr", "create", "--base", PR_BASE, "--title", title, "--body-file", str(template), "--draft")
+    if res.returncode != 0:
+        raise RuntimeError(f"gh pr create failed: {res.stderr}")
+    # Extract PR number (best-effort via 'gh pr view --json number')
+    view = _gh("pr", "view", "--json", "number,webUrl")
+    number = None
+    url = None
+    if view.returncode == 0:
+        try:
+            data = __import__("json").loads(view.stdout)
+            number = data.get("number")
+            url = data.get("webUrl")
+        except Exception:
+            pass
+    # Apply labels via API if token present
+    try:
+        token = _read_token()
+        slug = repo_slug_from_env_or_git()
+        if number:
+            add_labels_to_pr(slug, int(number), labels, token)
+    except Exception:
+        pass
+    # Optional auto-merge
+    if AUTO_MERGE:
+        _gh("pr", "merge", "--merge", "--auto", "--delete-branch")
+    return {"number": number, "html_url": url or ""}

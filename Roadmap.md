@@ -57,6 +57,17 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
 
+### Phase 3.5: Distributed Inference & Modularity (In Progress)
+
+- [FK-351](tasks.md#fk-351): Compose profiles for modular deploys (agent-worker, backend-only, ui-only, inference-only)
+- [FK-352](tasks.md#fk-352): Gateway registry + weighted routing (multi-node, model-aware)
+- [FK-353](tasks.md#fk-353): Extract forgekeeper-core and client packages
+- [FK-354](tasks.md#fk-354): Agent worker entrypoint with outbox polling
+- [FK-355](tasks.md#fk-355): Multi-node deployment guide and examples
+- [FK-356](tasks.md#fk-356): Helm charts for K8s (optional)
+
+This phase introduces clean module boundaries and scalable deployment profiles to simplify code maintenance and enable multi-machine token compute.
+
 ### Phase 4: Agentic Memory Orchestration (Planned)
 
 - Document memory agent architecture and extension points
@@ -68,8 +79,6 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `goal_manager/manager.py`
 - [x] Consolidated conversation handling behind a single GraphQL storage path
-
----
 
 ## 🧠 Future Capabilities
 - <a id="fk-401"></a>[FK-401](tasks.md#fk-401): Vectorized memory retrieval (P1)

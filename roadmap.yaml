@@ -62,7 +62,7 @@ epics:
     milestones:
       - id: FK-401
         title: Vectorized memory retrieval (P1)
-        status: todo
+        status: in_progress
   - id: R-006
     title: Multi-agent collaboration framework
     kpis: []
@@ -98,6 +98,29 @@ epics:
     milestones:
       - id: M-040
         title: Agentic memory orchestration and extensions
+        status: todo
+
+  - id: R-011
+    title: Distributed inference & modular deployment
+    kpis: []
+    milestones:
+      - id: FK-351
+        title: Compose profiles for modular deploys (P1)
+        status: todo
+      - id: FK-352
+        title: Gateway registry + weighted routing (P1)
+        status: todo
+      - id: FK-353
+        title: Extract forgekeeper-core and client packages (P1)
+        status: todo
+      - id: FK-354
+        title: Agent worker entrypoint with outbox polling (P1)
+        status: todo
+      - id: FK-355
+        title: Multi-node deployment guide and examples (P2)
+        status: todo
+      - id: FK-356
+        title: Helm charts for K8s (optional) (P3)
         status: todo
 
 

@@ -164,6 +164,42 @@ Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and bac
 
 For a timeline of recent environment and DX changes, see `DEVLOG.md`.
 
+### CLI‑Only Mode
+
+Run just the Python agent and skip launching the backend/frontend. This is ideal for headless self‑repair loops.
+
+- Bash: `./scripts/start_local_stack.sh --cli-only`
+- PowerShell: `pwsh ./start.ps1 -CliOnly`
+
+First‑run prompts: if no flags are provided and no saved preferences exist, the start scripts interactively ask whether to use CLI‑only mode, require vLLM/backend health, and use the inference gateway. You may opt to save answers to `.forgekeeper/start_prefs.env` (Bash) or `.forgekeeper/start_prefs.json` (PowerShell). Omit flags to be prompted each time; pass flags or set env to override.
+
+To force CLI‑only from environment: `CLI_ONLY=true ./start.sh`
+
+Reset saved preferences:
+
+- Bash: `./scripts/start_local_stack.sh --reset-prefs`
+- PowerShell: `pwsh ./start.ps1 -ResetPrefs`
+
+### Transformers Fallback (No vLLM)
+
+Use a local Hugging Face model via Transformers without the vLLM servers:
+
+```bash
+LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu python -m forgekeeper
+```
+
+Or point to a specific model:
+
+```bash
+LLM_BACKEND=transformers \
+FK_MODEL_PATH=/path/to/model \
+FK_DTYPE=bf16 \
+FK_DEVICE=cuda \
+python -m forgekeeper
+```
+
+The Transformers backend respects `FK_*_MAX_TOKENS` caps and is suitable for smoke tests and CLI‑only runs.
+
 ### Inference Gateway (Default)
 
 Forgekeeper routes LLM traffic via a lightweight OpenAI‑compatible gateway by default.
@@ -434,6 +470,10 @@ Run the Python test suite with:
 ```bash
 pytest
 ```
+
+Commit checks and sandbox:
+- Commit checks automatically scope by file type. Python changes run `ruff`, `mypy`, `pytest`; TypeScript changes run backend/frontend builds. In CLI‑only mode or when Node is missing, TS checks are skipped unless `.ts/.tsx` files are staged.
+- Sandbox checks apply staged diffs in a temporary Git worktree and run the selected commands there before committing. This helps prevent partial or environment‑dependent failures leaking into your main worktree.
 
 ## Development Tooling
 Contributors should have the following tools installed and available in `PATH`:

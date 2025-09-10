@@ -3,10 +3,12 @@
 param(
     [switch]$Detach,
     [string]$LogDir,
+    [switch]$ResetPrefs,
     [switch]$RequireVLLM,
     [int]$VLLMWaitSeconds = 90,
     [switch]$RequireBackend,
-    [int]$BackendWaitSeconds = 60
+    [int]$BackendWaitSeconds = 60,
+    [switch]$CliOnly
 )
 
 Set-StrictMode -Version Latest
@@ -17,6 +19,26 @@ function Write-DebugLog { param([string]$Message) Write-Verbose $Message }
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Resolve-Path (Join-Path $scriptDir '..')).Path
 Set-Location $rootDir
+
+# Reset saved preferences when requested
+if ($ResetPrefs) {
+    $prefsJson = Join-Path $rootDir '.forgekeeper/start_prefs.json'
+    if (Test-Path $prefsJson) { Remove-Item -Force $prefsJson -ErrorAction SilentlyContinue }
+}
+
+# Load saved preferences if present (overridden by explicit params)
+$prefsPath = Join-Path $rootDir '.forgekeeper/start_prefs.json'
+if (Test-Path $prefsPath) {
+    try {
+        $prefs = Get-Content $prefsPath -Raw | ConvertFrom-Json
+        if (-not $PSBoundParameters.ContainsKey('CliOnly') -and $null -ne $prefs.CliOnly) { $CliOnly = [bool]$prefs.CliOnly }
+        if (-not $PSBoundParameters.ContainsKey('RequireVLLM') -and $null -ne $prefs.RequireVLLM) { $RequireVLLM = [bool]$prefs.RequireVLLM }
+        if (-not $PSBoundParameters.ContainsKey('VLLMWaitSeconds') -and $null -ne $prefs.VLLMWaitSeconds) { $VLLMWaitSeconds = [int]$prefs.VLLMWaitSeconds }
+        if (-not $PSBoundParameters.ContainsKey('RequireBackend') -and $null -ne $prefs.RequireBackend) { $RequireBackend = [bool]$prefs.RequireBackend }
+        if (-not $PSBoundParameters.ContainsKey('BackendWaitSeconds') -and $null -ne $prefs.BackendWaitSeconds) { $BackendWaitSeconds = [int]$prefs.BackendWaitSeconds }
+        if (-not $env:FGK_USE_INFERENCE -and $null -ne $prefs.UseInference) { $env:FGK_USE_INFERENCE = ($prefs.UseInference ? '1' : '0') }
+    } catch { Write-Verbose "Failed to load start preferences: $($_.Exception.Message)" }
+}
 
 # Load .env into current session (simple KEY=VALUE parser)
 $dotenvPath = Join-Path $rootDir '.env'
@@ -35,6 +57,37 @@ if (Test-Path $dotenvPath) {
 # Enable DEBUG_MODE when -Verbose is supplied
 if ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Continue') { $env:DEBUG_MODE = 'true' }
 Write-DebugLog "DEBUG_MODE=$env:DEBUG_MODE"
+
+if ($CliOnly) { $env:CLI_ONLY = 'true' }
+
+# Interactive prompt on first run if no params, no prefs, and no env override
+if ($PSBoundParameters.Count -eq 0 -and -not (Test-Path $prefsPath) -and -not $env:CLI_ONLY) {
+    Write-Host 'First run setup: choose how to start Forgekeeper'
+    $ans = Read-Host 'Run in CLI-only mode (Python agent only)? [y/N]'
+    if ($ans -match '^[Yy]$') { $CliOnly = $true; $env:CLI_ONLY = 'true' } else { $CliOnly = $false }
+    if (-not $CliOnly) {
+        $ans = Read-Host 'Use inference gateway if available? [Y/n]'
+        if ($ans -match '^[Nn]$') { $env:FGK_USE_INFERENCE = '0' } else { $env:FGK_USE_INFERENCE = '1' }
+        $ans = Read-Host 'Require vLLM health before continuing? [y/N]'
+        $RequireVLLM = ($ans -match '^[Yy]$')
+        $ans = Read-Host 'Require backend health before continuing? [y/N]'
+        $RequireBackend = ($ans -match '^[Yy]$')
+    }
+    $save = Read-Host 'Save these as defaults to .forgekeeper/start_prefs.json? [y/N]'
+    if ($save -match '^[Yy]$') {
+        New-Item -Force -ItemType Directory -Path (Join-Path $rootDir '.forgekeeper') | Out-Null
+        $prefsObj = [ordered]@{
+            CliOnly = [bool]$CliOnly
+            UseInference = ([string]$env:FGK_USE_INFERENCE -ne '0')
+            RequireVLLM = [bool]$RequireVLLM
+            VLLMWaitSeconds = [int]$VLLMWaitSeconds
+            RequireBackend = [bool]$RequireBackend
+            BackendWaitSeconds = [int]$BackendWaitSeconds
+        }
+        ($prefsObj | ConvertTo-Json) | Set-Content -Path $prefsPath -Encoding UTF8
+        Write-Host "Saved defaults to $prefsPath"
+    }
+}
 
 # Resolve npm path robustly on Windows (prefer npm.cmd)
 $npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
@@ -74,9 +127,9 @@ if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BAS
 Write-DebugLog "FK_CORE_API_BASE=$env:FK_CORE_API_BASE"
 Write-DebugLog "FK_CODER_API_BASE=$env:FK_CODER_API_BASE"
 
-# Inference Gateway integration
+# Inference Gateway integration (skipped in CLI-only mode)
 if (-not $env:FGK_USE_INFERENCE) { $env:FGK_USE_INFERENCE = '1' }
-if ($env:FGK_USE_INFERENCE -ne '0') {
+if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
     if (-not $env:FGK_INFER_URL) { $env:FGK_INFER_URL = 'http://localhost:8080' }
     if (-not $env:FGK_INFER_KEY) { $env:FGK_INFER_KEY = 'dev-key' }
     $env:FK_CORE_API_BASE = $env:FGK_INFER_URL
@@ -118,8 +171,8 @@ if ($env:FGK_USE_INFERENCE -ne '0') {
     }
 }
 
-# Ensure MongoDB is running (local or Docker)
-if (-not (Get-Process mongod -ErrorAction SilentlyContinue)) {
+# Ensure MongoDB is running (local or Docker) unless CLI-only
+if (-not $CliOnly -and -not (Get-Process mongod -ErrorAction SilentlyContinue)) {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Write-Warning '?? mongod not running and docker not found. Please start MongoDB manually.'
     } else {
@@ -180,25 +233,30 @@ if ($Detach) {
         } else { Write-Host "✅ vLLM already healthy at $health" }
     } catch { Write-Warning "⚠️ vLLM pre-check failed: $($_.Exception.Message)" }
 
-    $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
-    $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
-    $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
-
-    $meta = [ordered]@{
-        backendPid  = $backend.Id
-        pythonPid   = $pythonProc.Id
-        frontendPid = $frontend.Id
-        logDir      = $LogDir
-        startedAt   = (Get-Date).ToString('o')
+    if ($CliOnly) {
+        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+        $meta = [ordered]@{ pythonPid = $pythonProc.Id; logDir = $LogDir; startedAt = (Get-Date).ToString('o') }
+        ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
+        Write-Host ("✅ Started CLI-only. PID => python={0}" -f $pythonProc.Id)
+    } else {
+        $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
+        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+        $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
+        $meta = [ordered]@{
+            backendPid  = $backend.Id
+            pythonPid   = $pythonProc.Id
+            frontendPid = $frontend.Id
+            logDir      = $LogDir
+            startedAt   = (Get-Date).ToString('o')
+        }
+        ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
+        Write-Host ("✅ Started. PIDs => backend={0}, python={1}, frontend={2}" -f $backend.Id, $pythonProc.Id, $frontend.Id)
     }
-    ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
-
-    Write-Host ("✅ Started. PIDs => backend={0}, python={1}, frontend={2}" -f $backend.Id, $pythonProc.Id, $frontend.Id)
     Write-Host "➡️  Stop with: Stop-Process -Id <pid> (or close the apps)"
     exit 0
 }
 else {
-    Write-Host "🚀 Starting services in this window. Press Ctrl+C to stop all."
+    if ($CliOnly) { Write-Host "🚀 Starting Python agent in this window (CLI-only). Press Ctrl+C to stop." } else { Write-Host "🚀 Starting services in this window. Press Ctrl+C to stop all." }
     
     # Ensure vLLM core server is running and optionally wait strictly
     $vllmProc = $null
@@ -254,32 +312,37 @@ else {
     } catch {
         Write-Warning "⚠️ vLLM pre-check failed: $($_.Exception.Message)"
     }
-    # Start backend first, and optionally wait for health before launching frontend
-    $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+    if ($CliOnly) {
+        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+        $processes = @($pythonProc)
+    } else {
+        # Start backend first, and optionally wait for health before launching frontend
+        $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
 
-    $backendPort = if ($env:PORT) { [int]$env:PORT } else { 4000 }
-    $backendHealth = "http://localhost:$backendPort/health"
-    $initialBWait = if ($RequireBackend) { $BackendWaitSeconds } else { [Math]::Min(10, $BackendWaitSeconds) }
-    $deadlineB = (Get-Date).AddSeconds($initialBWait)
-    do {
-        Start-Sleep -Seconds 1
-        try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri $backendHealth; $bOk = $r.StatusCode -eq 200 } catch { $bOk = $false }
-    } while (-not $bOk -and (Get-Date) -lt $deadlineB)
-    if ($bOk) { Write-Host "✅ Backend is healthy at $backendHealth" } else {
-        if ($RequireBackend) {
-            Write-Error "❌ Backend did not become healthy at $backendHealth; aborting due to -RequireBackend"
-            exit 1
-        } else {
-            Write-Warning "⚠️ Backend not healthy yet at $backendHealth; continuing"
+        $backendPort = if ($env:PORT) { [int]$env:PORT } else { 4000 }
+        $backendHealth = "http://localhost:$backendPort/health"
+        $initialBWait = if ($RequireBackend) { $BackendWaitSeconds } else { [Math]::Min(10, $BackendWaitSeconds) }
+        $deadlineB = (Get-Date).AddSeconds($initialBWait)
+        do {
+            Start-Sleep -Seconds 1
+            try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 -Uri $backendHealth; $bOk = $r.StatusCode -eq 200 } catch { $bOk = $false }
+        } while (-not $bOk -and (Get-Date) -lt $deadlineB)
+        if ($bOk) { Write-Host "✅ Backend is healthy at $backendHealth" } else {
+            if ($RequireBackend) {
+                Write-Error "❌ Backend did not become healthy at $backendHealth; aborting due to -RequireBackend"
+                exit 1
+            } else {
+                Write-Warning "⚠️ Backend not healthy yet at $backendHealth; continuing"
+            }
         }
+
+        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+        $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+
+        $processes = @()
+        if ($vllmProc -and -not $vllmProc.HasExited) { $processes += $vllmProc }
+        $processes += @($backend, $pythonProc, $frontend) | Where-Object { $_ -and -not $_.HasExited }
     }
-
-    $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
-    $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
-
-    $processes = @()
-    if ($vllmProc -and -not $vllmProc.HasExited) { $processes += $vllmProc }
-    $processes += @($backend, $pythonProc, $frontend) | Where-Object { $_ -and -not $_.HasExited }
 
     try {
         while ($true) {

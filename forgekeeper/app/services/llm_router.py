@@ -34,6 +34,21 @@ elif BACKEND == "vllm":
         prompt = verify_prompt(prompt)
         return llm_coder.ask(prompt)
 
+elif BACKEND == "transformers":
+    # Local HF Transformers fallback (CPU/GPU), suitable for CLI-only mode.
+    from forgekeeper.llm.transformers_impl import TransformersLLMProvider  # type: ignore
+    _tx = TransformersLLMProvider()
+
+    def ask_llm(prompt: str):
+        prompt = verify_prompt(prompt)
+        max_new = int(os.getenv("FK_CORE_MAX_TOKENS", os.getenv("FK_MAX_TOKENS", "256")))
+        return _tx.generate(prompt, max_new_tokens=max_new)
+
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        max_new = int(os.getenv("FK_CODER_MAX_TOKENS", os.getenv("FK_MAX_TOKENS", "256")))
+        return _tx.generate(prompt, max_new_tokens=max_new)
+
 elif BACKEND == "llama_cpp":
     from forgekeeper.llm.llama_cpp_impl import LlamaCppLLMProvider
 
