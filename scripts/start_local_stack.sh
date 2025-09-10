@@ -9,6 +9,7 @@ cd "$ROOT_DIR"
 # Args
 # ------------------------------------------------------------
 DEBUG=false
+CLI_ONLY=false
 REQUIRE_VLLM=false
 VLLM_WAIT_SECONDS=90
 REQUIRE_BACKEND=false
@@ -24,15 +25,18 @@ Ensures MongoDB is running and launches vLLM if needed.
 
 Options:
   --debug                 Set DEBUG_MODE=true and print extra diagnostics.
+  --cli-only              Start only the Python agent (no backend/frontend).
   --require-vllm          Wait for vLLM health; abort if not healthy in time.
   --vllm-wait-seconds N   Seconds to wait for vLLM when required (default 90).
   --require-backend       Wait for backend health; abort if not healthy.
   --backend-wait-seconds N  Seconds to wait for backend when required (default 60).
   --no-inference          Disable inference gateway integration for this run.
+  --reset-prefs           Delete saved start preferences and re-prompt.
   -h, --help              Show this help and exit.
 EOF
 }
 
+ORIG_ARGS=$#
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --debug)
@@ -45,8 +49,12 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_BACKEND=true; shift ;;
     --backend-wait-seconds)
       BACKEND_WAIT_SECONDS="${2:-60}"; shift 2 ;;
+    --cli-only)
+      CLI_ONLY=true; shift ;;
     --no-inference)
       USE_INFERENCE=0; shift ;;
+    --reset-prefs)
+      rm -f "$ROOT_DIR/.forgekeeper/start_prefs.env" 2>/dev/null || true; shift ;;
     -h|--help)
       usage; exit 0 ;;
     *)
@@ -56,6 +64,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 debug_log() { $DEBUG && printf '[DEBUG] %s\n' "$*" || true; }
+
+# Load saved preferences if present and not overridden by args/env
+PREFS_PATH="$ROOT_DIR/.forgekeeper/start_prefs.env"
+if [ -f "$PREFS_PATH" ]; then
+  # shellcheck disable=SC1090
+  . "$PREFS_PATH"
+fi
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "❌ npm is required but was not found." >&2
@@ -84,8 +99,9 @@ if [ -f "$ROOT_DIR/.env" ]; then
   done < "$ROOT_DIR/.env"
 fi
 
-# Enable DEBUG_MODE
+# Enable DEBUG_MODE and optional CLI_ONLY env
 $DEBUG && export DEBUG_MODE=true || true
+if $CLI_ONLY; then export CLI_ONLY=true; fi
 debug_log "DEBUG_MODE=$DEBUG_MODE"
 
 : "${VLLM_PORT_CORE:=8001}"
@@ -95,9 +111,40 @@ debug_log "FK_CORE_API_BASE=$FK_CORE_API_BASE"
 debug_log "FK_CODER_API_BASE=$FK_CODER_API_BASE"
 
 # ------------------------------------------------------------
-# Inference Gateway integration (feature-flagged)
+# Interactive preference prompt (first run, no args, no prefs)
 # ------------------------------------------------------------
-if [ "$USE_INFERENCE" != "0" ]; then
+if [ ${ORIG_ARGS:-0} -eq 0 ] && [ -z "${CLI_ONLY:-}" ] && [ ! -f "$PREFS_PATH" ]; then
+  echo "First run setup: choose how to start Forgekeeper"
+  read -r -p "Run in CLI-only mode (Python agent only)? [y/N] " ans
+  case "$ans" in [Yy]*) CLI_ONLY=true ;; *) CLI_ONLY=false ;; esac
+  if ! $CLI_ONLY; then
+    read -r -p "Use inference gateway if available? [Y/n] " ans
+    case "${ans:-Y}" in [Nn]*) USE_INFERENCE=0 ;; *) USE_INFERENCE=1 ;; esac
+    read -r -p "Require vLLM health before continuing? [y/N] " ans
+    case "$ans" in [Yy]*) REQUIRE_VLLM=true ;; *) REQUIRE_VLLM=false ;; esac
+    read -r -p "Require backend health before continuing? [y/N] " ans
+    case "$ans" in [Yy]*) REQUIRE_BACKEND=true ;; *) REQUIRE_BACKEND=false ;; esac
+  fi
+  read -r -p "Save these as defaults to .forgekeeper/start_prefs.env? [y/N] " save
+  if [[ "$save" =~ ^[Yy]$ ]]; then
+    mkdir -p "$ROOT_DIR/.forgekeeper"
+    {
+      echo "# Auto-generated preferences for start_local_stack.sh"
+      echo "CLI_ONLY=$CLI_ONLY"
+      echo "FGK_USE_INFERENCE=${USE_INFERENCE:-1}"
+      echo "REQUIRE_VLLM=$REQUIRE_VLLM"
+      echo "VLLM_WAIT_SECONDS=${VLLM_WAIT_SECONDS}"
+      echo "REQUIRE_BACKEND=$REQUIRE_BACKEND"
+      echo "BACKEND_WAIT_SECONDS=${BACKEND_WAIT_SECONDS}"
+    } > "$PREFS_PATH"
+    echo "Saved defaults to $PREFS_PATH"
+  fi
+fi
+
+# ------------------------------------------------------------
+# Inference Gateway integration (skipped in CLI-only mode)
+# ------------------------------------------------------------
+if [ "$USE_INFERENCE" != "0" ] && ! $CLI_ONLY; then
   : "${FGK_INFER_URL:=http://localhost:8080}"
   : "${FGK_INFER_KEY:=dev-key}"
   export FK_CORE_API_BASE="$FGK_INFER_URL"
@@ -156,8 +203,10 @@ if [ "$USE_INFERENCE" != "0" ]; then
   fi
 fi
 
-# Ensure MongoDB is available before starting services
-if pgrep mongod >/dev/null 2>&1; then
+# Ensure MongoDB is available before starting services (skip in CLI-only)
+if $CLI_ONLY; then
+  debug_log "CLI-only mode: skipping MongoDB checks"
+elif pgrep mongod >/dev/null 2>&1; then
   echo "✅ MongoDB is running."
 elif command -v docker >/dev/null 2>&1 && \
      docker ps --format '{{.Names}}' | grep -q '^forgekeeper-mongo$'; then
@@ -195,7 +244,8 @@ else
   fi
 fi
 
-# Ensure vLLM is running; launch if health check fails
+# Ensure vLLM is running; launch if health check fails (skip in CLI-only)
+if ! $CLI_ONLY; then
 VLLM_HEALTH="${FK_CORE_API_BASE%/}/healthz"
 if ! curl -sSf "$VLLM_HEALTH" >/dev/null 2>&1; then
   echo "⚙️  Launching vLLM core server..."
@@ -233,35 +283,40 @@ PY
   fi
 fi
 
-# Start backend first
-npm run dev --prefix backend &
-BACKEND_PID=$!
-
-# Wait for backend health before starting frontend (strict or non-strict)
-BACKEND_PORT=${PORT:-4000}
-BACKEND_HEALTH="http://localhost:${BACKEND_PORT}/health"
-local_b_wait=$BACKEND_WAIT_SECONDS
-$REQUIRE_BACKEND || local_b_wait=$(( local_b_wait < 10 ? local_b_wait : 10 ))
-deadline=$((SECONDS+local_b_wait))
-until curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1 || [ $SECONDS -ge $deadline ]; do
-  sleep 1
-done
-if curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1; then
-  echo "✅ Backend is healthy at $BACKEND_HEALTH"
+if $CLI_ONLY; then
+  echo "🚀 CLI-only mode: starting Python agent only"
+  "$PYTHON" -m forgekeeper
 else
-  if $REQUIRE_BACKEND; then
-    echo "❌ Backend did not become healthy at $BACKEND_HEALTH; aborting due to --require-backend" >&2
-    exit 1
+  # Start backend first
+  npm run dev --prefix backend &
+  BACKEND_PID=$!
+
+  # Wait for backend health before starting frontend (strict or non-strict)
+  BACKEND_PORT=${PORT:-4000}
+  BACKEND_HEALTH="http://localhost:${BACKEND_PORT}/health"
+  local_b_wait=$BACKEND_WAIT_SECONDS
+  $REQUIRE_BACKEND || local_b_wait=$(( local_b_wait < 10 ? local_b_wait : 10 ))
+  deadline=$((SECONDS+local_b_wait))
+  until curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1 || [ $SECONDS -ge $deadline ]; do
+    sleep 1
+  done
+  if curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1; then
+    echo "✅ Backend is healthy at $BACKEND_HEALTH"
   else
-    echo "⚠️ Backend not healthy yet at $BACKEND_HEALTH; continuing to start other services" >&2
+    if $REQUIRE_BACKEND; then
+      echo "❌ Backend did not become healthy at $BACKEND_HEALTH; aborting due to --require-backend" >&2
+      exit 1
+    else
+      echo "⚠️ Backend not healthy yet at $BACKEND_HEALTH; continuing to start other services" >&2
+    fi
   fi
+
+  "$PYTHON" -m forgekeeper &
+  PYTHON_PID=$!
+
+  npm run dev --prefix frontend &
+  FRONTEND_PID=$!
+
+  trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} 2>/dev/null || true' EXIT
+  wait
 fi
-
-"$PYTHON" -m forgekeeper &
-PYTHON_PID=$!
-
-npm run dev --prefix frontend &
-FRONTEND_PID=$!
-
-trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} 2>/dev/null || true' EXIT
-wait

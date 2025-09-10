@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 DEFAULT_TINY_MODEL = "sshleifer/tiny-gpt2"
 """Fallback Hugging Face model used for lightweight tests."""
@@ -39,6 +41,12 @@ ROADMAP_AUTO_PUSH = os.getenv("ROADMAP_AUTO_PUSH", "false").lower() == "true"
 GOAL_RUN_INTERVAL = int(os.getenv("GOAL_RUN_INTERVAL", "60"))
 """Seconds between automatic HighLevelGoalManager.run invocations."""
 
+# CLI-only mode disables optional UI/backend requirements so the agent can
+# operate purely via the Python pipeline. This is useful for self-repair loops
+# or headless environments.
+CLI_ONLY = os.getenv("CLI_ONLY", "false").lower() == "true"
+"""When true, prefer a headless, CLI-first run (skip TS checks/UI)."""
+
 _checks_py = os.getenv("CHECKS_PY")
 if _checks_py:
     CHECKS_PY = [cmd.strip() for cmd in _checks_py.split(",") if cmd.strip()]
@@ -46,17 +54,31 @@ else:
     CHECKS_PY = ["ruff .", "mypy .", "pytest -q"]
 """Commands executed for Python checks."""
 
+def _node_available() -> bool:
+    """Return True if Node/npm appear available and frontend/backend exist."""
+    if shutil.which("npm") is None:
+        return False
+    root = Path(__file__).resolve().parents[2]
+    backend_pkg = root / "backend" / "package.json"
+    frontend_pkg = root / "frontend" / "package.json"
+    return backend_pkg.exists() and frontend_pkg.exists()
+
+
 _checks_ts = os.getenv("CHECKS_TS")
 if _checks_ts:
     CHECKS_TS = [cmd.strip() for cmd in _checks_ts.split(",") if cmd.strip()]
 else:
-    CHECKS_TS = [
-        "npm --prefix backend ci",
-        "npm --prefix backend run build",
-        "npm --prefix frontend ci",
-        "npm --prefix frontend run build",
-    ]
-"""Commands executed for TypeScript checks."""
+    # Default TS checks (build-only) when not in CLI-only mode and Node is present.
+    if CLI_ONLY or not _node_available():
+        CHECKS_TS = []
+    else:
+        CHECKS_TS = [
+            "npm --prefix backend ci",
+            "npm --prefix backend run build",
+            "npm --prefix frontend ci",
+            "npm --prefix frontend run build",
+        ]
+"""Commands executed for TypeScript checks (may be empty in CLI-only mode)."""
 
 COMMIT_CHECKS = CHECKS_PY + CHECKS_TS
 """Combined commit check commands."""

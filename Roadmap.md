@@ -71,6 +71,17 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 
 ---
 
+### Phase 3.5: Distributed Inference & Modularity (In Progress)
+
+- [FK-351](tasks.md#fk-351): Compose profiles for modular deploys (agent-worker, backend-only, ui-only, inference-only)
+- [FK-352](tasks.md#fk-352): Gateway registry + weighted routing (multi-node, model-aware)
+- [FK-353](tasks.md#fk-353): Extract forgekeeper-core and client packages
+- [FK-354](tasks.md#fk-354): Agent worker entrypoint with outbox polling
+- [FK-355](tasks.md#fk-355): Multi-node deployment guide and examples
+- [FK-356](tasks.md#fk-356): Helm charts for K8s (optional)
+
+This phase introduces clean module boundaries and scalable deployment profiles to simplify code maintenance and enable multi-machine token compute.
+
 ## 🧠 Future Capabilities
 - <a id="fk-401"></a>[FK-401](tasks.md#fk-401): Vectorized memory retrieval (P1)
 - <a id="fk-402"></a>[FK-402](tasks.md#fk-402): Multi-agent collaboration framework (P2)

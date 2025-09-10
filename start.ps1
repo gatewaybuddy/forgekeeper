@@ -4,6 +4,7 @@ param(
     [Alias('h','?')][switch]$Help,
     [switch]$Detach,
     [string]$LogDir,
+    [switch]$CliOnly,
     [switch]$RequireVLLM,
     [int]$VLLMWaitSeconds = 90,
     [switch]$RequireBackend,
@@ -21,8 +22,10 @@ Automatically ensures MongoDB is running and launches vLLM if needed.
 
 Options:
   -Detach            Start services detached/minimized and return immediately.
+  -ResetPrefs        Delete saved start preferences and re-prompt.
   -LogDir <path>     Directory for logs when using -Detach (auto-generated if omitted).
   -Verbose           Print extra diagnostics and set DEBUG_MODE=true.
+  -CliOnly           Start only the Python agent (no backend/frontend).
   -RequireVLLM       Wait for vLLM health; abort if not healthy in time.
   -VLLMWaitSeconds   Seconds to wait for vLLM when -RequireVLLM (default 90).
   -RequireBackend    Wait for backend health; abort if not healthy in time.
@@ -51,11 +54,13 @@ if (-not (Test-Path $target)) {
 $splat = @{}
 if ($PSBoundParameters.ContainsKey('Detach')) { $splat.Detach = $true }
 if ($PSBoundParameters.ContainsKey('LogDir') -and $LogDir) { $splat.LogDir = $LogDir }
+if ($PSBoundParameters.ContainsKey('ResetPrefs')) { $splat.ResetPrefs = $true }
 if ($PSBoundParameters.ContainsKey('RequireVLLM')) { $splat.RequireVLLM = $true }
 if ($PSBoundParameters.ContainsKey('VLLMWaitSeconds')) { $splat.VLLMWaitSeconds = [int]$VLLMWaitSeconds }
 if ($PSBoundParameters.ContainsKey('RequireBackend')) { $splat.RequireBackend = $true }
 if ($PSBoundParameters.ContainsKey('BackendWaitSeconds')) { $splat.BackendWaitSeconds = [int]$BackendWaitSeconds }
 if ($PSBoundParameters.ContainsKey('Verbose')) { $splat.Verbose = $true }
+if ($PSBoundParameters.ContainsKey('CliOnly')) { $splat.CliOnly = $true }
 
 & $target @splat
 

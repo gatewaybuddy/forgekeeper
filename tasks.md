@@ -19,7 +19,12 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## 🛠️ Active Tasks
 
-*(none)*
+- [ ] FK-351: Compose profiles for modular deploys (P1)
+- [ ] FK-352: Gateway registry + weighted routing (P1)
+- [ ] FK-353: Extract forgekeeper-core and client packages (P1)
+- [ ] FK-354: Agent worker entrypoint with outbox polling (P1)
+- [ ] FK-355: Multi-node deployment guide and examples (P2)
+- [ ] FK-356: Helm charts for K8s (optional) (P3)
 
 
 ---
@@ -37,6 +42,8 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] [FK-406](Roadmap.md#fk-406): Document memory agent architecture (P1)
 - [ ] [FK-407](Roadmap.md#fk-407): Integrate memory agents into orchestration layer (P2)
 - [ ] [FK-408](Roadmap.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
+- [ ] FK-409: Enable CLI-only self-repair of frontend (P2)
+- [ ] FK-410: Enable CLI-only self-repair of backend (P2)
 
 ---
 
@@ -102,6 +109,96 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ## Canonical Tasks
 
 ---
+id: FK-351
+title: Compose profiles for modular deploys (P1)
+status: todo
+epic: R-011
+owner: agent
+labels: [infra, deploy]
+---
+Add Compose profiles for headless agent worker, backend-only, ui-only, and inference-only; wire Make targets and docs.
+
+**AC**
+- [ ] Compose profiles for each mode (profiles)
+- [ ] Make targets for `profile=<name>` convenience
+- [ ] Docs updated (README and DOCS_INFERENCE.md)
+
+---
+id: FK-352
+title: Gateway registry + weighted routing (P1)
+status: todo
+epic: R-011
+owner: agent
+labels: [gateway, routing]
+---
+Implement backend registration for vLLM/TRT-LLM nodes with per-model availability, health/queue metrics and weighted round-robin.
+
+**AC**
+- [ ] Registration endpoint and in-memory registry
+- [ ] Health polling and model availability tracking
+- [ ] Weighted routing by queue depth/capacity
+- [ ] Drain flag for rolling updates
+- [ ] Metrics surfaced on `/healthz`
+
+---
+id: FK-353
+title: Extract forgekeeper-core and client packages (P1)
+status: todo
+epic: R-011
+owner: agent
+labels: [packaging]
+---
+Publish `forgekeeper-core` (agent service) and `forgekeeper-inference-client` packages with clear extras and versioning.
+
+**AC**
+- [ ] Separate Python distributions with README and metadata
+- [ ] Optional extras for dev/tests
+- [ ] Minimal service entrypoint for headless agent
+
+---
+id: FK-354
+title: Agent worker entrypoint with outbox polling (P1)
+status: todo
+epic: R-011
+owner: agent
+labels: [agents, scaling]
+---
+Add a lightweight worker process that pulls tasks from the outbox, executes with gateway, and writes results; parameterize worker count.
+
+**AC**
+- [ ] Worker CLI with concurrency flag
+- [ ] Graceful shutdown and retry semantics
+- [ ] Health/metrics logging
+
+---
+id: FK-355
+title: Multi-node deployment guide and examples (P2)
+status: todo
+epic: R-011
+owner: agent
+labels: [docs, deploy]
+---
+Document running multiple inference nodes and agent workers across machines; include network, auth, and examples.
+
+**AC**
+- [ ] Step-by-step guide (Compose and manual)
+- [ ] Example env files per node
+- [ ] Troubleshooting and sizing guidance
+
+---
+id: FK-356
+title: Helm charts for K8s (optional) (P3)
+status: todo
+epic: R-011
+owner: agent
+labels: [k8s, infra]
+---
+Provide minimal Helm charts mirroring Compose profiles for gateway, inference nodes, backend, and workers.
+
+**AC**
+- [ ] Charts with values for model lists and resources
+- [ ] Readme and sample values files
+- [ ] Note GPU scheduling requirements
 id: FK-103
 title: Consolidate test directories (P2)
 status: done
@@ -225,17 +322,18 @@ When permitted, push commits to a remote repository with a generated changelog a
 ---
 id: FK-401
 title: Vectorized memory retrieval (P1)
-status: todo
+status: in_progress
 epic: R-005
 owner: agent
 labels: [memory, retrieval]
 ---
-Add vector search to retrieve relevant memories using embeddings.
+Add vector search to retrieve relevant memories using embeddings. Basic TF–IDF and optional SentenceTransformer support exist and are used in planning; extend coverage, weighting, and metrics.
 
 **AC**
-- [ ] Memory entries indexed with vector embeddings
-- [ ] Similarity queries return relevant context
-- [ ] Tests cover indexing and lookup performance
+- [ ] Memory entries indexed with vector embeddings (TF–IDF or ST)
+- [ ] Similarity queries return relevant context across modules
+- [ ] Heuristics weight planning/prioritization using retrieval scores
+- [ ] Metrics captured for retrieval quality and impact
 
 ---
 id: FK-402
@@ -345,3 +443,34 @@ Add adaptive heuristics and feedback loops to improve memory agent performance o
 - [ ] Implement heuristic scoring for memory relevance
 - [ ] Feedback loops adjust heuristics based on outcomes
 - [ ] Metrics captured to evaluate improvements
+
+---
+id: FK-409
+title: Enable CLI-only self-repair of frontend (P2)
+status: todo
+epic: R-003
+owner: agent
+labels: [frontend, cli, autonomy]
+---
+Allow Forgekeeper to repair and evolve the React/Vite frontend without launching it, running only the Python pipeline. Scope TS checks to UI edits.
+
+**AC**
+- [ ] `scripts/start_local_stack.(sh|ps1)` supports `--cli-only`/`-CliOnly`
+- [ ] In CLI-only mode, pipeline runs without backend/frontend
+- [ ] TS checks run only for tasks modifying `frontend/`
+- [ ] Example repair task completes end-to-end from CLI
+
+---
+id: FK-410
+title: Enable CLI-only self-repair of backend (P2)
+status: todo
+epic: R-003
+owner: agent
+labels: [backend, cli, autonomy]
+---
+Allow Forgekeeper to repair and evolve the GraphQL backend without launching it, running only the Python pipeline. Scope TS checks to backend edits.
+
+**AC**
+- [ ] Pipeline can modify `backend/` and run only backend TS checks
+- [ ] CLI-only mode skips frontend and GraphQL UI bring-up
+- [ ] Example backend fix task completes end-to-end from CLI
