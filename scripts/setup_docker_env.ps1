@@ -115,29 +115,45 @@ if (-not $Defaults) {
     Prompt-Var 'MONGO_URI' 'mongodb://localhost:27017/forgekeeper'
     Prompt-Secret 'OPENAI_API_KEY' ''
     Prompt-Var 'LLM_BACKEND' 'vllm'
-    Prompt-Var 'VLLM_PORT_CORE' '8001'
-    Prompt-Var 'VLLM_PORT_CODER' '8002'
-    Choose-Model 'VLLM_MODEL_CORE'
-    Choose-Model 'VLLM_MODEL_CODER'
-    Prompt-Var 'VLLM_TP' '1'
-    Prompt-Var 'VLLM_MAX_MODEL_LEN' '4096'
-    Prompt-Var 'VLLM_GPU_MEMORY_UTILIZATION' '0.9'
-
-    $content = @(
-        "FRONTEND_PORT=$env:FRONTEND_PORT",
-        "BACKEND_PORT=$env:BACKEND_PORT",
-        "PYTHON_PORT=$env:PYTHON_PORT",
-        "MONGO_URI=$env:MONGO_URI",
-        "OPENAI_API_KEY=$env:OPENAI_API_KEY",
-        "LLM_BACKEND=$env:LLM_BACKEND",
-        "VLLM_PORT_CORE=$env:VLLM_PORT_CORE",
-        "VLLM_PORT_CODER=$env:VLLM_PORT_CODER",
-        "VLLM_MODEL_CORE=$env:VLLM_MODEL_CORE",
-        "VLLM_MODEL_CODER=$env:VLLM_MODEL_CODER",
-        "VLLM_TP=$env:VLLM_TP",
-        "VLLM_MAX_MODEL_LEN=$env:VLLM_MAX_MODEL_LEN",
-        "VLLM_GPU_MEMORY_UTILIZATION=$env:VLLM_GPU_MEMORY_UTILIZATION"
-    )
+    if ($env:LLM_BACKEND -eq 'llama_cpp') {
+        Choose-Model 'FK_MODEL_PATH'
+        Prompt-Var 'FK_THREADS' '4'
+        Prompt-Var 'FK_GPU_LAYERS' '0'
+        $content = @(
+            "FRONTEND_PORT=$env:FRONTEND_PORT",
+            "BACKEND_PORT=$env:BACKEND_PORT",
+            "PYTHON_PORT=$env:PYTHON_PORT",
+            "MONGO_URI=$env:MONGO_URI",
+            "OPENAI_API_KEY=$env:OPENAI_API_KEY",
+            "LLM_BACKEND=$env:LLM_BACKEND",
+            "FK_MODEL_PATH=$env:FK_MODEL_PATH",
+            "FK_THREADS=$env:FK_THREADS",
+            "FK_GPU_LAYERS=$env:FK_GPU_LAYERS"
+        )
+    } else {
+        Prompt-Var 'VLLM_PORT_CORE' '8001'
+        Prompt-Var 'VLLM_PORT_CODER' '8002'
+        Choose-Model 'VLLM_MODEL_CORE'
+        Choose-Model 'VLLM_MODEL_CODER'
+        Prompt-Var 'VLLM_TP' '1'
+        Prompt-Var 'VLLM_MAX_MODEL_LEN' '4096'
+        Prompt-Var 'VLLM_GPU_MEMORY_UTILIZATION' '0.9'
+        $content = @(
+            "FRONTEND_PORT=$env:FRONTEND_PORT",
+            "BACKEND_PORT=$env:BACKEND_PORT",
+            "PYTHON_PORT=$env:PYTHON_PORT",
+            "MONGO_URI=$env:MONGO_URI",
+            "OPENAI_API_KEY=$env:OPENAI_API_KEY",
+            "LLM_BACKEND=$env:LLM_BACKEND",
+            "VLLM_PORT_CORE=$env:VLLM_PORT_CORE",
+            "VLLM_PORT_CODER=$env:VLLM_PORT_CODER",
+            "VLLM_MODEL_CORE=$env:VLLM_MODEL_CORE",
+            "VLLM_MODEL_CODER=$env:VLLM_MODEL_CODER",
+            "VLLM_TP=$env:VLLM_TP",
+            "VLLM_MAX_MODEL_LEN=$env:VLLM_MAX_MODEL_LEN",
+            "VLLM_GPU_MEMORY_UTILIZATION=$env:VLLM_GPU_MEMORY_UTILIZATION"
+        )
+    }
     Set-Content -Path $envFile -Value $content
 }
 

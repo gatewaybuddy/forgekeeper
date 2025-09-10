@@ -446,3 +446,32 @@ Improve local DX: unify vLLM to a single server for both agents, add strict/non-
 - fix(backend): ts-node resolves TS sources by removing .js extensions in imports
 - feat(frontend): proxy /graphql to backend in dev
 - docs: update README, frontend README, AGENTS with startup flags and vLLM config
+
+## Update 2025-09-10 04:45 UTC
+### Summary
+Recent commits: Merge pull request #362 from gatewaybuddy/fix/backend-esm-imports, fix(backend): ESM module resolution — add .js extensions and use ts-node --esm in dev scripts, Merge feat/vllm-docker-fallback: vLLM Docker fallback, robust
+
+### Recent Commits
+- Merge pull request #362 from gatewaybuddy/fix/backend-esm-imports
+- fix(backend): ESM module resolution — add .js extensions and use ts-node --esm in dev scripts
+- Merge feat/vllm-docker-fallback: vLLM Docker fallback, robust
+- feat(start): add Docker vLLM fallback; strict/non-strict waits; backend wait; docs; fix PS/
+- Merge feat/vLLM-startup-robustness: vLLM startup
+
+## Update 2025-09-10 04:46 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #362 from gatewaybuddy/fix/backend-esm-imports, fix(backend): ESM module resolution — add .js extensions and use ts-node --esm in dev scripts; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
+- chore: update roadmap
+- Merge pull request #362 from gatewaybuddy/fix/backend-esm-imports
+- fix(backend): ESM module resolution — add .js extensions and use ts-node --esm in dev scripts
+- Merge feat/vllm-docker-fallback: vLLM Docker fallback, robust
+- feat(start): add Docker vLLM fallback; strict/non-strict waits; backend wait; docs; fix PS/
+
+### Recent Memory
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit
+- No staged changes to commit

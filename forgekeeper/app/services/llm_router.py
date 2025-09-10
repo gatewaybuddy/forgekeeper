@@ -34,6 +34,19 @@ elif BACKEND == "vllm":
         prompt = verify_prompt(prompt)
         return llm_coder.ask(prompt)
 
+elif BACKEND == "llama_cpp":
+    from forgekeeper.llm.llama_cpp_impl import LlamaCppLLMProvider
+
+    provider = LlamaCppLLMProvider()
+
+    def ask_llm(prompt: str):
+        prompt = verify_prompt(prompt)
+        return provider.generate(prompt)
+
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        return provider.generate(prompt)
+
 else:  # pragma: no cover - environment misconfiguration
     raise ValueError(f"Unsupported LLM_BACKEND: {BACKEND}")
 
@@ -44,10 +57,14 @@ def get_backend():
 def get_core_model_name():
     if BACKEND == "openai":
         return os.getenv("OPENAI_MODEL", "gpt-4o")
+    if BACKEND == "llama_cpp":
+        return os.getenv("FK_MODEL_PATH", "unknown")
     return os.getenv("VLLM_MODEL_CORE", "mistral-nemo-instruct")
 
 
 def get_coder_model_name():
     if BACKEND == "openai":
         return os.getenv("OPENAI_MODEL", "gpt-4o")
+    if BACKEND == "llama_cpp":
+        return os.getenv("FK_MODEL_PATH", "unknown")
     return os.getenv("VLLM_MODEL_CODER", "codellama-13b-python")

@@ -357,6 +357,33 @@ Verify the backend with the smoke-test CLI:
 python tools/smoke_backend.py
 ```
 
+### llama.cpp Backend
+
+Run Forgekeeper on systems without vLLM by using the [llama.cpp](https://github.com/ggerganov/llama.cpp) bindings.
+
+1. Install dependencies:
+
+   ```bash
+   pip install llama-cpp-python
+   ```
+
+2. Configure the environment:
+
+   ```bash
+   export LLM_BACKEND=llama_cpp
+   export FK_MODEL_PATH=/path/to/ggml-model.gguf
+   export FK_THREADS=4        # tune for your CPU
+   export FK_GPU_LAYERS=0     # >0 to offload layers to GPU
+   ```
+
+3. Launch the simple HTTP server:
+
+   ```bash
+   python forgekeeper/main_llamacpp.py
+   ```
+
+   The endpoint will be available at `http://localhost:5000/api/llm`.
+
 ### LLM smoke test
 
 Generate a short response using the configured LLM:
