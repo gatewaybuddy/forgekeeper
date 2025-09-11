@@ -38,6 +38,32 @@ Each call to `forgekeeper.memory.episodic.append_entry` may include an
 assistant's reported feeling about the task and is stored in
 ``.forgekeeper/memory/episodic.jsonl``. The browsing utilities display both
 sentiment and emotion for recent entries to aid debugging and reflection.
+ 
+## Thoughts & Reflection
+
+Forgekeeper maintains an internal stream of thoughts that can optionally be
+shown to the user.
+
+* `thoughts/generator.py` builds prompts from the current state and goals,
+  logs each thought, and flags when a thought should be exposed.
+* `thoughts/loop.py` runs the background `RecursiveThinker` thread which
+  generates thoughts, surfaces flagged items through `expose`, and periodically
+  triggers reflection and summarization.
+* `thoughts/summary.py` condenses recent thoughts into a summary with an
+  emotion tag. The latest summary is stored via `get_last_summary` and used to
+  seed memory-aware prompts.
+* `thoughts/__init__.py` re-exports these utilities for convenient imports.
+
+Public versus private thoughts are controlled by
+`forgekeeper/app/chats/think_aloud.py`. It records user consent with
+`grant_think_aloud_consent`, toggles think-aloud mode via `set_think_aloud`,
+and reports the current status through `request_think_aloud`. When think-aloud
+is enabled, thoughts marked for exposure are surfaced through the user
+interface.
+
+Each call to `summarize_thoughts()` feeds the memory system. Services such as
+`reflective_ask_core` include the returned summary and emotion tag when
+assembling prompts, allowing past reasoning to influence future responses.
 ## Startup Flags and Debugging
 
 Use the root wrappers to start the stack and enable verbose diagnostics:
