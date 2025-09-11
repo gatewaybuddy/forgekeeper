@@ -25,6 +25,8 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-354: Agent worker entrypoint with outbox polling (P1)
 - [ ] FK-355: Multi-node deployment guide and examples (P2)
 - [ ] FK-356: Helm charts for K8s (optional) (P3)
+- [ ] FK-357: Refresh `FILE_SUMMARY.md` after file changes (P3)
+
 
 
 ---
@@ -45,6 +47,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-409: Enable CLI-only self-repair of frontend (P2)
 - [ ] FK-410: Enable CLI-only self-repair of backend (P2)
 - [ ] FK-411: Maintain agentic memory documentation (P2)
+- [ ] FK-412: Integrate MQTT listener for task processing (P2)
 
 ---
 
@@ -475,3 +478,18 @@ Allow Forgekeeper to repair and evolve the GraphQL backend without launching it,
 - [ ] Pipeline can modify `backend/` and run only backend TS checks
 - [ ] CLI-only mode skips frontend and GraphQL UI bring-up
 - [ ] Example backend fix task completes end-to-end from CLI
+
+---
+id: FK-411
+title: Integrate MQTT listener for task processing (P2)
+status: todo
+epic: R-011
+owner: agent
+labels: [mqtt, integration]
+---
+Document and wire the MQTT listener into the task pipeline for real-time messaging.
+
+**AC**
+- [ ] Listener consumes instructions from `forgekeeper/task`
+- [ ] Status updates publish to `forgekeeper/status`
+- [ ] Usage docs and tests verify message handling

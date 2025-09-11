@@ -596,6 +596,27 @@ to execute pending actions. Its poll frequency and retry backoff are
 configurable via the `OUTBOX_POLL_INTERVAL`, `OUTBOX_BASE_DELAY`, and
 `OUTBOX_MAX_DELAY` environment variables.
 
+## MQTT Listener (Experimental)
+
+Forgekeeper includes a minimal MQTT listener that can receive task
+instructions and publish acknowledgements.
+
+1. Install the MQTT client dependency:
+   ```bash
+   pip install paho-mqtt
+   ```
+2. Start an MQTT broker (example using Docker):
+   ```bash
+   docker run -p 1883:1883 eclipse-mosquitto
+   ```
+3. Run the listener:
+   ```bash
+   python scripts/mqtt_forgekeeper_listener.py
+   ```
+
+The script subscribes to `forgekeeper/task` and publishes status updates to
+`forgekeeper/status`.
+
 ## Automated sprint planning and roadmap updates
 
 On startup the backend writes the next sprint plan to `SprintPlan.md` using
