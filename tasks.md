@@ -25,6 +25,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] FK-354: Agent worker entrypoint with outbox polling (P1)
 - [ ] FK-355: Multi-node deployment guide and examples (P2)
 - [ ] FK-356: Helm charts for K8s (optional) (P3)
+- [ ] FK-357: Refresh `FILE_SUMMARY.md` after file changes (P3)
 
 
 ---
