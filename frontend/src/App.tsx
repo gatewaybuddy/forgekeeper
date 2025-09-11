@@ -143,6 +143,7 @@ export default function App() {
             onSend={handleSend}
             onStop={handleStop}
             disabled={isBusy}
+            conversation={selectedConv}
           />
         </Box>
         <ContextMenu

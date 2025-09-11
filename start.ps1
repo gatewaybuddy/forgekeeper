@@ -5,6 +5,7 @@ param(
     [switch]$Detach,
     [string]$LogDir,
     [switch]$CliOnly,
+    [switch]$Tiny,
     [switch]$RequireVLLM,
     [int]$VLLMWaitSeconds = 90,
     [switch]$RequireBackend,
@@ -28,6 +29,7 @@ Options:
   -LogDir <path>     Directory for logs when using -Detach (auto-generated if omitted).
   -Verbose           Print extra diagnostics and set DEBUG_MODE=true.
   -CliOnly           Start only the Python agent (no backend/frontend).
+  -Tiny              Use a tiny CPU-only Transformers model (quickstart).
   -RequireVLLM       Wait for vLLM health; abort if not healthy in time.
   -VLLMWaitSeconds   Seconds to wait for vLLM when -RequireVLLM (default 90).
   -RequireBackend    Wait for backend health; abort if not healthy in time.
@@ -65,6 +67,11 @@ if ($PSBoundParameters.ContainsKey('RequireBackend')) { $splat.RequireBackend = 
 if ($PSBoundParameters.ContainsKey('BackendWaitSeconds')) { $splat.BackendWaitSeconds = [int]$BackendWaitSeconds }
 if ($PSBoundParameters.ContainsKey('Verbose')) { $splat.Verbose = $true }
 if ($PSBoundParameters.ContainsKey('CliOnly')) { $splat.CliOnly = $true }
+if ($PSBoundParameters.ContainsKey('Tiny')) {
+  $env:LLM_BACKEND = 'transformers'
+  $env:USE_TINY_MODEL = 'true'
+  $env:FK_DEVICE = 'cpu'
+}
 if ($PSBoundParameters.ContainsKey('ModelCore') -and $ModelCore) { $splat.ModelCore = $ModelCore }
 if ($PSBoundParameters.ContainsKey('ModelCoder') -and $ModelCoder) { $splat.ModelCoder = $ModelCoder }
 
