@@ -115,7 +115,7 @@ epics:
         status: todo
       - id: FK-354
         title: Agent worker entrypoint with outbox polling (P1)
-        status: todo
+        status: done
       - id: FK-355
         title: Multi-node deployment guide and examples (P2)
         status: todo
