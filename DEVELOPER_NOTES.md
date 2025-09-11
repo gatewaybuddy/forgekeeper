@@ -72,3 +72,7 @@ Use the root wrappers to start the stack and enable verbose diagnostics:
 - Bash: `./start.sh --debug [--require-vllm] [--vllm-wait-seconds 120]`
 
 These set `DEBUG_MODE=true` and print additional logs. With the strict flags, startup waits for the local vLLM server (`/healthz`) before launching other services; without them, startup proceeds after a brief wait.
+
+## File Summary Maintenance
+
+`FILE_SUMMARY.md` lists the first line of every tracked file for quick reference. Run `python scripts/update_file_summary.py` whenever files are added, removed, or renamed so the summary stays current.
