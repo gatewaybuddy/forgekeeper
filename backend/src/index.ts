@@ -3,8 +3,8 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
-import typeDefs from './schema.js';
-import resolvers from './resolvers.js';
+import typeDefs from './schema.ts';
+import resolvers from './resolvers.ts';
 import { PrismaClient } from '@prisma/client';
 
 async function main() {
@@ -32,6 +32,8 @@ async function main() {
   const port = process.env.PORT || 4000;
   app.listen(port, () => {
     console.log(`GraphQL service ready at http://localhost:${port}/graphql`);
+    console.log(`Health endpoint at http://localhost:${port}/health`);
+    console.log(`Frontend UI (dev) at http://localhost:5173`);
   });
 }
 

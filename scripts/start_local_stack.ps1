@@ -8,7 +8,9 @@ param(
     [int]$VLLMWaitSeconds = 90,
     [switch]$RequireBackend,
     [int]$BackendWaitSeconds = 60,
-    [switch]$CliOnly
+    [switch]$CliOnly,
+    [string]$ModelCore,
+    [string]$ModelCoder
 )
 
 Set-StrictMode -Version Latest
@@ -59,6 +61,24 @@ if ($PSBoundParameters.ContainsKey('Verbose') -or $VerbosePreference -eq 'Contin
 Write-DebugLog "DEBUG_MODE=$env:DEBUG_MODE"
 
 if ($CliOnly) { $env:CLI_ONLY = 'true' }
+
+# Optional model overrides via parameters
+if ($PSBoundParameters.ContainsKey('ModelCore') -and $ModelCore) {
+    $val = $ModelCore
+    if (-not (Test-Path $val) -and (Test-Path (Join-Path $rootDir (Join-Path 'models' $val)))) {
+        $val = (Join-Path 'models' $ModelCore)
+    }
+    $env:VLLM_MODEL_CORE = $val
+}
+if ($PSBoundParameters.ContainsKey('ModelCoder') -and $ModelCoder) {
+    $val = $ModelCoder
+    if (-not (Test-Path $val) -and (Test-Path (Join-Path $rootDir (Join-Path 'models' $val)))) {
+        $val = (Join-Path 'models' $ModelCoder)
+    }
+    $env:VLLM_MODEL_CODER = $val
+}
+if ($env:VLLM_MODEL_CORE) { Write-Host "Using core model: $env:VLLM_MODEL_CORE" }
+if ($env:VLLM_MODEL_CODER) { Write-Host "Using coder model: $env:VLLM_MODEL_CODER" }
 
 # Interactive prompt on first run if no params, no prefs, and no env override
 if ($PSBoundParameters.Count -eq 0 -and -not (Test-Path $prefsPath) -and -not $env:CLI_ONLY) {
@@ -132,25 +152,31 @@ if (-not $env:FGK_USE_INFERENCE) { $env:FGK_USE_INFERENCE = '1' }
 if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
     if (-not $env:FGK_INFER_URL) { $env:FGK_INFER_URL = 'http://localhost:8080' }
     if (-not $env:FGK_INFER_KEY) { $env:FGK_INFER_KEY = 'dev-key' }
-    $env:FK_CORE_API_BASE = $env:FGK_INFER_URL
-    $env:FK_CODER_API_BASE = $env:FGK_INFER_URL
-    $env:FK_API_KEY = $env:FGK_INFER_KEY
-    Write-DebugLog "Using inference gateway at $env:FGK_INFER_URL"
+    Write-DebugLog "Checking inference gateway at $env:FGK_INFER_URL"
+    $gwOk = $false
     try {
-        $health = ($env:FGK_INFER_URL.TrimEnd('/')) + '/healthz'
-        $ok = $false
-        try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $r.StatusCode -eq 200 } catch { $ok = $false }
-        if (-not $ok) {
+        $gwHealth = ($env:FGK_INFER_URL.TrimEnd('/')) + '/healthz'
+        try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $gwHealth; $gwOk = $r.StatusCode -eq 200 } catch { $gwOk = $false }
+        if (-not $gwOk) {
             if (Get-Command make -ErrorAction SilentlyContinue) {
                 $reply = Read-Host 'Start local inference stack now? [Y/n]'
                 if ($reply -match '^([Yy]|)$') {
                     pushd $rootDir; make inference-up; popd
+                    try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri $gwHealth; $gwOk = $r.StatusCode -eq 200 } catch { $gwOk = $false }
                 }
             } else {
                 Write-Warning "'make' not found; start inference stack manually (see DOCS_INFERENCE.md)."
             }
         }
     } catch { Write-Warning "Inference gateway pre-check failed: $($_.Exception.Message)" }
+    if ($gwOk) {
+        $env:FK_CORE_API_BASE = $env:FGK_INFER_URL
+        $env:FK_CODER_API_BASE = $env:FGK_INFER_URL
+        $env:FK_API_KEY = $env:FGK_INFER_KEY
+        Write-Host "Using inference gateway at $env:FGK_INFER_URL"
+    } else {
+        Write-Warning "Inference gateway not available; using direct vLLM at http://localhost:$($env:VLLM_PORT_CORE)"
+    }
     if (-not $env:VLLM_MODEL_CORE) {
         Write-Host 'Select model for VLLM_MODEL_CORE:'
         Write-Host '  [1] mistralai/Mistral-7B-Instruct'
@@ -208,7 +234,7 @@ if ($Detach) {
         if (-not $env:VLLM_PORT_CORE) { $env:VLLM_PORT_CORE = '8001' }
         if (-not $env:FK_CORE_API_BASE) { $env:FK_CORE_API_BASE = "http://localhost:$($env:VLLM_PORT_CORE)" }
         if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BASE }
-        $health = "$($env:FK_CORE_API_BASE.TrimEnd('/'))/healthz"
+        $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
         $ok = $false
         try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
         if (-not $ok) {
@@ -261,7 +287,7 @@ else {
     # Ensure vLLM core server is running and optionally wait strictly
     $vllmProc = $null
     try {
-        $health = "$($env:FK_CORE_API_BASE.TrimEnd('/'))/healthz"
+        $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
         $ok = $false
         try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
         if (-not $ok) {
@@ -338,6 +364,13 @@ else {
 
         $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+
+        # Print friendly URLs for quick access
+        $frontendPort = 5173
+        $graphqlUrl = "http://localhost:$backendPort/graphql"
+        Write-Host "[32mForgekeeper UI:[0m http://localhost:$frontendPort"
+        Write-Host "[32mGraphQL API:[0m $graphqlUrl"
+        Write-Host "[32mBackend health:[0m $backendHealth"
 
         $processes = @()
         if ($vllmProc -and -not $vllmProc.HasExited) { $processes += $vllmProc }

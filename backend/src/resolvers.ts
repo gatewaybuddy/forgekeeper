@@ -1,7 +1,7 @@
 import { GraphQLJSON } from 'graphql-type-json';
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import * as crud from './crud.js';
+import * as crud from './crud.ts';
 
 const STOP_TOPIC = 'forgekeeper/stop';
 

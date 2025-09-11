@@ -59,7 +59,7 @@ def _check_reviewed_tasks() -> None:
             data = _yaml.safe_load(m.group(1)) or {}
         except Exception:
             continue
-        if data.get("status") == "needs_review" and data.get("id"):
+        if isinstance(data, dict) and data.get("status") == "needs_review" and data.get("id"):
             ids.append(str(data["id"]))
     for tid in ids:
         subprocess.run([sys.executable, str(script), tid], check=False)

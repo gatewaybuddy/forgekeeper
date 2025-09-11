@@ -50,17 +50,23 @@ def _wait_for_healthz(timeout: float = 60.0, interval: float = 1.0) -> None:
 
     deadline = time.time() + timeout
     for alias, base in urls.items():
-        health = f"{base}/healthz"
+        paths = ["/healthz", "/health"]
+        passed = False
         while True:
-            try:
-                resp = requests.get(health, timeout=5)
-                if resp.status_code == 200:
-                    log.info("Health check passed for %s at %s", alias, health)
-                    break
-            except Exception as exc:  # pragma: no cover - logging only
-                log.warning("Health check error for %s at %s: %s", alias, health, exc)
+            for p in paths:
+                health = f"{base}{p}"
+                try:
+                    resp = requests.get(health, timeout=5)
+                    if resp.status_code == 200:
+                        log.info("Health check passed for %s at %s", alias, health)
+                        passed = True
+                        break
+                except Exception as exc:  # pragma: no cover - logging only
+                    log.warning("Health check error for %s at %s: %s", alias, health, exc)
+            if passed:
+                break
             if time.time() > deadline:
-                raise RuntimeError(f"Health check timed out for {alias} ({health})")
+                raise RuntimeError(f"Health check timed out for {alias} ({base})")
             time.sleep(interval)
 
 

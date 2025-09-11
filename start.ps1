@@ -8,7 +8,9 @@ param(
     [switch]$RequireVLLM,
     [int]$VLLMWaitSeconds = 90,
     [switch]$RequireBackend,
-    [int]$BackendWaitSeconds = 60
+    [int]$BackendWaitSeconds = 60,
+    [string]$ModelCore,
+    [string]$ModelCoder
 )
 
 Set-StrictMode -Version Latest
@@ -30,6 +32,8 @@ Options:
   -VLLMWaitSeconds   Seconds to wait for vLLM when -RequireVLLM (default 90).
   -RequireBackend    Wait for backend health; abort if not healthy in time.
   -BackendWaitSeconds Seconds to wait for backend when -RequireBackend (default 60).
+  -ModelCore <name|path>  Override core model (e.g., gpt-oss-20b or ./models/gpt-oss-20b).
+  -ModelCoder <name|path> Override coder model.
   -Help, -h, -?      Show this help message and exit.
 
 Examples:
@@ -61,6 +65,8 @@ if ($PSBoundParameters.ContainsKey('RequireBackend')) { $splat.RequireBackend = 
 if ($PSBoundParameters.ContainsKey('BackendWaitSeconds')) { $splat.BackendWaitSeconds = [int]$BackendWaitSeconds }
 if ($PSBoundParameters.ContainsKey('Verbose')) { $splat.Verbose = $true }
 if ($PSBoundParameters.ContainsKey('CliOnly')) { $splat.CliOnly = $true }
+if ($PSBoundParameters.ContainsKey('ModelCore') -and $ModelCore) { $splat.ModelCore = $ModelCore }
+if ($PSBoundParameters.ContainsKey('ModelCoder') -and $ModelCoder) { $splat.ModelCoder = $ModelCoder }
 
 & $target @splat
 
