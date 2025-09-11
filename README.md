@@ -629,24 +629,28 @@ This guide is intended to streamline installation and clarify component interact
   - Persistent CLI (GraphQL-backed): `python -m forgekeeper pconsole`
   - Simple console: `python -m forgekeeper console`
 
+## Agentic Memory
+
+Forgekeeper's agentic memory plane coordinates pluggable agents that annotate, patch, and augment text. The MemoryOrchestrator ranks suggestions, merges non-overlapping patches, and can run in interactive or deepthink modes. Interactive mode presents edits for approval, while deepthink chains agents for a more thorough pass. See [docs/agentic_memory.md](docs/agentic_memory.md) for details.
+
 ## Agentic Memory Plane — Quick Start
 
 Run memory agents on text:
 
 ```bash
-echo "This is teh best." | python -m forgekeeper.cli.memory_plane run
+echo "This is teh best." | fk-memory run
 ```
 
 List available agents:
 
 ```bash
-python -m forgekeeper.cli.memory_plane list
+fk-memory list
 ```
 
 Dump a built-in agent to YAML:
 
 ```bash
-python -m forgekeeper.cli.memory_plane dump mem.reflex.teh-typo
+fk-memory dump mem.reflex.teh-typo
 ```
 
 Example output snippet:

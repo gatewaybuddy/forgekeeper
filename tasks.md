@@ -44,6 +44,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] [FK-408](Roadmap.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
 - [ ] FK-409: Enable CLI-only self-repair of frontend (P2)
 - [ ] FK-410: Enable CLI-only self-repair of backend (P2)
+- [ ] FK-411: Maintain agentic memory documentation (P2)
 
 ---
 
