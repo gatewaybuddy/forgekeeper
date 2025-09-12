@@ -495,3 +495,17 @@ Recent commits: chore(sync): sync local repository state to origin, Merge pull r
 - Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
 - Committed changes on main: chore: update roadmap
 - Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+
+
+## Update 2025-09-11 20:09 UTC
+### Summary
+Recent commits: Add script for regenerating file summary and document usage, feat(startup): add model selection flags for Windows start scripts, chore(sync): sync local repository state to origin
+
+### Recent Commits
+- Add script for regenerating file summary and document usage
+
+- feat(startup): add model selection flags for Windows start scripts
+- chore(sync): sync local repository state to origin
+- Merge pull request #365 from gatewaybuddy/chore/roadmap-phase-3_5-prioritize
+- docs(roadmap): reorder Phase 3.5 before Phase 4; update SprintPlan.md with FK-351..FK-356
+

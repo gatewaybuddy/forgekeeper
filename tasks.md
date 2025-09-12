@@ -16,12 +16,14 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [x] FK-354: Agent worker entrypoint with outbox polling (P1)
 - [ ] FK-355: Multi-node deployment guide and examples (P2)
 - [ ] FK-356: Helm charts for K8s (optional) (P3)
+
 - [ ] FK-411: TinyLLM quickstart preset (P1)
 - [ ] FK-412: In-prompt reconfiguration via /commands (P1)
 - [ ] FK-413: Safe restart/apply-changes flow (P1)
 - [ ] FK-414: Live context counter in CLI and UI (P1)
 - [ ] FK-415: /help palette and command hints (P2)
 - [ ] FK-416: Multiline prompts (Ctrl+Enter) (P1)
+
 
 
 ---
@@ -41,6 +43,8 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 - [ ] [FK-408](Roadmap.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
 - [ ] FK-409: Enable CLI-only self-repair of frontend (P2)
 - [ ] FK-410: Enable CLI-only self-repair of backend (P2)
+- [ ] FK-411: Maintain agentic memory documentation (P2)
+- [ ] FK-412: Integrate MQTT listener for task processing (P2)
 
 ---
 
@@ -471,6 +475,7 @@ Allow Forgekeeper to repair and evolve the GraphQL backend without launching it,
 - [ ] Pipeline can modify `backend/` and run only backend TS checks
 - [ ] CLI-only mode skips frontend and GraphQL UI bring-up
 - [ ] Example backend fix task completes end-to-end from CLI
+
 ---
 id: FK-411
 title: TinyLLM quickstart preset (P1)
@@ -562,3 +567,4 @@ Allow multiline chat input by inserting a newline on Ctrl+Enter and sending on E
 - [ ] Web: Ctrl+Enter inserts newline, Enter sends
 - [ ] CLI: Ctrl+Enter inserts newline in input widget
 - [ ] Setting persists per user/session
+
