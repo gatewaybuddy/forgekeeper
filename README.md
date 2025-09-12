@@ -143,7 +143,7 @@ npm install --prefix frontend
 
 If you chose to launch services during installation or ran `scripts/setup_dev_env.sh --launch-services`, the GraphQL service, Python agent, and frontend will already be running. Use the commands below to start them manually if needed.
 
-### Start all services
+### Start all services (legacy wrappers)
 
 #### macOS/Linux
 ```bash
