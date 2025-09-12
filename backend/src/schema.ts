@@ -39,6 +39,7 @@ const typeDefs = gql`
     listFolders: [Folder!]!
     listProjects: [Project!]!
     project(id: ID!): Project
+    getRuntimeConfig: JSON
 
   }
 
@@ -55,6 +56,7 @@ const typeDefs = gql`
     createProject(name: String!, description: String): Project!
     updateProject(id: ID!, name: String, description: String): Project!
     deleteProject(id: ID!): Boolean!
+    setRuntimeConfig(patch: JSON!): Boolean!
 
   }
 `;

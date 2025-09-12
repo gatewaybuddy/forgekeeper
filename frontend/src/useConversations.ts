@@ -7,6 +7,7 @@ import {
   MOVE_CONVERSATION,
   DELETE_CONVERSATION,
   ARCHIVE_CONVERSATION,
+  SET_RUNTIME_CONFIG,
 } from './graphql';
 import { Conversation } from './types';
 
@@ -50,6 +51,7 @@ export function useConversations(projectId: string | null) {
   const [moveConv] = useMutation(MOVE_CONVERSATION);
   const [deleteConv] = useMutation(DELETE_CONVERSATION);
   const [archiveConv] = useMutation(ARCHIVE_CONVERSATION);
+  const [setRuntimeConfig] = useMutation(SET_RUNTIME_CONFIG);
 
   useEffect(() => {
     if (data?.listConversations) {
@@ -125,6 +127,20 @@ export function useConversations(projectId: string | null) {
           break;
         default:
           ok(`Unknown command: /${cmd}`);
+      }
+      // Push partial config to backend so the agent can pick it up
+      const patch: Record<string, any> = {};
+      if (cmd === 'model') patch.model = arg;
+      if (cmd === 'temperature') patch.temperature = Number(arg);
+      if (cmd === 'top_p') patch.top_p = Number(arg);
+      if (cmd === 'backend') patch.backend = arg;
+      if (cmd === 'gateway') patch.gateway = arg;
+      if (cmd === 'context') {
+        if (arg === 'on' || arg === 'off') patch.show_context = arg;
+        else if (arg) patch.context_limit = Number(arg);
+      }
+      if (Object.keys(patch).length > 0) {
+        try { await setRuntimeConfig({ variables: { patch } }); } catch {}
       }
       return;
     }
