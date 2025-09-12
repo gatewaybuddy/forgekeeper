@@ -525,3 +525,39 @@ Recent commits: Merge codex/quick-docs-dx into main (docs changes superseded by 
 - Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
 - Committed changes on main: chore: update roadmap
 - Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+
+## Update 2025-09-12 03:55 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge codex/quick-docs-dx into main (docs changes superseded by newer updates), docs(deploy): add multi-node deployment guide and example env files; link from README; Recent memory: Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt, Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline., Committed changes on main: chore: update roadmap
+
+### Recent Commits
+- chore: update roadmap
+- Merge codex/quick-docs-dx into main (docs changes superseded by newer updates)
+- docs(deploy): add multi-node deployment guide and example env files; link from README
+- feat(defaults): use tiny Transformers model by default when no model/gateway configured; update README note
+- feat(cli): make  default to starting the local stack with cross-platform Python starter; update README instructions
+
+### Recent Memory
+- Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+- Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
+- Committed changes on main: chore: update roadmap
+- No staged changes to commit
+- No staged changes to commit
+
+## Update 2025-09-12 04:06 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge codex/quick-docs-dx into main (docs changes superseded by newer updates), docs(deploy): add multi-node deployment guide and example env files; link from README; Recent memory: Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt, Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline., Committed changes on main: chore: update roadmap
+
+### Recent Commits
+- chore: update roadmap
+- Merge codex/quick-docs-dx into main (docs changes superseded by newer updates)
+- docs(deploy): add multi-node deployment guide and example env files; link from README
+- feat(defaults): use tiny Transformers model by default when no model/gateway configured; update README note
+- feat(cli): make  default to starting the local stack with cross-platform Python starter; update README instructions
+
+### Recent Memory
+- Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+- Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
+- Committed changes on main: chore: update roadmap
+- No staged changes to commit
+- No staged changes to commit
