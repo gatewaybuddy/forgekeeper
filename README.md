@@ -281,6 +281,19 @@ Selective service startup using Docker Compose profiles:
 - Backend outbox worker: `make -C forgekeeper up-worker`
 - Stop all: `make -C forgekeeper down`
 
+### Packaging (FK-353)
+
+Build local packages for distribution:
+
+- Core agent:
+  - `make -C forgekeeper build-core`
+  - Project root: `forgekeeper/packages/forgekeeper-core`
+  - Entrypoint: `forgekeeper`
+- Inference client:
+  - `make -C forgekeeper build-infer`
+  - Project root: `forgekeeper/packages/forgekeeper-inference-client`
+  - Imports: `from forgekeeper.inference_backends import OpenAICompatClient`
+
 The Transformers backend respects `FK_*_MAX_TOKENS` caps and is suitable for smoke tests and CLI‑only runs.
 
 ### Inference Gateway (Default)

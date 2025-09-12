@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forgekeeper-core"
+version = "0.1.0"
+description = "Forgekeeper core agent"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [
+  { name = "Forgekeeper Team" }
+]
+dependencies = [
+  "GitPython>=3.1.40",
+  "PyYAML>=6.0",
+  "openai>=1.0.0",
+  "paho-mqtt>=2.0.0",
+  "python-dotenv>=1.0.0",
+  "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+transformers = ["transformers>=4.44.0", "torch"]
+
+[project.scripts]
+forgekeeper = "forgekeeper.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["../../"]
+include = ["forgekeeper*"]
+exclude = [
+  "forgekeeper.backend*",
+  "forgekeeper.frontend*",
+]
+

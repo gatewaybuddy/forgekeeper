@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forgekeeper-inference-client"
+version = "0.1.0"
+description = "Forgekeeper inference client (OpenAI-compatible gateway)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [
+  { name = "Forgekeeper Team" }
+]
+dependencies = [
+  "requests>=2.31.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["../../"]
+include = ["forgekeeper.inference_backends*"]
+

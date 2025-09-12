@@ -29,6 +29,14 @@ up-worker:
 down:
 	docker compose down
 
+.PHONY: build-core build-infer
+
+build-core:
+	cd packages/forgekeeper-core && python -m pip install --upgrade build && python -m build
+
+build-infer:
+	cd packages/forgekeeper-inference-client && python -m pip install --upgrade build && python -m build
+
 .PHONY: test-memory
 
 test-memory:
