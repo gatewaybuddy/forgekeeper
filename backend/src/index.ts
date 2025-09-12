@@ -6,6 +6,7 @@ import { expressMiddleware } from '@apollo/server/express4';
 import typeDefs from './schema.ts';
 import resolvers from './resolvers.ts';
 import { PrismaClient } from '@prisma/client';
+import { metrics } from './gateway.ts';
 
 async function main() {
   const prisma = new PrismaClient();
@@ -27,6 +28,15 @@ async function main() {
     const retries = pending.filter((m) => m.retryCount > 0).length;
     const retryRate = pending.length ? retries / pending.length : 0;
     res.json({ lag, retryRate });
+  });
+
+  app.get('/healthz', async (_req, res) => {
+    try {
+      const m = metrics();
+      res.json({ status: 'ok', gateway: m });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', error: String(e?.message || e) });
+    }
   });
 
   const port = process.env.PORT || 4000;

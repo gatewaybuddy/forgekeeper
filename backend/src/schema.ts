@@ -40,6 +40,8 @@ const typeDefs = gql`
     listProjects: [Project!]!
     project(id: ID!): Project
     getRuntimeConfig: JSON
+    listGatewayNodes: [GatewayNode!]!
+    routeModel(model: String!): GatewayNode
 
   }
 
@@ -58,7 +60,21 @@ const typeDefs = gql`
     deleteProject(id: ID!): Boolean!
     setRuntimeConfig(patch: JSON!): Boolean!
     requestRestart: Boolean!
+    registerGatewayNode(id: String!, url: String!, models: [String!]!, capacity: Int): Boolean!
+    updateGatewayNode(id: String!, queueDepth: Int, healthy: Boolean, models: [String!], capacity: Int): Boolean!
+    drainGatewayNode(id: String!, drain: Boolean!): Boolean!
 
+  }
+
+  type GatewayNode {
+    id: ID!
+    url: String!
+    models: [String!]!
+    capacity: Int!
+    queueDepth: Int!
+    healthy: Boolean!
+    drain: Boolean!
+    lastSeen: String!
   }
 `;
 
