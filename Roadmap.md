@@ -59,11 +59,11 @@ Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals 
 
 ### Phase 3.5: Distributed Inference & Modularity (In Progress)
 
-- [FK-351](tasks.md#fk-351): Compose profiles for modular deploys (agent-worker, backend-only, ui-only, inference-only)
-- [FK-352](tasks.md#fk-352): Gateway registry + weighted routing (multi-node, model-aware)
-- [FK-353](tasks.md#fk-353): Extract forgekeeper-core and client packages
-- [FK-354](tasks.md#fk-354): Agent worker entrypoint with outbox polling
-- [FK-355](tasks.md#fk-355): Multi-node deployment guide and examples
+- [FK-351](tasks.md#fk-351): Compose profiles for modular deploys (agent-worker, backend-only, ui-only, inference-only) — Done
+- [FK-352](tasks.md#fk-352): Gateway registry + weighted routing (multi-node, model-aware) — Done
+- [FK-353](tasks.md#fk-353): Extract forgekeeper-core and client packages — Done
+- [FK-354](tasks.md#fk-354): Agent worker entrypoint with outbox polling — Done
+- [FK-355](tasks.md#fk-355): Multi-node deployment guide and examples — Done
 - [FK-356](tasks.md#fk-356): Helm charts for K8s (optional)
 
 This phase introduces clean module boundaries and scalable deployment profiles to simplify code maintenance and enable multi-machine token compute.
@@ -496,7 +496,6 @@ Recent commits: chore(sync): sync local repository state to origin, Merge pull r
 - Committed changes on main: chore: update roadmap
 - Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
 
-
 ## Update 2025-09-11 20:09 UTC
 ### Summary
 Recent commits: Add script for regenerating file summary and document usage, feat(startup): add model selection flags for Windows start scripts, chore(sync): sync local repository state to origin
@@ -509,3 +508,20 @@ Recent commits: Add script for regenerating file summary and document usage, fea
 - Merge pull request #365 from gatewaybuddy/chore/roadmap-phase-3_5-prioritize
 - docs(roadmap): reorder Phase 3.5 before Phase 4; update SprintPlan.md with FK-351..FK-356
 
+## Update 2025-09-12 03:45 UTC
+### Summary
+Recent commits: Merge codex/quick-docs-dx into main (docs changes superseded by newer updates), docs(deploy): add multi-node deployment guide and example env files; link from README, feat(defaults): use tiny Transformers model by default when no model/gateway configured; update README note; Recent memory: Committed changes on main: chore: update roadmap, Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt, Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
+
+### Recent Commits
+- Merge codex/quick-docs-dx into main (docs changes superseded by newer updates)
+- docs(deploy): add multi-node deployment guide and example env files; link from README
+- feat(defaults): use tiny Transformers model by default when no model/gateway configured; update README note
+- feat(cli): make  default to starting the local stack with cross-platform Python starter; update README instructions
+- Merge pull request #373 from gatewaybuddy/feat/slash-commands-and-tinyllm
+
+### Recent Memory
+- Committed changes on main: chore: update roadmap
+- Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
+- Attempt 1 for task 'Vectorized memory retrieval (P1)' did not complete the pipeline.
+- Committed changes on main: chore: update roadmap
+- Pushed changes on main: chore: update roadmap. Changelog at D:\Projects\codex\forgekeeper\logs\roadmap-update\changelog.txt
