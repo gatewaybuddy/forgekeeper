@@ -11,7 +11,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ## 🛠️ Active Tasks
 
 - [ ] FK-351: Compose profiles for modular deploys (P1)
-- [ ] FK-352: Gateway registry + weighted routing (P1)
+ - [x] FK-352: Gateway registry + weighted routing (P1)
 - [ ] FK-353: Extract forgekeeper-core and client packages (P1)
 - [x] FK-354: Agent worker entrypoint with outbox polling (P1)
 - [ ] FK-355: Multi-node deployment guide and examples (P2)
@@ -123,7 +123,7 @@ Add Compose profiles for headless agent worker, backend-only, ui-only, and infer
 ---
 id: FK-352
 title: Gateway registry + weighted routing (P1)
-status: todo
+status: done
 epic: R-011
 owner: agent
 labels: [gateway, routing]
@@ -131,11 +131,11 @@ labels: [gateway, routing]
 Implement backend registration for vLLM/TRT-LLM nodes with per-model availability, health/queue metrics and weighted round-robin.
 
 **AC**
-- [ ] Registration endpoint and in-memory registry
-- [ ] Health polling and model availability tracking
-- [ ] Weighted routing by queue depth/capacity
-- [ ] Drain flag for rolling updates
-- [ ] Metrics surfaced on `/healthz`
+- [x] Registration endpoint and in-memory registry
+- [x] Health polling and model availability tracking (heartbeat mutations supported)
+- [x] Weighted routing by queue depth/capacity
+- [x] Drain flag for rolling updates
+- [x] Metrics surfaced on `/healthz`
 
 ---
 id: FK-353
