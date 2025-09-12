@@ -204,6 +204,13 @@ const resolvers = {
       fs.writeFileSync(file, JSON.stringify(next, null, 2), 'utf-8');
       return true;
     },
+    requestRestart: async () => {
+      const dir = path.join(process.cwd(), '.forgekeeper');
+      const flag = path.join(dir, 'restart.flag');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(flag, 'requested', 'utf-8');
+      return true;
+    },
   },
   Project: {
     createdAt: (p: any) => (p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt),

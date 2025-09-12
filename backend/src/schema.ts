@@ -57,6 +57,7 @@ const typeDefs = gql`
     updateProject(id: ID!, name: String, description: String): Project!
     deleteProject(id: ID!): Boolean!
     setRuntimeConfig(patch: JSON!): Boolean!
+    requestRestart: Boolean!
 
   }
 `;

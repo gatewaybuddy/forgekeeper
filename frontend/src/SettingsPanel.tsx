@@ -4,7 +4,7 @@ import {
   TextField, Button, Switch, FormControlLabel, Stack
 } from '@mui/material';
 import { useMutation, useQuery } from '@apollo/client';
-import { GET_RUNTIME_CONFIG, SET_RUNTIME_CONFIG } from './graphql';
+import { GET_RUNTIME_CONFIG, SET_RUNTIME_CONFIG, REQUEST_RESTART } from './graphql';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -14,6 +14,7 @@ interface SettingsPanelProps {
 export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { data } = useQuery(GET_RUNTIME_CONFIG, { fetchPolicy: 'network-only', skip: !open });
   const [saveConfig] = useMutation(SET_RUNTIME_CONFIG);
+  const [requestRestart] = useMutation(REQUEST_RESTART);
 
   const [model, setModel] = useState('');
   const [temperature, setTemperature] = useState('0.7');
@@ -34,7 +35,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     }
   }, [data, open]);
 
-  const handleSave = async () => {
+  const persist = async () => {
     const patch: any = {
       model: model || null,
       temperature: Number(temperature),
@@ -55,6 +56,16 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     } catch (e) {
       // best-effort
     }
+  };
+
+  const handleSave = async () => {
+    await persist();
+    onClose();
+  };
+
+  const handleApplyAndRestart = async () => {
+    await persist();
+    try { await requestRestart(); } catch {}
     onClose();
   };
 
@@ -80,9 +91,9 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave}>Save</Button>
+        <Button onClick={handleSave}>Save</Button>
+        <Button variant="contained" color="primary" onClick={handleApplyAndRestart}>Apply & Restart</Button>
       </DialogActions>
     </Dialog>
   );
 }
-
