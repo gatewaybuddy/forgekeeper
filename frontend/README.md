@@ -47,3 +47,8 @@ npm run lint --prefix frontend
 ## Notes
 - The UI is intentionally minimal and focuses on conversations, task activity, and logs.
 - For first-time users, prefer the guided installer described in the root `README.md` to bring up the full stack (GraphQL, Python agent, frontend).
+
+## UX Notes (Planned Enhancements)
+- Slash commands: typing `/` opens a small command palette under the input. Each command shows a description and, when applicable, the current value.
+- Multiline input: Ctrl+Enter inserts a newline; Enter sends the message.
+- Context counter: a running token count appears below the input showing current and remaining tokens for the configured model. Toggle with `/context`.

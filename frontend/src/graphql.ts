@@ -66,3 +66,15 @@ export const ARCHIVE_CONVERSATION = gql`
     archiveConversation(conversationId: $conversationId)
   }
 `;
+
+export const GET_RUNTIME_CONFIG = gql`
+  query GetRuntimeConfig {
+    getRuntimeConfig
+  }
+`;
+
+export const SET_RUNTIME_CONFIG = gql`
+  mutation SetRuntimeConfig($patch: JSON!) {
+    setRuntimeConfig(patch: $patch)
+  }
+`;

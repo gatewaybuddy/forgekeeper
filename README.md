@@ -124,7 +124,12 @@ npm install --prefix frontend
    ```
 3. Generate the Prisma client:
    ```bash
-   npx prisma generate
+  npx prisma generate
+  ```
+
+4. Optional: run the outbox worker to publish messages to MQTT and track delivery with retries:
+   ```bash
+   npm run worker --prefix backend
    ```
 
 ### Frontend (React)
@@ -164,6 +169,8 @@ Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and bac
 
 For a timeline of recent environment and DX changes, see `DEVLOG.md`.
 
+The backend provides an outbox-backed publish path with exponential backoff and simple lag/ retry metrics on `/health`. The worker entrypoint (`npm run worker --prefix backend`) polls unsent messages and publishes them to the configured MQTT broker.
+
 ### CLI‑Only Mode
 
 Run just the Python agent and skip launching the backend/frontend. This is ideal for headless self‑repair loops.
@@ -197,6 +204,58 @@ FK_DTYPE=bf16 \
 FK_DEVICE=cuda \
 python -m forgekeeper
 ```
+
+### TinyLLM Quickstart (CPU‑only)
+
+Start Forgekeeper with a tiny local Transformers model and no GPU. This is the fastest way to try the experience without the full inference stack.
+
+```bash
+# CLI‑only + tiny model preset
+CLI_ONLY=true \
+LLM_BACKEND=transformers \
+USE_TINY_MODEL=true \
+FK_DEVICE=cpu \
+python -m forgekeeper
+```
+
+PowerShell:
+
+```powershell
+$env:CLI_ONLY = 'true'
+$env:LLM_BACKEND = 'transformers'
+$env:USE_TINY_MODEL = 'true'
+$env:FK_DEVICE = 'cpu'
+python -m forgekeeper
+```
+
+Startup wrappers may add a convenience flag in a future update:
+
+- Bash: `./start.sh --cli-only --tiny`
+- PowerShell: `pwsh ./start.ps1 -CliOnly -Tiny`
+
+### Slash Commands (Configuration in Prompt)
+
+You can reconfigure Forgekeeper directly from the chat input using `/command` entries. Changes apply immediately when possible, or prompt you to `/restart` to apply.
+
+Common commands (planned):
+
+- `/model <name>`: set the active model (e.g., `mistral`, `tiny`)
+- `/temperature <0..2>`: adjust sampling temperature
+- `/top_p <0..1>`: adjust nucleus sampling
+- `/backend <openai|transformers>`: switch inference backend
+- `/gateway <url>`: set OpenAI‑compatible gateway URL
+- `/project <id|new>`: switch or create project context
+- `/context on|off` or `/context <limit>`: toggle/show context counter
+- `/restart`: safely restart local components to apply changes
+- `/reset`: revert to defaults
+- `/help`: show the command palette and current settings
+
+The CLI and the web UI reserve a small help area where the description and current value of a highlighted `/command` appears while typing.
+
+### Multiline Prompts
+
+- Web UI: press Ctrl+Enter to insert a newline; Enter sends the message.
+- CLI: press Ctrl+Enter to insert a newline in the input. Enter submits.
 
 The Transformers backend respects `FK_*_MAX_TOKENS` caps and is suitable for smoke tests and CLI‑only runs.
 

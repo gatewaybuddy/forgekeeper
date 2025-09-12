@@ -70,9 +70,9 @@ This phase introduces clean module boundaries and scalable deployment profiles t
 
 ### Phase 4: Agentic Memory Orchestration (Planned)
 
-- Document memory agent architecture and extension points
-- Integrate memory agents into the orchestration layer
-- Expand memory agents with new heuristics and feedback loops
+- [FK-406](tasks.md#fk-406): Document memory agent architecture and extension points
+- [FK-407](tasks.md#fk-407): Integrate memory agents into the orchestration layer
+- [FK-408](tasks.md#fk-408): Expand memory agents with new heuristics and feedback loops
 
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
@@ -81,14 +81,7 @@ This phase introduces clean module boundaries and scalable deployment profiles t
 - [x] Consolidated conversation handling behind a single GraphQL storage path
 
 ## 🧠 Future Capabilities
-- <a id="fk-401"></a>[FK-401](tasks.md#fk-401): Vectorized memory retrieval (P1)
-- <a id="fk-402"></a>[FK-402](tasks.md#fk-402): Multi-agent collaboration framework (P2)
-- <a id="fk-403"></a>[FK-403](tasks.md#fk-403): Sandbox execution environment (P2)
-- <a id="fk-404"></a>[FK-404](tasks.md#fk-404): Real-time conversation interface (P3)
-- <a id="fk-405"></a>[FK-405](tasks.md#fk-405): Implement attention distillation for GraphQL chat memory (P3)
-- <a id="fk-406"></a>[FK-406](tasks.md#fk-406): Document memory agent architecture (P1)
-- <a id="fk-407"></a>[FK-407](tasks.md#fk-407): Integrate memory agents into orchestration layer (P2)
-- <a id="fk-408"></a>[FK-408](tasks.md#fk-408): Expand memory agents with heuristics and feedback loops (P2)
+See Backlog and in‑progress items in `tasks.md` for the canonical list and status.
 
 ---
 

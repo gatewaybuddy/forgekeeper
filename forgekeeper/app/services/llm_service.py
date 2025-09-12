@@ -2,6 +2,8 @@ import os
 import requests
 import json
 import re
+import time
+from pathlib import Path
 from forgekeeper.functions.list_functions import list_functions
 from forgekeeper.functions.describe_function import describe_function
 from forgekeeper.logger import get_logger
@@ -16,6 +18,28 @@ LLM_API_URL = os.getenv("LLM_API_URL", "http://localhost:1234/v1/completions")
 LLM_MODE = os.getenv("LLM_MODE", "chat")  # "chat" or "completion"
 LLM_PROMPT_STYLE = os.getenv("LLM_PROMPT_STYLE", "chatml")  # "chatml" or "plain"
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "internlm")
+
+_CFG_PATH = Path('.forgekeeper/runtime_config.json')
+_cfg_cache: dict | None = None
+_cfg_mtime: float | None = None
+
+def _runtime_config() -> dict:
+    global _cfg_cache, _cfg_mtime
+    try:
+        mtime = _CFG_PATH.stat().st_mtime
+    except FileNotFoundError:
+        _cfg_cache = {}
+        _cfg_mtime = None
+        return {}
+    if _cfg_cache is not None and _cfg_mtime == mtime:
+        return _cfg_cache
+    try:
+        data = json.loads(_CFG_PATH.read_text(encoding='utf-8'))
+        _cfg_cache = data if isinstance(data, dict) else {}
+        _cfg_mtime = mtime
+        return _cfg_cache
+    except Exception:
+        return _cfg_cache or {}
 
 def extract_json(text):
     # Strip any <|action_start|>...<|action_end|> blocks
@@ -49,28 +73,36 @@ def format_prompt(prompt: str):
 
 
 def ask_llm(prompt: str):
+    cfg = _runtime_config()
+    model_name = str(cfg.get('model') or MODEL_NAME)
+    temperature = float(cfg.get('temperature') or 0.7)
+    top_p = float(cfg.get('top_p') or 1.0)
+    api_url = str(cfg.get('gateway') or LLM_API_URL)
+    # Allow simple backend switch by changing URL pattern if desired
     headers = { "Content-Type": "application/json" }
     prompt = verify_prompt(prompt)
     formatted_prompt = format_prompt(prompt)
 
     if LLM_MODE == "chat":
         payload = {
-            "model": MODEL_NAME,
+            "model": model_name,
             "messages": [
                 { "role": "user", "content": formatted_prompt }
             ],
-            "temperature": 0.7,
+            "temperature": temperature,
+            "top_p": top_p,
             "max_tokens": 500
         }
-        endpoint = LLM_API_URL.replace("/v1/completions", "/v1/chat/completions")
+        endpoint = api_url.replace("/v1/completions", "/v1/chat/completions")
     else:
         payload = {
-            "model": MODEL_NAME,
+            "model": model_name,
             "prompt": formatted_prompt,
-            "temperature": 0.7,
+            "temperature": temperature,
+            "top_p": top_p,
             "max_tokens": 500
         }
-        endpoint = LLM_API_URL
+        endpoint = api_url
 
     try:
         logger.debug(f"[LLM REQUEST] POST {endpoint}")

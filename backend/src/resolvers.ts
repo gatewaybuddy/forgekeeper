@@ -1,5 +1,7 @@
 import { GraphQLJSON } from 'graphql-type-json';
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as crud from './crud.ts';
 
@@ -47,6 +49,15 @@ const resolvers = {
         where: { id },
         include: { conversations: { include: { messages: true } } },
       });
+    },
+    getRuntimeConfig: async () => {
+      try {
+        const p = path.join(process.cwd(), '.forgekeeper', 'runtime_config.json');
+        const raw = fs.readFileSync(p, 'utf-8');
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
     },
   },
   Mutation: {
@@ -179,6 +190,18 @@ const resolvers = {
     deleteProject: async (_: any, { id }: any, { prisma }: Context) => {
       await crud.updateMany(prisma, 'conversation', { where: { projectId: id }, data: { projectId: null } });
       await crud.remove(prisma, 'project', { where: { id } });
+      return true;
+    },
+    setRuntimeConfig: async (_: any, { patch }: any) => {
+      const dir = path.join(process.cwd(), '.forgekeeper');
+      const file = path.join(dir, 'runtime_config.json');
+      let current: any = {};
+      try {
+        current = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      } catch {}
+      const next = { ...current, ...(patch || {}) };
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(file, JSON.stringify(next, null, 2), 'utf-8');
       return true;
     },
   },
