@@ -4,6 +4,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Conversation } from './types';
@@ -18,6 +19,7 @@ import { setErrorHandler } from './toast';
 import ProjectSelector from './ProjectSelector';
 import { projectIdVar } from './apolloClient';
 import { useConversations } from './useConversations';
+import SettingsPanel from './SettingsPanel';
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export default function App() {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
   const [darkMode, setDarkMode] = useState(prefersDark);
   const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const theme = createTheme({ palette: { mode: darkMode ? 'dark' : 'light' } });
 
@@ -110,9 +113,14 @@ export default function App() {
           </Box>
           <Box display="flex" alignItems="center" justifyContent="space-between" p={1}>
             <Typography variant="h6">Conversations</Typography>
-            <IconButton size="small" onClick={() => setDarkMode(!darkMode)}>
-              {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-            </IconButton>
+            <Box>
+              <IconButton size="small" onClick={() => setSettingsOpen(true)} aria-label="settings">
+                <SettingsIcon />
+              </IconButton>
+              <IconButton size="small" onClick={() => setDarkMode(!darkMode)} aria-label="toggle theme">
+                {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+              </IconButton>
+            </Box>
           </Box>
           {convLoading ? (
             <Box flexGrow={1} display="flex" alignItems="center" justifyContent="center">
@@ -154,6 +162,7 @@ export default function App() {
           onMove={handleMove}
         />
       </Box>
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <Snackbar
         open={!!error}
         autoHideDuration={6000}

@@ -2,6 +2,7 @@ import { GraphQLJSON } from 'graphql-type-json';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { registerNode, updateNode, listNodes, drainNode, chooseNodeForModel } from './gateway.ts';
 import { v4 as uuidv4 } from 'uuid';
 import * as crud from './crud.ts';
 
@@ -58,6 +59,14 @@ const resolvers = {
       } catch {
         return {};
       }
+    },
+    listGatewayNodes: async () => {
+      return listNodes().map(n => ({ ...n, lastSeen: new Date(n.lastSeen).toISOString() }));
+    },
+    routeModel: async (_: any, { model }: any) => {
+      const n = chooseNodeForModel(model);
+      if (!n) return null;
+      return { ...n, lastSeen: new Date(n.lastSeen).toISOString() } as any;
     },
   },
   Mutation: {
@@ -203,6 +212,24 @@ const resolvers = {
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(file, JSON.stringify(next, null, 2), 'utf-8');
       return true;
+    },
+    requestRestart: async () => {
+      const dir = path.join(process.cwd(), '.forgekeeper');
+      const flag = path.join(dir, 'restart.flag');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(flag, 'requested', 'utf-8');
+      return true;
+    },
+    registerGatewayNode: async (_: any, { id, url, models, capacity }: any) => {
+      registerNode(id, url, models, capacity ?? 1);
+      return true;
+    },
+    updateGatewayNode: async (_: any, { id, queueDepth, healthy, models, capacity }: any) => {
+      updateNode(id, { queueDepth, healthy, models, capacity } as any);
+      return true;
+    },
+    drainGatewayNode: async (_: any, { id, drain }: any) => {
+      return drainNode(id, drain);
     },
   },
   Project: {

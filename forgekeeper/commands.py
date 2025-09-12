@@ -105,6 +105,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_add.add_argument("--body", default="", help="Task description body")
     p_add.set_defaults(func=cmd_add)
 
+    p_chat = sub.add_parser("chat", help="Launch interactive chat (CLI)")
+    p_chat.add_argument("session", nargs="?", help="Optional session id (defaults to environment FK_SESSION or 'default')")
+    def _chat(_: TaskQueue, args: argparse.Namespace) -> None:
+        from forgekeeper.cli.chat import main as chat_main
+        code = chat_main([args.session] if args.session else [])
+        raise SystemExit(code)
+    p_chat.set_defaults(func=_chat)
+
     return parser
 
 

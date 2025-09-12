@@ -9,6 +9,34 @@ propose-next-pr:
 dev:
 	./scripts/start_local_stack.sh
 
+.PHONY: up-backend up-ui up-inference up-agent up-worker down
+
+up-backend:
+	docker compose --profile backend up -d --build
+
+up-ui:
+	docker compose --profile ui up -d --build
+
+up-inference:
+	docker compose --profile inference up -d --build
+
+up-agent:
+	docker compose --profile agent up -d --build
+
+up-worker:
+	docker compose --profile agent-worker up -d --build
+
+down:
+	docker compose down
+
+.PHONY: build-core build-infer
+
+build-core:
+	cd packages/forgekeeper-core && python -m pip install --upgrade build && python -m build
+
+build-infer:
+	cd packages/forgekeeper-inference-client && python -m pip install --upgrade build && python -m build
+
 .PHONY: test-memory
 
 test-memory:

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Box, Button, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, TextField, Tooltip, Typography, Paper, List, ListItemButton, ListItemText } from '@mui/material';
 import { Conversation } from './types';
 import { countTokens } from './token';
 
@@ -64,6 +64,21 @@ export default function PromptInput({ prompt, onPromptChange, onSend, onStop, di
     return { total, max, remaining };
   }, [conversation, prompt]);
 
+  const matchingCommands = useMemo(() => {
+    if (!isCommand) return [] as Array<{key: string, desc: string}>;
+    const q = commandName.toLowerCase();
+    return Object.entries(COMMANDS)
+      .filter(([k]) => k.startsWith(q))
+      .slice(0, 6)
+      .map(([key, desc]) => ({ key, desc }));
+  }, [isCommand, commandName]);
+
+  const applyCommand = (cmd: string) => {
+    const rest = prompt.trim().slice(1).split(/\s+/).slice(1).join(' ');
+    const next = `/${cmd}${rest ? ' ' + rest : ''}`;
+    onPromptChange(next);
+  };
+
   return (
     <Box component="form" onSubmit={(e) => { e.preventDefault(); onSend(); }} p={2} display="flex" gap={1} flexDirection="column">
       {isCommand && (
@@ -102,6 +117,17 @@ export default function PromptInput({ prompt, onPromptChange, onSend, onStop, di
           </Box>
         )}
       </Box>
+      {isCommand && matchingCommands.length > 0 && (
+        <Paper elevation={2} sx={{ mt: 1, maxWidth: 560 }}>
+          <List dense>
+            {matchingCommands.map(item => (
+              <ListItemButton key={item.key} onClick={() => applyCommand(item.key)}>
+                <ListItemText primary={`/${item.key}`} secondary={item.desc} />
+              </ListItemButton>
+            ))}
+          </List>
+        </Paper>
+      )}
     </Box>
   );
 }

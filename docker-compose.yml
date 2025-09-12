@@ -2,6 +2,7 @@ version: "3.9"
 services:
   mongodb:
     image: mongo:6
+    profiles: [backend]
     networks: [forgekeeper-net]
     ports: ["27017:27017"]
     volumes:
@@ -9,6 +10,7 @@ services:
 
   vllm-core:
     image: forgekeeper-vllm
+    profiles: [inference]
     build:
       context: .
       dockerfile: Dockerfile.vllm
@@ -19,6 +21,7 @@ services:
 
   vllm-coder:
     image: forgekeeper-vllm
+    profiles: [inference]
     build:
       context: .
       dockerfile: Dockerfile.vllm
@@ -29,6 +32,7 @@ services:
 
   backend:
     image: forgekeeper-backend
+    profiles: [backend]
     env_file: ./.env
     environment:
       DATABASE_URL: mongodb://mongodb:27017/forgekeeper
@@ -37,14 +41,28 @@ services:
     depends_on:
       - mongodb
 
+  backend-worker:
+    image: forgekeeper-backend
+    profiles: [agent-worker]
+    env_file: ./.env
+    environment:
+      DATABASE_URL: mongodb://mongodb:27017/forgekeeper
+      MQTT_BROKER: mqtt
+    command: ["npm","run","worker","--prefix","backend"]
+    networks: [forgekeeper-net]
+    depends_on:
+      - backend
+
   frontend:
     image: forgekeeper-frontend
+    profiles: [ui]
     env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${FRONTEND_PORT}:80"]
 
   python:
     image: forgekeeper-python
+    profiles: [agent]
     env_file: ./.env
     networks: [forgekeeper-net]
     ports: ["${PYTHON_PORT}:${PYTHON_PORT}"]

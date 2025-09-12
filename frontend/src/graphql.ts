@@ -78,3 +78,9 @@ export const SET_RUNTIME_CONFIG = gql`
     setRuntimeConfig(patch: $patch)
   }
 `;
+
+export const REQUEST_RESTART = gql`
+  mutation RequestRestart {
+    requestRestart
+  }
+`;
