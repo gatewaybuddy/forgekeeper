@@ -6,7 +6,6 @@ from .embeddings import (
     retrieve_similar_tasks,
     similar_task_summaries,
     query_similar_tasks,
-    store_task_embedding,
 )
 from .embedding import SimpleTfidfVectorizer, cosine_similarity
 
@@ -18,5 +17,4 @@ __all__ = [
     'retrieve_similar_tasks',
     'similar_task_summaries',
     'query_similar_tasks',
-    'store_task_embedding',
 ]

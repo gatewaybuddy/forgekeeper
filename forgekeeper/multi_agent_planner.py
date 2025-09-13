@@ -118,6 +118,7 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
     for part in parts:
         agent, protocol = _choose_agent(part)
         broadcast_context("planner", f"{agent}: {part}")
+
         memory_context = query_similar_tasks(part)
         subtasks.append(
             {
@@ -126,7 +127,7 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
                 "protocol": protocol,
                 "context": context_log,
                 "memory_context": memory_context,
-                "available_agents": available_agents,
+                "available_agents": available_agents
             }
         )
 
@@ -135,14 +136,15 @@ def split_for_agents(task: str) -> List[Dict[str, object]]:
         text = task.strip()
         broadcast_context("planner", f"{agent}: {text}")
         memory_context = query_similar_tasks(text)
+
         subtasks.append(
             {
                 "agent": agent,
                 "task": text,
                 "protocol": protocol,
-                "context": context_log,
-                "memory_context": memory_context,
-                "available_agents": available_agents,
+                "context": context
+                "memory_context": memory_context
+                "available_agents": available_agents
             }
         )
 

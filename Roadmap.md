@@ -740,11 +740,22 @@ Recent commits: chore: update roadmap, chore: update roadmap, chore: update road
 Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
 
 ### Recent Commits
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
+- refactor: drop deprecated goal manager alias
+
+## Update 2025-08-24 07:58 UTC
+### Summary
+Recent commits: chore: update roadmap, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6, feat: schedule sprint planning (FK-304); Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
+
+### Recent Commits
 - chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
+- Merge pull request #303 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager
 
 ### Recent Memory
 - No staged changes to commit
@@ -753,70 +764,16 @@ Recent commits: chore: update roadmap, chore: update roadmap, chore: update road
 - No staged changes to commit
 - No staged changes to commit
 
-## Update 2025-08-27 23:09 UTC
+## Update 2025-08-24 07:58 UTC
 ### Summary
-Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist
+Recent commits: chore: update roadmap, chore: update roadmap, Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
 
 ### Recent Commits
 - chore: update roadmap
 - chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-
-### Recent Memory
-- No staged changes to commit
-- Committed changes on work: chore: update roadmap
-- Push failed: Remote named 'origin' didn't exist
-- Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
-- Test body
-
-## Update 2025-08-27 23:09 UTC
-### Summary
-Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
-
-### Recent Commits
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-
-### Recent Memory
-- No staged changes to commit
-- No staged changes to commit
-- No staged changes to commit
-- No staged changes to commit
-- No staged changes to commit
-
-## Update 2025-08-27 23:09 UTC
-### Summary
-Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, Committed changes on work: chore: update roadmap, Push failed: Remote named 'origin' didn't exist
-
-### Recent Commits
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-
-### Recent Memory
-- No staged changes to commit
-- Committed changes on work: chore: update roadmap
-- Push failed: Remote named 'origin' didn't exist
-- Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
-- Test body
-
-## Update 2025-08-27 23:10 UTC
-### Summary
-Recent commits: chore: update roadmap, chore: update roadmap, chore: update roadmap; Recent memory: No staged changes to commit, No staged changes to commit, No staged changes to commit
-
-### Recent Commits
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
-- chore: update roadmap
+- Merge pull request #306 from gatewaybuddy/codex/wire-sprint-planner-into-main-pipeline-x30gz6
+- feat: schedule sprint planning (FK-304)
+- Merge pull request #304 from gatewaybuddy/codex/replace-forgekeeper-import-with-goal_manager-6v5lmt
 
 ### Recent Memory
 - No staged changes to commit
