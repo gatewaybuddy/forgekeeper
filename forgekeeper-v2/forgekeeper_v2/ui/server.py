@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Body
 from fastapi.responses import PlainTextResponse, HTMLResponse
 
 from forgekeeper_v2.orchestrator.events import JsonlRecorder
@@ -24,6 +24,17 @@ def create_app(recorder_path: str | Path = ".forgekeeper-v2/events.jsonl") -> Fa
             await ws.send_text(ev.model_dump_json())
         async for ev in recorder.tail(start_offset=None):
             await ws.send_text(ev.model_dump_json())
+
+    @app.post("/input")
+    async def post_input(payload: dict = Body(...)) -> PlainTextResponse:
+        text = str(payload.get("text", "")).strip()
+        if not text:
+            return PlainTextResponse("ignored", status_code=204)
+        from forgekeeper_v2.orchestrator.events import Event, Watermark, JsonlRecorder as JR
+        inbox = JR(Path(".forgekeeper-v2/inbox_user.jsonl"))
+        ev = Event(seq=0, wm_event_time_ms=Watermark.now_ms(), role="user", stream="ui", act="INPUT", text=text)
+        await inbox.append(ev)
+        return PlainTextResponse("ok")
 
     @app.get("/")
     async def index() -> HTMLResponse:

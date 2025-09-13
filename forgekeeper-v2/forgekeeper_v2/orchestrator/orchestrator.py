@@ -107,6 +107,22 @@ class Orchestrator:
     async def run(self, duration_s: Optional[float] = None) -> None:
         await self.ingest("user", "orchestrator:start", "INPUT", stream="system")
         tool_tasks = await self.start_tools()
+        inbox_task: Optional[asyncio.Task[Any]] = None
+        try:
+            from forgekeeper_v2.orchestrator.events import JsonlRecorder as JR, Event as _E
+            inbox = JR(Path(".forgekeeper-v2/inbox_user.jsonl"))
+            async def _pump_inbox() -> None:
+                async for ev in inbox.tail(start_offset=None):
+                    try:
+                        self.floor.mark_user_active()
+                        text = ev.text if isinstance(ev, _E) else getattr(ev, 'text', '')
+                        if text:
+                            await self.ingest("user", text, "INPUT", stream="ui")
+                    except Exception:
+                        continue
+            inbox_task = asyncio.create_task(_pump_inbox())
+        except Exception:
+            inbox_task = None
         start = asyncio.get_event_loop().time()
         try:
             while True:
@@ -128,4 +144,5 @@ class Orchestrator:
             for task in tool_tasks:
                 task.cancel()
             await self.stop_tools()
-
+            if inbox_task:
+                inbox_task.cancel()
