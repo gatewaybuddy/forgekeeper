@@ -10,7 +10,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 
 ## 🛠️ Active Tasks
 
- - [ ] **Design multi-step planning framework for complex tasks**
+<!-- no active items; see Backlog and Canonical Tasks -->
 
 ---
 
@@ -96,7 +96,7 @@ Sprint plans are generated from active goals and the tasks in this file using `f
 ---
 id: FK-351
 title: Compose profiles for modular deploys (P1)
-status: todo
+status: done
 epic: R-011
 owner: agent
 labels: [infra, deploy]
