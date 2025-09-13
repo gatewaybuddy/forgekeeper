@@ -20,7 +20,7 @@ def git_tracked_files() -> list[str]:
         text=True,
         capture_output=True,
     )
-    return sorted(result.stdout.strip().splitlines())
+    return result.stdout.strip().splitlines()
 
 
 def first_line(path: Path) -> str:
@@ -33,24 +33,23 @@ def first_line(path: Path) -> str:
     return line.replace("`", "\\`")
 
 
-def build_summary(files: list[str]) -> str:
+def build_summary() -> str:
     lines = [
         f"Updated {datetime.date.today().isoformat()}",
         "# Repository File Summary",
         "",
-        "Below is a one-line summary for each tracked file in the repository, excluding this summary file.",
+        "Below is a one-line summary for every tracked file in the repository, grouped by directory path.",
         "",
     ]
-    for rel_path in files:
+    for rel_path in git_tracked_files():
         path = ROOT / rel_path
         lines.append(f"- `{rel_path}`: {first_line(path)}")
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
-    files = [f for f in git_tracked_files() if f != SUMMARY_FILE.name]
-    SUMMARY_FILE.write_text(build_summary(files), encoding="utf-8")
-    print(f"Wrote summary for {len(files)} files to {SUMMARY_FILE}")
+    SUMMARY_FILE.write_text(build_summary(), encoding="utf-8")
+    print(f"Wrote summary for {len(git_tracked_files())} files to {SUMMARY_FILE}")
 
 
 if __name__ == "__main__":

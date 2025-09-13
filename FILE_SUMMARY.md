@@ -26,6 +26,7 @@ Below is a one-line summary for each tracked file in the repository, excluding t
 - `DEVLOG.md`: # Session Notes — vLLM Startup & DX Improvements (2025-09-09)
 - `Dockerfile`: FROM python:3.11-slim
 - `Dockerfile.vllm`: FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+- `FILE_SUMMARY.md`: Updated 2025-09-11
 - `Makefile`: .PHONY: sync-roadmap propose-next-pr dev
 - `README.md`: # Forgekeeper
 - `Roadmap.md`: # 🛤️ Forgekeeper Development Roadmap
