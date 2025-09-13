@@ -5,12 +5,13 @@ from .llm_mock import LLMMock
 from .tool_base import ToolBase
 from .tool_shell import ToolShell
 from .tool_powershell import ToolPowerShell
+from .llm_triton import LLMTriton
 
 __all__ = [
     "LLMBase",
     "LLMMock",
+    "LLMTriton",
     "ToolBase",
     "ToolShell",
     "ToolPowerShell",
 ]
-

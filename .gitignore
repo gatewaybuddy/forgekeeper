@@ -35,6 +35,7 @@ vector_store/
 
 # Forgekeeper runtime data
 .forgekeeper/
+/.forgekeeper-v2/
 forgekeeper/outbox/
 conversation_memory.json
 
@@ -52,6 +53,7 @@ venv/
 .python-version
 .pytest_cache/
 *.egg-info/
+forgekeeper/forgekeeper-v2/forgekeeper_v2.egg-info/
 forgekeeper/forgekeeper.egg-info/
 .mypy_cache/
 .ruff_cache/
