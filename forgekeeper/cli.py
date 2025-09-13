@@ -1,17 +1,50 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
 import time
 import uuid
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 import requests
 
+from forgekeeper.llm.clients import client
+from forgekeeper.main import main as _run_pipeline
+
 GRAPHQL_URL = os.environ.get("FORGEKEEPER_GRAPHQL_URL", "http://localhost:4000/graphql")
 STATE_PATH = Path(".forgekeeper/cli_state.json")
+
+
+def interactive_console() -> None:
+    """Run an interactive console with streaming output."""
+    messages: List[dict] = []
+    try:
+        while True:
+            try:
+                user_input = input("You > ")
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
+            if not user_input:
+                continue
+            messages.append({"role": "user", "content": user_input})
+            try:
+                stream = client.chat("core", messages, stream=True)
+                response_text = ""
+                for token in stream:
+                    response_text += token
+                    print(token, end="", flush=True)
+                print()
+            except KeyboardInterrupt:
+                # Interrupt the streaming response and continue the loop
+                print("\n[stream interrupted]")
+                continue
+            messages.append({"role": "assistant", "content": response_text})
+    finally:
+        sys.exit(0)
 
 
 def _load_state() -> Dict[str, str]:
@@ -73,7 +106,8 @@ def _fetch_messages(conversation_id: str) -> List[Dict[str, str]]:
     return []
 
 
-def main() -> None:
+def persistent_console() -> None:
+    """Run a console that persists conversation history via GraphQL."""
     state = _load_state()
     conversation_id = _get_conversation_id(state)
     messages = _fetch_messages(conversation_id)
@@ -103,5 +137,27 @@ def main() -> None:
         sys.exit(0)
 
 
-if __name__ == "__main__":  # pragma: no cover - manual utility
-    main()
+def run_pipeline() -> None:
+    _run_pipeline()
+
+
+def main(argv: List[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Forgekeeper command-line interface")
+    subparsers = parser.add_subparsers(dest="command", required=False)
+
+    run_parser = subparsers.add_parser("run", help="Run the Forgekeeper pipeline")
+    run_parser.set_defaults(func=lambda _args: run_pipeline())
+
+    console_parser = subparsers.add_parser("console", help="Start an interactive console")
+    console_parser.set_defaults(func=lambda _args: interactive_console())
+
+    persistent_parser = subparsers.add_parser(
+        "persistent-console", help="Start a console that persists conversation history"
+    )
+    persistent_parser.set_defaults(func=lambda _args: persistent_console())
+
+    args = parser.parse_args(argv)
+    if args.command is None:
+        run_pipeline()
+    else:
+        args.func(args)

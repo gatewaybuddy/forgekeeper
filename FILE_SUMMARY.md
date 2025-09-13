@@ -3,358 +3,236 @@ Updated 2025-09-11
 
 Below is a one-line summary for each tracked file in the repository, excluding this summary file.
 
-- `.env.example`: # Example environment configuration for Docker-based development
-- `.gitattributes`: # Auto detect text files and perform LF normalization
-- `.github/ISSUE_TEMPLATE/config.yml`: blank_issues_enabled: false
-- `.github/ISSUE_TEMPLATE/epic_roadmap.md`: ---
-- `.github/ISSUE_TEMPLATE/spike.md`: ---
-- `.github/ISSUE_TEMPLATE/task.md`: ---
-- `.github/PULL_REQUEST_TEMPLATE/bugfix.md`: \# Bugfix PR
-- `.github/PULL_REQUEST_TEMPLATE/docs.md`: \# Docs PR
-- `.github/PULL_REQUEST_TEMPLATE/feature.md`: \# Feature PR
-- `.github/PULL_REQUEST_TEMPLATE/hotfix.md`: \# Hotfix PR
-- `.github/PULL_REQUEST_TEMPLATE/infra-chore.md`: \# Infra / Chore PR
-- `.github/PULL_REQUEST_TEMPLATE/refactor.md`: \# Refactor PR
-- `.github/pull_request_template.md`: Select a template:
-- `.github/workflows/auto-label.yml`: name: Auto Label PRs
-- `.github/workflows/merge-gates.yml`: name: Merge Gates
-- `.github/workflows/roadmap-preview.yml`: name: Roadmap Preview (PR Comment)
-- `.github/workflows/roadmap-sync.yml`: name: Roadmap Sync
-- `.gitignore`: # Node / Python / Env files
-- `AGENTS.md`: # 🧠 Forgekeeper Agents
-- `DEVELOPER_NOTES.md`: # Developer Notes
-- `DEVLOG.md`: # Session Notes — vLLM Startup & DX Improvements (2025-09-09)
-- `Dockerfile`: FROM python:3.11-slim
-- `Dockerfile.vllm`: FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
-- `FILE_SUMMARY.md`: Updated 2025-09-11
-- `Makefile`: .PHONY: sync-roadmap propose-next-pr dev
-- `README.md`: # Forgekeeper
-- `Roadmap.md`: # 🛤️ Forgekeeper Development Roadmap
-- `SESSION_NOTES.md`: Session Notes
-- `SprintPlan.md`: ## Next Sprint Plan
-- `backend/Dockerfile`: FROM node:18-alpine
-- `backend/package-lock.json`: {
-- `backend/package.json`: {
-- `backend/prisma/migrations/20240507120000_add_outbox/migration.sql`: -- Migration: create Outbox collection
-- `backend/prisma/schema.prisma`: generator client {
-- `backend/src/crud.ts`: import { PrismaClient } from '@prisma/client';
-- `backend/src/index.ts`: import express from 'express';
-- `backend/src/outboxWorker.ts`: import { PrismaClient } from '@prisma/client';
-- `backend/src/resolvers.ts`: import { GraphQLJSON } from 'graphql-type-json';
-- `backend/src/schema.ts`: import { gql } from 'graphql-tag';
-- `backend/tsconfig.json`: {
-- `docker-compose.yml`: version: "3.9"
-- `forgekeeper/__init__.py`: # Forgekeeper package
-- `forgekeeper/__main__.py`: from __future__ import annotations
-- `forgekeeper/agent/__init__.py`: """Foundational agent utilities and :class:\`ForgeAgent\`.
-- `forgekeeper/agent/agent.py`: 
-- `forgekeeper/agent/communication.py`: """Inter-agent communication utilities.
-- `forgekeeper/agent/tool_utils.py`: """Utility helpers for OpenAI-style tool calling."""
-- `forgekeeper/agents/__init__.py`: """Legacy task-specific agent helpers.
-- `forgekeeper/agents/coder.py`: from forgekeeper.app.chats.memory_service import save_message
-- `forgekeeper/agents/coder_io.py`: from __future__ import annotations
-- `forgekeeper/agents/core.py`: from forgekeeper.app.chats.memory_service import save_message, get_memory
-- `forgekeeper/agents/router.py`: import re
-- `forgekeeper/agents/session_memory.py`: from forgekeeper.app.chats.memory_service import get_memory, set_memory
-- `forgekeeper/agents/task_committer.py`: from __future__ import annotations
-- `forgekeeper/agents/task_executor.py`: from __future__ import annotations
-- `forgekeeper/agents/task_retriever.py`: from __future__ import annotations
-- `forgekeeper/app/chats/chat_session.py`: """Simple chat session backed by the GraphQL conversation service."""
-- `forgekeeper/app/chats/memory_bank.py`: from __future__ import annotations
-- `forgekeeper/app/chats/memory_service.py`: from __future__ import annotations
-- `forgekeeper/app/chats/think_aloud.py`: from __future__ import annotations
-- `forgekeeper/app/interpreter/prompt_mapper.py`: import os
-- `forgekeeper/app/memory/__init__.py`: """Memory utilities for Forgekeeper app."""
-- `forgekeeper/app/memory/backend.py`: from __future__ import annotations
-- `forgekeeper/app/memory/collection.py`: from __future__ import annotations
-- `forgekeeper/app/memory/relevance.py`: from __future__ import annotations
-- `forgekeeper/app/memory/retrieval.py`: from __future__ import annotations
-- `forgekeeper/app/memory/serialize.py`: from __future__ import annotations
-- `forgekeeper/app/memory/store.py`: from __future__ import annotations
-- `forgekeeper/app/routes/chat_routes.py`: from flask import Blueprint, request, jsonify
-- `forgekeeper/app/self/proposal_engine.py`: 
-- `forgekeeper/app/services/code_catcher.py`: import os
-- `forgekeeper/app/services/file_writer.py`: # forgekeeper/app/services/file_writer.py
-- `forgekeeper/app/services/function_loader.py`: import os
-- `forgekeeper/app/services/graphql_client.py`: import os
-- `forgekeeper/app/services/harmony/config.py`: """Configuration and model loading for Harmony service."""
-- `forgekeeper/app/services/harmony/prompt_utils.py`: """Prompt utilities for Harmony service."""
-- `forgekeeper/app/services/harmony/service.py`: """Harmony service entry point."""
-- `forgekeeper/app/services/llm_router.py`: import os
-- `forgekeeper/app/services/llm_service.py`: import os
-- `forgekeeper/app/services/llm_service_openai.py`: import os
-- `forgekeeper/app/services/local_llm.py`: from llama_cpp import Llama
-- `forgekeeper/app/services/prompt_formatting.py`: def build_memory_prompt(prompt, system_prompt, summary, vector_summary, prompt_mode="inst"):
-- `forgekeeper/app/services/reflective_ask_core.py`: from forgekeeper.app.chats.memory_service import get_memory, save_message
-- `forgekeeper/app/utils/harmony_parser.py`: """Utilities for parsing Harmony tool/action calls."""
-- `forgekeeper/app/utils/json_helpers.py`: import json
-- `forgekeeper/app/utils/prompt_guard.py`: import re
-- `forgekeeper/app/utils/system_prompt_builder.py`: from forgekeeper.app.chats.memory_service import get_memory
-- `forgekeeper/change_stager.py`: """Utilities for diffing and staging file changes.
-- `forgekeeper/cli/__init__.py`: 
-- `forgekeeper/cli/memory_plane.py`: from __future__ import annotations
-- `forgekeeper/code_edit/__init__.py`: from .llm_diff import generate_code_edit  # re-export for convenience
-- `forgekeeper/code_edit/llm_diff.py`: """LLM-powered code diff generation."""
-- `forgekeeper/code_edit/patcher.py`: """Utilities for applying unified diff patches."""
-- `forgekeeper/commands.py`: from __future__ import annotations
-- `forgekeeper/config.py`: import os
-- `forgekeeper/diff_validator.py`: """Validate cross-file consistency of staged diffs.
-- `forgekeeper/file_analyzer.py`: import json
-- `forgekeeper/forgekeeper_safe_update.py`: # DO NOT EDIT: Safe Update Runner
-- `forgekeeper/functions/describe_function.py`: 
-- `forgekeeper/functions/introspect_state.py`: from forgekeeper.app.chats.memory_service import load_memory
-- `forgekeeper/functions/kai_starter_pack_summary.json`: {
-- `forgekeeper/functions/list_functions.py`: import os
-- `forgekeeper/functions/read_file.py`: from forgekeeper.config import ENABLE_OUTBOX
-- `forgekeeper/functions/remember_identity.py`: from forgekeeper.app.chats.memory_service import get_memory, set_memory
-- `forgekeeper/functions/remember_name.py`: from forgekeeper.app.chats.memory_service import get_memory, set_memory
-- `forgekeeper/functions/say_hello.py`: def say_hello(name="friend"):
-- `forgekeeper/functions/summarize_conversation.py`: from forgekeeper.app.chats.memory_service import load_memory
-- `forgekeeper/functions/write_file.py`: from forgekeeper.config import ENABLE_OUTBOX
-- `forgekeeper/git/__init__.py`: """Helpers for Git-related operations."""
-- `forgekeeper/git/checks.py`: """Utilities for running commit checks."""
-- `forgekeeper/git/commit_ops.py`: """Commit and push helper functions."""
-- `forgekeeper/git/outbox.py`: """Helper for executing actions with the outbox."""
-- `forgekeeper/git/pre_review.py`: """Pre-commit review helpers."""
-- `forgekeeper/git/sandbox.py`: """Run code changes in an isolated Git worktree."""
-- `forgekeeper/git/sandbox_checks.py`: """Helpers for running sandbox checks."""
-- `forgekeeper/git_committer.py`: """Utilities for committing and pushing Forgekeeper updates."""
-- `forgekeeper/goals.json`: []
-- `forgekeeper/inference_backends/README.md`: # Inference Backends (Feature-Flagged)
-- `forgekeeper/inference_backends/__init__.py`: from .client import OpenAICompatClient
-- `forgekeeper/inference_backends/client.py`: import os
-- `forgekeeper/inference_backends/config.py`: import os
-- `forgekeeper/inference_backends/harmony.py`: from typing import List, Dict, Optional
-- `forgekeeper/inference_backends/health.py`: import httpx
-- `forgekeeper/inference_backends/models.py`: from dataclasses import dataclass
-- `forgekeeper/inference_backends/routing.py`: from .config import get_inference_config
-- `forgekeeper/llm/__init__.py`: import os
-- `forgekeeper/llm/benchmark.py`: """Lightweight benchmarking helpers for LLM providers."""
-- `forgekeeper/llm/clients/__init__.py`: """LLM client utilities."""
-- `forgekeeper/llm/clients/client.py`: """OpenAI-compatible HTTP client with streaming support."""
-- `forgekeeper/llm/clients/config.py`: from __future__ import annotations
-- `forgekeeper/llm/clients/stream.py`: from __future__ import annotations
-- `forgekeeper/llm/llama_cpp_impl.py`: import os
-- `forgekeeper/llm/llm_service_vllm.py`: """vLLM-backed LLM wrappers for core and coder agents."""
-- `forgekeeper/llm/provider.py`: import abc
-- `forgekeeper/llm/transformers_impl.py`: """Deprecated Transformers-based LLM provider.
-- `forgekeeper/llm/vllm_impl.py`: import os
-- `forgekeeper/load_env.py`: import os
-- `forgekeeper/logger.py`: import logging
-- `forgekeeper/main.py`: """Main entrypoint for Forgekeeper."""
-- `forgekeeper/main_llamacpp.py`: from flask import Flask, request, jsonify
-- `forgekeeper/memory/__init__.py`: """Memory utilities for Forgekeeper."""
-- `forgekeeper/memory/agentic/__init__.py`: 
-- `forgekeeper/memory/agentic/base.py`: """Core dataclasses and protocols for the agentic memory plane."""
-- `forgekeeper/memory/agentic/builtin/docstring_style_nudge.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/builtin/legacy_bridge.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/builtin/prompt_length_limiter.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/builtin/schema_checklist_scaffold.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/builtin/teh_typo.py`: """Built-in agent that corrects the common \`\`teh\`\` typo."""
-- `forgekeeper/memory/agentic/feedback.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/metrics.py`: """Tiny helper for metrics and ops logging."""
-- `forgekeeper/memory/agentic/orchestrator.py`: """Memory orchestrator which coordinates agents and applies suggestions."""
-- `forgekeeper/memory/agentic/persistence.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/reflector.py`: """Simple reflection/guard layer for suggestions."""
-- `forgekeeper/memory/agentic/registry.py`: from __future__ import annotations
-- `forgekeeper/memory/agentic/retrieval.py`: """Very small in-memory retrieval provider using bag-of-words vectors."""
-- `forgekeeper/memory/embedding/__init__.py`: from .vectorizer import SimpleTfidfVectorizer, cosine_similarity
-- `forgekeeper/memory/embedding/local.py`: from __future__ import annotations
-- `forgekeeper/memory/embedding/retrieval.py`: from __future__ import annotations
-- `forgekeeper/memory/embedding/vectorizer.py`: from __future__ import annotations
-- `forgekeeper/memory/embeddings.py`: from pathlib import Path
-- `forgekeeper/memory/episodic.py`: """Episodic memory utilities."""
-- `forgekeeper/memory/episodic_cli.py`: """Command-line interface for episodic memory utilities."""
-- `forgekeeper/memory/events.py`: """Minimal event bus used by memory agents.
-- `forgekeeper/multi_agent_planner.py`: """Task planning helpers for delegating work to specialized agents.
-- `forgekeeper/outbox.py`: from __future__ import annotations
-- `forgekeeper/outbox_worker.py`: from __future__ import annotations
-- `forgekeeper/pipeline/__init__.py`: from .analyze import step_analyze
-- `forgekeeper/pipeline/analyze.py`: import json
-- `forgekeeper/pipeline/commit.py`: from __future__ import annotations
-- `forgekeeper/pipeline/edit.py`: import json
-- `forgekeeper/pipeline/execution.py`: from __future__ import annotations
-- `forgekeeper/pipeline/loop.py`: from __future__ import annotations
-- `forgekeeper/pipeline/main.py`: from __future__ import annotations
-- `forgekeeper/pipeline/review.py`: from __future__ import annotations
-- `forgekeeper/pipeline/runner.py`: from __future__ import annotations
-- `forgekeeper/pipeline/undo.py`: from __future__ import annotations
-- `forgekeeper/pipeline/update.py`: import json
-- `forgekeeper/pipeline/utils.py`: import re
-- `forgekeeper/roadmap_committer.py`: """Automatically commit roadmap updates by synthesizing recent progress."""
-- `forgekeeper/roadmap_updater.py`: """Utilities to draft and append roadmap updates.
-- `forgekeeper/self_review/__init__.py`: """Self-review utilities for Forgekeeper."""
-- `forgekeeper/self_review/checks.py`: """Run lint/test checks on code changes."""
-- `forgekeeper/self_review/core.py`: """Core utilities for self-review checks."""
-- `forgekeeper/self_review/diff_tools.py`: """Helpers for running tools and analyzing diffs."""
-- `forgekeeper/self_review/llm_review.py`: """LLM-powered evaluation of recent changes."""
-- `forgekeeper/sprint_planner.py`: """Utilities to assemble a simple sprint plan from goals and tasks."""
-- `forgekeeper/state.json`: {
-- `forgekeeper/state_manager.py`: import json
-- `forgekeeper/summaries.json`: {
-- `forgekeeper/summarizer/__init__.py`: from .repo import summarize_repository, summarize_file
-- `forgekeeper/summarizer/python.py`: import ast
-- `forgekeeper/summarizer/repo.py`: import json
-- `forgekeeper/summarizer/typescript.py`: import re
-- `forgekeeper/task_review.py`: """Utilities for updating task review status."""
-- `forgekeeper/tasks/__init__.py`: from .inserter import sanitize_and_insert_tasks
-- `forgekeeper/tasks/inserter.py`: from __future__ import annotations
-- `forgekeeper/tasks/memory_weighting.py`: from __future__ import annotations
-- `forgekeeper/tasks/parser.py`: from __future__ import annotations
-- `forgekeeper/tasks/queue.py`: from __future__ import annotations
-- `forgekeeper/telemetry.py`: from __future__ import annotations
-- `forgekeeper/user_interface.py`: """Minimal user interface abstraction.
-- `forgekeeper/vcs/__init__.py`: """Version control utilities."""
-- `forgekeeper/vcs/pr_api.py`: from __future__ import annotations
-- `frontend/.gitignore`: # Logs
-- `frontend/Dockerfile`: FROM node:18-alpine AS build
-- `frontend/README.md`: # Forgekeeper Frontend (React + Vite)
-- `frontend/eslint.config.js`: import js from '@eslint/js'
-- `frontend/index.html`: <!doctype html>
-- `frontend/package-lock.json`: {
-- `frontend/package.json`: {
-- `frontend/public/vite.svg`: <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
-- `frontend/src/App.css`: #root {
-- `frontend/src/App.tsx`: import React, { useState, useEffect } from 'react';
-- `frontend/src/ContextMenu.tsx`: import React from 'react';
-- `frontend/src/ConversationList.tsx`: import React from 'react';
-- `frontend/src/ConversationView.tsx`: import React, { useEffect, useRef } from 'react';
-- `frontend/src/FolderManager.tsx`: import React from 'react';
-- `frontend/src/FolderTree.tsx`: import React from 'react';
-- `frontend/src/LogPanel.tsx`: import React from 'react';
-- `frontend/src/ProjectSelector.tsx`: import React, { useEffect } from 'react';
-- `frontend/src/PromptInput.tsx`: import React from 'react';
-- `frontend/src/SyncIndicator.tsx`: import React from 'react';
-- `frontend/src/apolloClient.ts`: import { ApolloClient, InMemoryCache, ApolloLink, HttpLink, makeVar, NormalizedCacheObject } from '@apollo/client';
-- `frontend/src/assets/react.svg`: <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
-- `frontend/src/graphql.ts`: import { gql } from '@apollo/client';
-- `frontend/src/index.css`: :root {
-- `frontend/src/main.tsx`: import React from 'react';
-- `frontend/src/toast.ts`: let handler: (_msg: string) => void = () => {};
-- `frontend/src/types.ts`: export interface Message {
-- `frontend/src/useConversations.ts`: import { useState, useReducer, useEffect } from 'react';
-- `frontend/src/useFolders.ts`: import { useReducer, useEffect } from 'react';
-- `frontend/tsconfig.json`: {
-- `frontend/vite.config.js`: import { defineConfig } from 'vite'
-- `goal_manager/__init__.py`: """Public interface for goal management utilities.
-- `goal_manager/delegator.py`: from __future__ import annotations
-- `goal_manager/manager.py`: from __future__ import annotations
-- `goal_manager/planner.py`: from __future__ import annotations
-- `goal_manager/progress.py`: from __future__ import annotations
-- `goal_manager/storage.py`: from __future__ import annotations
-- `mqtt_forgekeeper_listener.py`: """MQTT listener for Forgekeeper tasks.
-- `persistent_console/__init__.py`: 
-- `persistent_console/__main__.py`: from __future__ import annotations
-- `requirements.txt`: GitPython==3.1.45
-- `roadmap.yaml`: milestones:
-- `run_console/__init__.py`: """Interactive console runner using streaming responses."""
-- `run_console/__main__.py`: """Simple streaming console for manual testing."""
-- `scripts/dual_llm_agent.py`: from pathlib import Path
-- `scripts/fft_visualizer.py`: import argparse
-- `scripts/install.ps1`: #!/usr/bin/env pwsh
-- `scripts/install.sh`: #!/usr/bin/env bash
-- `scripts/llm_benchmark.py`: import argparse
-- `scripts/llm_smoke_test.py`: import argparse
-- `scripts/run_vllm_coder.bat`: @echo off
-- `scripts/run_vllm_coder.sh`: #!/usr/bin/env bash
-- `scripts/run_vllm_core.bat`: @echo off
-- `scripts/run_vllm_core.sh`: #!/usr/bin/env bash
-- `scripts/setup_dev_env.ps1`: #!/usr/bin/env pwsh
-- `scripts/setup_dev_env.sh`: #!/usr/bin/env bash
-- `scripts/setup_docker_env.ps1`: #!/usr/bin/env pwsh
-- `scripts/setup_docker_env.sh`: #!/usr/bin/env bash
-- `scripts/setup_env.ps1`: #!/usr/bin/env pwsh
-- `scripts/setup_env.sh`: #!/usr/bin/env bash
-- `scripts/start_local_stack.ps1`: #!/usr/bin/env pwsh
-- `scripts/start_local_stack.sh`: #!/usr/bin/env bash
-- `scripts/start_vllm_core_docker.ps1`: #!/usr/bin/env pwsh
-- `scripts/start_vllm_core_docker.sh`: #!/usr/bin/env bash
-- `scripts/update_file_summary.py`: #!/usr/bin/env python
-- `scripts/update_requirements.py`: #!/usr/bin/env python3
-- `start.ps1`: #!/usr/bin/env pwsh
-- `start.sh`: #!/usr/bin/env bash
-- `tasks.md`: # ✅ Forgekeeper Tasks
-- `tests/fixtures/component.tsx`: /** Component docs */
-- `tests/fixtures/sample.ts`: // Sample utility
-- `tests/git_committer/conftest.py`: import shutil
-- `tests/git_committer/test_abort_paths.py`: import json
-- `tests/git_committer/test_checks.py`: import json
-- `tests/git_committer/test_diff_validation.py`: import json
-- `tests/git_committer/test_push.py`: import json
-- `tests/high_level_goal_manager/conftest.py`: import sys
-- `tests/high_level_goal_manager/test_autonomy_loop.py`: import json
-- `tests/high_level_goal_manager/test_delegator.py`: import goal_manager.manager as hgm
-- `tests/high_level_goal_manager/test_planner.py`: import json
-- `tests/memory/conftest.py`: import sys
-- `tests/memory/test_append_and_tail.py`: import json
-- `tests/memory/test_cli_utils.py`: import os
-- `tests/memory_agentic/test_ast_patcher.py`: import ast
-- `tests/memory_agentic/test_cli.py`: import json
-- `tests/memory_agentic/test_orchestrator.py`: from dataclasses import dataclass
-- `tests/memory_agentic/test_persistence.py`: from pathlib import Path
-- `tests/memory_agentic/test_retrieval.py`: from forgekeeper.memory.agentic.retrieval import InMemoryRetriever
-- `tests/memory_agentic/test_teh_typo.py`: from forgekeeper.memory.agentic.builtin.teh_typo import TehTypoAgent
-- `tests/task_queue/conftest.py`: import sys
-- `tests/task_queue/test_parser.py`: 
-- `tests/task_queue/test_queue_helpers.py`: from forgekeeper.tasks.queue import TaskQueue
-- `tests/task_queue/test_queue_ops.py`: import json
-- `tests/task_queue/test_weighting.py`: from forgekeeper.tasks.queue import TaskQueue
-- `tests/test_change_stager.py`: import json
-- `tests/test_chat_session.py`: import importlib
-- `tests/test_code_edit.py`: import difflib
-- `tests/test_commands.py`: import sys
-- `tests/test_embeddings.py`: import json
-- `tests/test_git_committer.py`: """Legacy Git committer test shim.
-- `tests/test_git_committer_checks.py`: import json
-- `tests/test_git_committer_sandbox.py`: import types
-- `tests/test_goal_manager.py`: import json
-- `tests/test_harmony_prompt_utils.py`: import sys
-- `tests/test_harmony_tool_call.py`: from flask import Flask
-- `tests/test_inline_tool_call.py`: from flask import Flask
-- `tests/test_labels_parser.py`: from pathlib import Path
-- `tests/test_llm_benchmark.py`: import sys
-- `tests/test_main_periodic_commits.py`: from pathlib import Path
-- `tests/test_mark_done_if_merged.py`: from pathlib import Path
-- `tests/test_memory_bank.py`: import types
-- `tests/test_memory_query.py`: import json
-- `tests/test_multi_agent_planner.py`: import sys
-- `tests/test_openai_tool_call.py`: from flask import Flask
-- `tests/test_outbox.py`: import sys
-- `tests/test_outbox_replay.py`: import importlib
-- `tests/test_outbox_worker.py`: import asyncio
-- `tests/test_pr_integration.py`: import json
-- `tests/test_pre_commit_review.py`: import os
-- `tests/test_prompt_guard.py`: import sys
-- `tests/test_recursive_thinker_loop.py`: import time
-- `tests/test_review_change_set.py`: import json
-- `tests/test_review_staged_changes.py`: import json
-- `tests/test_roadmap_committer.py`: from pathlib import Path
-- `tests/test_roadmap_sync.py`: import sys
-- `tests/test_roadmap_updater.py`: import json
-- `tests/test_run_checks.py`: import sys
-- `tests/test_safe_update.py`: import subprocess
-- `tests/test_sandbox.py`: import types
-- `tests/test_self_review.py`: import sys
-- `tests/test_self_review_smoke.py`: import os
-- `tests/test_spawn_followup_task.py`: import json
-- `tests/test_task_pipeline.py`: import sys
-- `tests/test_thoughts_summary.py`: import json
-- `tests/test_transformers_default_model.py`: import sys
-- `tests/test_ts_support.py`: import json
-- `thoughts/__init__.py`: """Thought management utilities for Forgekeeper."""
-- `thoughts/generator.py`: from __future__ import annotations
-- `thoughts/loop.py`: from __future__ import annotations
-- `thoughts/summary.py`: from __future__ import annotations
-- `tools/auto_label_pr.py`: #!/usr/bin/env python3
-- `tools/gh_setup.md`: GitHub CLI Setup
-- `tools/labels/__init__.py`: """Label parsing and GitHub API helpers."""
-- `tools/labels/github_api.py`: """GitHub label management helpers."""
-- `tools/labels/parser.py`: """Parse \`tasks.md\` blocks for metadata used in PR labeling."""
-- `tools/mark_done_if_merged.py`: import os
-- `tools/preview_task_status.py`: import os, re, sys, json, subprocess
-- `tools/propose_pr.py`: import os, re, subprocess, sys, textwrap
-- `tools/roadmap/__init__.py`: """Roadmap helper utilities."""
-- `tools/roadmap/aggregator.py`: from __future__ import annotations
-- `tools/roadmap/github.py`: from __future__ import annotations
-- `tools/roadmap_sync.py`: from __future__ import annotations
-- `tools/smoke_backend.py`: #!/usr/bin/env python3
+- `.env.example`: Example environment configuration for Docker-based development  
+- `.gitattributes`: Auto-detect text files and normalize line endings  
+- `.github/ISSUE_TEMPLATE/config.yml`: Disable blank issues  
+- `.github/ISSUE_TEMPLATE/epic_roadmap.md`: Issue template header  
+- `.github/ISSUE_TEMPLATE/spike.md`: Issue template header  
+- `.github/ISSUE_TEMPLATE/task.md`: Issue template header  
+- `.github/PULL_REQUEST_TEMPLATE/bugfix.md`: Bugfix PR template  
+- `.github/PULL_REQUEST_TEMPLATE/docs.md`: Docs PR template  
+- `.github/PULL_REQUEST_TEMPLATE/feature.md`: Feature PR template  
+- `.github/PULL_REQUEST_TEMPLATE/hotfix.md`: Hotfix PR template  
+- `.github/PULL_REQUEST_TEMPLATE/infra-chore.md`: Infrastructure/Chore PR template  
+- `.github/PULL_REQUEST_TEMPLATE/refactor.md`: Refactor PR template  
+- `.github/pull_request_template.md`: Template chooser for PRs  
+- `.github/workflows/auto-label.yml`: GitHub Action to auto-label PRs  
+- `.github/workflows/merge-gates.yml`: Merge-gate workflow  
+- `.github/workflows/roadmap-preview.yml`: Roadmap preview workflow  
+- `.github/workflows/roadmap-sync.yml`: Roadmap synchronization workflow  
+- `.gitignore`: Ignore Node, Python and environment files  
+- `AGENTS.md`: Guidelines for Forgekeeper agents  
+- `DEVELOPER_NOTES.md`: Developer notes  
+- `Dockerfile`: Build Python 3.11-slim image  
+- `Dockerfile.vllm`: CUDA-based image for vLLM  
+- `Makefile`: Build and utility targets  
+- `NVIDIA System Information 05-05-2025 12-10-55.txt`: GPU system report  
+- `README.md`: Forgekeeper project overview  
+- `Roadmap.md`: Development roadmap  
+- `backend/Dockerfile`: Build environment for Node backend  
+- `backend/package-lock.json`: Backend dependency lockfile  
+- `backend/package.json`: Backend package definition  
+- `backend/prisma/migrations/20240507120000_add_outbox/migration.sql`: Prisma migration script  
+- `backend/prisma/schema.prisma`: Prisma schema definition
+- `backend/src/crud.ts`: Prisma CRUD helper functions
+- `backend/src/index.ts`: Express application entrypoint
+- `backend/src/outboxWorker.ts`: Prisma outbox worker
+- `backend/src/resolvers.ts`: GraphQL resolvers using shared CRUD module
+- `backend/src/schema.ts`: GraphQL schema
+- `backend/tsconfig.json`: TypeScript configuration  
+- `docker-compose.yml`: Multi-service Docker orchestration  
+- `forgekeeper/__init__.py`: Forgekeeper package marker  
+- `forgekeeper/agent/__init__.py`: Agent utilities package marker  
+- `forgekeeper/agent/agent.py`: Core agent implementation  
+- `forgekeeper/agent/communication.py`: Inter-agent communication utilities  
+- `forgekeeper/agent/tool_utils.py`: Helpers for OpenAI-style tool calls  
+- `forgekeeper/app/chats/chat_session.py`: Chat session model/logic  
+- `forgekeeper/app/chats/conversation_memory.json`: Example conversation memory  
+- `forgekeeper/app/chats/distillation_controller.py`: Placeholder for attention distillation utilities  
+- `forgekeeper/app/chats/memory_bank.py`: High-level memory management  
+- `forgekeeper/app/chats/memory_scheduler.py`: Scheduled memory maintenance tools  
+- `forgekeeper/app/chats/memory_store.py`: Persist memory entries to vector store  
+- `forgekeeper/app/chats/memory_vector.py`: MongoDB-backed vector memory utilities  
+- `forgekeeper/app/chats/retrieval_manager.py`: Relevant memory retrieval helpers  
+- `forgekeeper/app/interpreter/prompt_mapper.py`: Prompt mapping utilities  
+- `forgekeeper/app/routes/chat_routes.py`: Flask chat API routes  
+- `forgekeeper/app/self/proposal_engine.py`: Self-proposal engine (placeholder)  
+- `forgekeeper/app/services/code_catcher.py`: Code retrieval utilities  
+- `forgekeeper/app/services/file_writer.py`: Write content to disk  
+- `forgekeeper/app/services/function_loader.py`: Dynamically load functions
+- `forgekeeper/app/services/llm_router.py`: Route requests to different LLM backends
+- `forgekeeper/app/services/llm_service.py`: Base LLM service helpers
+- `forgekeeper/app/services/llm_service_openai.py`: OpenAI API implementation
+- `forgekeeper/app/services/llm_service_openai_harmony.py`: Local OpenAI-Harmony model service
+- `forgekeeper/app/services/local_llm.py`: llama.cpp-based local LLM
+- `forgekeeper/app/services/prompt_formatting.py`: Build memory-aware prompts
+- `forgekeeper/app/services/reflective_ask_core.py`: Memory-aware reflective question logic
+- `forgekeeper/app/services/graphql_client.py`: GraphQL helper for conversation service
+- `forgekeeper/app/utils/harmony_parser.py`: Parse Harmony tool/action calls  
+- `forgekeeper/app/utils/json_helpers.py`: JSON helper functions  
+- `forgekeeper/app/utils/prompt_guard.py`: Prompt validation/guarding  
+- `forgekeeper/app/utils/system_prompt_builder.py`: Construct system prompts from memory  
+- `forgekeeper/change_stager.py`: Diffing and staging utilities  
+- `forgekeeper/code_editor.py`: Modify source files with a coding LLM  
+- `forgekeeper/commands.py`: Command helpers for Forgekeeper  
+- `forgekeeper/config.py`: Configuration loader  
+- `forgekeeper/deprecated/console_chat.py`: Deprecated console chat entry  
+- `forgekeeper/deprecated/console_chat_llamacpp.py`: Deprecated llama.cpp console chat  
+- `forgekeeper/deprecated/langchain_gpt4o_tester.py`: Deprecated LangChain helper for GPT-4o  
+- `forgekeeper/diff_validator.py`: Cross-file diff validation  
+- `forgekeeper/dual_llm_agent.py`: Dual-LLM agent initialization  
+- `forgekeeper/file_analyzer.py`: Source file analysis helpers  
+- `forgekeeper/summarizer/`: Repository and source file summarization utilities
+- `forgekeeper/forgekeeper_safe_update.py`: Safe update placeholder (do not edit)  
+- `forgekeeper/functions/describe_function.py`: Describe a function’s source  
+- `forgekeeper/functions/introspect_state.py`: Load conversation memory for inspection  
+- `forgekeeper/functions/kai_starter_pack_summary.json`: Example summary data  
+- `forgekeeper/functions/list_functions.py`: List available functions  
+- `forgekeeper/functions/read_file.py`: Read file contents via config-guarded API  
+- `forgekeeper/functions/remember_identity.py`: Store user identity in memory  
+- `forgekeeper/functions/remember_name.py`: Store user name in memory  
+- `forgekeeper/functions/say_hello.py`: Friendly greeting function  
+- `forgekeeper/functions/summarize_conversation.py`: Summarize stored conversation  
+- `forgekeeper/functions/write_file.py`: Write file contents via config-guarded API  
+- `forgekeeper/git_committer.py`: Commit and push updates  
+- `forgekeeper/goals.json`: Saved goals  
+- `forgekeeper/llm/__init__.py`: LLM utilities package marker  
+- `forgekeeper/llm/benchmark.py`: LLM benchmarking helpers  
+- `forgekeeper/llm/clients/__init__.py`: LLM client utilities package marker  
+- `forgekeeper/llm/clients/client.py`: OpenAI-compatible HTTP client
+- `forgekeeper/llm/clients/config.py`: Base URL resolution helpers
+- `forgekeeper/llm/clients/stream.py`: SSE streaming utilities
+- `forgekeeper/llm/llama_cpp_impl.py`: llama.cpp integration  
+- `forgekeeper/llm/llm_service_vllm.py`: vLLM wrapper for core and coder agents  
+- `forgekeeper/llm/provider.py`: Abstract LLM provider API  
+- `forgekeeper/llm/transformers_impl.py`: Transformers-based implementation  
+- `forgekeeper/llm/vllm_impl.py`: vLLM implementation  
+- `forgekeeper/load_env.py`: Environment initializer
+- `forgekeeper/logger.py`: Logging utilities
+- `forgekeeper/__main__.py`: Package entry point for the CLI
+- `forgekeeper/cli.py`: Unified command-line interface and consoles
+- `forgekeeper/main.py`: Main Forgekeeper entrypoint
+- `forgekeeper/main_llamacpp.py`: Flask server for llama.cpp backend
+- `forgekeeper/memory/__init__.py`: Memory utilities package marker  
+- `forgekeeper/memory/embeddings.py`: Embedding utilities  
+- `forgekeeper/memory/episodic.py`: Episodic memory helpers  
+- `forgekeeper/multi_agent_planner.py`: Delegate tasks to specialized agents  
+- `forgekeeper/outbox.py`: Outbox model utilities  
+- `forgekeeper/outbox_worker.py`: Outbox worker  
+- `forgekeeper/pipeline.py`: Pipeline utilities  
+- `forgekeeper/recursive_thinker.py`: Background recursive thinker  
+- `forgekeeper/roadmap_committer.py`: Commit synthesized roadmap updates  
+- `forgekeeper/roadmap_updater.py`: Draft and append roadmap updates  
+- `forgekeeper/sandbox.py`: Run diffs in isolated worktree  
+- `forgekeeper/self_review.py`: Review recent work vs. active task  
+- `forgekeeper/state.json`: Current state storage  
+- `forgekeeper/state_manager.py`: Manage state persistence  
+- `forgekeeper/task_pipeline.py`: Scheduler for tasks in `tasks.md`  
+- `forgekeeper/tasks/queue.py`: Task queue with episodic memory weighting
+- `forgekeeper/telemetry.py`: Telemetry utilities
+- `forgekeeper/user_interface.py`: Minimal UI abstraction  
+- `forgekeeper/vcs/__init__.py`: Version control utilities package marker  
+- `forgekeeper/vcs/pr_api.py`: PR API helpers  
+- `frontend/.gitignore`: Ignore frontend build artifacts  
+- `frontend/Dockerfile`: Build React app with Vite  
+- `frontend/README.md`: Frontend overview  
+- `frontend/eslint.config.js`: ESLint configuration  
+- `frontend/index.html`: Frontend HTML entry  
+- `frontend/package-lock.json`: Frontend dependency lockfile  
+- `frontend/package.json`: Frontend package definition  
+- `frontend/public/vite.svg`: SVG asset  
+- `frontend/src/App.css`: Root CSS styles  
+- `frontend/src/App.tsx`: Main React component with state/reducer  
+- `frontend/src/ContextMenu.tsx`: Context menu component  
+- `frontend/src/ConversationList.tsx`: List of conversations  
+- `frontend/src/ConversationView.tsx`: Conversation view component  
+- `frontend/src/FolderTree.tsx`: Folder tree component  
+- `frontend/src/LogPanel.tsx`: Log panel component  
+- `frontend/src/ProjectSelector.tsx`: Project selection component  
+- `frontend/src/PromptInput.tsx`: Prompt input component  
+- `frontend/src/SyncIndicator.tsx`: Sync status indicator  
+- `frontend/src/apolloClient.ts`: Apollo client setup  
+- `frontend/src/assets/react.svg`: SVG asset  
+- `frontend/src/graphql.ts`: GraphQL queries  
+- `frontend/src/index.css`: Global CSS  
+- `frontend/src/main.tsx`: React root bootstrap  
+- `frontend/src/toast.ts`: Toast message helper  
+- `frontend/src/types.ts`: Shared TypeScript interfaces  
+- `frontend/tsconfig.json`: TypeScript config for frontend  
+- `frontend/vite.config.js`: Vite configuration  
+- `goal_manager/__init__.py`: Unified goal management utilities
+- `goal_manager/delegator.py`: Delegate tasks to agents
+- `goal_manager/manager.py`: High-level goal orchestration
+- `goal_manager/planner.py`: Decompose goals into subtasks
+- `goal_manager/storage.py`: Persist goal metadata
+- `goal_manager/progress.py`: Append progress notes to goal log
+- `intent_test_log.txt`: Intent test log  
+- `mqtt_forgekeeper_listener.py`: MQTT listener for tasks  
+- `requirements.txt`: Python dependencies (e.g., GitPython)  
+- `roadmap.yaml`: Roadmap milestones configuration  
+- `scripts/fft_visualizer.py`: FFT visualization script  
+- `scripts/llm_benchmark.py`: Benchmark different LLMs  
+- `scripts/llm_smoke_test.py`: Basic LLM smoke test  
+- `scripts/run_vllm_coder.bat`: Windows batch to run vLLM coder  
+- `scripts/run_vllm_coder.sh`: Shell script to run vLLM coder  
+- `scripts/run_vllm_core.bat`: Windows batch to run vLLM core  
+- `scripts/run_vllm_core.sh`: Shell script to run vLLM core  
+- `scripts/setup_dev_env.ps1`: PowerShell dev-env setup  
+- `scripts/setup_dev_env.sh`: Shell dev-env setup  
+- `scripts/setup_docker_env.ps1`: PowerShell Docker env setup  
+- `scripts/setup_docker_env.sh`: Shell Docker env setup  
+- `scripts/setup_env.ps1`: PowerShell env setup  
+- `scripts/setup_env.sh`: Shell env setup  
+- `scripts/update_requirements.py`: Update requirements file  
+- `tasks.md`: Current task list  
+- `tests/fixtures/component.tsx`: Test React component fixture  
+- `tests/fixtures/sample.ts`: Sample TypeScript utility
+- `tests/git_committer/conftest.py`: Shared fixtures for Git committer tests
+- `tests/git_committer/test_abort_paths.py`: Commit abort tests for failing checks
+- `tests/git_committer/test_checks.py`: Check command selection tests
+- `tests/git_committer/test_diff_validation.py`: Diff validation commit tests
+- `tests/git_committer/test_push.py`: Push and changelog tests
+- `tests/test_change_stager.py`: Tests for change stager
+- `tests/test_chat_session.py`: Chat session tests
+- `tests/test_code_editor.py`: Code editor tests
+- `tests/test_commands.py`: Command tests
+- `tests/test_embeddings.py`: Embedding tests
+- `tests/test_episodic_memory.py`: Episodic memory tests
+- `tests/test_git_committer.py`: Legacy Git committer test shim
+- `tests/test_git_committer_checks.py`: Committer check tests
+- `tests/test_git_committer_sandbox.py`: Git committer sandbox tests
+- `tests/test_goal_manager.py`: Goal manager tests
+- `tests/test_harmony_tool_call.py`: Harmony tool-call tests
+- `tests/test_inline_tool_call.py`: Inline tool-call tests  
+- `tests/test_llm_benchmark.py`: LLM benchmark tests  
+- `tests/test_main_periodic_commits.py`: Periodic commit tests  
+- `tests/test_mark_done_if_merged.py`: Mark-done-if-merged tests  
+- `tests/test_memory_bank.py`: Memory bank tests  
+- `tests/test_memory_scheduler.py`: Memory scheduler tests  
+- `tests/test_multi_agent_planner.py`: Multi-agent planner tests  
+- `tests/test_openai_tool_call.py`: OpenAI tool-call tests  
+- `tests/test_outbox.py`: Outbox tests  
+- `tests/test_outbox_replay.py`: Outbox replay tests  
+- `tests/test_outbox_worker.py`: Outbox worker tests  
+- `tests/test_pr_integration.py`: PR integration tests  
+- `tests/test_pre_commit_review.py`: Pre-commit review tests  
+- `tests/test_prompt_guard.py`: Prompt guard tests  
+- `tests/test_recursive_thinker_summary.py`: Recursive thinker summary tests  
+- `tests/test_retrieval_manager.py`: Retrieval manager tests  
+- `tests/test_review_change_set.py`: Change-set review tests  
+- `tests/test_roadmap_committer.py`: Roadmap committer tests  
+- `tests/test_roadmap_sync.py`: Roadmap sync tests  
+- `tests/test_roadmap_updater.py`: Roadmap updater tests  
+- `tests/test_safe_update.py`: Safe update tests  
+- `tests/test_sandbox.py`: Sandbox tests  
+- `tests/test_self_review.py`: Self-review tests  
+- `tests/test_self_review_smoke.py`: Self-review smoke tests  
+- `tests/test_spawn_followup_task.py`: Follow-up task tests  
+- `tests/test_task_pipeline.py`: Task pipeline tests  
+- `tests/test_ts_support.py`: TypeScript support tests  
+- `tools/auto_label_pr.py`: CLI to auto-label PRs  
+- `tools/mark_done_if_merged.py`: Mark tasks done if PR merged  
+- `tools/preview_task_status.py`: Preview task statuses  
+- `tools/propose_pr.py`: Script to propose a PR  
+- `tools/roadmap_sync.py`: Sync roadmap with progress  
+- `tools/smoke_backend.py`: Backend smoke test script  
