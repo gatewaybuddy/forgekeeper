@@ -12,3 +12,5 @@ requests==2.32.4
 strawberry-graphql==0.278.1
 torch==2.8.0
 transformers==4.55.2
+tritonllm==0.1.0  # requires NVIDIA GPU with CUDA drivers
+tritonclient[http]==2.60.0  # HTTP client for Triton Inference Server
