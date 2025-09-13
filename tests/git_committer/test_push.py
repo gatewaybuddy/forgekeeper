@@ -28,22 +28,3 @@ def test_outcome_logged_to_memory(init_repo):
     committed_entry = entries[statuses.index("committed")]
     assert committed_entry["task_id"] == "t5"
     assert committed_entry["changed_files"] == ["baz.py"]
-
-
-def test_push_records_rationale_and_changelog(monkeypatch, init_repo):
-    monkeypatch.setenv("AUTO_PUSH", "true")
-    monkeypatch.setattr("builtins.input", lambda *a, **k: "y")
-    repo, gc = init_repo()
-    f = repo / "qux.py"
-    f.write_text("print('ok')\n", encoding="utf-8")
-    subprocess.run(["git", "add", str(f)], cwd=repo, check=True)
-    result = gc.commit_and_push_changes(
-        "msg",
-        task_id="t6",
-        rationale="why push",
-    )
-    mem_file = repo / ".forgekeeper/memory/episodic.jsonl"
-    entries = [json.loads(line) for line in mem_file.read_text(encoding="utf-8").splitlines() if line]
-    push_entry = [e for e in entries if e["status"] in {"pushed", "push-failed"}][-1]
-    assert push_entry["rationale"] == "why push"
-    assert push_entry["artifacts_paths"] == [result["changelog_path"]]

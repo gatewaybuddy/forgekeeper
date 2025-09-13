@@ -347,10 +347,16 @@ Vite dev server proxies `/graphql` to the backend at `http://localhost:4000` dur
 Forgekeeper includes a small console that interacts solely through the GraphQL API, allowing the running backend and LLM services to generate replies. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
-python -m forgekeeper pconsole
+python -m forgekeeper persistent-console
 ```
 
-The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See [persistent_console](persistent_console) for implementation details.
+For a transient console without history use:
+
+```bash
+python -m forgekeeper console
+```
+
+The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See `forgekeeper/cli.py` for implementation details.
 
 ### Interactive console
 
