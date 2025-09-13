@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Dict
 
-from forgekeeper.llm.llm_service_vllm import llm_core
+if os.getenv("FK_LLM_IMPL", "vllm").lower() == "triton":
+    from forgekeeper.llm.llm_service_triton import llm_core
+else:
+    from forgekeeper.llm.llm_service_vllm import llm_core
 
 from . import generator
 
