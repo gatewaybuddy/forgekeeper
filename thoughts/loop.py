@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import threading
 import time
+import os
 from typing import Dict, List
 
-from forgekeeper.llm.llm_service_vllm import llm_core
+if os.getenv("FK_LLM_IMPL", "vllm").lower() == "triton":
+    from forgekeeper.llm.llm_service_triton import llm_core
+else:
+    from forgekeeper.llm.llm_service_vllm import llm_core
 from forgekeeper.state_manager import load_state
 from goal_manager.storage import get_active_goals
 from forgekeeper.user_interface import expose

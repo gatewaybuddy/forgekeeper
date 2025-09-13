@@ -34,6 +34,17 @@ elif BACKEND == "vllm":
         prompt = verify_prompt(prompt)
         return llm_coder.ask(prompt)
 
+elif BACKEND == "triton":
+    from forgekeeper.llm.llm_service_triton import llm_core, llm_coder
+
+    def ask_llm(prompt: str):
+        prompt = verify_prompt(prompt)
+        return llm_core.ask(prompt)
+
+    def ask_coder(prompt: str):
+        prompt = verify_prompt(prompt)
+        return llm_coder.ask(prompt)
+
 elif BACKEND == "transformers":
     # Local HF Transformers fallback (CPU/GPU), suitable for CLI-only mode.
     from forgekeeper.llm.transformers_impl import TransformersLLMProvider  # type: ignore
@@ -74,6 +85,8 @@ def get_core_model_name():
         return os.getenv("OPENAI_MODEL", "gpt-4o")
     if BACKEND == "llama_cpp":
         return os.getenv("FK_MODEL_PATH", "unknown")
+    if BACKEND == "triton":
+        return os.getenv("TRITON_MODEL_CORE", "gpt-oss-20b")
     return os.getenv("VLLM_MODEL_CORE", "mistral-nemo-instruct")
 
 
@@ -82,4 +95,6 @@ def get_coder_model_name():
         return os.getenv("OPENAI_MODEL", "gpt-4o")
     if BACKEND == "llama_cpp":
         return os.getenv("FK_MODEL_PATH", "unknown")
+    if BACKEND == "triton":
+        return os.getenv("TRITON_MODEL_CODER", "codellama-13b-python")
     return os.getenv("VLLM_MODEL_CODER", "codellama-13b-python")
