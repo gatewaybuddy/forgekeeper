@@ -105,6 +105,8 @@ npm install --prefix frontend
    ```bash
    pip install -r requirements.txt
    ```
+   Triton-based providers require an NVIDIA GPU with a compatible CUDA toolkit
+   (e.g., CUDA 12+) for `tritonllm` and `tritonclient[http]`.
 3. Optional: configure local Harmony model parameters via environment variables:
    - `OPENAI_REASONING_EFFORT` – one of `low`, `medium`, or `high` (default: `medium`).
    - `LLM_TEMPERATURE` and `LLM_TOP_P` – sampling parameters passed to `llama_cpp`.

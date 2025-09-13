@@ -17,6 +17,9 @@ dependencies = [
   "paho-mqtt>=2.0.0",
   "python-dotenv>=1.0.0",
   "requests>=2.31.0",
+  # Requires an NVIDIA GPU with matching CUDA drivers for Triton-based models
+  "tritonllm>=0.1.0",
+  "tritonclient[http]>=2.45.0",
 ]
 
 [project.optional-dependencies]
