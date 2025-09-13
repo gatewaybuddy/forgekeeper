@@ -198,11 +198,11 @@ Below is a one-line summary for each tracked file in the repository, excluding t
 - `tests/test_commands.py`: Command tests
 - `tests/test_embeddings.py`: Embedding tests
 - `tests/test_episodic_memory.py`: Episodic memory tests
-- `tests/test_git_committer.py`: Legacy Git committer test shim
 - `tests/test_git_committer_checks.py`: Committer check tests
 - `tests/test_git_committer_sandbox.py`: Git committer sandbox tests
 - `tests/test_goal_manager.py`: Goal manager tests
 - `tests/test_harmony_tool_call.py`: Harmony tool-call tests
+- `tests/test_high_level_goal_manager.py`: High-level goal manager tests  
 - `tests/test_inline_tool_call.py`: Inline tool-call tests  
 - `tests/test_llm_benchmark.py`: LLM benchmark tests  
 - `tests/test_main_periodic_commits.py`: Periodic commit tests  
