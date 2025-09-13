@@ -171,7 +171,7 @@ For a timeline of recent environment and DX changes, see `DEVLOG.md`.
 
 The backend provides an outbox-backed publish path with exponential backoff and simple lag/ retry metrics on `/health`. The worker entrypoint (`npm run worker --prefix backend`) polls unsent messages and publishes them to the configured MQTT broker.
 
-### CLI‑Only Mode
+### CLI-Only Mode
 
 Run just the Python agent and skip launching the backend/frontend. This is ideal for headless self‑repair loops.
 
@@ -198,6 +198,31 @@ LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu python -m forgekeeper
 Or point to a specific model:
 
 ```bash
+# New: Python CLI entrypoint
+
+You can now install the Python package in editable mode and use the `forgekeeper` command with subcommands.
+
+Quick start:
+
+```bash
+pip install -e .   # run from the repo root (forgekeeper/)
+forgekeeper --help
+forgekeeper run                 # run the agent pipeline
+forgekeeper console             # simple interactive console
+forgekeeper persistent-console  # console backed by GraphQL state
+```
+
+Module form still works if you prefer:
+
+```bash
+python -m forgekeeper --help
+python -m forgekeeper run
+```
+
+Notes:
+- The CLI only loads the heavy pipeline when you run `run`.
+- For tiny CPU-only mode, you can also use `pwsh ./start.ps1 -CliOnly -Tiny` or set `LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu` before running.
+```
 LLM_BACKEND=transformers \
 FK_MODEL_PATH=/path/to/model \
 FK_DTYPE=bf16 \

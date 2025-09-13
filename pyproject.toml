@@ -3,15 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "forgekeeper-core"
-version = "0.1.0"
-description = "Forgekeeper core agent"
+name = "forgekeeper"
+version = "0.0.0.dev0"
+description = "Forgekeeper agent (mono-repo dev install)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }
-authors = [
-  { name = "Forgekeeper Team" }
-]
+authors = [{ name = "Forgekeeper Team" }]
 dependencies = [
   "GitPython>=3.1.40",
   "PyYAML>=6.0",
@@ -32,7 +30,7 @@ forgekeeper = "forgekeeper.cli_main:main"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-where = ["../../"]
+where = ["."]
 include = ["forgekeeper*"]
 exclude = [
   "forgekeeper.backend*",
