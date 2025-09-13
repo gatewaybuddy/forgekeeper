@@ -30,6 +30,10 @@ def get_llm() -> LLMProvider:
         from .llama_cpp_impl import LlamaCppLLMProvider
 
         return LlamaCppLLMProvider()
+    if impl == "triton":
+        from .triton_impl import TritonRTLLMProvider
+
+        return TritonRTLLMProvider()
     raise ValueError(f"Unknown FK_LLM_IMPL: {impl}")
 
 
