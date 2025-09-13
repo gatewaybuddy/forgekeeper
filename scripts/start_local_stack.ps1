@@ -4,13 +4,14 @@ param(
     [switch]$Detach,
     [string]$LogDir,
     [switch]$ResetPrefs,
-    [switch]$RequireVLLM,
-    [int]$VLLMWaitSeconds = 90,
+    [switch]$RequireLLM,
+    [int]$LLMWaitSeconds = 90,
     [switch]$RequireBackend,
     [int]$BackendWaitSeconds = 60,
     [switch]$CliOnly,
     [string]$ModelCore,
-    [string]$ModelCoder
+    [string]$ModelCoder,
+    [ValidateSet('vllm','triton')] [string]$Backend = 'vllm'
 )
 
 Set-StrictMode -Version Latest
@@ -34,8 +35,9 @@ if (Test-Path $prefsPath) {
     try {
         $prefs = Get-Content $prefsPath -Raw | ConvertFrom-Json
         if (-not $PSBoundParameters.ContainsKey('CliOnly') -and $null -ne $prefs.CliOnly) { $CliOnly = [bool]$prefs.CliOnly }
-        if (-not $PSBoundParameters.ContainsKey('RequireVLLM') -and $null -ne $prefs.RequireVLLM) { $RequireVLLM = [bool]$prefs.RequireVLLM }
-        if (-not $PSBoundParameters.ContainsKey('VLLMWaitSeconds') -and $null -ne $prefs.VLLMWaitSeconds) { $VLLMWaitSeconds = [int]$prefs.VLLMWaitSeconds }
+        if (-not $PSBoundParameters.ContainsKey('RequireLLM') -and $null -ne $prefs.RequireLLM) { $RequireLLM = [bool]$prefs.RequireLLM }
+        if (-not $PSBoundParameters.ContainsKey('LLMWaitSeconds') -and $null -ne $prefs.LLMWaitSeconds) { $LLMWaitSeconds = [int]$prefs.LLMWaitSeconds }
+        if (-not $PSBoundParameters.ContainsKey('Backend') -and $null -ne $prefs.Backend) { $Backend = $prefs.Backend }
         if (-not $PSBoundParameters.ContainsKey('RequireBackend') -and $null -ne $prefs.RequireBackend) { $RequireBackend = [bool]$prefs.RequireBackend }
         if (-not $PSBoundParameters.ContainsKey('BackendWaitSeconds') -and $null -ne $prefs.BackendWaitSeconds) { $BackendWaitSeconds = [int]$prefs.BackendWaitSeconds }
         if (-not $env:FGK_USE_INFERENCE -and $null -ne $prefs.UseInference) { $env:FGK_USE_INFERENCE = ($prefs.UseInference ? '1' : '0') }
@@ -88,8 +90,11 @@ if ($PSBoundParameters.Count -eq 0 -and -not (Test-Path $prefsPath) -and -not $e
     if (-not $CliOnly) {
         $ans = Read-Host 'Use inference gateway if available? [Y/n]'
         if ($ans -match '^[Nn]$') { $env:FGK_USE_INFERENCE = '0' } else { $env:FGK_USE_INFERENCE = '1' }
-        $ans = Read-Host 'Require vLLM health before continuing? [y/N]'
-        $RequireVLLM = ($ans -match '^[Yy]$')
+        $Backend = Read-Host 'Select LLM backend [vllm/triton] (default vllm)'
+        if (-not $Backend) { $Backend = 'vllm' }
+        if ($Backend -match '^(?i)triton$') { $Backend = 'triton' } else { $Backend = 'vllm' }
+        $ans = Read-Host 'Require LLM health before continuing? [y/N]'
+        $RequireLLM = ($ans -match '^[Yy]$')
         $ans = Read-Host 'Require backend health before continuing? [y/N]'
         $RequireBackend = ($ans -match '^[Yy]$')
     }
@@ -99,8 +104,9 @@ if ($PSBoundParameters.Count -eq 0 -and -not (Test-Path $prefsPath) -and -not $e
         $prefsObj = [ordered]@{
             CliOnly = [bool]$CliOnly
             UseInference = ([string]$env:FGK_USE_INFERENCE -ne '0')
-            RequireVLLM = [bool]$RequireVLLM
-            VLLMWaitSeconds = [int]$VLLMWaitSeconds
+            RequireLLM = [bool]$RequireLLM
+            LLMWaitSeconds = [int]$LLMWaitSeconds
+            Backend = $Backend
             RequireBackend = [bool]$RequireBackend
             BackendWaitSeconds = [int]$BackendWaitSeconds
         }
@@ -146,6 +152,7 @@ if (-not $env:FK_CORE_API_BASE) { $env:FK_CORE_API_BASE = "http://localhost:$($e
 if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BASE }
 Write-DebugLog "FK_CORE_API_BASE=$env:FK_CORE_API_BASE"
 Write-DebugLog "FK_CODER_API_BASE=$env:FK_CODER_API_BASE"
+Set-Item -Path Env:FGK_LLM_BACKEND -Value $Backend
 
 # Inference Gateway integration (skipped in CLI-only mode)
 if (-not $env:FGK_USE_INFERENCE) { $env:FGK_USE_INFERENCE = '1' }
@@ -175,9 +182,14 @@ if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
         $env:FK_API_KEY = $env:FGK_INFER_KEY
         Write-Host "Using inference gateway at $env:FGK_INFER_URL"
     } else {
-        Write-Warning "Inference gateway not available; using direct vLLM at http://localhost:$($env:VLLM_PORT_CORE)"
+        if ($Backend -eq 'triton') {
+            $fallbackUrl = if ($env:TRITON_URL) { $env:TRITON_URL } else { 'http://localhost:8000' }
+            Write-Warning "Inference gateway not available; using direct Triton at $fallbackUrl"
+        } else {
+            Write-Warning "Inference gateway not available; using direct vLLM at http://localhost:$($env:VLLM_PORT_CORE)"
+        }
     }
-    if (-not $env:VLLM_MODEL_CORE) {
+    if ($Backend -eq 'vllm' -and -not $env:VLLM_MODEL_CORE) {
         Write-Host 'Select model for VLLM_MODEL_CORE:'
         Write-Host '  [1] mistralai/Mistral-7B-Instruct'
         Write-Host '  [2] WizardLM/WizardCoder-15B-V1.0'
@@ -191,7 +203,7 @@ if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
             default { $env:VLLM_MODEL_CORE = 'mistralai/Mistral-7B-Instruct' }
         }
     }
-    if (-not $env:VLLM_MODEL_CODER) {
+    if ($Backend -eq 'vllm' -and -not $env:VLLM_MODEL_CODER) {
         $reply = Read-Host 'Use WizardCoder for coder model? [Y/n]'
         if ($reply -match '^([Yy]|)$') { $env:VLLM_MODEL_CODER = 'WizardLM/WizardCoder-15B-V1.0' } else { $env:VLLM_MODEL_CODER = $env:VLLM_MODEL_CORE }
     }
@@ -228,36 +240,68 @@ if ($Detach) {
     Write-Host "🔧 Detach mode: starting services and returning control."
     Write-Host "📝 Logs: $LogDir"
 
-    # Optionally start vLLM in detached mode as well
-    $vllmProc = $null
+    # Optionally start LLM in detached mode as well
+    $llmProc = $null
     try {
-        if (-not $env:VLLM_PORT_CORE) { $env:VLLM_PORT_CORE = '8001' }
-        if (-not $env:FK_CORE_API_BASE) { $env:FK_CORE_API_BASE = "http://localhost:$($env:VLLM_PORT_CORE)" }
-        if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BASE }
-        $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
-        $ok = $false
-        try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
-        if (-not $ok) {
-            Write-Host "⚙️  Launching vLLM core server (detached)..."
-            $vllmOut = Join-Path $LogDir 'vllm_core.out.log'
-            $vllmErr = Join-Path $LogDir 'vllm_core.err.log'
-            $vllmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
-            $initialWait = if ($RequireVLLM) { $VLLMWaitSeconds } else { [Math]::Min(10, $VLLMWaitSeconds) }
-            $deadline = (Get-Date).AddSeconds($initialWait)
-            do {
-                Start-Sleep -Seconds 2
-                try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
-            } while (-not $ok -and (Get-Date) -lt $deadline)
+        if ($Backend -eq 'triton') {
+            if (-not $env:TRITON_URL) { $env:TRITON_URL = 'http://localhost:8000' }
+            if (-not $env:TRITON_MODEL) { $env:TRITON_MODEL = 'gpt-oss-20b' }
+            $health = $env:TRITON_URL.TrimEnd('/') + '/v2/health/ready'
+            $ok = $false
+            try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
             if (-not $ok) {
-                if ($RequireVLLM) {
-                    Write-Error "❌ vLLM health check did not pass at $health; aborting due to -RequireVLLM"
-                    exit 1
+                Write-Host "⚙️  Launching Triton server (detached)..."
+                $tritonOut = Join-Path $LogDir 'triton.out.log'
+                $tritonErr = Join-Path $LogDir 'triton.err.log'
+                if (Get-Command tritonllm -ErrorAction SilentlyContinue) {
+                    $llmProc = Start-Process -FilePath 'tritonllm' -ArgumentList @('--checkpoint',$env:TRITON_MODEL) -WorkingDirectory $rootDir -RedirectStandardOutput $tritonOut -RedirectStandardError $tritonErr -WindowStyle Minimized -PassThru
                 } else {
-                    Write-Warning "⚠️ vLLM not healthy yet at $health; continuing to launch other services"
+                    $llmProc = Start-Process -FilePath $python -ArgumentList @('-m','tritonllm.gpt_oss.responses_api.serve','--checkpoint',$env:TRITON_MODEL) -WorkingDirectory $rootDir -RedirectStandardOutput $tritonOut -RedirectStandardError $tritonErr -WindowStyle Minimized -PassThru
                 }
-            } else { Write-Host "✅ vLLM is healthy at $health" }
-        } else { Write-Host "✅ vLLM already healthy at $health" }
-    } catch { Write-Warning "⚠️ vLLM pre-check failed: $($_.Exception.Message)" }
+                $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                $deadline = (Get-Date).AddSeconds($initialWait)
+                do {
+                    Start-Sleep -Seconds 2
+                    try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
+                } while (-not $ok -and (Get-Date) -lt $deadline)
+                if (-not $ok) {
+                    if ($RequireLLM) {
+                        Write-Error "❌ Triton health check did not pass at $health; aborting due to -RequireLLM"
+                        exit 1
+                    } else {
+                        Write-Warning "⚠️ Triton not healthy yet at $health; continuing to launch other services"
+                    }
+                } else { Write-Host "✅ Triton is healthy at $health" }
+            } else { Write-Host "✅ Triton already healthy at $health" }
+        } else {
+            if (-not $env:VLLM_PORT_CORE) { $env:VLLM_PORT_CORE = '8001' }
+            if (-not $env:FK_CORE_API_BASE) { $env:FK_CORE_API_BASE = "http://localhost:$($env:VLLM_PORT_CORE)" }
+            if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BASE }
+            $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
+            $ok = $false
+            try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
+            if (-not $ok) {
+                Write-Host "⚙️  Launching vLLM core server (detached)..."
+                $vllmOut = Join-Path $LogDir 'vllm_core.out.log'
+                $vllmErr = Join-Path $LogDir 'vllm_core.err.log'
+                $llmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                $deadline = (Get-Date).AddSeconds($initialWait)
+                do {
+                    Start-Sleep -Seconds 2
+                    try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
+                } while (-not $ok -and (Get-Date) -lt $deadline)
+                if (-not $ok) {
+                    if ($RequireLLM) {
+                        Write-Error "❌ vLLM health check did not pass at $health; aborting due to -RequireLLM"
+                        exit 1
+                    } else {
+                        Write-Warning "⚠️ vLLM not healthy yet at $health; continuing to launch other services"
+                    }
+                } else { Write-Host "✅ vLLM is healthy at $health" }
+            } else { Write-Host "✅ vLLM already healthy at $health" }
+        }
+    } catch { Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)" }
 
     if ($CliOnly) {
         $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
@@ -272,6 +316,7 @@ if ($Detach) {
             backendPid  = $backend.Id
             pythonPid   = $pythonProc.Id
             frontendPid = $frontend.Id
+            llmPid      = if ($llmProc) { $llmProc.Id } else { $null }
             logDir      = $LogDir
             startedAt   = (Get-Date).ToString('o')
         }
@@ -284,59 +329,90 @@ if ($Detach) {
 else {
     if ($CliOnly) { Write-Host "🚀 Starting Python agent in this window (CLI-only). Press Ctrl+C to stop." } else { Write-Host "🚀 Starting services in this window. Press Ctrl+C to stop all." }
     
-    # Ensure vLLM core server is running and optionally wait strictly
-    $vllmProc = $null
+    # Ensure selected LLM server is running and optionally wait strictly
+    $llmProc = $null
     try {
-        $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
-        $ok = $false
-        try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
-        if (-not $ok) {
-            Write-Host "⚙️  Launching vLLM core server..."
-            $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
-            $fgLogDir = Join-Path $rootDir (Join-Path 'logs' "start-fg-$ts")
-            New-Item -Force -ItemType Directory -Path $fgLogDir | Out-Null
-            $vllmOut = Join-Path $fgLogDir 'vllm_core.out.log'
-            $vllmErr = Join-Path $fgLogDir 'vllm_core.err.log'
-
-            $hasVllm = $false
-            $null = & $python -c "import vllm" 2>$null
-            if ($LASTEXITCODE -eq 0) { $hasVllm = $true }
-            $useDocker = -not $hasVllm
-            if ($useDocker -and -not (Get-Command docker -ErrorAction SilentlyContinue)) {
-                Write-Warning 'vLLM not available in Python and docker not found; cannot launch vLLM automatically.'
-            }
-
-            if ($useDocker) {
-                # Start dockerized vLLM detached; logs via docker logs
-                Write-Host '🐳 Starting dockerized vLLM (forgekeeper-vllm-core)...'
-                & pwsh -NoProfile -File (Join-Path $rootDir 'scripts/start_vllm_core_docker.ps1') | Tee-Object -FilePath $vllmOut | Out-Null
-                $vllmProc = $null  # managed by docker, not this shell
-                Write-Host '👉 View logs: docker logs -f forgekeeper-vllm-core'
-            } else {
-                # Launch local Python vLLM using the same interpreter we detected
-                $args = @('-m','vllm.entrypoints.openai.api_server','--host','0.0.0.0','--port',$env:VLLM_PORT_CORE,'--model',$env:VLLM_MODEL_CORE,'--tensor-parallel-size',($env:VLLM_TP ?? '1'),'--max-model-len',($env:VLLM_MAX_MODEL_LEN ?? '4096'),'--gpu-memory-utilization',($env:VLLM_GPU_MEMORY_UTILIZATION ?? '0.9'))
-                $vllmProc = Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
-                Write-Host "📝 vLLM logs: $vllmOut, $vllmErr"
-            }
-            $initialWait = if ($RequireVLLM) { $VLLMWaitSeconds } else { [Math]::Min(10, $VLLMWaitSeconds) }
-            $deadline = (Get-Date).AddSeconds($initialWait)
-            do {
-                Start-Sleep -Seconds 2
-                try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
-            } while (-not $ok -and (Get-Date) -lt $deadline)
+        if ($Backend -eq 'triton') {
+            if (-not $env:TRITON_URL) { $env:TRITON_URL = 'http://localhost:8000' }
+            if (-not $env:TRITON_MODEL) { $env:TRITON_MODEL = 'gpt-oss-20b' }
+            $health = $env:TRITON_URL.TrimEnd('/') + '/v2/health/ready'
+            $ok = $false
+            try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
             if (-not $ok) {
-                if ($RequireVLLM) {
-                    Write-Error "❌ vLLM health check did not pass at $health; aborting due to -RequireVLLM"
-                    exit 1
+                Write-Host "⚙️  Launching Triton server..."
+                $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+                $fgLogDir = Join-Path $rootDir (Join-Path 'logs' "start-fg-$ts")
+                New-Item -Force -ItemType Directory -Path $fgLogDir | Out-Null
+                $tritonOut = Join-Path $fgLogDir 'triton.out.log'
+                $tritonErr = Join-Path $fgLogDir 'triton.err.log'
+                if (Get-Command tritonllm -ErrorAction SilentlyContinue) {
+                    $llmProc = Start-Process -FilePath 'tritonllm' -ArgumentList @('--checkpoint',$env:TRITON_MODEL) -WorkingDirectory $rootDir -RedirectStandardOutput $tritonOut -RedirectStandardError $tritonErr -WindowStyle Minimized -PassThru
                 } else {
-                    Write-Warning "⚠️ vLLM not healthy yet at $health; continuing to launch other services"
+                    $llmProc = Start-Process -FilePath $python -ArgumentList @('-m','tritonllm.gpt_oss.responses_api.serve','--checkpoint',$env:TRITON_MODEL) -WorkingDirectory $rootDir -RedirectStandardOutput $tritonOut -RedirectStandardError $tritonErr -WindowStyle Minimized -PassThru
                 }
-            } else { Write-Host "✅ vLLM is healthy at $health" }
+                $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                $deadline = (Get-Date).AddSeconds($initialWait)
+                do {
+                    Start-Sleep -Seconds 2
+                    try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
+                } while (-not $ok -and (Get-Date) -lt $deadline)
+                if (-not $ok) {
+                    if ($RequireLLM) {
+                        Write-Error "❌ Triton health check did not pass at $health; aborting due to -RequireLLM"
+                        exit 1
+                    } else {
+                        Write-Warning "⚠️ Triton not healthy yet at $health; continuing to launch other services"
+                    }
+                } else { Write-Host "✅ Triton is healthy at $health" }
+            } else { Write-Host "✅ Triton already healthy at $health" }
         } else {
-            Write-Host "✅ vLLM already healthy at $health"
+            $health = "http://localhost:$($env:VLLM_PORT_CORE)/health"
+            $ok = $false
+            try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch {}
+            if (-not $ok) {
+                Write-Host "⚙️  Launching vLLM core server..."
+                $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+                $fgLogDir = Join-Path $rootDir (Join-Path 'logs' "start-fg-$ts")
+                New-Item -Force -ItemType Directory -Path $fgLogDir | Out-Null
+                $vllmOut = Join-Path $fgLogDir 'vllm_core.out.log'
+                $vllmErr = Join-Path $fgLogDir 'vllm_core.err.log'
+                $hasVllm = $false
+                $null = & $python -c "import vllm" 2>$null
+                if ($LASTEXITCODE -eq 0) { $hasVllm = $true }
+                $useDocker = -not $hasVllm
+                if ($useDocker -and -not (Get-Command docker -ErrorAction SilentlyContinue)) {
+                    Write-Warning 'vLLM not available in Python and docker not found; cannot launch vLLM automatically.'
+                }
+                if ($useDocker) {
+                    Write-Host '🐳 Starting dockerized vLLM (forgekeeper-vllm-core)...'
+                    & pwsh -NoProfile -File (Join-Path $rootDir 'scripts/start_vllm_core_docker.ps1') | Tee-Object -FilePath $vllmOut | Out-Null
+                    $llmProc = $null  # managed by docker, not this shell
+                    Write-Host '👉 View logs: docker logs -f forgekeeper-vllm-core'
+                } else {
+                    $args = @('-m','vllm.entrypoints.openai.api_server','--host','0.0.0.0','--port',$env:VLLM_PORT_CORE,'--model',$env:VLLM_MODEL_CORE,'--tensor-parallel-size',($env:VLLM_TP ?? '1'),'--max-model-len',($env:VLLM_MAX_MODEL_LEN ?? '4096'),'--gpu-memory-utilization',($env:VLLM_GPU_MEMORY_UTILIZATION ?? '0.9'))
+                    $llmProc = Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                    Write-Host "📝 vLLM logs: $vllmOut, $vllmErr"
+                }
+                $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                $deadline = (Get-Date).AddSeconds($initialWait)
+                do {
+                    Start-Sleep -Seconds 2
+                    try { $resp = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $health; $ok = $resp.StatusCode -eq 200 } catch { $ok = $false }
+                } while (-not $ok -and (Get-Date) -lt $deadline)
+                if (-not $ok) {
+                    if ($RequireLLM) {
+                        Write-Error "❌ vLLM health check did not pass at $health; aborting due to -RequireLLM"
+                        exit 1
+                    } else {
+                        Write-Warning "⚠️ vLLM not healthy yet at $health; continuing to launch other services"
+                    }
+                } else { Write-Host "✅ vLLM is healthy at $health" }
+            } else {
+                Write-Host "✅ vLLM already healthy at $health"
+            }
         }
     } catch {
-        Write-Warning "⚠️ vLLM pre-check failed: $($_.Exception.Message)"
+        Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)"
     }
     if ($CliOnly) {
         $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
@@ -373,7 +449,7 @@ else {
         Write-Host "[32mBackend health:[0m $backendHealth"
 
         $processes = @()
-        if ($vllmProc -and -not $vllmProc.HasExited) { $processes += $vllmProc }
+        if ($llmProc -and -not $llmProc.HasExited) { $processes += $llmProc }
         $processes += @($backend, $pythonProc, $frontend) | Where-Object { $_ -and -not $_.HasExited }
     }
 
