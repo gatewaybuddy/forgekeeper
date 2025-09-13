@@ -553,6 +553,37 @@ Verify the backend with the smoke-test CLI:
 python tools/smoke_backend.py
 ```
 
+### Triton Backend
+
+Use the experimental `triton` implementation to run GPT‑OSS‑20B with a
+lightweight Triton runtime.
+
+1. Install dependencies and download the model:
+   ```bash
+   pip install tritonllm tritonclient[http] huggingface_hub
+   huggingface-cli download openai/gpt-oss-20b --local-dir /path/to/gpt-oss-20b
+   ```
+2. Launch the Triton responses API server (single‑GPU example):
+   ```bash
+   torchrun --nproc-per-node=1 -m tritonllm.gpt_oss.responses_api.serve \\
+     --checkpoint /path/to/gpt-oss-20b --port 8000
+   ```
+3. Configure Forgekeeper to use the Triton backend:
+   ```bash
+   export FK_LLM_IMPL=triton
+   export TRITON_MODEL=/path/to/gpt-oss-20b
+   export TRITON_CHECKPOINT=/path/to/gpt-oss-20b
+   # Optional overrides
+   export TRITON_URL=http://localhost:8000
+   export TRITON_DEVICE=cuda:0
+   export TRITON_CONTEXT_LENGTH=2048
+   export TRITON_INPUT_NAME=INPUT_0
+   export TRITON_OUTPUT_NAME=OUTPUT_0
+   ```
+
+See [docs/inference_triton.md](docs/inference_triton.md) for GPU
+requirements, troubleshooting tips, and multi‑GPU examples.
+
 ### llama.cpp Backend
 
 Run Forgekeeper on systems without vLLM by using the [llama.cpp](https://github.com/ggerganov/llama.cpp) bindings.
