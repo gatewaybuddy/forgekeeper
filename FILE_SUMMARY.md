@@ -188,9 +188,8 @@ Below is a one-line summary for each tracked file in the repository, excluding t
 - `tests/fixtures/component.tsx`: Test React component fixture  
 - `tests/fixtures/sample.ts`: Sample TypeScript utility
 - `tests/git_committer/conftest.py`: Shared fixtures for Git committer tests
-- `tests/git_committer/test_abort_paths.py`: Commit abort tests for failing checks
+- `tests/git_committer/test_abort_paths.py`: Git committer abort path tests
 - `tests/git_committer/test_checks.py`: Check command selection tests
-- `tests/git_committer/test_diff_validation.py`: Diff validation commit tests
 - `tests/git_committer/test_push.py`: Push and changelog tests
 - `tests/test_change_stager.py`: Tests for change stager
 - `tests/test_chat_session.py`: Chat session tests
