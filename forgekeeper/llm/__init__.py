@@ -2,6 +2,7 @@ import os
 
 from forgekeeper.config import DEFAULT_TINY_MODEL, USE_TINY_MODEL
 from .provider import LLMProvider
+from .triton_impl import TritonRTLLMProvider
 
 
 def get_llm() -> LLMProvider:
@@ -30,11 +31,9 @@ def get_llm() -> LLMProvider:
         from .llama_cpp_impl import LlamaCppLLMProvider
 
         return LlamaCppLLMProvider()
-    if impl == "triton":
-        from .triton_impl import TritonRTLLMProvider
-
+    elif impl == "triton":
         return TritonRTLLMProvider()
     raise ValueError(f"Unknown FK_LLM_IMPL: {impl}")
 
 
-__all__ = ["LLMProvider", "get_llm"]
+__all__ = ["LLMProvider", "get_llm", "TritonRTLLMProvider"]
