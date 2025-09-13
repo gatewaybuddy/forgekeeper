@@ -51,7 +51,8 @@ models/
 venv/
 .python-version
 .pytest_cache/
-.egg-info/
+*.egg-info/
+forgekeeper/forgekeeper.egg-info/
 .mypy_cache/
 .ruff_cache/
 .tox/

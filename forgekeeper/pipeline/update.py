@@ -45,7 +45,10 @@ def run_update_pipeline(task_prompt: str, state: dict) -> bool:
     """
     log.info("Summarizing repository")
     summaries = summarize_repository()
-    summaries_path = MODULE_DIR / "summaries.json"
+    # Write summaries to the runtime data directory (gitignored)
+    summaries_dir = Path(".forgekeeper")
+    summaries_dir.mkdir(exist_ok=True)
+    summaries_path = summaries_dir / "summaries.json"
     summaries_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
 
     log.info("Analyzing repository for task relevance")

@@ -106,10 +106,10 @@ epics:
     milestones:
       - id: FK-351
         title: Compose profiles for modular deploys (P1)
-        status: todo
+        status: done
       - id: FK-352
         title: Gateway registry + weighted routing (P1)
-        status: todo
+        status: done
       - id: FK-353
         title: Extract forgekeeper-core and client packages (P1)
         status: todo
