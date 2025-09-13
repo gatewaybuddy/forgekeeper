@@ -71,6 +71,11 @@ def _build_llms(kind: str, model: str | None) -> tuple:
         from forgekeeper_v2.orchestrator.adapters.llm_openai import LLMOpenAI
         m = model or os.environ.get("FK_OPENAI_MODEL", "gpt-4o-mini")
         return (LLMOpenAI(m, name="openai-A"), LLMOpenAI(m, name="openai-B"))
+    if kind == "triton":
+        from forgekeeper_v2.orchestrator.adapters import LLMTriton
+        url = os.environ.get("TRITON_URL")
+        mdl = model or os.environ.get("TRITON_MODEL", "oss-20b")
+        return (LLMTriton(url=url, model=mdl), LLMTriton(url=url, model=mdl))
     else:
         from forgekeeper_v2.orchestrator.adapters import LLMMock
         return (LLMMock("Strategist"), LLMMock("Implementer"))
@@ -101,13 +106,13 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
 
     s_demo = sub.add_parser("demo", help="Run duet demo (LLM mocks + tools + server)")
     s_demo.add_argument("--duration", type=float, default=8.0, help="Seconds to run")
-    s_demo.add_argument("--llm", choices=["mock", "openai"], default="mock")
+    s_demo.add_argument("--llm", choices=["mock", "openai", "triton"], default="mock")
     s_demo.add_argument("--model", default=None)
 
     s_run = sub.add_parser("run", help="Run orchestrator loop")
     s_run.add_argument("--duration", type=float, default=0.0, help="Seconds (0=forever)")
     s_run.add_argument("--no-tools", action="store_true", help="Disable tools")
-    s_run.add_argument("--llm", choices=["mock", "openai"], default="mock")
+    s_run.add_argument("--llm", choices=["mock", "openai", "triton"], default="mock")
     s_run.add_argument("--model", default=None)
 
     s_srv = sub.add_parser("server", help="Run UI server only")
