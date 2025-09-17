@@ -5,14 +5,15 @@ from pathlib import Path
 
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover
+    # Prefer local v2 sources in mono-repo to avoid stale installed copies
+    root = Path(__file__).resolve().parents[2]
+    v2_path = root / "forgekeeper-v2"
+    if v2_path.exists():
+        sys.path.insert(0, str(v2_path))
     try:
         from forgekeeper_v2.cli import main as v2_main
     except Exception:
-        # Local dev fallback: add mono-repo v2 package path if not installed
-        root = Path(__file__).resolve().parents[2]
-        v2_path = root / "forgekeeper-v2"
-        if v2_path.exists():
-            sys.path.insert(0, str(v2_path))
+        # Final fallback: try import again without modifying path
         from forgekeeper_v2.cli import main as v2_main  # type: ignore
 
     if argv is None:

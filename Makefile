@@ -42,6 +42,11 @@ build-infer:
 test-memory:
 	pytest tests/memory_agentic -q
 
+.PHONY: v2-dev-triton
+v2-dev-triton:
+	# Start TritonLLM gateway, v2 UI, and orchestrator (Windows PowerShell required)
+	pwsh forgekeeper/scripts/start_v2_with_triton.ps1
+
 # Inference stack
 .PHONY: inference-up inference-down inference-logs inference-rebuild gateway-dev sanity load-test test-inference
 

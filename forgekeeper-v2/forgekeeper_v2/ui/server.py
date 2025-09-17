@@ -62,7 +62,7 @@ def create_app(recorder_path: str | Path = ".forgekeeper/events.jsonl") -> FastA
 <h1>Forgekeeper v2 – Events</h1>
 <div id="status"><span id="live" class="live"></span><span id="wm">wm=0ms</span></div>
 <div id="log"></div>
-<div id="controls"><input id="inp" placeholder="Type to interrupt… (demo only)"/></div>
+<div id="controls" style="display:flex; gap:8px; align-items:center;"><input id="inp" placeholder="Type to interrupt and press Enter or Send"/><button id="sendBtn" style="padding:8px 12px;">Send</button><small id="msg" style="opacity:.6"></small></div>
 <script>
   const log = document.getElementById('log');
   const live = document.getElementById('live');
@@ -76,14 +76,36 @@ def create_app(recorder_path: str | Path = ".forgekeeper/events.jsonl") -> FastA
       wmEl.textContent = `wm=${ev.wm_event_time_ms}ms`;
       const div = document.createElement('div');
       div.className = 'ev ' + (ev.role === 'tool' ? 'tool' : ev.role === 'user' ? 'user' : 'bot');
-      div.innerHTML = `<small>#${ev.seq} [${ev.role}/${ev.stream}] <span class=\"acts\">${ev.act}</span> <span class=\"wm\">wm=${ev.wm_event_time_ms}</span></small>\n` +
-                      (ev.text || '');
+      div.innerHTML = `<small>#${ev.seq} [${ev.role}/${ev.stream}] <span class=\"acts\">${ev.act}</span> <span class=\"wm\">wm=${ev.wm_event_time_ms}</span></small>\n` + (ev.text || '');
       log.appendChild(div);
       window.scrollTo(0, document.body.scrollHeight);
     } catch {}
   };
-  document.getElementById('inp').addEventListener('input', (e) => {
-  });
+
+  const inp = document.getElementById('inp');
+  const sendBtn = document.getElementById('sendBtn');
+  const msg = document.getElementById('msg');
+  async function sendText() {
+    const text = inp.value.trim();
+    if (!text) return;
+    msg.textContent = 'sending...';
+    try {
+      await fetch('/input', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
+      const div = document.createElement('div');
+      div.className = 'ev user';
+      div.innerHTML = `<small>[user/ui] <span class=\"acts\">INPUT</span></small>\n` + text;
+      log.appendChild(div);
+      window.scrollTo(0, document.body.scrollHeight);
+      inp.value = '';
+      msg.textContent = 'sent';
+      setTimeout(()=>{ msg.textContent=''; }, 800);
+    } catch (err) {
+      console.warn('input failed', err);
+      msg.textContent = 'error sending';
+    }
+  }
+  inp.addEventListener('keydown', async (e) => { if (e.key === 'Enter') { e.preventDefault(); await sendText(); } });
+  sendBtn.addEventListener('click', async () => { await sendText(); });
 </script>
 """
         return HTMLResponse(content=html)
@@ -92,3 +114,9 @@ def create_app(recorder_path: str | Path = ".forgekeeper/events.jsonl") -> FastA
 
 
 app = create_app()
+
+
+
+
+
+
