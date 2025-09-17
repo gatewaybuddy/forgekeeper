@@ -49,7 +49,9 @@ class TriggerPolicy:
 
 @dataclass
 class FloorPolicy:
-    slice_ms: int = 1000
+    # Shorter slices improve responsiveness and ensure both bots speak
+    # during brief runs (e.g., 2s smoke tests).
+    slice_ms: int = 600
     _last: str = "botB"
     user_active_deadline: float = 0.0
 
@@ -64,4 +66,3 @@ class FloorPolicy:
             return "user"
         self._last = "botA" if self._last == "botB" else "botB"
         return self._last
-

@@ -1,12 +1,24 @@
 from __future__ import annotations
 
-
-def main() -> None:  # pragma: no cover - CLI entry point
-    # Dispatch to the CLI with subcommands (run/console/persistent-console)
-    from .cli_main import main as _cli_main
-
-    _cli_main()
+import sys
+from pathlib import Path
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry point
+def main(argv: list[str] | None = None) -> None:  # pragma: no cover
+    try:
+        from forgekeeper_v2.cli import main as v2_main
+    except Exception:
+        # Local dev fallback: add mono-repo v2 package path if not installed
+        root = Path(__file__).resolve().parents[2]
+        v2_path = root / "forgekeeper-v2"
+        if v2_path.exists():
+            sys.path.insert(0, str(v2_path))
+        from forgekeeper_v2.cli import main as v2_main  # type: ignore
+
+    if argv is None:
+        argv = sys.argv[1:]
+    v2_main(argv)
+
+
+if __name__ == "__main__":  # pragma: no cover
     main()

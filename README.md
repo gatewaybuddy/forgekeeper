@@ -1,5 +1,7 @@
 # Forgekeeper
 
+Note: Forgekeeper v2 is now the default Python runtime. The previous Python core has been moved to `legacy/forgekeeper_v1`. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints invoke the v2 orchestrator by default.
+
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
@@ -202,16 +204,17 @@ Or point to a specific model:
 ```bash
 # New: Python CLI entrypoint
 
-You can now install the Python package in editable mode and use the `forgekeeper` command with subcommands.
+You can now install the Python package in editable mode and use the `forgekeeper` command with subcommands (v2 orchestrator).
 
 Quick start:
 
 ```bash
 pip install -e .   # run from the repo root (forgekeeper/)
 forgekeeper --help
-forgekeeper run                 # run the agent pipeline
-forgekeeper console             # simple interactive console
-forgekeeper persistent-console  # console backed by GraphQL state
+forgekeeper demo                # run duet demo (LLM mocks + UI)
+forgekeeper run                 # run orchestrator loop
+forgekeeper server              # run UI server only
+forgekeeper check --install-yes # check/install missing Python deps
 ```
 
 Module form still works if you prefer:
@@ -222,7 +225,7 @@ python -m forgekeeper run
 ```
 
 Notes:
-- The CLI only loads the heavy pipeline when you run `run`.
+- The CLI uses the v2 orchestrator. Use `run` to start the loop, or `demo` for a short demo with mocked LLMs.
 - For tiny CPU-only mode, you can also use `pwsh ./start.ps1 -CliOnly -Tiny` or set `LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu` before running.
 ```
 LLM_BACKEND=transformers \
@@ -369,11 +372,12 @@ npm run dev --prefix frontend
 
 Vite dev server proxies `/graphql` to the backend at `http://localhost:4000` during development, so the app works at `http://localhost:5173/` without extra config.
 
-### Persistent CLI
+### Persistent CLI [Legacy v1]
 
 Forgekeeper includes a small console that interacts solely through the GraphQL API, allowing the running backend and LLM services to generate replies. Start the GraphQL service and backend first, then launch the CLI:
 
 ```bash
+# Legacy v1 console (kept for reference)
 python -m forgekeeper persistent-console
 ```
 
@@ -385,15 +389,16 @@ python -m forgekeeper console
 
 The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See `forgekeeper/cli.py` for implementation details.
 
-### Interactive console
+### Interactive console [Legacy v1]
 
 For a simple console that persists chats via GraphQL, run:
 
 ```bash
+# Legacy v1 console (kept for reference)
 python -m forgekeeper console
 ```
 
-### Dual LLM agent CLI
+### Dual LLM agent CLI [Legacy v1]
 
 An experimental console that routes prompts through the Core and Coder models directly is available under `scripts/dual_llm_agent.py`:
 
@@ -809,6 +814,26 @@ This guide is intended to streamline installation and clarify component interact
 - Open a development console:
   - Persistent CLI (GraphQL-backed): `python -m forgekeeper pconsole`
   - Simple console: `python -m forgekeeper console`
+
+## Orchestrator (v2) Tests
+
+When running the v2 orchestrator tests, ensure the local sources are used rather than an older installed copy:
+
+- Option 1 (recommended): change into the v2 package directory and run pytest:
+  
+  ```bash
+  cd forgekeeper-v2
+  pytest -q
+  ```
+
+- Option 2: run tests from the repo root (v2 is included in the mono-repo package):
+  
+  ```bash
+  pip install -e .
+  pytest -q forgekeeper-v2/tests
+  ```
+
+This avoids import-path confusion when a prior version is present in a virtual environment.
 
 ## Agentic Memory
 

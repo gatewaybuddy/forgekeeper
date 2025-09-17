@@ -16,7 +16,7 @@ async def main() -> None:
     tools = [ToolShell(wm), ToolPowerShell(wm)]
     orch = Orchestrator(tools=tools)
 
-    app = create_app(Path(".forgekeeper-v2/events.jsonl"))
+    app = create_app(Path(".forgekeeper/events.jsonl"))
     config = uvicorn.Config(app=app, host="127.0.0.1", port=8787, log_level="warning")
     server = uvicorn.Server(config)
 
@@ -43,4 +43,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

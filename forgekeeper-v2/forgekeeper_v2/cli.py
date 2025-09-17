@@ -86,7 +86,7 @@ async def _run_demo(duration: float, llm: str = "mock", model: str | None = None
     tools = [ToolShell(wm), ToolPowerShell(wm)]
     a, b = _build_llms(llm, model)
     orch = Orchestrator(tools=tools, llm_a=a, llm_b=b)
-    app = create_app(Path(".forgekeeper-v2/events.jsonl"))
+    app = create_app(Path(".forgekeeper/events.jsonl"))
     config = uvicorn.Config(app=app, host="127.0.0.1", port=8787, log_level="info")
     server = uvicorn.Server(config)
 
@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
         code = do_check(install_yes=args.install_yes)
         raise SystemExit(code)
     if args.cmd == "server":
-        app = create_app(Path(".forgekeeper-v2/events.jsonl"))
+        app = create_app(Path(".forgekeeper/events.jsonl"))
         uvicorn.run(app, host=args.host, port=args.port)
         return
     if args.cmd == "demo":
