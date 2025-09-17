@@ -8,7 +8,7 @@ from fastapi.responses import PlainTextResponse, HTMLResponse
 from forgekeeper_v2.orchestrator.events import JsonlRecorder
 
 
-def create_app(recorder_path: str | Path = ".forgekeeper-v2/events.jsonl") -> FastAPI:
+def create_app(recorder_path: str | Path = ".forgekeeper/events.jsonl") -> FastAPI:
     app = FastAPI()
     recorder = JsonlRecorder(recorder_path)
 
@@ -31,7 +31,7 @@ def create_app(recorder_path: str | Path = ".forgekeeper-v2/events.jsonl") -> Fa
         if not text:
             return PlainTextResponse("ignored", status_code=204)
         from forgekeeper_v2.orchestrator.events import Event, Watermark, JsonlRecorder as JR
-        inbox = JR(Path(".forgekeeper-v2/inbox_user.jsonl"))
+        inbox = JR(Path(".forgekeeper/inbox_user.jsonl"))
         ev = Event(seq=0, wm_event_time_ms=Watermark.now_ms(), role="user", stream="ui", act="INPUT", text=text)
         await inbox.append(ev)
         return PlainTextResponse("ok")

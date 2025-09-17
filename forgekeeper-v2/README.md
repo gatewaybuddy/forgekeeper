@@ -1,4 +1,4 @@
-# Forgekeeper v2 – Thoughtworld Orchestrator
+# Forgekeeper v2 - Thoughtworld Orchestrator
 
 Forgekeeper v2 is a continuous inner-dialogue runtime that coordinates two LLM agents (Strategist and Implementer), live user interrupts, and multiple tool streams (including PowerShell) as first-class conversational participants. The shared "inner mind" is an append-only JSONL event bus with watermarks, speech-acts, and sequencing.
 
@@ -11,6 +11,8 @@ Highlights:
 - Local FastAPI server with WebSocket event stream and a simple React UI scaffolding
 - Demo script and tests using mock LLMs; real PowerShell on Windows when available
 
+Note: In the mono-repo, v2 is the default runtime. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints route to this orchestrator.
+
 ## Quickstart
 
 Prereqs: Python 3.11+, `pip`, and optionally PowerShell (`powershell.exe` on Windows or `pwsh` on macOS/Linux).
@@ -18,13 +20,16 @@ Prereqs: Python 3.11+, `pip`, and optionally PowerShell (`powershell.exe` on Win
 1) Install deps (editable):
 
 ```bash
-pip install -e ./forgekeeper-v2
+# From mono-repo root (recommended)
+pip install -e .
+# Or install just this package when developing standalone:
+# pip install -e ./forgekeeper-v2
 ```
 
 2) Run via CLI (recommended):
 
 ```bash
-forgekeeper-v2 demo --duration 8
+forgekeeper demo --duration 8
 ```
 
 or run the demo module directly:
@@ -36,7 +41,7 @@ python forgekeeper-v2/scripts/demo_duet.py
 3) Check and install missing deps on demand:
 
 ```bash
-forgekeeper-v2 check --install-yes
+forgekeeper check --install-yes
 ```
 
 4) Run tests:
@@ -48,6 +53,8 @@ pytest -q forgekeeper-v2/tests
 Notes:
 - On Windows, the PowerShell adapter uses `powershell.exe -NoLogo -NoProfile`.
 - On macOS/Linux, it attempts `pwsh -NoLogo -NoProfile`, falls back to `/bin/sh` if not available.
+
+Testing tip: if you see imports resolving to an older installed copy, either run tests from within the `forgekeeper-v2/` directory or reinstall in editable mode from the mono-repo root (`pip install -e .`) so the local sources are used.
 
 ## Package Entrypoints
 
@@ -65,4 +72,3 @@ Notes:
 ## CI
 
 See `.github/workflows/forgekeeper-v2.yml` for a minimal pytest + CLI workflow.
-

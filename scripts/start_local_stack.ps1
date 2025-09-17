@@ -183,6 +183,40 @@ if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
         Write-Host "Using inference gateway at $env:FGK_INFER_URL"
     } else {
         if ($Backend -eq 'triton') {
+            # Prefer OpenAI-compatible TritonLLM gateway when TRITONLLM_URL is provided
+            if ($env:TRITONLLM_URL) {
+                $gwHealth = ($env:TRITONLLM_URL.TrimEnd('/')) + '/v1/chat/completions'
+                $okGw = $false
+                try {
+                    $payload = '{"model":"oss-20b","messages":[{"role":"user","content":"ping"}],"stream":false,"max_tokens":1}'
+                    $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $gwHealth -Method Post -ContentType 'application/json' -Body $payload
+                    $okGw = $r.StatusCode -eq 200
+                } catch { $okGw = $false }
+                if (-not $okGw) {
+                    if (Get-Command docker -ErrorAction SilentlyContinue) {
+                        $composePath = Join-Path (Split-Path $rootDir -Parent) 'forgekeeper-v2/docker-compose.tritonllm.yml'
+                        if (Test-Path $composePath) {
+                            if (-not $env:HOST_MODEL_DIR) { $env:HOST_MODEL_DIR = (Resolve-Path (Join-Path (Split-Path $composePath -Parent) 'models')).Path }
+                            if (-not $env:CHECKPOINT) { $env:CHECKPOINT = '/models/gpt-oss-20b' }
+                            Write-Host '??  Starting TritonLLM gateway via docker compose...'
+                            & docker compose -f $composePath up -d | Out-Null
+                            $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                            $deadline = (Get-Date).AddSeconds($initialWait)
+                            do {
+                                Start-Sleep -Seconds 2
+                                try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $gwHealth -Method Post -ContentType 'application/json' -Body $payload; $okGw = $r.StatusCode -eq 200 } catch { $okGw = $false }
+                            } while (-not $okGw -and (Get-Date) -lt $deadline)
+                            if ($okGw) { Write-Host "? TritonLLM gateway healthy at $gwHealth" }
+                            elseif ($RequireLLM) { Write-Error "? TritonLLM gateway not healthy at $gwHealth; aborting"; exit 1 }
+                            else { Write-Warning "?? TritonLLM gateway not healthy at $gwHealth; continuing" }
+                        } else {
+                            Write-Warning "docker-compose.tritonllm.yml not found at $composePath; skipping gateway auto-start."
+                        }
+                    } else {
+                        Write-Warning 'Docker not found; cannot auto-start TritonLLM gateway.'
+                    }
+                } else { Write-Host "? TritonLLM gateway healthy at $gwHealth" }
+            }
             $fallbackUrl = if ($env:TRITON_URL) { $env:TRITON_URL } else { 'http://localhost:8000' }
             Write-Warning "Inference gateway not available; using direct Triton at $fallbackUrl"
         } else {
@@ -244,6 +278,33 @@ if ($Detach) {
     $llmProc = $null
     try {
         if ($Backend -eq 'triton') {
+            if ($env:TRITONLLM_URL) {
+                $gwHealth = ($env:TRITONLLM_URL.TrimEnd('/')) + '/v1/chat/completions'
+                $okGw = $false
+                try {
+                    $payload = '{"model":"oss-20b","messages":[{"role":"user","content":"ping"}],"stream":false,"max_tokens":1}'
+                    $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $gwHealth -Method Post -ContentType 'application/json' -Body $payload
+                    $okGw = $r.StatusCode -eq 200
+                } catch { $okGw = $false }
+                if (-not $okGw -and (Get-Command docker -ErrorAction SilentlyContinue)) {
+                    $composePath = Join-Path (Split-Path $rootDir -Parent) 'forgekeeper-v2/docker-compose.tritonllm.yml'
+                    if (Test-Path $composePath) {
+                        if (-not $env:HOST_MODEL_DIR) { $env:HOST_MODEL_DIR = (Resolve-Path (Join-Path (Split-Path $composePath -Parent) 'models')).Path }
+                        if (-not $env:CHECKPOINT) { $env:CHECKPOINT = '/models/gpt-oss-20b' }
+                        Write-Host '??  Starting TritonLLM gateway via docker compose (detached)...'
+                        & docker compose -f $composePath up -d | Out-Null
+                        $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
+                        $deadline = (Get-Date).AddSeconds($initialWait)
+                        do {
+                            Start-Sleep -Seconds 2
+                            try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $gwHealth -Method Post -ContentType 'application/json' -Body $payload; $okGw = $r.StatusCode -eq 200 } catch { $okGw = $false }
+                        } while (-not $okGw -and (Get-Date) -lt $deadline)
+                        if ($okGw) { Write-Host "? TritonLLM gateway healthy at $gwHealth" }
+                        elseif ($RequireLLM) { Write-Error "? TritonLLM gateway not healthy at $gwHealth; aborting"; exit 1 }
+                        else { Write-Warning "?? TritonLLM gateway not healthy at $gwHealth; continuing" }
+                    }
+                }
+            }
             if (-not $env:TRITON_URL) { $env:TRITON_URL = 'http://localhost:8000' }
             if (-not $env:TRITON_MODEL) { $env:TRITON_MODEL = 'gpt-oss-20b' }
             $health = $env:TRITON_URL.TrimEnd('/') + '/v2/health/ready'

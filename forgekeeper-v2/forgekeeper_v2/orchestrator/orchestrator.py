@@ -18,7 +18,7 @@ def _estimate_tokens(text: str) -> int:
 class Orchestrator:
     def __init__(
         self,
-        recorder_path: Path | str = ".forgekeeper-v2/events.jsonl",
+        recorder_path: Path | str = ".forgekeeper/events.jsonl",
         llm_a: Optional[LLMBase] = None,
         llm_b: Optional[LLMBase] = None,
         tools: Optional[list[ToolBase]] = None,
@@ -26,7 +26,7 @@ class Orchestrator:
         self.wm = Watermark(interval_ms=500)
         self.recorder = JsonlRecorder(recorder_path)
         self.buffers = Buffers(maxlen=2000)
-        self.facts = FactsStore(Path(".forgekeeper-v2/facts.json"))
+        self.facts = FactsStore(Path(".forgekeeper/facts.json"))
         self.seq = 0
         self.llm_a = llm_a or LLMMock("Strategist")
         self.llm_b = llm_b or LLMMock("Implementer")
@@ -106,11 +106,22 @@ class Orchestrator:
 
     async def run(self, duration_s: Optional[float] = None) -> None:
         await self.ingest("user", "orchestrator:start", "INPUT", stream="system")
+        # Warm-up before any background tasks that may mark user activity
+        try:
+            await self._llm_turn("botA", self.llm_a, self.trig_a)
+            await self._llm_turn("botB", self.llm_b, self.trig_b)
+            await self.ingest("user", "warmup-complete", "INPUT", stream="system")
+        except Exception as e:
+            try:
+                await self.ingest("user", f"warmup-error: {e}", "INPUT", stream="system")
+            except Exception:
+                pass
+
         tool_tasks = await self.start_tools()
         inbox_task: Optional[asyncio.Task[Any]] = None
         try:
             from forgekeeper_v2.orchestrator.events import JsonlRecorder as JR, Event as _E
-            inbox = JR(Path(".forgekeeper-v2/inbox_user.jsonl"))
+            inbox = JR(Path(".forgekeeper/inbox_user.jsonl"))
             async def _pump_inbox() -> None:
                 async for ev in inbox.tail(start_offset=None):
                     try:

@@ -7,7 +7,7 @@ name = "forgekeeper"
 version = "0.0.0.dev0"
 description = "Forgekeeper agent (mono-repo dev install)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "Proprietary" }
 authors = [{ name = "Forgekeeper Team" }]
 dependencies = [
@@ -17,17 +17,15 @@ dependencies = [
   "paho-mqtt>=2.0.0",
   "python-dotenv>=1.0.0",
   "requests>=2.31.0",
-  # Requires an NVIDIA GPU with matching CUDA drivers for Triton-based models
-  "tritonllm>=0.1.0",
-  "tritonclient[http]>=2.45.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
 transformers = ["transformers>=4.44.0", "torch"]
+triton = ["tritonllm>=0.1.0", "tritonclient[http]>=2.45.0"]
 
 [project.scripts]
-forgekeeper = "forgekeeper.cli_main:main"
+forgekeeper = "forgekeeper.__main__:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -38,5 +36,6 @@ include = ["forgekeeper*"]
 exclude = [
   "forgekeeper.backend*",
   "forgekeeper.frontend*",
+  "forgekeeper_v1*",
 ]
 
