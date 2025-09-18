@@ -35,10 +35,11 @@ def main() -> int:
     try:
         if args.mode == 'http':
             try:
+                import numpy as np  # type: ignore
                 import tritonclient.http as httpclient  # type: ignore
             except Exception as e:
-                print(f"ERROR: tritonclient[http] not installed: {e}")
-                print("Tip: pip install 'tritonclient[http]'")
+                print(f"ERROR: missing dependency for HTTP mode: {e}")
+                print("Tip: pip install numpy 'tritonclient[http]'")
                 return 2
 
             url = f"http://{args.host}:{args.http_port}"
@@ -46,15 +47,25 @@ def main() -> int:
             if not cli.is_server_live():
                 print(f"ERROR: Triton HTTP server not live at {url}")
                 return 3
-            print("TRITON_HTTP_OK")
-            print("Note: model invocation not implemented in planning stub.")
+
+            # Build request for oss_gpt_20b python backend
+            prompt = args.prompt or "Say hello."
+            infer_input = httpclient.InferInput("PROMPT", [1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([prompt.encode('utf-8')], dtype=object))
+            output = httpclient.InferRequestedOutput("TEXT", binary_data=False)
+            resp = cli.infer(model_name="oss_gpt_20b", inputs=[infer_input], outputs=[output])
+            out = resp.as_numpy("TEXT")
+            text = out[0].decode("utf-8", errors="ignore") if out is not None else ""
+            print(text)
             return 0
         else:
             try:
+                import numpy as np  # type: ignore
                 import tritonclient.grpc as grpcclient  # type: ignore
+                from tritonclient.grpc import service_pb2  # noqa: F401
             except Exception as e:
-                print(f"ERROR: tritonclient[grpc] not installed: {e}")
-                print("Tip: pip install 'tritonclient[grpc]'")
+                print(f"ERROR: missing dependency for gRPC mode: {e}")
+                print("Tip: pip install numpy 'tritonclient[grpc]'")
                 return 2
 
             url = f"{args.host}:{args.grpc_port}"
@@ -62,8 +73,14 @@ def main() -> int:
             if not cli.is_server_live():
                 print(f"ERROR: Triton gRPC server not live at {url}")
                 return 3
-            print("TRITON_GRPC_OK")
-            print("Note: model invocation not implemented in planning stub.")
+            prompt = args.prompt or "Say hello."
+            infer_input = grpcclient.InferInput("PROMPT", [1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([prompt.encode('utf-8')], dtype=object))
+            output = grpcclient.InferRequestedOutput("TEXT", binary_data=False)
+            resp = cli.infer(model_name="oss_gpt_20b", inputs=[infer_input], outputs=[output])
+            out = resp.as_numpy("TEXT")
+            text = out[0].decode("utf-8", errors="ignore") if out is not None else ""
+            print(text)
             return 0
     except Exception as e:
         print(f"ERROR: {e}")
@@ -74,4 +91,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     sys.exit(main())
-
