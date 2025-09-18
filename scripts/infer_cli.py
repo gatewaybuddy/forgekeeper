@@ -42,7 +42,7 @@ def main() -> int:
                 print("Tip: pip install numpy 'tritonclient[http]'")
                 return 2
 
-            url = f"http://{args.host}:{args.http_port}"
+            url = f"{args.host}:{args.http_port}"
             cli = httpclient.InferenceServerClient(url=url, verbose=False)
             if not cli.is_server_live():
                 print(f"ERROR: Triton HTTP server not live at {url}")
