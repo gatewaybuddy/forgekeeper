@@ -47,15 +47,39 @@ def main() -> int:
             if not cli.is_server_live():
                 print(f"ERROR: Triton HTTP server not live at {url}")
                 return 3
+            model_name = "oss_gpt_20b"
+            # Attempt to load model in explicit mode
+            try:
+                if not cli.is_model_ready(model_name):
+                    try:
+                        cli.load_model(model_name)
+                    except Exception as e:
+                        # Proceed; may already be loading or mode does not allow
+                        print(f"WARN: load_model error: {e}")
+                # Give Triton a brief moment
+                t0 = time.time()
+                while time.time() - t0 < 5.0:
+                    if cli.is_model_ready(model_name):
+                        break
+                    time.sleep(0.2)
+            except Exception as e:
+                print(f"WARN: readiness check failed: {e}")
 
             # Build request for oss_gpt_20b python backend
             prompt = args.prompt or "Say hello."
-            infer_input = httpclient.InferInput("PROMPT", [1], "BYTES")
-            infer_input.set_data_from_numpy(np.array([prompt.encode('utf-8')], dtype=object))
+            infer_input = httpclient.InferInput("PROMPT", [1, 1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
             output = httpclient.InferRequestedOutput("TEXT", binary_data=False)
-            resp = cli.infer(model_name="oss_gpt_20b", inputs=[infer_input], outputs=[output])
+            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
             out = resp.as_numpy("TEXT")
-            text = out[0].decode("utf-8", errors="ignore") if out is not None else ""
+            if out is None:
+                text = ""
+            else:
+                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
+                if isinstance(val, (bytes, bytearray)):
+                    text = val.decode("utf-8", errors="ignore")
+                else:
+                    text = str(val)
             print(text)
             return 0
         else:
@@ -73,13 +97,36 @@ def main() -> int:
             if not cli.is_server_live():
                 print(f"ERROR: Triton gRPC server not live at {url}")
                 return 3
+            model_name = "oss_gpt_20b"
+            # Attempt to load model in explicit mode
+            try:
+                if not cli.is_model_ready(model_name):
+                    try:
+                        cli.load_model(model_name)
+                    except Exception as e:
+                        print(f"WARN: load_model error: {e}")
+                t0 = time.time()
+                while time.time() - t0 < 5.0:
+                    if cli.is_model_ready(model_name):
+                        break
+                    time.sleep(0.2)
+            except Exception as e:
+                print(f"WARN: readiness check failed: {e}")
+
             prompt = args.prompt or "Say hello."
-            infer_input = grpcclient.InferInput("PROMPT", [1], "BYTES")
-            infer_input.set_data_from_numpy(np.array([prompt.encode('utf-8')], dtype=object))
-            output = grpcclient.InferRequestedOutput("TEXT", binary_data=False)
-            resp = cli.infer(model_name="oss_gpt_20b", inputs=[infer_input], outputs=[output])
+            infer_input = grpcclient.InferInput("PROMPT", [1, 1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
+            output = grpcclient.InferRequestedOutput("TEXT")
+            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
             out = resp.as_numpy("TEXT")
-            text = out[0].decode("utf-8", errors="ignore") if out is not None else ""
+            if out is None:
+                text = ""
+            else:
+                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
+                if isinstance(val, (bytes, bytearray)):
+                    text = val.decode("utf-8", errors="ignore")
+                else:
+                    text = str(val)
             print(text)
             return 0
     except Exception as e:
