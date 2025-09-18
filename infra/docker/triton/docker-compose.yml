@@ -3,7 +3,7 @@ services:
   triton:
     image: nvcr.io/nvidia/tritonserver:24.05-py3
     container_name: forgekeeper-triton
-    command: ["tritonserver", "--model-repository=/models", "--exit-on-error=false", "--strict-readiness=false"]
+    command: ["tritonserver", "--model-repository=/models", "--model-control-mode=explicit", "--exit-on-error=false", "--strict-readiness=false"]
     ports:
       - "8000:8000"   # HTTP
       - "8001:8001"   # gRPC
@@ -19,4 +19,3 @@ services:
           devices:
             - capabilities: ["gpu"]
     restart: unless-stopped
-
