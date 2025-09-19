@@ -5,6 +5,7 @@ This page is the canonical list of commands for development, validation, and ope
 ## Environment & Doctor
 - Bash doctor: `bash forgekeeper/scripts/doctor.sh`
 - PowerShell doctor: `pwsh forgekeeper/scripts/doctor.ps1`
+- Wait for backend health (with timeout): `pwsh forgekeeper/scripts/wait_for_backend.ps1 -Url http://localhost:4000/health -MaxWait 30`
 
 ## Inference: Triton (Planning Scaffold)
 - Start Triton (dev, compose): `docker compose -f forgekeeper/infra/docker/triton/docker-compose.yml up -d`
