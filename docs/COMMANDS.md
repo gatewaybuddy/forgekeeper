@@ -26,7 +26,11 @@ This page is the canonical list of commands for development, validation, and ope
 - Push branch: `git push -u origin HEAD`
 - Create PR (gh): `gh pr create --fill --base main`
 
+## Smokes
+- Queue smoke: `bash forgekeeper/scripts/smoke_queue.sh`
+- GraphQL append smoke: `python forgekeeper/scripts/smoke_graphql_append.py`
+- E2E roundtrip smoke: `python forgekeeper/scripts/smoke_e2e_roundtrip.py`
+
 Notes:
 - Triton model config is a placeholder; actual model wiring comes later in Phase 1.
 - Prefer updating this file over repeating commands in READMEs.
-
