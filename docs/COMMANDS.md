@@ -16,6 +16,7 @@ This page is the canonical list of commands for development, validation, and ope
 ## Frontend / Backend (existing)
 - Frontend dev: `npm --prefix forgekeeper/frontend run dev`
 - Backend dev: `npm --prefix forgekeeper/backend run dev`
+- Backend dev (PowerShell helper): `pwsh forgekeeper/scripts/start_backend_dev.ps1 -Minimized`
 
 ## Python Agent / Tests
 - Run agent: `python -m forgekeeper` (from `forgekeeper/`)
