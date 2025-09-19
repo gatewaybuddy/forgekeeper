@@ -22,6 +22,8 @@ def wait_for(url: str, max_wait: float, interval: float, timeout: float, expect_
                 return True
             print(f"URL_WAIT {url} http_error={e.code}")
         except URLError as e:
+            print(f"URL_WAIT {url} url_error={e}")
+        except Exception as e:
             print(f"URL_WAIT {url} error={e}")
         time.sleep(interval)
     print(f"URL_TIMEOUT {url}")
@@ -42,4 +44,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     sys.exit(main())
-
