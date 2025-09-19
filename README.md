@@ -6,6 +6,10 @@ Forgekeeper is a self-evolving agent framework that combines a React frontend, a
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
 
+## Command Reference
+
+See `forgekeeper/docs/COMMANDS.md` for the canonical list of commands used during the v2 stabilization track. Update that file as commands evolve.
+
 ## First-Run Checklist
 
 1. Install PowerShell 7 (`pwsh`) on Windows/macOS/Linux and ensure it is on `PATH`.

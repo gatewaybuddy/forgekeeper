@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""
+Minimal Triton inference CLI (planning stub).
+
+- HTTP (default) or gRPC modes.
+- Gracefully warns if tritonclient is not installed or server is unreachable.
+
+Usage:
+  python forgekeeper/scripts/infer_cli.py --prompt "Say hello."
+  python forgekeeper/scripts/infer_cli.py --host localhost --http-port 8000 --mode http --prompt "..."
+  python forgekeeper/scripts/infer_cli.py --mode grpc --grpc-port 8001 --prompt "..."
+  python forgekeeper/scripts/infer_cli.py --dry-run --prompt "Say hello."
+"""
+import argparse
+import sys
+import time
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--host', default='localhost')
+    ap.add_argument('--http-port', type=int, default=8000)
+    ap.add_argument('--grpc-port', type=int, default=8001)
+    ap.add_argument('--mode', choices=['http', 'grpc'], default='http')
+    ap.add_argument('--prompt', required=False, default='')
+    ap.add_argument('--timeout', type=float, default=10.0)
+    ap.add_argument('--dry-run', action='store_true', help='Do not contact Triton; simulate a response')
+    args = ap.parse_args()
+
+    if args.dry_run:
+        text = 'hello' if 'hello' in args.prompt.lower() else f"echo: {args.prompt}"
+        print(text)
+        return 0
+
+    start = time.time()
+    try:
+        if args.mode == 'http':
+            try:
+                import numpy as np  # type: ignore
+                import tritonclient.http as httpclient  # type: ignore
+            except Exception as e:
+                print(f"ERROR: missing dependency for HTTP mode: {e}")
+                print("Tip: pip install numpy 'tritonclient[http]'")
+                return 2
+
+            url = f"{args.host}:{args.http_port}"
+            cli = httpclient.InferenceServerClient(url=url, verbose=False)
+            if not cli.is_server_live():
+                print(f"ERROR: Triton HTTP server not live at {url}")
+                return 3
+            model_name = "oss_gpt_20b"
+            # Attempt to load model in explicit mode
+            try:
+                if not cli.is_model_ready(model_name):
+                    try:
+                        cli.load_model(model_name)
+                    except Exception as e:
+                        # Proceed; may already be loading or mode does not allow
+                        print(f"WARN: load_model error: {e}")
+                # Give Triton a brief moment
+                t0 = time.time()
+                while time.time() - t0 < 5.0:
+                    if cli.is_model_ready(model_name):
+                        break
+                    time.sleep(0.2)
+            except Exception as e:
+                print(f"WARN: readiness check failed: {e}")
+
+            # Build request for oss_gpt_20b python backend
+            prompt = args.prompt or "Say hello."
+            infer_input = httpclient.InferInput("PROMPT", [1, 1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
+            output = httpclient.InferRequestedOutput("TEXT", binary_data=False)
+            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
+            out = resp.as_numpy("TEXT")
+            if out is None:
+                text = ""
+            else:
+                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
+                if isinstance(val, (bytes, bytearray)):
+                    text = val.decode("utf-8", errors="ignore")
+                else:
+                    text = str(val)
+            print(text)
+            return 0
+        else:
+            try:
+                import numpy as np  # type: ignore
+                import tritonclient.grpc as grpcclient  # type: ignore
+                from tritonclient.grpc import service_pb2  # noqa: F401
+            except Exception as e:
+                print(f"ERROR: missing dependency for gRPC mode: {e}")
+                print("Tip: pip install numpy 'tritonclient[grpc]'")
+                return 2
+
+            url = f"{args.host}:{args.grpc_port}"
+            cli = grpcclient.InferenceServerClient(url=url, verbose=False)
+            if not cli.is_server_live():
+                print(f"ERROR: Triton gRPC server not live at {url}")
+                return 3
+            model_name = "oss_gpt_20b"
+            # Attempt to load model in explicit mode
+            try:
+                if not cli.is_model_ready(model_name):
+                    try:
+                        cli.load_model(model_name)
+                    except Exception as e:
+                        print(f"WARN: load_model error: {e}")
+                t0 = time.time()
+                while time.time() - t0 < 5.0:
+                    if cli.is_model_ready(model_name):
+                        break
+                    time.sleep(0.2)
+            except Exception as e:
+                print(f"WARN: readiness check failed: {e}")
+
+            prompt = args.prompt or "Say hello."
+            infer_input = grpcclient.InferInput("PROMPT", [1, 1], "BYTES")
+            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
+            output = grpcclient.InferRequestedOutput("TEXT")
+            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
+            out = resp.as_numpy("TEXT")
+            if out is None:
+                text = ""
+            else:
+                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
+                if isinstance(val, (bytes, bytearray)):
+                    text = val.decode("utf-8", errors="ignore")
+                else:
+                    text = str(val)
+            print(text)
+            return 0
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return 1
+    finally:
+        dur = (time.time() - start) * 1000
+        print(f"latency_ms={dur:.1f}")
+
+if __name__ == '__main__':
+    sys.exit(main())
