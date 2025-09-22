@@ -14,9 +14,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vllm
+      args:
+        VLLM_BASE_IMAGE: ${VLLM_DOCKER_IMAGE:-vllm/vllm-openai:latest}
     env_file: ./.env
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
+      VLLM_LOG_DIR: /var/log/vllm
     networks: [forgekeeper-net]
-    ports: ["${VLLM_PORT_CORE}:${VLLM_PORT_CORE}"]
+    ports: ["${VLLM_PORT_CORE:-8001}:${VLLM_CONTAINER_PORT:-8000}"]
+    ipc: host
+    runtime: nvidia
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+    volumes:
+      - ${VLLM_HF_CACHE_HOST_DIR:-./volumes/vllm-cache}:/root/.cache/huggingface
+      - ${VLLM_MODELS_HOST_DIR:-./volumes/vllm-models}:/models
+      - ${VLLM_LOGS_HOST_DIR:-./volumes/vllm-logs}:/var/log/vllm
     entrypoint: ["./scripts/run_vllm_core.sh"]
 
   vllm-coder:
@@ -25,9 +41,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.vllm
+      args:
+        VLLM_BASE_IMAGE: ${VLLM_DOCKER_IMAGE:-vllm/vllm-openai:latest}
     env_file: ./.env
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
+      VLLM_LOG_DIR: /var/log/vllm
     networks: [forgekeeper-net]
-    ports: ["${VLLM_PORT_CODER}:${VLLM_PORT_CODER}"]
+    ports: ["${VLLM_PORT_CODER:-8002}:${VLLM_CONTAINER_PORT:-8000}"]
+    ipc: host
+    runtime: nvidia
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+    volumes:
+      - ${VLLM_HF_CACHE_HOST_DIR:-./volumes/vllm-cache}:/root/.cache/huggingface
+      - ${VLLM_MODELS_HOST_DIR:-./volumes/vllm-models}:/models
+      - ${VLLM_LOGS_HOST_DIR:-./volumes/vllm-logs}:/var/log/vllm
     entrypoint: ["./scripts/run_vllm_coder.sh"]
 
   backend:
