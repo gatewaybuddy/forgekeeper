@@ -1,10 +1,19 @@
-"""Regression tests for the vLLM coder endpoint routing."""
+"""Regression tests for the vLLM coder endpoint routing.
+
+Note: These tests target legacy v1 routing logic. If legacy v1 is not present,
+they are skipped. The v2 orchestrator uses a different adapter model.
+"""
 
 from __future__ import annotations
 
 import importlib
 import sys
 from pathlib import Path
+import importlib.util
+import pytest
+
+if importlib.util.find_spec("legacy.forgekeeper_v1") is None:  # pragma: no cover
+    pytest.skip("legacy v1 removed; skip legacy routing tests", allow_module_level=True)
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

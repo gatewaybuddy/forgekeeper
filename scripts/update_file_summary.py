@@ -8,7 +8,7 @@ import datetime
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-SUMMARY_FILE = ROOT / "FILE_SUMMARY.md"
+SUMMARY_FILE = ROOT / "docs" / "dev" / "FILE_SUMMARY.md"
 
 
 def git_tracked_files() -> list[str]:

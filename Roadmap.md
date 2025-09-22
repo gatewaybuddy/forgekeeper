@@ -2,6 +2,8 @@
 
 This roadmap outlines the staged evolution of Forgekeeper into a self-improving local development agent.
 
+Note: This markdown file is the canonical source of truth for planning and status. Any auxiliary formats (e.g., `roadmap.yaml`) should be generated from this document when needed.
+
 ---
 
 ## 🎯 Milestones
