@@ -15,6 +15,7 @@ LLM_WAIT_SECONDS=90
 REQUIRE_BACKEND=false
 BACKEND_WAIT_SECONDS=60
 LLM_BACKEND=${FGK_LLM_BACKEND:-vllm}
+CONVERSATION=false
 USE_INFERENCE=${FGK_USE_INFERENCE:-1}
 
 usage() {
@@ -34,6 +35,7 @@ Options:
   --backend-wait-seconds N  Seconds to wait for backend when required (default 60).
   --no-inference          Disable inference gateway integration for this run.
   --reset-prefs           Delete saved start preferences and re-prompt.
+  --conversation          Run agent in duet conversation mode (passes --conversation).
   -h, --help              Show this help and exit.
 EOF
 }
@@ -55,6 +57,8 @@ while [[ $# -gt 0 ]]; do
       BACKEND_WAIT_SECONDS="${2:-60}"; shift 2 ;;
     --cli-only)
       CLI_ONLY=true; shift ;;
+    --conversation)
+      CONVERSATION=true; shift ;;
     --no-inference)
       USE_INFERENCE=0; shift ;;
     --reset-prefs)
@@ -367,3 +371,4 @@ else
   trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} ${TRITON_PID:-} 2>/dev/null || true' EXIT
   wait
 fi
+\n# Export conversation flag for downstream launchers\nif \; then export FK_RUN_CONVERSATION=1; fi\n

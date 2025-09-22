@@ -11,7 +11,8 @@ param(
     [switch]$CliOnly,
     [string]$ModelCore,
     [string]$ModelCoder,
-    [ValidateSet('vllm','triton')] [string]$Backend = 'vllm'
+    [ValidateSet('vllm','triton')] [string]$Backend = 'vllm',
+    [switch]$Conversation
 )
 
 Set-StrictMode -Version Latest
@@ -365,13 +366,17 @@ if ($Detach) {
     } catch { Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)" }
 
     if ($CliOnly) {
-        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+        $argsPk = @('-m','forgekeeper')
+        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
         $meta = [ordered]@{ pythonPid = $pythonProc.Id; logDir = $LogDir; startedAt = (Get-Date).ToString('o') }
         ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
         Write-Host ("✅ Started CLI-only. PID => python={0}" -f $pythonProc.Id)
     } else {
         $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
-        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
+        $argsPk = @('-m','forgekeeper')
+        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
         $meta = [ordered]@{
             backendPid  = $backend.Id
@@ -476,7 +481,9 @@ else {
         Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)"
     }
     if ($CliOnly) {
-        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+        $argsPk = @('-m','forgekeeper')
+        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -NoNewWindow -PassThru
         $processes = @($pythonProc)
     } else {
         # Start backend first, and optionally wait for health before launching frontend
@@ -499,7 +506,9 @@ else {
             }
         }
 
-        $pythonProc = Start-Process -FilePath $python -ArgumentList @('-m','forgekeeper') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+        $argsPk = @('-m','forgekeeper')
+        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -NoNewWindow -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
 
         # Print friendly URLs for quick access
