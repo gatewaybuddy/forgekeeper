@@ -17,9 +17,8 @@ def _run_conversation(argv: list[str]) -> int:
 
 
 def _run_single(argv: list[str]) -> int:
-    # Placeholder: route to v2 orchestrator single-agent mode until v1 is fully merged
-    # In future, wire this to a single-agent pipeline in v2.
-    return _run_conversation(["run", "--llm", "mock", "--no-tools", "--duration", "5"])  # quick default
+    # Route to v2 single-agent mode by default
+    return _run_conversation(["run", "--mode", "single", *argv])
 
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover
