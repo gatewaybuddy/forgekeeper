@@ -112,8 +112,9 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
     s_run = sub.add_parser("run", help="Run orchestrator loop")
     s_run.add_argument("--duration", type=float, default=0.0, help="Seconds (0=forever)")
     s_run.add_argument("--no-tools", action="store_true", help="Disable tools")
-    s_run.add_argument("--llm", choices=["mock", "openai", "triton"], default="mock")
+    s_run.add_argument("--llm", choices=["mock", "openai", "triton"], default="openai")
     s_run.add_argument("--model", default=None)
+    s_run.add_argument("--mode", choices=["single","duet"], default="single", help="Run a single agent or duet conversation")
 
     s_srv = sub.add_parser("server", help="Run UI server only")
     s_srv.add_argument("--host", default="127.0.0.1")
@@ -145,8 +146,13 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
     if args.cmd == "run":
         wm = Watermark()
         tools = [] if args.no_tools else [ToolShell(wm), ToolPowerShell(wm)]
-        a, b = _build_llms(args.llm, args.model)
-        orch = Orchestrator(tools=tools, llm_a=a, llm_b=b)
+        if args.mode == "single":
+            from forgekeeper_v2.orchestrator.single import SingleOrchestrator
+            a, _b = _build_llms(args.llm, args.model)
+            orch = SingleOrchestrator(tools=tools, llm=a)
+        else:
+            a, b = _build_llms(args.llm, args.model)
+            orch = Orchestrator(tools=tools, llm_a=a, llm_b=b)
         dur = None if args.duration <= 0 else args.duration
         asyncio.run(orch.run(duration_s=dur))
         return
