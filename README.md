@@ -175,7 +175,7 @@ Startup flags:
 
 Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
 
-For a timeline of recent environment and DX changes, see `DEVLOG.md`.
+For a timeline of recent environment and DX changes, see `docs/dev/DEVLOG.md`.
 
 The backend provides an outbox-backed publish path with exponential backoff and simple lag/ retry metrics on `/health`. The worker entrypoint (`npm run worker --prefix backend`) polls unsent messages and publishes them to the configured MQTT broker.
 
