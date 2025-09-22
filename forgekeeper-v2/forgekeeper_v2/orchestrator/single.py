@@ -4,12 +4,12 @@ import asyncio
 from pathlib import Path
 from typing import Any, Optional
 
-from .events import Act, Event, JsonlRecorder, Role, Watermark
+from forgekeeper_v2.memory import FactsStore, compact
 from .buffers import Buffers
+from .events import Act, Event, JsonlRecorder, Role, Watermark
 from .policies import FloorPolicy, TriggerPolicy
 from .adapters import LLMBase, LLMMock, ToolBase
-from ..memory import FactsStore, compact
-
+from forgekeeper_v2.memory.agentic import AgenticStore, FeedbackLog, Retriever
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
@@ -37,6 +37,9 @@ class SingleOrchestrator:
         self.trig = TriggerPolicy(max_latency_s=1.0, min_silence_s=0.2)
         self.floor = FloorPolicy(slice_ms=600)
         self._last_seq_by_role: dict[str, int] = {"botA": 0}
+        self.agentic = AgenticStore()
+        self.feedback = FeedbackLog(self.agentic)
+        self.retriever = Retriever(self.agentic)
 
     def _next_seq(self) -> int:
         self.seq += 1
@@ -66,8 +69,10 @@ class SingleOrchestrator:
         window_events = self.buffers.window_since(last_seq)
         win = "\n".join(f"[{e.role}:{e.act}] {e.text}" for e in window_events[-20:])
         watermark = f"Up to wm={self.wm.now_ms()}ms"
+        context = self.retriever.context_from_bullets(self.buffers.S_running or []) if self.buffers.S_running else ""
         return (
             f"SYSTEM:\n{system}\n\nSUMMARY:\n{summary}\n\nFACTS:\n{facts}\n\nWINDOW:\n{win}\n\n{watermark}\n"
+            + (f"\nCONTEXT:\n{context}\n" if context else "")
         )
 
     async def _llm_turn(self) -> None:
@@ -86,6 +91,10 @@ class SingleOrchestrator:
             if used_tokens >= 256:
                 break
         self.trig.mark_emitted()
+        try:
+            self.feedback.note("turn", "completed", tokens=used_tokens)
+        except Exception:
+            pass
 
     async def _tool_pump(self, tool: ToolBase) -> None:
         async for ev in tool.astream_output():
@@ -119,16 +128,19 @@ class SingleOrchestrator:
         inbox_task: Optional[asyncio.Task[Any]] = None
         try:
             from forgekeeper_v2.orchestrator.events import JsonlRecorder as JR, Event as _E
+
             inbox = JR(Path(".forgekeeper/inbox_user.jsonl"))
+
             async def _pump_inbox() -> None:
                 async for ev in inbox.tail(start_offset=None):
                     try:
                         self.floor.mark_user_active()
-                        text = ev.text if isinstance(ev, _E) else getattr(ev, 'text', '')
+                        text = ev.text if isinstance(ev, _E) else getattr(ev, "text", "")
                         if text:
                             await self.ingest("user", text, "INPUT", stream="ui")
                     except Exception:
                         continue
+
             inbox_task = asyncio.create_task(_pump_inbox())
         except Exception:
             inbox_task = None
