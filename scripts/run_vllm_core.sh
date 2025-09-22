@@ -10,11 +10,18 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
-python -m vllm.entrypoints.openai.api_server \
+LOG_DIR="${VLLM_LOG_DIR:-$ROOT_DIR/logs/vllm}"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/vllm-core.log"
+echo "📝 vLLM core logs: $LOG_FILE"
+
+exec python -m vllm.entrypoints.openai.api_server \
   --host 0.0.0.0 \
   --port "${VLLM_PORT_CORE}" \
   --model "${VLLM_MODEL_CORE}" \
   --tensor-parallel-size "${VLLM_TP}" \
   --max-model-len "${VLLM_MAX_MODEL_LEN}" \
-  --gpu-memory-utilization "${VLLM_GPU_MEMORY_UTILIZATION}"
+  --gpu-memory-utilization "${VLLM_GPU_MEMORY_UTILIZATION}" \
+  > >(tee -a "$LOG_FILE") \
+  2> >(tee -a "$LOG_FILE" >&2)
 
