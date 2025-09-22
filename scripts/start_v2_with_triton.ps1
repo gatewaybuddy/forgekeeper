@@ -5,7 +5,8 @@ param(
   [int]$WaitSeconds = 600,
   [switch]$NoDownload,
   [switch]$Detach,
-  [string]$LogDir
+  [string]$LogDir,
+  [switch]$Conversation
 )
 
 Set-StrictMode -Version Latest
@@ -70,8 +71,10 @@ $env:TRITONLLM_URL = 'http://127.0.0.1:8008'
 # Always run via python -m forgekeeper to prefer local mono-repo sources
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw 'python not found on PATH.' }
 $runner = 'python'
-$argsServer = @('-m','forgekeeper','server')
-$argsRun    = @('-m','forgekeeper','run','--llm','triton','--duration','0')
+$argsPrefix = @()
+if ($Conversation) { $argsPrefix = @('--conversation') }
+$argsServer = @('-m','forgekeeper') + $argsPrefix + @('server')
+$argsRun    = @('-m','forgekeeper') + $argsPrefix + @('run','--llm','triton','--mode','duet','--duration','0')
 
 Write-Info "Starting UI server (port 8787) ..."
 $uiOut = Join-Path $LogDir 'ui.out.log'
