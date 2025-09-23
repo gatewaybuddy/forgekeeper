@@ -1,15 +1,36 @@
+from __future__ import annotations
+
+import json
 import sys
-import os
 from pathlib import Path
+from typing import Any
+
+import pytest
+from git import Repo
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import forgekeeper.pipeline.main as tp
+import forgekeeper.core.pipeline.task_pipeline as core_tp
+from forgekeeper.core.pipeline import loop as pipeline_loop
 
 
-def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
+@pytest.fixture(autouse=True)
+def _capture_goal_add(monkeypatch):
+    captured: dict[str, str] = {}
+
+    def fake_add_goal(desc: str, source: str = "task_queue") -> str:
+        captured["desc"] = desc
+        captured["source"] = source
+        return "gid"
+
+    monkeypatch.setattr(core_tp.goal_storage, "add_goal", fake_add_goal)
+    return captured
+
+
+def test_next_task_marks_in_progress(tmp_path: Path, _capture_goal_add: dict[str, str]) -> None:
     tasks_md = tmp_path / "tasks.md"
     tasks_md.write_text(
         """## Active
@@ -22,89 +43,194 @@ def test_pipeline_selects_and_marks(tmp_path, monkeypatch):
 """,
         encoding="utf-8",
     )
+
     pipeline = tp.TaskPipeline(tasks_md)
-
-    captured = {}
-
-    def fake_add_goal(desc: str, source: str = "task_queue") -> str:
-        captured["desc"] = desc
-        return "gid"
-
-    monkeypatch.setattr(tp.goal_storage, "add_goal", fake_add_goal)
-
     task = pipeline.next_task()
     assert task is not None
     assert task["title"] == "alpha"
-    assert captured["desc"] == "alpha"
+    assert task["status"] == "in_progress"
+    assert _capture_goal_add["desc"] == "alpha"
+    assert _capture_goal_add["source"] == "task_queue"
 
     text = tasks_md.read_text(encoding="utf-8")
     assert "- [~] alpha" in text
 
     pipeline.mark_done(task["title"])
     text = tasks_md.read_text(encoding="utf-8")
-    assert "## Completed" in text
     assert "- [x] alpha" in text
-    assert "alpha" not in text.split("## Backlog")[0]  # removed from Active
+    active_section = text.split("## Backlog")[0]
+    assert "- [ ] alpha" not in active_section
 
 
-def test_run_next_task_executes_chain(tmp_path, monkeypatch):
+def test_run_next_task_selection_and_completion(
+    tmp_path: Path, _capture_goal_add: dict[str, str]
+) -> None:
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", "Forgekeeper Test")
+        cw.set_value("user", "email", "forgekeeper@example.com")
+
     tasks_md = tmp_path / "tasks.md"
     tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
-    repo_file_a = tmp_path / "foo.py"
-    repo_file_b = tmp_path / "bar.py"
-    repo_file_a.write_text("print('hi')\n", encoding="utf-8")
-    repo_file_b.write_text("print('hey')\n", encoding="utf-8")
+    sample_py = tmp_path / "sample.py"
+    sample_py.write_text("print(\"hi\")\n", encoding="utf-8")
+    repo.index.add([str(tasks_md), str(sample_py)])
+    repo.index.commit("init")
 
     pipeline = tp.TaskPipeline(tasks_md)
 
-    monkeypatch.setattr(
-        tp,
-        "summarize_repository",
-        lambda root=".": {
-            str(repo_file_a): {"summary": "print", "lang": "py"},
-            str(repo_file_b): {"summary": "print", "lang": "py"},
-        },
+    selected = pipeline.run_next_task(guidelines="be thorough")
+    assert selected is not None
+    assert selected["status"] in {"selected", "needs_review"}
+    assert selected["task"]["status"] in {"in_progress", "needs_review"}
+    assert selected["task"]["title"] == "sample"
+    assert selected.get("plan") is not None
+
+    text = tasks_md.read_text(encoding="utf-8")
+    assert any(marker in text for marker in ("- [~] sample", "- [?] sample"))
+    assert 'TODO' in sample_py.read_text(encoding="utf-8")
+
+    completed = pipeline.run_next_task(auto_complete=True)
+    assert completed is not None
+    assert completed["status"] == "completed"
+    assert completed["task"]["status"] == "done"
+
+    text = tasks_md.read_text(encoding="utf-8")
+    assert "- [x] sample" in text
+    assert 'TODO' in sample_py.read_text(encoding="utf-8")
+    assert "## Completed" in text
+
+
+def test_run_next_task_executor_updates_status(tmp_path: Path) -> None:
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
+
+    pipeline = tp.TaskPipeline(tasks_md)
+
+    def executor(task: dict[str, Any], _guidelines: str) -> dict[str, Any]:
+        return {"status": "needs_review"}
+
+    result = pipeline.run_next_task(executor=executor)
+    assert result is not None
+    assert result["status"] == "needs_review"
+
+    text = tasks_md.read_text(encoding="utf-8")
+    assert "- [?] sample" in text
+
+
+def test_executor_applies_edits(tmp_path: Path) -> None:
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", "Forgekeeper Test")
+        cw.set_value("user", "email", "forgekeeper@example.com")
+
+    workspace_file = tmp_path / "foo.txt"
+    workspace_file.write_text("old\n", encoding="utf-8")
+    repo.index.add([str(workspace_file)])
+    repo.index.commit("init")
+
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
+
+    pipeline = tp.TaskPipeline(tasks_md)
+
+    def executor(task: dict[str, Any], _guidelines: str) -> dict[str, Any]:
+        original = workspace_file.read_text(encoding="utf-8")
+        return {
+            "status": "needs_review",
+            "edits": [
+                {
+                    "path": str(workspace_file),
+                    "original": original,
+                    "modified": "new\n",
+                    "run_sandbox": False,
+                }
+            ],
+        }
+
+    result = pipeline.run_next_task(executor=executor)
+    assert result is not None
+    assert result["status"] == "needs_review"
+    assert "stage" in result
+    stage_payload = result["stage"][0]["result"]
+    assert stage_payload["outcome"] == "success"
+    assert workspace_file.read_text(encoding="utf-8") == "new\n"
+    assert "foo.txt" in repo.git.diff("--name-only", "--cached").splitlines()
+
+
+def test_pipeline_loop_persists_history(tmp_path: Path) -> None:
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", "Forgekeeper Test")
+        cw.set_value("user", "email", "forgekeeper@example.com")
+
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
+    sample_py = tmp_path / "sample.py"
+    sample_py.write_text("print(\"hi\")\n", encoding="utf-8")
+    repo.index.add([str(tasks_md), str(sample_py)])
+    repo.index.commit("init")
+    state_path = tmp_path / "state.json"
+
+    context = pipeline_loop.run(
+        task_file=tasks_md,
+        state_path=state_path,
+        auto_complete=True,
+        guidelines="focus on tests",
     )
-    monkeypatch.setattr(
-        tp,
-        "analyze_repo_for_task",
-        lambda *_: [
-            {"file": str(repo_file_a), "summary": "print", "lang": "py"},
-            {"file": str(repo_file_b), "summary": "print", "lang": "py"},
-        ],
+
+    assert context.selected_task is not None
+    assert context.task_result is not None
+    assert context.task_result["status"] == "completed"
+    assert "TODO" in sample_py.read_text(encoding="utf-8")
+
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    assert data["pipeline"]["auto_complete"] is True
+    assert data["pipeline"]["guidelines"] == "focus on tests"
+    assert data["history"][-1]["result"]["status"] == "completed"
+
+    text = tasks_md.read_text(encoding="utf-8")
+    assert "- [x] sample" in text
+
+
+def test_default_executor_parses_guidelines(tmp_path: Path) -> None:
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", "Forgekeeper Test")
+        cw.set_value("user", "email", "forgekeeper@example.com")
+
+    target = tmp_path / "foo.txt"
+    target.write_text("hello\n", encoding="utf-8")
+    repo.index.add([str(target)])
+    repo.index.commit("init")
+
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
+
+    pipeline = tp.TaskPipeline(tasks_md)
+
+    instructions = json.dumps(
+        {
+            "status": "needs_review",
+            "edits": [
+                {
+                    "path": str(target),
+                    "content": "updated\n",
+                    "run_sandbox": False,
+                }
+            ],
+        }
     )
 
-    def fake_generate(task, file_path, file_summary, guidelines):
-        if file_path == str(repo_file_a):
-            return (
-                f"--- a/{file_path}\n+++ b/{file_path}\n@@ -1 +1 @@\n-print('hi')\n+print('bye')\n"
-            )
-        else:
-            return (
-                f"--- a/{file_path}\n+++ b/{file_path}\n@@ -1 +1 @@\n-print('hey')\n+print('yo')\n"
-            )
+    result = pipeline.run_next_task(guidelines=instructions)
+    assert result is not None
+    assert result["status"] == "needs_review"
+    assert "stage" in result and result["stage"][0]["result"]["outcome"] == "success"
+    assert target.read_text(encoding="utf-8") == "updated\n"
 
-    monkeypatch.setattr(tp, "generate_code_edit", fake_generate)
-    monkeypatch.setattr(tp, "commit_with_log", lambda *a, **k: {"passed": True})
+    staged = repo.git.diff("--name-only", "--cached").splitlines()
+    assert "foo.txt" in staged
 
-    staged: list[str] = []
 
-    def fake_diff(original, modified, file_path, **kwargs):
-        staged.append(str(file_path))
-        return {"files": list(staged), "outcome": "success"}
 
-    monkeypatch.setattr(tp, "diff_and_stage_changes", fake_diff)
 
-    cwd = os.getcwd()
-    os.chdir(tmp_path)
-    try:
-        result = pipeline.run_next_task()
-    finally:
-        os.chdir(cwd)
-
-    assert result and result["passed"]
-    assert repo_file_a.read_text(encoding="utf-8") == "print('bye')\n"
-    assert repo_file_b.read_text(encoding="utf-8") == "print('yo')\n"
-    assert staged == [str(repo_file_a), str(repo_file_b)]
-    task = pipeline.queue.get_task("sample")
-    assert task is not None and task.status == "done"

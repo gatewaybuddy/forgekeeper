@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import forgekeeper.change_stager as cs
+import forgekeeper.core.change_stager as core_cs
 from forgekeeper.change_stager import diff_and_stage_changes
 
 
@@ -118,6 +119,7 @@ def test_diff_and_stage_changes_runs_sandbox(tmp_path, monkeypatch):
         return {"passed": True, "results": [], "artifacts_path": ""}
 
     monkeypatch.setattr(cs, "run_sandbox_checks", fake_run)
+    monkeypatch.setattr(core_cs, "run_sandbox_checks", fake_run)
     result = cs.diff_and_stage_changes(
         original, modified, str(file_path), task_id="t5", run_sandbox=True
     )

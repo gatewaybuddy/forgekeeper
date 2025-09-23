@@ -1,0 +1,40 @@
+version: 1
+name: legacy_to_unified_migration
+phases:
+  - id: inventory
+    title: Inventory & Gap Analysis
+    tasks:
+      - id: map-imports
+        summary: "Catalogue legacy modules and classify porting strategy."
+      - id: doc-matrix
+        summary: "Publish dependency matrix in docs/migration_plan.md."
+  - id: core-services
+    title: Core Services Port
+    tasks:
+      - id: change-stager
+        summary: "Mirror legacy staging in `forgekeeper.core.change_stager` and keep wrapper in `forgekeeper.change_stager`."
+      - id: task-queue
+        summary: "Port queue logic to `forgekeeper.core.tasks` and expose via compatibility shim."
+      - id: pipeline
+        summary: "Expose pipeline loop in `forgekeeper.core.pipeline` (legacy shim in `forgekeeper.pipeline`)."
+  - id: llm-tooling
+    title: LLM & Tooling Clients
+    tasks:
+      - id: llm-providers
+        summary: "Introduce provider abstractions in `forgekeeper.core.llm`."
+      - id: cli-hooks
+        summary: "Plan CLI migration away from legacy entrypoints."
+  - id: automation-loop
+    title: Automation & Review Loop
+    tasks:
+      - id: self-review
+        summary: "Draft self-review interfaces compatible with new queue/events."
+      - id: roadmap-sync
+        summary: "Align automation scripts with unified runtime paths."
+  - id: decommission
+    title: Legacy Decommission Checklist
+    tasks:
+      - id: migrate-tests
+        summary: "Update tests to import unified modules and drop shims."
+      - id: remove-legacy
+        summary: "Delete `legacy/forgekeeper_v1` once parity is confirmed."

@@ -1,9 +1,9 @@
-# v2 Stabilization – Implementation Plan (Planning Draft)
+# Stabilization Implementation Plan (Planning Draft)
 
 This plan is derived from `codex.json` and `codex.plan`, adapted to the current Forgekeeper repository structure. It is documentation-only; no code changes are made in this phase.
 
 ## Branch Strategy
-- Working branch: `v2-stabilization` (create from default branch when we begin execution).
+- Working branch: `v2-stabilization` (rename once the migration work completes).
 - Keep PRs granular per phase/task with clear acceptance checks.
 
 ## Phase Summary and Acceptance
@@ -47,12 +47,12 @@ This plan is derived from `codex.json` and `codex.plan`, adapted to the current 
 - `FGK_MEMORY_BACKEND=(kv|vector)`
 
 ## Validation Commands (for later; do not run now)
-- `bash forgekeeper/scripts/doctor.sh`
+- `bash scripts/doctor.sh`
 - `docker compose -f infra/triton/docker-compose.yml up -d`
-- `python forgekeeper/scripts/infer_cli.py --prompt "Say hello."`
+- `python scripts/infer_cli.py --prompt "Say hello."`
 - `pytest -q` (run from `forgekeeper/`)
 
-## Notes & Non-Goals (v2)
+## Notes & Non-Goals
 - Prefer minimal, inspectable CLIs and simple adapters over full-featured frameworks.
 - Keep GPU/IaaC specifics in `infra/`; avoid coupling agent logic to deployment.
 - Postpone streaming UI until basic polling is stable.

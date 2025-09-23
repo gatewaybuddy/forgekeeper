@@ -1,25 +1,18 @@
-# File Path Mapping (Plan → Repo)
+# File Path Mapping (Plan -> Repo)
 
-This maps paths referenced in `codex.json`/`codex.plan` to the canonical locations in this repository to preserve existing structure.
+This table maps historical references in `codex.json` / `codex.plan` to the
+canonical locations inside the consolidated runtime repository.
 
-- scripts/* → `forgekeeper/scripts/*`
-- services/context_log/* → `forgekeeper/forgekeeper/services/context_log/*`
-- services/memory/* → `forgekeeper/forgekeeper/services/memory/*`
-- services/logging.py → `forgekeeper/forgekeeper/services/logging.py`
-- agents/orchestrator.py → `forgekeeper/forgekeeper/agents/orchestrator.py`
-- tools/shell.py → `forgekeeper/tools/shell.py`
-- automation/tasks.yaml → `forgekeeper/tools/automation/tasks.yaml`
-- automation/pipeline.py → `forgekeeper/tools/automation/pipeline.py`
-- docs/* → `forgekeeper/docs/*`
-- web/src/components/* → `forgekeeper/frontend/src/components/*`
-- docker/triton/* → `infra/docker/triton/*`
-- models/oss-gpt-20b/* → `infra/models/oss-gpt-20b/*`
-- config/allowlist.json → `forgekeeper/config/allowlist.json`
-- logs/* (JSONL) → `forgekeeper/logs/*`
-- tests for ContextLog → `forgekeeper/tests/services/test_context_log.py`
+- scripts/* -> `scripts/*`
+- core/orchestrator/* -> `forgekeeper-v2/forgekeeper_v2/orchestrator/*`
+- core/memory/* -> `forgekeeper-v2/forgekeeper_v2/memory/*`
+- core/ui/* -> `forgekeeper-v2/forgekeeper_v2/ui/*`
+- automation/tasks.yaml -> `automation/tasks.yaml`
+- docs/* -> `docs/*`
+- backend/* -> `backend/*`
+- frontend/* -> `frontend/*`
+- legacy/* -> `legacy/forgekeeper_v1/*` (reference only; not part of the default runtime)
 
-Notes:
-- Keep GPU/serving assets under `infra/` to avoid coupling app code to deployment.
-- Use `forgekeeper/tools` for developer/automation helpers; keep runtime agent logic under `forgekeeper/forgekeeper`.
-- Frontend lives in `forgekeeper/frontend`; avoid creating sibling `web/`.
-
+Use the public import surface `forgekeeper.core.*` when writing new Python
+code; it re-exports the orchestrator, memory, and UI modules from
+`forgekeeper_v2` while keeping runtime paths stable.

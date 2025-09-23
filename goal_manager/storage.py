@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from forgekeeper.state_manager import load_state
-from forgekeeper.memory.embedding import load_episodic_memory, similar_task_summaries
+from forgekeeper.memory.embeddings import load_episodic_memory, similar_task_summaries
 
 GOALS_FILE = Path("forgekeeper/goals.json")
 
