@@ -11,15 +11,16 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover
     if v2_path.exists():
         sys.path.insert(0, str(v2_path))
     try:
-        from forgekeeper_v2.cli import main as v2_main
+        from forgekeeper.core.cli import main as entry_main
     except Exception:
         # Final fallback: try import again without modifying path
-        from forgekeeper_v2.cli import main as v2_main  # type: ignore
+        from forgekeeper_v2.cli import main as entry_main  # type: ignore
 
     if argv is None:
         argv = sys.argv[1:]
-    v2_main(argv)
+    entry_main(argv)
 
 
 if __name__ == "__main__":  # pragma: no cover
     main()
+

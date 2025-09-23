@@ -4,8 +4,21 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from forgekeeper.multi_agent_planner import split_for_agents
-from forgekeeper.agent.communication import broadcast_context, send_direct_message
+try:  # pragma: no cover - compatibility during migration
+    from forgekeeper.multi_agent_planner import split_for_agents
+except ImportError:  # pragma: no cover
+    def split_for_agents(description: str):  # type: ignore[override]
+        return [{"agent": "core", "task": description, "protocol": "broadcast"}]
+
+try:  # pragma: no cover - compatibility during migration
+    from forgekeeper.agent.communication import broadcast_context, send_direct_message
+except ImportError:  # pragma: no cover
+    def broadcast_context(*args, **kwargs):  # type: ignore[override]
+        return None
+
+    def send_direct_message(*args, **kwargs):  # type: ignore[override]
+        return None
+
 
 
 def _dispatch_subtasks(

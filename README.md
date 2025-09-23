@@ -1,14 +1,25 @@
 # Forgekeeper
 
-Note: Forgekeeper v2 is now the default Python runtime. The previous Python core has been moved to `legacy/forgekeeper_v1`. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints invoke the v2 orchestrator by default.
+Note: The active Forgekeeper runtime now consolidates the modern orchestrator, memory, and tooling code paths. Historical sources remain in `legacy/forgekeeper_v1` for archival reference only. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints load the unified runtime via the `forgekeeper.core` namespace.
 
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
 This repository includes all components required to run the local development environment.
 
+## Architecture Snapshot
+
+- `forgekeeper/core/` re-exports the modern orchestrator modules and hosts the migration stubs (queue, pipeline, change stager, etc.).
+- `python -m forgekeeper` launches the single-agent orchestrator by default; pass `--mode duet` to opt into dual-agent runs.
+- Event logs and agentic memory persist under `.forgekeeper/` (`events.jsonl`, `agentic_memory.json`, `facts.json`).
+- `legacy/forgekeeper_v1` is archived for reference-only tests and will be removed after migration.
+
+## Migration Tracking
+
+See `docs/migration_plan.md` and `automation/migration_tasks.yaml` for the step-by-step plan to port remaining legacy modules.
+
 ## Command Reference
 
-See `forgekeeper/docs/COMMANDS.md` for the canonical list of commands used during the v2 stabilization track. Update that file as commands evolve.
+See `docs/COMMANDS.md` for the canonical list of commands used during the stabilization track. Update that file as commands evolve.
 
 ## First-Run Checklist
 
@@ -208,7 +219,7 @@ Or point to a specific model:
 ```bash
 # New: Python CLI entrypoint
 
-You can now install the Python package in editable mode and use the `forgekeeper` command with subcommands (v2 orchestrator).
+You can now install the Python package in editable mode and use the `forgekeeper` command with subcommands (current orchestrator).
 
 Quick start:
 
@@ -229,7 +240,7 @@ python -m forgekeeper run
 ```
 
 Notes:
-- The CLI uses the v2 orchestrator. Use `run` to start the loop, or `demo` for a short demo with mocked LLMs.
+- The CLI uses the orchestrator. Use `run` to start the loop, or `demo` for a short demo with mocked LLMs.
 - For tiny CPU-only mode, you can also use `pwsh ./start.ps1 -CliOnly -Tiny` or set `LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu` before running.
 ```
 LLM_BACKEND=transformers \
@@ -819,18 +830,18 @@ This guide is intended to streamline installation and clarify component interact
   - Persistent CLI (GraphQL-backed): `python -m forgekeeper pconsole`
   - Simple console: `python -m forgekeeper console`
 
-## Orchestrator (v2) Tests
+## Orchestrator Tests
 
-When running the v2 orchestrator tests, ensure the local sources are used rather than an older installed copy:
+When running the orchestrator tests, ensure the local sources are used rather than an older installed copy:
 
-- Option 1 (recommended): change into the v2 package directory and run pytest:
+- Option 1 (recommended): change into the orchestrator package directory and run pytest:
   
   ```bash
   cd forgekeeper-v2
   pytest -q
   ```
 
-- Option 2: run tests from the repo root (v2 is included in the mono-repo package):
+- Option 2: run tests from the repo root (the orchestrator package is included in the mono-repo build):
   
   ```bash
   pip install -e .

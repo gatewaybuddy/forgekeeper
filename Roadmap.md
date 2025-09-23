@@ -1,17 +1,20 @@
-# 🛤️ Forgekeeper Development Roadmap
+# Forgekeeper Development Roadmap
 
-This roadmap outlines the staged evolution of Forgekeeper into a self-improving local development agent.
+This roadmap tracks the staged evolution of the unified runtime. For the active stabilization plan see `docs/ROADMAP.md`.
 
----
-
-## 🎯 Milestones
+## Milestones
 
 | Milestone | Status |
 |-----------|--------|
-| Core | Done |
-| Automation | Done |
-| Autonomy | Done |
-| Memory Orchestration | Planned |
+| Core single-agent runtime | Done (v2 default) |
+| Agentic memory plane | Done (JSON store + feedback log) |
+| Queue & GraphQL callbacks | Next (Phase 3) |
+| UI wiring & observability | Planned (Phases 4 & 7) |
+| Self-improvement loop | Planned (Phase 6+) |
+
+## Migration Workstream
+- See `docs/migration_plan.md` for the detailed porting strategy.
+- Active task list lives in `automation/migration_tasks.yaml`.
 
 ### Phase 1: Human-Guided Autonomy (Complete)
 - [x] Define agents and roles in `AGENTS.md`
