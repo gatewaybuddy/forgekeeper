@@ -1,6 +1,6 @@
 # Forgekeeper
 
-Note: Forgekeeper v2 is now the default Python runtime. The previous Python core has been moved to `legacy/forgekeeper_v1`. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints invoke the v2 orchestrator by default.
+Note: Forgekeeper v2 is now the default Python runtime. Legacy v1 has been removed; see `docs/dev/LEGACY_MIGRATION.md` for the migration notes. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints invoke the v2 orchestrator by default.
 
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.

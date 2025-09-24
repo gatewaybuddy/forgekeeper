@@ -362,7 +362,11 @@ else
     fi
   fi
 
-  "$PYTHON" -m forgekeeper &
+  if $CONVERSATION; then
+    "$PYTHON" -m forgekeeper --conversation &
+  else
+    "$PYTHON" -m forgekeeper &
+  fi
   PYTHON_PID=$!
 
   npm run dev --prefix frontend &
@@ -371,4 +375,6 @@ else
   trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} ${TRITON_PID:-} 2>/dev/null || true' EXIT
   wait
 fi
-\n# Export conversation flag for downstream launchers\nif \; then export FK_RUN_CONVERSATION=1; fi\n
+
+# Export conversation flag for downstream launchers
+if $CONVERSATION; then export FK_RUN_CONVERSATION=1; fi
