@@ -1,6 +1,8 @@
 # Forgekeeper
 
+
 Note: The active Forgekeeper runtime now consolidates the modern orchestrator, memory, and tooling code paths. Historical sources remain in `legacy/forgekeeper_v1` for archival reference only. The `forgekeeper` CLI and `python -m forgekeeper` entrypoints load the unified runtime via the `forgekeeper.core` namespace.
+
 
 Forgekeeper is a self-evolving agent framework that combines a React frontend, a Node/TypeScript GraphQL service backed by MongoDB via Prisma, and a Python core agent.
 All conversation data flows through this GraphQL API, replacing earlier file-based helpers.
@@ -186,7 +188,7 @@ Startup flags:
 
 Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
 
-For a timeline of recent environment and DX changes, see `DEVLOG.md`.
+For a timeline of recent environment and DX changes, see `docs/dev/DEVLOG.md`.
 
 The backend provides an outbox-backed publish path with exponential backoff and simple lag/ retry metrics on `/health`. The worker entrypoint (`npm run worker --prefix backend`) polls unsent messages and publishes them to the configured MQTT broker.
 
@@ -211,7 +213,7 @@ Reset saved preferences:
 Use a local Hugging Face model via Transformers without the vLLM servers:
 
 ```bash
-LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu python -m forgekeeper
+LLM_BACKEND=transformers USE_TINY_MODEL=true FK_DEVICE=cpu python -m forgekeeper [--conversation]
 ```
 
 Or point to a specific model:
@@ -236,7 +238,7 @@ Module form still works if you prefer:
 
 ```bash
 python -m forgekeeper --help
-python -m forgekeeper run
+python -m forgekeeper [--conversation] run
 ```
 
 Notes:
@@ -247,7 +249,7 @@ LLM_BACKEND=transformers \
 FK_MODEL_PATH=/path/to/model \
 FK_DTYPE=bf16 \
 FK_DEVICE=cuda \
-python -m forgekeeper
+python -m forgekeeper [--conversation]
 ```
 
 ### TinyLLM Quickstart (CPU‑only)
@@ -260,7 +262,7 @@ CLI_ONLY=true \
 LLM_BACKEND=transformers \
 USE_TINY_MODEL=true \
 FK_DEVICE=cpu \
-python -m forgekeeper
+python -m forgekeeper [--conversation]
 ```
 
 PowerShell:
@@ -270,7 +272,7 @@ $env:CLI_ONLY = 'true'
 $env:LLM_BACKEND = 'transformers'
 $env:USE_TINY_MODEL = 'true'
 $env:FK_DEVICE = 'cpu'
-python -m forgekeeper
+python -m forgekeeper [--conversation]
 ```
 
 Startup wrappers may add a convenience flag in a future update:
@@ -307,7 +309,7 @@ The CLI and the web UI reserve a small help area where the description and curre
 Launch a simple terminal chat with slash-command support and a live context counter:
 
 ```bash
-python -m forgekeeper.commands chat [session-id]
+python -m forgekeeper [--conversation] commands chat [session-id]
 ```
 
 Keybindings:
@@ -377,7 +379,7 @@ npm run dev --prefix backend
 
 ### Start the backend
 ```bash
-python -m forgekeeper
+python -m forgekeeper [--conversation]
 ```
 
 ### Start the frontend
@@ -393,13 +395,13 @@ Forgekeeper includes a small console that interacts solely through the GraphQL A
 
 ```bash
 # Legacy v1 console (kept for reference)
-python -m forgekeeper persistent-console
+python -m forgekeeper [--conversation] persistent-console
 ```
 
 For a transient console without history use:
 
 ```bash
-python -m forgekeeper console
+python -m forgekeeper [--conversation] console
 ```
 
 The current conversation ID is saved in `.forgekeeper/cli_state.json` so sessions resume automatically. See `forgekeeper/cli.py` for implementation details.
@@ -410,7 +412,7 @@ For a simple console that persists chats via GraphQL, run:
 
 ```bash
 # Legacy v1 console (kept for reference)
-python -m forgekeeper console
+python -m forgekeeper [--conversation] console
 ```
 
 ### Dual LLM agent CLI [Legacy v1]
@@ -455,7 +457,7 @@ if `FK_MODEL_PATH` or `FK_LLM_IMPL` are configured, switches to the
 export USE_TINY_MODEL=true
 export FK_DEVICE=cpu
 export FK_DTYPE=float32
-python -m forgekeeper
+python -m forgekeeper [--conversation]
 ```
 
 The tiny model is **not** instruction tuned and has a very limited context

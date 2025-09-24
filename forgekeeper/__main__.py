@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 
-def main(argv: list[str] | None = None) -> None:  # pragma: no cover
+def _run_conversation(argv: list[str]) -> int:
     # Prefer local v2 sources in mono-repo to avoid stale installed copies
     root = Path(__file__).resolve().parents[2]
     v2_path = root / "forgekeeper-v2"

@@ -1,127 +1,107 @@
-milestones:
-  - epic: core
-    status: done
-  - epic: automation
-    status: done
-  - epic: autonomy
-    status: done
-  - epic: memory_orchestration
+generated_at: 2025-09-22T16:52:36.912177Z
+source: Roadmap.md
+phases:
+  -
+    id: phase-1
+    name: Human-Guided Autonomy
+    status: complete
+    items:
+      -
+        title: Define agents and roles in `AGENTS.md`
+        done: true
+      -
+        title: Load and summarize code files
+        done: true
+      -
+        title: Accept and interpret natural language task prompts
+        done: true
+      -
+        title: Make and commit code edits with user approval
+        done: true
+      -
+        title: Enable multi-agent task handoff between Core and Coder agents
+        done: true
+      -
+        title: Verify and sanitize user prompts to prevent injection attacks
+        done: true
+      -
+        title: Run a recursive self-review loop
+        done: true
+      -
+        title: Integrate linting and test validation before commits
+        done: true
+  -
+    id: phase-2
+    name: Semi-Autonomous Execution
+    status: complete
+    items:
+      -
+        title: Read from `Tasks.md`
+        done: true
+      -
+        title: Evaluate and rank tasks by priority and feasibility
+        done: true
+      -
+        title: Schedule and execute top-priority tasks without direct supervision
+        done: true
+      -
+        title: Request user confirmation before committing code changes
+        done: true
+      -
+        title: Log execution steps and errors for later review
+        done: true
+      -
+        title: Capture task context and results in a long-term memory store
+        done: true
+      -
+        title: Summarize each task outcome and tag with relevant metadata
+        done: true
+      -
+        title: Recall related memories when planning new tasks
+        done: true
+      -
+        title: Use reflections to refine task prioritization and execution strategies
+        done: true
+      -
+        title: Generate follow-up tasks based on insights from stored memories
+        done: true
+  -
+    id: phase-3
+    name: Full Local Autonomy
+    status: complete
+    items:
+      -
+        title: M-030: Autonomous task execution based on high-level goals
+        done: true
+      -
+        title: M-031: Emotion tagging for memory reflections
+        done: true
+      -
+        title: M-032: Self-generated roadmap and sprint plans
+        done: true
+      -
+        title: M-033: Optional push to remote repo with changelog and justification
+        done: true
+  -
+    id: phase-3.5
+    name: Distributed Inference & Modularity
+    status: in progress
+    items:
+
+  -
+    id: phase-4
+    name: Agentic Memory Orchestration
     status: planned
-
-epics:
-  - id: R-001
-    title: Reliable self-review & atomic commits
-    kpis: [self_review_pass_rate, rollback_rate]
-    milestones:
-      - id: M-001
-        title: Diff-aware self-review
-        status: done
-      - id: M-002
-        title: Commit checks surfacing
-        status: done
-  - id: R-002
-    title: Backend reliability (transactional outbox)
-    kpis: [outbox_lag_seconds_p50, publish_retry_rate]
-    milestones:
-      - id: M-010
-        title: Outbox worker with retries
-        status: done
-  - id: R-003
-    title: Autonomy feature expansions
-    kpis: []
-    milestones:
-      - id: M-020
-        title: Multi-file edit support
-        status: done
-        links: ["forgekeeper/task_pipeline.py"]
-      - id: M-021
-        title: Diff-aware self-review with task-scoped tests
-        status: done
-        links: ["forgekeeper/self_review/"]
-      - id: M-022
-        title: Subtask expansion in goal management
-        status: done
-        links: ["goal_manager/manager.py"]
-      - id: M-030
-        title: Autonomous task execution
-        status: done
-        description: Execute tasks derived from high-level goals without manual triggers
-      - id: M-031
-        title: Emotion tagging for memory
-        status: done
-      - id: M-032
-        title: Sprint and roadmap generation
-        status: done
-      - id: M-033
-        title: Optional remote push with justification
-        status: done
-        description: Push commits to a remote repository with a changelog and reasoning
-  - id: R-005
-    title: Vectorized memory retrieval
-    kpis: []
-    milestones:
-      - id: FK-401
-        title: Vectorized memory retrieval (P1)
-        status: in_progress
-  - id: R-006
-    title: Multi-agent collaboration framework
-    kpis: []
-    milestones:
-      - id: FK-402
-        title: Multi-agent collaboration framework (P2)
-        status: todo
-  - id: R-007
-    title: Sandbox execution environment
-    kpis: []
-    milestones:
-      - id: FK-403
-        title: Sandbox execution environment (P2)
-        status: todo
-  - id: R-008
-    title: Real-time conversation interface
-    kpis: []
-    milestones:
-      - id: FK-404
-        title: Real-time conversation interface (P3)
-        status: todo
-  - id: R-009
-    title: Phase 4: Memory optimization
-    kpis: []
-    milestones:
-      - id: FK-405
-        title: Attention distillation for GraphQL chat memory (P3)
-        status: todo
-
-  - id: R-010
-    title: Agentic memory orchestration
-    kpis: []
-    milestones:
-      - id: M-040
-        title: Agentic memory orchestration and extensions
-        status: todo
-
-  - id: R-011
-    title: Distributed inference & modular deployment
-    kpis: []
-    milestones:
-      - id: FK-351
-        title: Compose profiles for modular deploys (P1)
-        status: done
-      - id: FK-352
-        title: Gateway registry + weighted routing (P1)
-        status: done
-      - id: FK-353
-        title: Extract forgekeeper-core and client packages (P1)
-        status: todo
-      - id: FK-354
-        title: Agent worker entrypoint with outbox polling (P1)
-        status: done
-      - id: FK-355
-        title: Multi-node deployment guide and examples (P2)
-        status: todo
-      - id: FK-356
-        title: Helm charts for K8s (optional) (P3)
-        status: todo
-
-
-# Updated 2025-08-28
+    items:
+      -
+        title: Multi-file edit support in `task_pipeline.py`
+        done: true
+      -
+        title: Diff-aware self-review with task-scoped tests in `self_review/`
+        done: true
+      -
+        title: Subtask expansion in goal management via `goal_manager/manager.py`
+        done: true
+      -
+        title: Consolidated conversation handling behind a single GraphQL storage path
+        done: true

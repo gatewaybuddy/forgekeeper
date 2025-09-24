@@ -29,6 +29,9 @@ NVIDIA System Information*.txt
 .vscode/
 .idea/
 
+# Codex CLI agent notes (kept outside repo)
+AGENTS.md
+
 # Vector store data
 vector_store/
 *.bin
@@ -76,5 +79,4 @@ local-push.ps1
 tmp/
 temp/
 
-# Local helper scripts (do not commit)
-local-push.ps1
+# (deduped) Local helper script already listed above
