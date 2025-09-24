@@ -65,7 +65,7 @@ def do_check(install_yes: bool = False) -> int:
     return 0 if not missing else 1
 
 
-def _build_llms(kind: str, model: str | None) -> tuple:
+def _build_llms(kind: str, model: str | None):
     kind = (kind or "mock").lower()
     if kind == "openai":
         from forgekeeper_v2.orchestrator.adapters.llm_openai import LLMOpenAI
@@ -101,7 +101,7 @@ async def _run_demo(duration: float, llm: str = "mock", model: str | None = None
 
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover
-    p = argparse.ArgumentParser(description="Forgekeeper v2 CLI")
+    p = argparse.ArgumentParser(description="Forgekeeper CLI")
     sub = p.add_subparsers(dest="cmd")
 
     s_demo = sub.add_parser("demo", help="Run duet demo (LLM mocks + tools + server)")
