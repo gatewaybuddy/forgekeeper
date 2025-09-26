@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import { Box, Button, TextField, Tooltip, Typography, Paper, List, ListItemButton, ListItemText } from '@mui/material';
-import { Conversation } from './types';
-import { countTokens } from './token';
+import { Conversation } from '../../types';
+import { countTokens } from '../../token';
 
 const COMMANDS: Record<string, string> = {
   model: 'Set active model name (e.g., mistral, tiny)',

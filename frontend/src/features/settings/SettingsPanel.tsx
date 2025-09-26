@@ -4,7 +4,7 @@ import {
   TextField, Button, Switch, FormControlLabel, Stack
 } from '@mui/material';
 import { useMutation, useQuery } from '@apollo/client';
-import { GET_RUNTIME_CONFIG, SET_RUNTIME_CONFIG, REQUEST_RESTART } from './graphql';
+import { GET_RUNTIME_CONFIG, SET_RUNTIME_CONFIG, REQUEST_RESTART } from '../../graphql';
 
 interface SettingsPanelProps {
   open: boolean;

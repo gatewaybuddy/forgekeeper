@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { Conversation } from './types';
+import { Conversation } from '../../types';
 
 interface LogPanelProps {
   conversation?: Conversation;

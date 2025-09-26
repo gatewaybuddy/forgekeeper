@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { LIST_PROJECTS, CREATE_PROJECT } from './graphql';
-import { Project } from './types';
+import { LIST_PROJECTS, CREATE_PROJECT } from '../../graphql';
+import { Project } from '../../types';
 import { Box, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 
@@ -38,7 +38,7 @@ export default function ProjectSelector({ value, onChange }: ProjectSelectorProp
           labelId="project-select-label"
           label="Project"
           value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value as string)}
         >
           {data?.listProjects.map((p) => (
             <MenuItem key={p.id} value={p.id}>

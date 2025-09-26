@@ -1,7 +1,7 @@
 import React from 'react';
 import { List, ListItem, ListItemButton, ListItemText, IconButton } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { Conversation } from './types';
+import { Conversation } from '../../types';
 
 interface ConversationListProps {
   conversations: Conversation[];
