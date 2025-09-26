@@ -124,8 +124,14 @@ npm install --prefix frontend
    ```bash
    pip install -r requirements.txt
    ```
-   Triton-based providers require an NVIDIA GPU with a compatible CUDA toolkit
-   (e.g., CUDA 12+) for `tritonllm` and `tritonclient[http]`.
+   The Python CLI script `scripts/infer_cli.py` targets OpenAI-compatible
+   endpoints (such as the bundled vLLM service). To request a completion, run:
+   ```bash
+   python scripts/infer_cli.py "Say hello" --model oss-gpt-20b
+   ```
+   Set `FK_CORE_API_BASE` in your environment (or pass `--base-url`) to point at
+   the desired endpoint. Use `--api-key`/`--api-key-header` to attach custom
+   authentication headers when required.
 3. Optional: configure local Harmony model parameters via environment variables:
    - `OPENAI_REASONING_EFFORT` – one of `low`, `medium`, or `high` (default: `medium`).
    - `LLM_TEMPERATURE` and `LLM_TOP_P` – sampling parameters passed to `llama_cpp`.

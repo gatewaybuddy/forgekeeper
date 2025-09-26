@@ -1,140 +1,133 @@
 #!/usr/bin/env python3
-"""
-Minimal Triton inference CLI (planning stub).
+"""Simple CLI for querying a vLLM OpenAI-compatible endpoint.
 
-- HTTP (default) or gRPC modes.
-- Gracefully warns if tritonclient is not installed or server is unreachable.
-
-Usage:
-  python forgekeeper/scripts/infer_cli.py --prompt "Say hello."
-  python forgekeeper/scripts/infer_cli.py --host localhost --http-port 8000 --mode http --prompt "..."
-  python forgekeeper/scripts/infer_cli.py --mode grpc --grpc-port 8001 --prompt "..."
-  python forgekeeper/scripts/infer_cli.py --dry-run --prompt "Say hello."
+The script sends a chat completion request with the provided prompt
+and prints the first completion text. By default the target endpoint is
+read from ``FK_CORE_API_BASE`` (falling back to ``http://localhost:8001``),
+but can be overridden with ``--base-url``.
 """
+from __future__ import annotations
+
 import argparse
+import json
+import os
 import sys
-import time
+from typing import Dict
+
+import requests
+
+
+def _normalize_base_url(base_url: str) -> str:
+    """Ensure the base URL contains the ``/v1`` prefix expected by OpenAI APIs."""
+    base = base_url.rstrip("/")
+    if not base.lower().endswith("/v1"):
+        base = f"{base}/v1"
+    return base
+
+
+def build_headers(args: argparse.Namespace) -> Dict[str, str]:
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if args.api_key:
+        header_name = args.api_key_header
+        value = args.api_key
+        if header_name.lower() == "authorization" and not value.lower().startswith("bearer "):
+            value = f"Bearer {value}"
+        headers[header_name] = value
+    return headers
+
+
+def build_payload(args: argparse.Namespace) -> Dict[str, object]:
+    return {
+        "model": args.model,
+        "messages": [
+            {
+                "role": "user",
+                "content": args.prompt,
+            }
+        ],
+    }
+
+
+def _default_base_url() -> str:
+    env_base = os.environ.get("FK_CORE_API_BASE")
+    if env_base:
+        return env_base
+
+    host = os.environ.get("VLLM_HOST_CORE")
+    port = os.environ.get("VLLM_CONTAINER_PORT", "8000")
+    if host:
+        return f"http://{host}:{port}"
+
+    return "http://localhost:8001"
+
+
+def parse_args() -> argparse.Namespace:
+    default_base = _default_base_url()
+    default_model = os.environ.get("VLLM_MODEL_CORE", "oss-gpt-20b")
+
+    parser = argparse.ArgumentParser(
+        description="Send a chat completion request to an OpenAI-compatible endpoint.",
+    )
+    parser.add_argument(
+        "prompt",
+        help="User prompt text to send in the chat completion request.",
+    )
+    parser.add_argument(
+        "--model",
+        default=default_model,
+        help=f"Model name to request (default: {default_model}).",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=default_base,
+        help=f"Base URL for the API (default: {default_base}).",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=os.environ.get("FK_CORE_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+        help="Optional API key value to include in the request headers.",
+    )
+    parser.add_argument(
+        "--api-key-header",
+        default="Authorization",
+        help="Header name to use for the API key (default: Authorization).",
+    )
+    return parser.parse_args()
+
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--host', default='localhost')
-    ap.add_argument('--http-port', type=int, default=8000)
-    ap.add_argument('--grpc-port', type=int, default=8001)
-    ap.add_argument('--mode', choices=['http', 'grpc'], default='http')
-    ap.add_argument('--prompt', required=False, default='')
-    ap.add_argument('--timeout', type=float, default=10.0)
-    ap.add_argument('--dry-run', action='store_true', help='Do not contact Triton; simulate a response')
-    args = ap.parse_args()
+    args = parse_args()
 
-    if args.dry_run:
-        text = 'hello' if 'hello' in args.prompt.lower() else f"echo: {args.prompt}"
-        print(text)
-        return 0
+    endpoint = f"{_normalize_base_url(args.base_url)}/chat/completions"
+    headers = build_headers(args)
+    payload = build_payload(args)
 
-    start = time.time()
     try:
-        if args.mode == 'http':
-            try:
-                import numpy as np  # type: ignore
-                import tritonclient.http as httpclient  # type: ignore
-            except Exception as e:
-                print(f"ERROR: missing dependency for HTTP mode: {e}")
-                print("Tip: pip install numpy 'tritonclient[http]'")
-                return 2
-
-            url = f"{args.host}:{args.http_port}"
-            cli = httpclient.InferenceServerClient(url=url, verbose=False)
-            if not cli.is_server_live():
-                print(f"ERROR: Triton HTTP server not live at {url}")
-                return 3
-            model_name = "oss_gpt_20b"
-            # Attempt to load model in explicit mode
-            try:
-                if not cli.is_model_ready(model_name):
-                    try:
-                        cli.load_model(model_name)
-                    except Exception as e:
-                        # Proceed; may already be loading or mode does not allow
-                        print(f"WARN: load_model error: {e}")
-                # Give Triton a brief moment
-                t0 = time.time()
-                while time.time() - t0 < 5.0:
-                    if cli.is_model_ready(model_name):
-                        break
-                    time.sleep(0.2)
-            except Exception as e:
-                print(f"WARN: readiness check failed: {e}")
-
-            # Build request for oss_gpt_20b python backend
-            prompt = args.prompt or "Say hello."
-            infer_input = httpclient.InferInput("PROMPT", [1, 1], "BYTES")
-            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
-            output = httpclient.InferRequestedOutput("TEXT", binary_data=False)
-            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
-            out = resp.as_numpy("TEXT")
-            if out is None:
-                text = ""
-            else:
-                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
-                if isinstance(val, (bytes, bytearray)):
-                    text = val.decode("utf-8", errors="ignore")
-                else:
-                    text = str(val)
-            print(text)
-            return 0
-        else:
-            try:
-                import numpy as np  # type: ignore
-                import tritonclient.grpc as grpcclient  # type: ignore
-                from tritonclient.grpc import service_pb2  # noqa: F401
-            except Exception as e:
-                print(f"ERROR: missing dependency for gRPC mode: {e}")
-                print("Tip: pip install numpy 'tritonclient[grpc]'")
-                return 2
-
-            url = f"{args.host}:{args.grpc_port}"
-            cli = grpcclient.InferenceServerClient(url=url, verbose=False)
-            if not cli.is_server_live():
-                print(f"ERROR: Triton gRPC server not live at {url}")
-                return 3
-            model_name = "oss_gpt_20b"
-            # Attempt to load model in explicit mode
-            try:
-                if not cli.is_model_ready(model_name):
-                    try:
-                        cli.load_model(model_name)
-                    except Exception as e:
-                        print(f"WARN: load_model error: {e}")
-                t0 = time.time()
-                while time.time() - t0 < 5.0:
-                    if cli.is_model_ready(model_name):
-                        break
-                    time.sleep(0.2)
-            except Exception as e:
-                print(f"WARN: readiness check failed: {e}")
-
-            prompt = args.prompt or "Say hello."
-            infer_input = grpcclient.InferInput("PROMPT", [1, 1], "BYTES")
-            infer_input.set_data_from_numpy(np.array([[prompt.encode('utf-8')]], dtype=object))
-            output = grpcclient.InferRequestedOutput("TEXT")
-            resp = cli.infer(model_name=model_name, inputs=[infer_input], outputs=[output])
-            out = resp.as_numpy("TEXT")
-            if out is None:
-                text = ""
-            else:
-                val = out[0][0] if getattr(out, 'ndim', 1) >= 2 else out[0]
-                if isinstance(val, (bytes, bytearray)):
-                    text = val.decode("utf-8", errors="ignore")
-                else:
-                    text = str(val)
-            print(text)
-            return 0
-    except Exception as e:
-        print(f"ERROR: {e}")
+        response = requests.post(endpoint, headers=headers, data=json.dumps(payload), timeout=60)
+    except requests.RequestException as exc:  # pragma: no cover - CLI error path
+        print(f"ERROR: failed to reach {endpoint}: {exc}", file=sys.stderr)
         return 1
-    finally:
-        dur = (time.time() - start) * 1000
-        print(f"latency_ms={dur:.1f}")
 
-if __name__ == '__main__':
+    if response.status_code != 200:
+        detail = response.text
+        print(
+            f"ERROR: request failed with status {response.status_code}: {detail}",
+            file=sys.stderr,
+        )
+        return 2
+
+    data = response.json()
+    try:
+        choice = data["choices"][0]
+        message = choice.get("message") or {}
+        text = message.get("content") or choice.get("text") or ""
+    except (KeyError, IndexError, AttributeError, TypeError):  # pragma: no cover
+        print("ERROR: unexpected response format", file=sys.stderr)
+        return 3
+
+    print(text.strip())
+    return 0
+
+
+if __name__ == "__main__":
     sys.exit(main())
