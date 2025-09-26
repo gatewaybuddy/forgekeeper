@@ -4,13 +4,19 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 
 from git import Repo
 
 from forgekeeper.config import AUTO_PUSH, DEBUG_MODE
 from forgekeeper.logger import get_logger
+from forgekeeper.memory import get_memory_backend
 from forgekeeper.memory.episodic import append_entry
+
+if TYPE_CHECKING:
+    from forgekeeper.memory.backends import MemoryBackend
+
+    _memory_backend: MemoryBackend = get_memory_backend()
 
 LOG = get_logger(__name__, debug=DEBUG_MODE)
 

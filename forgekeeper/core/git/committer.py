@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, TYPE_CHECKING
 
 from git import Repo
 
 from forgekeeper.config import AUTO_PUSH, DEBUG_MODE, RUN_COMMIT_CHECKS
 from forgekeeper.git import sandbox_checks
+from forgekeeper.memory import get_memory_backend
 from forgekeeper.memory.episodic import append_entry
 from . import checks as git_checks
 from . import commit_ops
 from . import pre_review
+
+if TYPE_CHECKING:
+    from forgekeeper.memory.backends import MemoryBackend
+
+    _memory_backend: MemoryBackend = get_memory_backend()
 
 LOG = logging.getLogger("forgekeeper.core.git.committer")
 

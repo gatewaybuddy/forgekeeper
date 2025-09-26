@@ -11,12 +11,19 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from forgekeeper.state_manager import load_state
+from forgekeeper.memory import get_memory_backend
 from forgekeeper.memory.embeddings import load_episodic_memory, similar_task_summaries
 
 GOALS_FILE = Path("forgekeeper/goals.json")
+
+if TYPE_CHECKING:
+    from forgekeeper.memory.backends import MemoryBackend
+
+    _memory_backend: MemoryBackend = get_memory_backend()
+
 
 def _migrate_from_state_if_needed() -> List[Dict]:
     """If goals.json is missing, try to migrate from state['active_goals']."""
