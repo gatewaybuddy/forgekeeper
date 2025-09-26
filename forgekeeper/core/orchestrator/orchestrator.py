@@ -3,23 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 from .adapters import ToolBase, ToolEvent
 from .buffers import Buffers
-from .contracts import (
-    EventSink,
-    LLMEndpoint,
-    PolicyProvider,
-    ToolRouter,
-    default_event_sink,
-    default_llm_endpoint,
-    default_policy_provider,
-    default_tool_router,
-)
-from .events import Event, JsonlRecorder, Watermark
-from .facts import FactsStore
+from .contracts import LLMEndpoint
+from .events import Event, Watermark
 from .policies import FloorPolicy, TriggerPolicy
 from .summary import compact
 
@@ -34,27 +23,25 @@ class Orchestrator:
     def __init__(
         self,
         *,
-        recorder_path: Path | str = ".forgekeeper/events.jsonl",
-        llm_a: Optional[LLMEndpoint] = None,
-        llm_b: Optional[LLMEndpoint] = None,
-        tools: Optional[Iterable[ToolBase]] = None,
-        tool_router: ToolRouter | None = None,
-        inbox_path: Path | str | None = None,
-        facts_path: Path | str | None = None,
-        event_sink: EventSink | None = None,
-        policy_provider: PolicyProvider | None = None,
+        contracts: "OrchestratorContracts",
+        buffers: Optional[Buffers] = None,
     ) -> None:
-        self.recorder = event_sink or default_event_sink(recorder_path)
-        self.inbox_path = Path(inbox_path) if inbox_path else Path(".forgekeeper/inbox_user.jsonl")
-        self.facts = FactsStore(Path(facts_path) if facts_path else Path(".forgekeeper/facts.json"))
-        self.buffers = Buffers(maxlen=2000)
-        self.llm_a = llm_a or default_llm_endpoint("botA")
-        self.llm_b = llm_b or default_llm_endpoint("botB")
-        self.tool_router = tool_router or default_tool_router(tools)
+        from .contracts import OrchestratorContracts  # Local import to avoid cycle during typing
+
+        if not isinstance(contracts, OrchestratorContracts):  # pragma: no cover - defensive
+            raise TypeError("contracts must be an instance of OrchestratorContracts")
+
+        self.recorder = contracts.event_sink
+        self.inbox = contracts.inbox
+        self.facts = contracts.facts
+        self.buffers = buffers or Buffers(maxlen=2000)
+        self.llm_a = contracts.llm_a
+        self.llm_b = contracts.llm_b
+        self.tool_router = contracts.tool_router
         self.tools = list(self.tool_router.iter_tools())
 
         self.wm = Watermark(interval_ms=500)
-        self.policy_provider = policy_provider or default_policy_provider()
+        self.policy_provider = contracts.policy_provider
         self.floor = self.policy_provider.floor
         self.trig_a = self.policy_provider.trigger_for("botA")
         self.trig_b = self.policy_provider.trigger_for("botB")
@@ -112,7 +99,7 @@ class Orchestrator:
     # ------------------------------------------------------------------
     # Agent turns
 
-    async def _llm_turn(self, speaker: str, llm: LLMBase, trig: TriggerPolicy) -> None:
+    async def _llm_turn(self, speaker: str, llm: LLMEndpoint, trig: TriggerPolicy) -> None:
         if self.floor.is_user_active():
             return
         if not trig.should_emit():
@@ -165,8 +152,7 @@ class Orchestrator:
         await self.tool_router.stop()
 
     async def _pump_inbox(self) -> None:
-        inbox = JsonlRecorder(self.inbox_path)
-        async for event in inbox.tail():
+        async for event in self.inbox.tail():
             text = getattr(event, "text", "").strip()
             if not text:
                 continue

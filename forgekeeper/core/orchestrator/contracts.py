@@ -15,6 +15,7 @@ from typing import (
 
 from .adapters import LLMMock, ToolBase
 from .events import Event, JsonlRecorder
+from .facts import FactsStore
 from .policies import FloorPolicy, TriggerPolicy
 
 
@@ -83,6 +84,8 @@ class OrchestratorContracts:
     llm_b: LLMEndpoint
     tool_router: ToolRouter
     event_sink: EventSink
+    inbox: EventSink
+    facts: FactsStore
     policy_provider: PolicyProvider
 
 

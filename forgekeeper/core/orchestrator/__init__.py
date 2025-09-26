@@ -21,6 +21,7 @@ from .contracts import (
 )
 from .events import Event, JsonlRecorder, Watermark
 from .facts import FactsStore
+from .config import DefaultOrchestratorConfig
 from .orchestrator import Orchestrator
 from .policies import FloorPolicy, TriggerPolicy
 from .summary import compact
@@ -40,6 +41,7 @@ __all__ = [
     "DEFAULT_ORCHESTRATOR_EXPECTATIONS",
     "SimpleToolRouter",
     "DefaultPolicyProvider",
+    "DefaultOrchestratorConfig",
     "default_llm_endpoint",
     "default_tool_router",
     "default_event_sink",
