@@ -1,8 +1,5 @@
-from forgekeeper.tasks.queue import TaskQueue
-
-
-def test_memory_weight_affects_order(tasks_file):
-    tasks_md = tasks_file(
+def test_memory_weight_affects_order(queue_from_text):
+    queue = queue_from_text(
         """## Canonical Tasks
 
 ---
@@ -16,18 +13,13 @@ id: T2
 title: Second task (P1)
 status: todo
 ---
-"""
+""",
+        memory_entries=[
+            {"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"},
+            {"task_id": "T2", "title": "Second task", "status": "note", "sentiment": "positive"},
+            {"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"},
+        ],
     )
-    mem_dir = tasks_md.parent / ".forgekeeper" / "memory"
-    mem_dir.mkdir(parents=True)
-    mem_file = mem_dir / "episodic.jsonl"
-    mem_file.write_text(
-        """{"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"}\n"
-        "{"task_id": "T2", "title": "Second task", "status": "note", "sentiment": "positive"}\n"
-        "{"task_id": "T1", "title": "First task", "status": "note", "sentiment": "negative"}\n""",
-        encoding="utf-8",
-    )
-    queue = TaskQueue(tasks_md)
     task = queue.next_task()
     assert task["id"] == "T2"
     w1, _ = queue._memory_weight("First task (P1)", "T1")
@@ -35,8 +27,8 @@ status: todo
     assert w1 > w2
 
 
-def test_similarity_recall_affects_order(tasks_file):
-    tasks_md = tasks_file(
+def test_similarity_recall_affects_order(queue_from_text):
+    queue = queue_from_text(
         """## Canonical Tasks
 
 ---
@@ -50,16 +42,16 @@ id: N2
 title: Refactor bar module (P1)
 status: todo
 ---
-"""
+""",
+        memory_entries=[
+            {
+                "task_id": "old",
+                "title": "Old task",
+                "status": "failed",
+                "summary": "struggled to implement foo feature",
+            }
+        ],
     )
-    mem_dir = tasks_md.parent / ".forgekeeper" / "memory"
-    mem_dir.mkdir(parents=True)
-    mem_file = mem_dir / "episodic.jsonl"
-    mem_file.write_text(
-        """{"task_id": "old", "title": "Old task", "status": "failed", "summary": "struggled to implement foo feature"}\n""",
-        encoding="utf-8",
-    )
-    queue = TaskQueue(tasks_md)
     task = queue.next_task()
     assert task["id"] == "N2"
     _, related = queue._memory_weight("Implement foo feature (P1)")

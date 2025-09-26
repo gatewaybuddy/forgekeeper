@@ -5,9 +5,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 import yaml
+
+from forgekeeper.memory import MemoryBackend, get_memory_backend
 
 from .memory import MemoryIndex, load_memory_summaries, memory_weight
 from .parser import (
@@ -34,14 +36,31 @@ class TaskQueue:
     SECTION_PRIORITY = SECTION_PRIORITY
     DEFAULT_PATH = Path(__file__).resolve().parents[3] / "tasks.md"
 
-    def __init__(self, path: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | str | None = None,
+        *,
+        backend: MemoryBackend | None = None,
+        backend_factory: Callable[[], MemoryBackend] | None = None,
+    ) -> None:
         self.path = Path(path) if path else self.DEFAULT_PATH
+        if backend is not None and backend_factory is not None:
+            raise ValueError("Provide either 'backend' or 'backend_factory', not both")
+        if backend_factory is not None:
+            self._backend_resolver: Callable[[], MemoryBackend] = backend_factory
+        else:
+            resolved_backend = backend or get_memory_backend()
+
+            def _resolver(resolved: MemoryBackend = resolved_backend) -> MemoryBackend:
+                return resolved
+
+            self._backend_resolver = _resolver
         (
             self.preamble,
             self.sections,
             self._section_by_name,
         ) = parse_task_file(self.path)
-        stats, index = load_memory_summaries(self.path)
+        stats, index = load_memory_summaries(self.path, backend=self._backend_resolver())
         self.memory_stats: Dict[str, Dict[str, int | str]] = stats
         self.memory_index: MemoryIndex = index
 
@@ -49,7 +68,7 @@ class TaskQueue:
         save(self.path, self.preamble, self.sections)
 
     def refresh_memory(self) -> None:
-        stats, index = load_memory_summaries(self.path)
+        stats, index = load_memory_summaries(self.path, backend=self._backend_resolver())
         self.memory_stats = stats
         self.memory_index = index
 
