@@ -112,6 +112,12 @@ if (-not $Defaults) {
     Prompt-Var 'FRONTEND_PORT' '3000'
     Prompt-Var 'BACKEND_PORT' '8000'
     Prompt-Var 'PYTHON_PORT' '5000'
+    $defaultFrontendBackend = "http://backend:$($env:BACKEND_PORT)"
+    if (-not $env:FRONTEND_BACKEND_URL) { $env:FRONTEND_BACKEND_URL = $defaultFrontendBackend }
+    Prompt-Var 'FRONTEND_BACKEND_URL' $env:FRONTEND_BACKEND_URL
+    $defaultViteBackend = "http://localhost:$($env:BACKEND_PORT)"
+    if (-not $env:VITE_BACKEND_URL) { $env:VITE_BACKEND_URL = $defaultViteBackend }
+    Prompt-Var 'VITE_BACKEND_URL' $env:VITE_BACKEND_URL
     Prompt-Var 'MONGO_URI' 'mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false'
     Prompt-Secret 'OPENAI_API_KEY' ''
     Prompt-Var 'LLM_BACKEND' 'vllm'
@@ -123,6 +129,8 @@ if (-not $Defaults) {
             "FRONTEND_PORT=$env:FRONTEND_PORT",
             "BACKEND_PORT=$env:BACKEND_PORT",
             "PYTHON_PORT=$env:PYTHON_PORT",
+            "FRONTEND_BACKEND_URL=$env:FRONTEND_BACKEND_URL",
+            "VITE_BACKEND_URL=$env:VITE_BACKEND_URL",
             "MONGO_URI=$env:MONGO_URI",
             "OPENAI_API_KEY=$env:OPENAI_API_KEY",
             "LLM_BACKEND=$env:LLM_BACKEND",
@@ -142,6 +150,8 @@ if (-not $Defaults) {
             "FRONTEND_PORT=$env:FRONTEND_PORT",
             "BACKEND_PORT=$env:BACKEND_PORT",
             "PYTHON_PORT=$env:PYTHON_PORT",
+            "FRONTEND_BACKEND_URL=$env:FRONTEND_BACKEND_URL",
+            "VITE_BACKEND_URL=$env:VITE_BACKEND_URL",
             "MONGO_URI=$env:MONGO_URI",
             "OPENAI_API_KEY=$env:OPENAI_API_KEY",
             "LLM_BACKEND=$env:LLM_BACKEND",
@@ -164,7 +174,7 @@ if (-not (docker network ls --format '{{.Name}}' | Select-String "^$netName$")) 
 
 # --- build images ---
 docker build -t forgekeeper-backend (Join-Path $rootDir 'backend')
-docker build -t forgekeeper-frontend (Join-Path $rootDir 'frontend')
+docker build -t forgekeeper-frontend --build-arg BACKEND_URL=$env:FRONTEND_BACKEND_URL (Join-Path $rootDir 'frontend')
 docker build -t forgekeeper-python $rootDir
 
 # --- launch via compose ---

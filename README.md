@@ -396,7 +396,7 @@ python -m forgekeeper [--conversation]
 npm run dev --prefix frontend
 ```
 
-Vite dev server proxies `/graphql` to the backend at `http://localhost:4000` during development, so the app works at `http://localhost:5173/` without extra config.
+Vite dev server proxies `/graphql` to the backend URL from `VITE_BACKEND_URL` (default `http://localhost:8000`) during development, so the app works at `http://localhost:5173/` without extra config.
 
 ### Persistent CLI [Legacy v1]
 
