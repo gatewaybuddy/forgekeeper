@@ -112,7 +112,14 @@ $DEBUG && export DEBUG_MODE=true || true
 if $CLI_ONLY; then export CLI_ONLY=true; fi
 debug_log "DEBUG_MODE=$DEBUG_MODE"
 
+: "${DATABASE_URL:=mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false}"
+export DATABASE_URL
+
 : "${VLLM_PORT_CORE:=8001}"
+: "${OPENAI_BASE_URL:=http://localhost:${VLLM_PORT_CORE}/v1}"
+: "${OPENAI_API_KEY:=dev-key}"
+export OPENAI_BASE_URL OPENAI_API_KEY
+
 : "${FK_CORE_API_BASE:=http://localhost:${VLLM_PORT_CORE}}"
 : "${FK_CODER_API_BASE:=${FK_CORE_API_BASE}}"
 debug_log "FK_CORE_API_BASE=$FK_CORE_API_BASE"
@@ -345,7 +352,7 @@ fi
 
 if $CLI_ONLY; then
   echo "🚀 CLI-only mode: starting Python agent only"
-  "$PYTHON" -m forgekeeper
+  "$PYTHON" -m forgekeeper_v2.cli run --mode single
 else
   # Start backend first
   npm run dev --prefix backend &
@@ -372,9 +379,9 @@ else
   fi
 
   if $CONVERSATION; then
-    "$PYTHON" -m forgekeeper --conversation &
+    "$PYTHON" -m forgekeeper_v2.cli run --mode duet &
   else
-    "$PYTHON" -m forgekeeper &
+    "$PYTHON" -m forgekeeper_v2.cli run --mode single &
   fi
   PYTHON_PID=$!
 

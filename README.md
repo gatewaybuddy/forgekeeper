@@ -139,9 +139,11 @@ npm install --prefix frontend
    npm install
    ```
 2. Configure the MongoDB connection string (use `mongodb` as the host when
-   running the Docker service):
+   running inside Docker). For local development we keep the default pointed at
+   `localhost` with `directConnection=true` (to skip replica-set discovery) and
+   `retryWrites=false` so Prisma does not follow the container-advertised host:
    ```bash
-   export DATABASE_URL="mongodb://localhost:27017/forgekeeper"
+   export DATABASE_URL="mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false"
    ```
 3. Generate the Prisma client:
    ```bash

@@ -112,7 +112,7 @@ if (-not $Defaults) {
     Prompt-Var 'FRONTEND_PORT' '3000'
     Prompt-Var 'BACKEND_PORT' '8000'
     Prompt-Var 'PYTHON_PORT' '5000'
-    Prompt-Var 'MONGO_URI' 'mongodb://localhost:27017/forgekeeper'
+    Prompt-Var 'MONGO_URI' 'mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false'
     Prompt-Secret 'OPENAI_API_KEY' ''
     Prompt-Var 'LLM_BACKEND' 'vllm'
     if ($env:LLM_BACKEND -eq 'llama_cpp') {
