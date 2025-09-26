@@ -2,9 +2,9 @@ import { GraphQLJSON } from 'graphql-type-json';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
-import { registerNode, updateNode, listNodes, drainNode, chooseNodeForModel } from './gateway.ts';
+import { registerNode, updateNode, listNodes, drainNode, chooseNodeForModel } from './gateway.js';
 import { v4 as uuidv4 } from 'uuid';
-import * as crud from './crud.ts';
+import * as crud from './crud.js';
 
 const STOP_TOPIC = 'forgekeeper/stop';
 

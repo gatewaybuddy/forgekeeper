@@ -3,10 +3,10 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
-import typeDefs from './schema.ts';
-import resolvers from './resolvers.ts';
+import typeDefs from './schema.js';
+import resolvers from './resolvers.js';
 import { PrismaClient } from '@prisma/client';
-import { metrics } from './gateway.ts';
+import { metrics } from './gateway.js';
 
 async function main() {
   const prisma = new PrismaClient();
@@ -39,10 +39,24 @@ async function main() {
     }
   });
 
-  const port = process.env.PORT || 4000;
-  app.listen(port, () => {
-    console.log(`GraphQL service ready at http://localhost:${port}/graphql`);
-    console.log(`Health endpoint at http://localhost:${port}/health`);
+  const rawPort = process.env.BACKEND_PORT ?? process.env.PORT ?? '4000';
+  let port = Number.parseInt(rawPort, 10);
+  if (Number.isNaN(port)) {
+    port = 4000;
+  }
+
+  const host = '0.0.0.0';
+
+  app.listen(port, host, () => {
+    console.log(
+      `GraphQL service ready at http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/graphql`,
+    );
+    console.log(
+      `Health endpoint at http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/health`,
+    );
+    console.log(
+      `Resolved backend port ${port} (BACKEND_PORT=${process.env.BACKEND_PORT ?? 'unset'}, PORT=${process.env.PORT ?? 'unset'})`,
+    );
     console.log(`Frontend UI (dev) at http://localhost:5173`);
   });
 }
