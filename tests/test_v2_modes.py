@@ -5,10 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from forgekeeper.core.orchestrator import Orchestrator, ToolEvent
+from forgekeeper.core.orchestrator import (
+    DefaultOrchestratorConfig,
+    Orchestrator,
+    SimpleToolRouter,
+    ToolEvent,
+    default_policy_provider,
+)
 from forgekeeper.core.orchestrator.adapters import LLMMock, ToolBase
-from forgekeeper.core.orchestrator.single import SingleOrchestrator
+from forgekeeper.core.orchestrator.contracts import OrchestratorContracts
 from forgekeeper.core.orchestrator.events import Event, JsonlRecorder
+from forgekeeper.core.orchestrator.facts import FactsStore
+from forgekeeper.core.orchestrator.single import SingleOrchestrator
 
 
 @pytest.mark.asyncio
@@ -25,14 +33,15 @@ async def test_single_mode_records_events(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_duet_mode_records_events(tmp_path: Path) -> None:
     rec_path = tmp_path / "duet_events.jsonl"
-    orch = Orchestrator(
+    config = DefaultOrchestratorConfig(
         recorder_path=rec_path,
+        inbox_path=tmp_path / "inbox.jsonl",
+        facts_path=tmp_path / "facts.json",
         llm_a=LLMMock("Plan"),
         llm_b=LLMMock("Build"),
         tools=[],
-        inbox_path=tmp_path / "inbox.jsonl",
-        facts_path=tmp_path / "facts.json",
     )
+    orch = Orchestrator(contracts=config.build())
     await orch.run(duration_s=0.4)
     text = rec_path.read_text(encoding="utf-8")
     assert "orchestrator:start" in text
@@ -53,14 +62,15 @@ class EchoTool(ToolBase):
 async def test_tool_events_recorded(tmp_path: Path) -> None:
     rec_path = tmp_path / "tool_events.jsonl"
     tool = EchoTool([ToolEvent(text="check", act="TOOL_OUT", meta={"status": "ok"})])
-    orch = Orchestrator(
+    config = DefaultOrchestratorConfig(
         recorder_path=rec_path,
+        inbox_path=tmp_path / "inbox.jsonl",
+        facts_path=tmp_path / "facts.json",
         llm_a=LLMMock("A"),
         llm_b=LLMMock("B"),
         tools=[tool],
-        inbox_path=tmp_path / "inbox.jsonl",
-        facts_path=tmp_path / "facts.json",
     )
+    orch = Orchestrator(contracts=config.build())
     await orch.run(duration_s=0.2)
     text = rec_path.read_text(encoding="utf-8")
     assert '"role":"tool"' in text
@@ -71,11 +81,11 @@ async def test_tool_events_recorded(tmp_path: Path) -> None:
 async def test_inbox_messages_are_ingested(tmp_path: Path) -> None:
     rec_path = tmp_path / "duet_events.jsonl"
     inbox_path = tmp_path / "inbox.jsonl"
-    recorder = JsonlRecorder(inbox_path)
+    inbox_recorder = JsonlRecorder(inbox_path)
 
     async def feed_inbox() -> None:
         await asyncio.sleep(0.05)
-        await recorder.append(
+        await inbox_recorder.append(
             Event(
                 seq=1,
                 wm_event_time_ms=0,
@@ -86,16 +96,38 @@ async def test_inbox_messages_are_ingested(tmp_path: Path) -> None:
             )
         )
 
-    orch = Orchestrator(
+    config = DefaultOrchestratorConfig(
         recorder_path=rec_path,
+        inbox=inbox_recorder,
+        facts_path=tmp_path / "facts.json",
         llm_a=LLMMock("Plan"),
         llm_b=LLMMock("Build"),
         tools=[],
-        inbox_path=inbox_path,
-        facts_path=tmp_path / "facts.json",
     )
+    orch = Orchestrator(contracts=config.build())
 
     await asyncio.gather(orch.run(duration_s=0.4), feed_inbox())
 
     text = rec_path.read_text(encoding="utf-8")
-    assert 'hello-from-inbox' in text
+    assert "hello-from-inbox" in text
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_allows_custom_contracts(tmp_path: Path) -> None:
+    rec_path = tmp_path / "custom_events.jsonl"
+    inbox_path = tmp_path / "custom_inbox.jsonl"
+    contracts = OrchestratorContracts(
+        llm_a=LLMMock("Plan"),
+        llm_b=LLMMock("Build"),
+        tool_router=SimpleToolRouter([]),
+        event_sink=JsonlRecorder(rec_path),
+        inbox=JsonlRecorder(inbox_path),
+        facts=FactsStore(tmp_path / "facts.json"),
+        policy_provider=default_policy_provider(),
+    )
+
+    orch = Orchestrator(contracts=contracts)
+    await orch.run(duration_s=0.3)
+
+    text = rec_path.read_text(encoding="utf-8")
+    assert "orchestrator:start" in text
