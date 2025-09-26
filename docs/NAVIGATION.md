@@ -82,3 +82,24 @@ Because the cache directory is ignored by git you can safely regenerate the
 artifacts as often as needed without polluting commits. Downstream navigation or
 indexing tools should watch the `generated_at` timestamps to decide when to
 refresh cached views.【F:tools/nav/export_dependencies.py†L307-L352】
+
+## Command line helpers
+
+The `tools.nav` package exposes a CLI that wraps the JSON artifacts, making it
+easy to explore module metadata without memorising file paths. Install shell
+completions once with:
+
+```bash
+python -m tools.nav --print-completion bash | source /dev/stdin
+```
+
+Example commands:
+
+```bash
+python -m tools.nav list-modules --package forgekeeper
+python -m tools.nav show-module forgekeeper.task_pipeline
+python -m tools.nav related-files task_pipeline
+```
+
+Targets in the repository `Makefile` (e.g. `make nav-list`) forward to these
+commands for quick access.【F:tools/nav/__main__.py†L1-L301】
