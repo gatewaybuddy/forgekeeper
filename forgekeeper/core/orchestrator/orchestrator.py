@@ -6,8 +6,18 @@ import asyncio
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from .adapters import LLMBase, LLMMock, ToolBase, ToolEvent
+from .adapters import ToolBase, ToolEvent
 from .buffers import Buffers
+from .contracts import (
+    EventSink,
+    LLMEndpoint,
+    PolicyProvider,
+    ToolRouter,
+    default_event_sink,
+    default_llm_endpoint,
+    default_policy_provider,
+    default_tool_router,
+)
 from .events import Event, JsonlRecorder, Watermark
 from .facts import FactsStore
 from .policies import FloorPolicy, TriggerPolicy
@@ -25,24 +35,29 @@ class Orchestrator:
         self,
         *,
         recorder_path: Path | str = ".forgekeeper/events.jsonl",
-        llm_a: Optional[LLMBase] = None,
-        llm_b: Optional[LLMBase] = None,
+        llm_a: Optional[LLMEndpoint] = None,
+        llm_b: Optional[LLMEndpoint] = None,
         tools: Optional[Iterable[ToolBase]] = None,
+        tool_router: ToolRouter | None = None,
         inbox_path: Path | str | None = None,
         facts_path: Path | str | None = None,
+        event_sink: EventSink | None = None,
+        policy_provider: PolicyProvider | None = None,
     ) -> None:
-        self.recorder = JsonlRecorder(recorder_path)
+        self.recorder = event_sink or default_event_sink(recorder_path)
         self.inbox_path = Path(inbox_path) if inbox_path else Path(".forgekeeper/inbox_user.jsonl")
         self.facts = FactsStore(Path(facts_path) if facts_path else Path(".forgekeeper/facts.json"))
         self.buffers = Buffers(maxlen=2000)
-        self.llm_a = llm_a or LLMMock("Strategist")
-        self.llm_b = llm_b or LLMMock("Implementer")
-        self.tools = list(tools or [])
+        self.llm_a = llm_a or default_llm_endpoint("botA")
+        self.llm_b = llm_b or default_llm_endpoint("botB")
+        self.tool_router = tool_router or default_tool_router(tools)
+        self.tools = list(self.tool_router.iter_tools())
 
         self.wm = Watermark(interval_ms=500)
-        self.trig_a = TriggerPolicy(max_latency_s=1.0, min_silence_s=0.2)
-        self.trig_b = TriggerPolicy(max_latency_s=1.0, min_silence_s=0.2)
-        self.floor = FloorPolicy(slice_ms=600)
+        self.policy_provider = policy_provider or default_policy_provider()
+        self.floor = self.policy_provider.floor
+        self.trig_a = self.policy_provider.trigger_for("botA")
+        self.trig_b = self.policy_provider.trigger_for("botB")
         self._last_seq_by_role: dict[str, int] = {"botA": 0, "botB": 0}
         self._seq = 0
 
@@ -126,8 +141,9 @@ class Orchestrator:
 
     async def _start_tools(self) -> list[asyncio.Task[Any]]:
         tasks: list[asyncio.Task[Any]] = []
+        await self.tool_router.start()
+        self.tools = list(self.tool_router.iter_tools())
         for tool in self.tools:
-            await tool.start()
             tasks.append(asyncio.create_task(self._pump_tool(tool)))
         return tasks
 
@@ -146,11 +162,7 @@ class Orchestrator:
             await self.ingest("tool", text, act, stream=stream, meta=meta)
 
     async def _stop_tools(self) -> None:
-        for tool in self.tools:
-            try:
-                await tool.stop()
-            except Exception:
-                continue
+        await self.tool_router.stop()
 
     async def _pump_inbox(self) -> None:
         inbox = JsonlRecorder(self.inbox_path)
