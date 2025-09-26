@@ -64,10 +64,13 @@ services:
 
   backend:
     image: forgekeeper-backend
+    build:
+      context: ./backend
     profiles: [backend]
     env_file: ./.env
     environment:
       DATABASE_URL: mongodb://mongodb:27017/forgekeeper
+      PORT: ${BACKEND_PORT}
     networks: [forgekeeper-net]
     ports: ["${BACKEND_PORT}:${BACKEND_PORT}"]
     depends_on:

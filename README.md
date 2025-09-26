@@ -570,7 +570,12 @@ build the images. To start the servers later:
 docker compose up -d vllm-core vllm-coder
 ```
 
-Other Forgekeeper services can then be launched via `docker compose up`.
+Other Forgekeeper services can then be launched via `docker compose up`. The
+`backend` service now uses a multi-stage Docker build (context `./backend`)
+that runs `npm ci && npm run build`; `docker compose up backend` automatically
+rebuilds the image when backend sources change. Set `BACKEND_PORT` in your
+`.env` to pick the exposed port—Compose forwards that port and also injects
+`PORT` for the Node runtime so the container binds correctly.
 
 #### Routing Core vs Coder
 
