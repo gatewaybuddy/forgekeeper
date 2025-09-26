@@ -233,5 +233,70 @@ def test_default_executor_parses_guidelines(tmp_path: Path) -> None:
     assert "foo.txt" in staged
 
 
+def test_pipeline_accepts_injected_strategies(tmp_path: Path) -> None:
+    repo = Repo.init(tmp_path)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "name", "Forgekeeper Test")
+        cw.set_value("user", "email", "forgekeeper@example.com")
+
+    tasks_md = tmp_path / "tasks.md"
+    tasks_md.write_text("## Active\n- [ ] sample\n\n## Completed\n", encoding="utf-8")
+
+    target = tmp_path / "foo.txt"
+    target.write_text("hello\n", encoding="utf-8")
+    repo.index.add([str(tasks_md), str(target)])
+    repo.index.commit("init")
+
+    plan_calls: list[core_tp.PlanningContext] = []
+    stage_calls: list[core_tp.StageRequest] = []
+    commit_calls: list[core_tp.CommitRequest] = []
+
+    def planner(context: core_tp.PlanningContext) -> dict[str, Any]:
+        plan_calls.append(context)
+        return {"plan": ["plan-step"]}
+
+    def executor(task: dict[str, Any], _guidelines: str) -> dict[str, Any]:
+        payload = {
+            "status": "needs_review",
+            "edits": [
+                {
+                    "path": str(target),
+                    "original": target.read_text(encoding="utf-8"),
+                    "modified": "goodbye\n",
+                    "run_sandbox": False,
+                }
+            ],
+            "commit": True,
+            "commit_message": "Update foo",
+            "run_checks": False,
+            "create_branch": False,
+            "autonomous": False,
+        }
+        return ExecutionResult(status="needs_review", data=payload).to_dict()
+
+    def stager(request: core_tp.StageRequest) -> dict[str, Any]:
+        stage_calls.append(request)
+        assert request.path == target
+        return {"outcome": "success"}
+
+    def committer(request: core_tp.CommitRequest) -> dict[str, Any]:
+        commit_calls.append(request)
+        assert request.message == "Update foo"
+        return {"passed": True, "aborted": False}
+
+    pipeline = tp.TaskPipeline(tasks_md, planner=planner, stager=stager, committer=committer)
+    result = pipeline.run_next_task(executor=executor)
+
+    assert result is not None
+    assert plan_calls, "Planner should be invoked"
+    assert stage_calls and stage_calls[0].modified == "goodbye\n"
+    assert commit_calls and commit_calls[0].message == "Update foo"
+    assert result["status"] == "committed"
+    assert "stage" in result and result["stage"][0]["result"]["outcome"] == "success"
+
+    text = tasks_md.read_text(encoding="utf-8")
+    assert "- [x] sample" in text
+
+
 
 
