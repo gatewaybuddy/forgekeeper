@@ -23,6 +23,22 @@ See `docs/migration_plan.md` and `automation/migration_tasks.yaml` for the step-
 
 See `docs/COMMANDS.md` for the canonical list of commands used during the stabilization track. Update that file as commands evolve.
 
+## Module Catalog
+
+`MODULES.md` provides a high-level map of the Python packages and modules in this repository, including short docstring summaries for the most important entry points. Regenerate the catalog after touching Python packages or adding new modules with:
+
+```bash
+python tools/nav/build_module_index.py
+```
+
+The script also emits a machine-readable `module_index.json`. A convenience target is available if you prefer `make`:
+
+```bash
+make module-index
+```
+
+Re-run the generator whenever you restructure packages or add/remove modules so the documentation stays current.
+
 ## First-Run Checklist
 
 1. Install PowerShell 7 (`pwsh`) on Windows/macOS/Linux and ensure it is on `PATH`.
