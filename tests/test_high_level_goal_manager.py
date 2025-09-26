@@ -16,17 +16,24 @@ def test_autonomous_manager_triggers_pipeline(tmp_path, monkeypatch):
         def next_task(self):
             return DummyTask()
 
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     called = []
 
     def fake_main():
         called.append(True)
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
     monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     assert mgr.run() is True
     assert called == [True], "Pipeline main not invoked once"
 
@@ -38,10 +45,17 @@ def test_manager_no_autonomy(tmp_path, monkeypatch):
         def next_task(self):
             raise AssertionError("should not be called")
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", tmp_path / "goals.json")
-    mgr = hgm.HighLevelGoalManager(autonomous=False)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=False, pipeline_factory=lambda: DummyPipeline()
+    )
     assert mgr.run() is False
 
 
@@ -55,18 +69,25 @@ def test_complex_goal_breakdown(tmp_path, monkeypatch):
         def next_task(self):
             return DummyTask()
 
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     calls = []
 
     def fake_main():
         calls.append(True)
 
     goals_path = tmp_path / "goals.json"
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
     monkeypatch.setattr(hgm.pipeline_main, "main", fake_main)
     monkeypatch.setattr(hgm, "start_periodic_commits", lambda *a, **k: None)
     monkeypatch.setattr(hgm.goal_manager, "GOALS_FILE", goals_path)
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     assert mgr.run() is True
     assert len(calls) == 2
 
@@ -90,7 +111,12 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
         def next_task(self):
             return {"title": "write docs", "labels": ["agent:coder"]}
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     monkeypatch.setattr(
         delegator,
         "split_for_agents",
@@ -106,7 +132,9 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
     monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
     monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     mgr.run()
 
     assert (
@@ -125,7 +153,12 @@ def test_success_history_agent_selection(monkeypatch):
         def next_task(self):
             return None
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     monkeypatch.setattr(
         delegator,
         "split_for_agents",
@@ -139,7 +172,9 @@ def test_success_history_agent_selection(monkeypatch):
     monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
     monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     mgr.success_history["coder"] = 3
     agent, _ = delegator._dispatch_subtasks(
         "second step", mgr.success_history

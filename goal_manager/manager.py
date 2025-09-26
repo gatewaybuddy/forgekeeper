@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
+from typing import Callable, Optional, cast
 
 from forgekeeper.logger import get_logger
 from forgekeeper.config import (
@@ -12,10 +13,6 @@ from forgekeeper.config import (
     ROADMAP_COMMIT_INTERVAL,
     ROADMAP_AUTO_PUSH,
 )
-try:  # pragma: no cover - graceful fallback for missing dependencies
-    from forgekeeper.task_pipeline import TaskPipeline  # type: ignore
-except Exception:  # pragma: no cover
-    TaskPipeline = None  # type: ignore
 try:  # pragma: no cover
     from forgekeeper.roadmap_committer import start_periodic_commits  # type: ignore
 except Exception:  # pragma: no cover
@@ -25,12 +22,52 @@ from . import storage as goal_manager
 
 from .planner import Subtask, _build_subtask_graph
 from .delegator import _dispatch_subtasks
+from .interfaces import PipelineExecutor
 
 
 # ``pipeline_main`` is populated lazily to avoid heavy imports during module load
 pipeline_main = SimpleNamespace(main=None)
 
 log = get_logger(__name__, debug=DEBUG_MODE)
+
+
+PipelineFactory = Callable[[], Optional[PipelineExecutor]]
+
+
+class _TaskPipelineAdapter:
+    """Wrap :class:`TaskPipeline` to present the ``PipelineExecutor`` protocol."""
+
+    def __init__(self, pipeline: "TaskPipeline") -> None:  # type: ignore[name-defined]
+        self._pipeline = pipeline
+
+    def next_task(self):  # type: ignore[override]
+        return self._pipeline.next_task()
+
+    def run_task(self, *args, **kwargs):  # type: ignore[override]
+        return self._pipeline.run_next_task(*args, **kwargs)
+
+    def update_status(self, description: str, status: str) -> None:  # type: ignore[override]
+        handlers = {
+            "done": getattr(self._pipeline, "mark_done", None),
+            "needs_review": getattr(self._pipeline, "mark_needs_review", None),
+            "blocked": getattr(self._pipeline, "mark_blocked", None),
+            "deferred": getattr(self._pipeline, "defer", None),
+        }
+        handler = handlers.get(status)
+        if handler is None:
+            log.debug("Unknown pipeline status '%s' for '%s'", status, description)
+            return
+        handler(description)
+
+
+def _build_default_pipeline() -> Optional[PipelineExecutor]:
+    try:  # pragma: no cover - graceful fallback for missing dependencies
+        from forgekeeper.task_pipeline import TaskPipeline  # type: ignore
+    except Exception:  # pragma: no cover
+        log.debug("TaskPipeline unavailable; falling back to inert pipeline")
+        return None
+
+    return cast(PipelineExecutor, _TaskPipelineAdapter(TaskPipeline()))
 
 
 @dataclass
@@ -41,9 +78,12 @@ class HighLevelGoalManager:
     success_history: dict[str, int] = field(
         default_factory=lambda: {"core": 0, "coder": 0}
     )
+    pipeline_factory: Optional[PipelineFactory] = None
+    pipeline: Optional[PipelineExecutor] = field(init=False, default=None)
 
     def __post_init__(self) -> None:
-        self.pipeline = TaskPipeline() if TaskPipeline else None
+        factory = self.pipeline_factory or _build_default_pipeline
+        self.pipeline = factory() if factory else None
         if self.autonomous and ROADMAP_COMMIT_INTERVAL > 0:
             # Start periodic roadmap commits in the background
             start_periodic_commits(
