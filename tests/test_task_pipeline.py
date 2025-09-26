@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 import forgekeeper.pipeline.main as tp
 import forgekeeper.core.pipeline.task_pipeline as core_tp
 from forgekeeper.core.pipeline import loop as pipeline_loop
+from forgekeeper.core.pipeline.contracts import ExecutionResult, StageOutcome
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +109,7 @@ def test_run_next_task_executor_updates_status(tmp_path: Path) -> None:
     pipeline = tp.TaskPipeline(tasks_md)
 
     def executor(task: dict[str, Any], _guidelines: str) -> dict[str, Any]:
-        return {"status": "needs_review"}
+        return ExecutionResult(status="needs_review", data={}).to_dict()
 
     result = pipeline.run_next_task(executor=executor)
     assert result is not None
@@ -136,8 +137,7 @@ def test_executor_applies_edits(tmp_path: Path) -> None:
 
     def executor(task: dict[str, Any], _guidelines: str) -> dict[str, Any]:
         original = workspace_file.read_text(encoding="utf-8")
-        return {
-            "status": "needs_review",
+        payload = {
             "edits": [
                 {
                     "path": str(workspace_file),
@@ -147,13 +147,14 @@ def test_executor_applies_edits(tmp_path: Path) -> None:
                 }
             ],
         }
+        return ExecutionResult(status="needs_review", data=payload).to_dict()
 
     result = pipeline.run_next_task(executor=executor)
     assert result is not None
     assert result["status"] == "needs_review"
     assert "stage" in result
-    stage_payload = result["stage"][0]["result"]
-    assert stage_payload["outcome"] == "success"
+    stage_entry = StageOutcome.from_dict(result["stage"][0])
+    assert stage_entry.outcome == "success"
     assert workspace_file.read_text(encoding="utf-8") == "new\n"
     assert "foo.txt" in repo.git.diff("--name-only", "--cached").splitlines()
 
