@@ -9,7 +9,12 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
         def next_task(self):
             return {"title": "write docs", "labels": ["agent:coder"]}
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     monkeypatch.setattr(
         delegator,
         "split_for_agents",
@@ -25,7 +30,9 @@ def test_label_based_agent_selection(tmp_path, monkeypatch):
     monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
     monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     mgr.run()
 
     assert (
@@ -41,7 +48,12 @@ def test_success_history_agent_selection(monkeypatch):
         def next_task(self):
             return None
 
-    monkeypatch.setattr(hgm, "TaskPipeline", lambda: DummyPipeline())
+        def run_task(self, *_, **__):
+            return None
+
+        def update_status(self, *_args, **_kwargs):
+            return None
+
     monkeypatch.setattr(
         delegator,
         "split_for_agents",
@@ -55,7 +67,9 @@ def test_success_history_agent_selection(monkeypatch):
     monkeypatch.setattr(delegator, "broadcast_context", fake_bc)
     monkeypatch.setattr(delegator, "send_direct_message", lambda *a, **k: None)
 
-    mgr = hgm.HighLevelGoalManager(autonomous=True)
+    mgr = hgm.HighLevelGoalManager(
+        autonomous=True, pipeline_factory=lambda: DummyPipeline()
+    )
     mgr.success_history["coder"] = 3
     agent, _ = delegator._dispatch_subtasks(
         "second step", mgr.success_history
