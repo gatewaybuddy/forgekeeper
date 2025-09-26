@@ -98,7 +98,7 @@ if ! $USE_DEFAULTS; then
   prompt_var FRONTEND_PORT 3000
   prompt_var BACKEND_PORT 8000
   prompt_var PYTHON_PORT 5000
-  prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper
+  prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false
   prompt_secret OPENAI_API_KEY ""
   prompt_var LLM_BACKEND vllm
   if [ "$LLM_BACKEND" = "llama_cpp" ]; then

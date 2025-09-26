@@ -144,10 +144,12 @@ if (Test-Path $venvPython) {
 
 # Default Prisma connection string if not set
 if (-not $env:DATABASE_URL) {
-    $env:DATABASE_URL = 'mongodb://localhost:27017/forgekeeper'
+    $env:DATABASE_URL = 'mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false'
 }
 
 # Default LLM API bases to local vLLM if not set
+if (-not $env:OPENAI_BASE_URL) { $env:OPENAI_BASE_URL = "http://localhost:$($env:VLLM_PORT_CORE)/v1" }
+if (-not $env:OPENAI_API_KEY) { $env:OPENAI_API_KEY = 'dev-key' }
 if (-not $env:VLLM_PORT_CORE) { $env:VLLM_PORT_CORE = '8001' }
 if (-not $env:FK_CORE_API_BASE) { $env:FK_CORE_API_BASE = "http://localhost:$($env:VLLM_PORT_CORE)" }
 if (-not $env:FK_CODER_API_BASE) { $env:FK_CODER_API_BASE = $env:FK_CORE_API_BASE }
@@ -357,7 +359,22 @@ if ($Detach) {
                 Write-Host "⚙️  Launching vLLM core server (detached)..."
                 $vllmOut = Join-Path $LogDir 'vllm_core.out.log'
                 $vllmErr = Join-Path $LogDir 'vllm_core.err.log'
-                $llmProc = Start-Process -FilePath "cmd.exe" -ArgumentList @('/c','scripts\run_vllm_core.bat') -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                $hasVllm = $false
+                $null = & $python -c "import vllm" 2>$null
+                if ($LASTEXITCODE -eq 0) { $hasVllm = $true }
+                if ($hasVllm) {
+                    $args = @('-m','vllm.entrypoints.openai.api_server','--host','0.0.0.0','--port',$env:VLLM_PORT_CORE,'--model',$env:VLLM_MODEL_CORE,'--tensor-parallel-size',($env:VLLM_TP ?? '1'),'--max-model-len',($env:VLLM_MAX_MODEL_LEN ?? '4096'),'--gpu-memory-utilization',($env:VLLM_GPU_MEMORY_UTILIZATION ?? '0.9'))
+                    $llmProc = Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $rootDir -RedirectStandardOutput $vllmOut -RedirectStandardError $vllmErr -WindowStyle Minimized -PassThru
+                    Write-Host "?? vLLM logs: $vllmOut, $vllmErr"
+                } elseif (Get-Command docker -ErrorAction SilentlyContinue) {
+                    Write-Host '?? Starting dockerized vLLM (forgekeeper-vllm-core)...'
+                    & pwsh -NoProfile -File (Join-Path $rootDir 'scripts/start_vllm_core_docker.ps1') | Tee-Object -FilePath $vllmOut | Out-Null
+                    $llmProc = $null
+                    Write-Host '?? View logs: docker logs -f forgekeeper-vllm-core'
+                } else {
+                    Write-Warning 'vLLM not available in Python and docker not found; continuing without LLM.'
+                    $llmProc = $null
+                }
                 $initialWait = if ($RequireLLM) { $LLMWaitSeconds } else { [Math]::Min(10, $LLMWaitSeconds) }
                 $deadline = (Get-Date).AddSeconds($initialWait)
                 do {
@@ -377,16 +394,16 @@ if ($Detach) {
     } catch { Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)" }
 
     if ($CliOnly) {
-        $argsPk = @('-m','forgekeeper')
-        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $modeValue = if ($Conversation) { 'duet' } else { 'single' }
+        $argsPk = @('-m','forgekeeper_v2.cli','run','--mode',$modeValue)
         $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
         $meta = [ordered]@{ pythonPid = $pythonProc.Id; logDir = $LogDir; startedAt = (Get-Date).ToString('o') }
         ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
         Write-Host ("✅ Started CLI-only. PID => python={0}" -f $pythonProc.Id)
     } else {
         $backendProc = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
-        $argsPk = @('-m','forgekeeper')
-        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $modeValue = if ($Conversation) { 'duet' } else { 'single' }
+        $argsPk = @('-m','forgekeeper_v2.cli','run','--mode',$modeValue)
         $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
         $meta = [ordered]@{
@@ -492,8 +509,8 @@ else {
         Write-Warning "⚠️ $Backend pre-check failed: $($_.Exception.Message)"
     }
     if ($CliOnly) {
-        $argsPk = @('-m','forgekeeper')
-        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $modeValue = if ($Conversation) { 'duet' } else { 'single' }
+        $argsPk = @('-m','forgekeeper_v2.cli','run','--mode',$modeValue)
         $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -NoNewWindow -PassThru
         $processes = @($pythonProc)
     } else {
@@ -517,8 +534,8 @@ else {
             }
         }
 
-        $argsPk = @('-m','forgekeeper')
-        if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
+        $modeValue = if ($Conversation) { 'duet' } else { 'single' }
+        $argsPk = @('-m','forgekeeper_v2.cli','run','--mode',$modeValue)
         $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -NoNewWindow -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
 

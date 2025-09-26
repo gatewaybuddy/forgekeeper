@@ -9,12 +9,16 @@ from pathlib import Path
 from typing import List
 
 
+_CHILD_ENV_FLAG = "FGK_STACK_CHILD"
+
 def _run_conversation(argv: List[str] | None) -> int:
     # Prefer local v2 sources in mono-repo to avoid stale installed copies
     root = Path(__file__).resolve().parents[2]
-    v2_path = root / "forgekeeper-v2"
-    if v2_path.exists():
-        sys.path.insert(0, str(v2_path))
+    candidates = [root / "forgekeeper" / "forgekeeper-v2", root / "forgekeeper-v2"]
+    for v2_path in candidates:
+        if v2_path.exists():
+            sys.path.insert(0, str(v2_path))
+            break
     try:
         from forgekeeper.core.cli import main as entry_main
     except Exception:
@@ -23,6 +27,12 @@ def _run_conversation(argv: List[str] | None) -> int:
 
     if argv is None:
         argv = sys.argv[1:]
+    if '--conversation' in argv:
+        argv = ['run', '--mode', 'duet', *[arg for arg in argv if arg != '--conversation']]
+    elif not argv:
+        argv = ['run']
+    elif argv[0] in {'--mode', '--llm', '--duration', '--no-tools'}:
+        argv = ['run', *argv]
     try:
         entry_main(argv)
     except SystemExit as exc:  # argparse exits
@@ -54,6 +64,10 @@ def _build_start_command(extra: list[str]) -> list[str]:
 
 
 def main(argv: List[str] | None = None) -> int:
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+    if os.environ.get(_CHILD_ENV_FLAG) == '1':
+        return _run_conversation(args_list)
+
     parser = argparse.ArgumentParser(
         description="Forgekeeper launcher. Defaults to bringing up the full local stack."
     )
@@ -63,15 +77,18 @@ def main(argv: List[str] | None = None) -> int:
         action="store_true",
         help="Run only the CLI agent (no backend/frontend/startup orchestration).",
     )
-    known_args, extra = parser.parse_known_args(argv)
+    known_args, extra = parser.parse_known_args(args_list)
 
     if known_args.cli_only:
         return _run_conversation(extra)
 
     cmd = _build_start_command(extra)
-    result = subprocess.run(cmd, check=False)
+    env = os.environ.copy()
+    env[_CHILD_ENV_FLAG] = '1'
+    result = subprocess.run(cmd, check=False, env=env)
     return int(result.returncode)
 
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
+

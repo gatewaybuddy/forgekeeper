@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 param(
-  [string]$DatabaseUrl = 'mongodb://localhost:27017/forgekeeper',
+  [string]$DatabaseUrl = 'mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false',
   [switch]$Minimized
 )
 
