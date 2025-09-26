@@ -1,0 +1,3649 @@
+{
+  "generated_at": "2025-09-26T19:20:50.497404+00:00",
+  "root": "/workspace/forgekeeper",
+  "packages": [
+    {
+      "name": "forgekeeper",
+      "path": "forgekeeper",
+      "docstring": "Forgekeeper (v2 default)\n\nThis lightweight package routes the Forgekeeper CLI and module entrypoint\nto the v2 orchestrator implementation.",
+      "modules": [
+        {
+          "name": "forgekeeper.__main__",
+          "path": "forgekeeper/__main__.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "_run_conversation",
+              "docstring": null
+            },
+            {
+              "name": "_build_start_command",
+              "docstring": null
+            },
+            {
+              "name": "main",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.change_stager",
+          "path": "forgekeeper/change_stager.py",
+          "docstring": "Compatibility wrapper exposing the unified change stager.",
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.config",
+          "path": "forgekeeper/config.py",
+          "docstring": "Configuration helpers for the unified runtime.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_bool_env",
+              "docstring": null
+            },
+            {
+              "name": "_split_env",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.diff_validator",
+          "path": "forgekeeper/diff_validator.py",
+          "docstring": "Diff validation helpers for staged Python files.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_extract",
+              "docstring": null
+            },
+            {
+              "name": "validate_staged_diffs",
+              "docstring": "Check staged diffs for removed definitions still referenced elsewhere."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.git_committer",
+          "path": "forgekeeper/git_committer.py",
+          "docstring": "Compatibility wrapper exposing the core git committer.",
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.logger",
+          "path": "forgekeeper/logger.py",
+          "docstring": "Lightweight logging helpers for Forgekeeper.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "get_logger",
+              "docstring": "Return a configured logger instance.\n\nThe logger is cached per ``name`` and initialised with a simple formatter on\nfirst use. Additional calls return the cached logger so repeated setup is\navoided."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.main",
+          "path": "forgekeeper/main.py",
+          "docstring": "Entry point compatibility module.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "main",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.outbox",
+          "path": "forgekeeper/outbox.py",
+          "docstring": "Filesystem-backed outbox for pending tool actions.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_action_path",
+              "docstring": null
+            },
+            {
+              "name": "write_action",
+              "docstring": null
+            },
+            {
+              "name": "remove_action",
+              "docstring": null
+            },
+            {
+              "name": "run_action",
+              "docstring": null
+            },
+            {
+              "name": "pending_action",
+              "docstring": null
+            },
+            {
+              "name": "replay_pending",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.self_review",
+          "path": "forgekeeper/self_review.py",
+          "docstring": "Simplified self-review helpers used by the git committer.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "review_staged_changes",
+              "docstring": "Return a minimal review payload listing staged files."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.state_manager",
+          "path": "forgekeeper/state_manager.py",
+          "docstring": "State serialization helpers for the unified runtime.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_ensure_path",
+              "docstring": null
+            },
+            {
+              "name": "load_state",
+              "docstring": null
+            },
+            {
+              "name": "save_state",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.task_pipeline",
+          "path": "forgekeeper/task_pipeline.py",
+          "docstring": "Compatibility wrapper exposing :class:`TaskPipeline`.",
+          "classes": [],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.forgekeeper_v2",
+      "path": "forgekeeper-v2/forgekeeper_v2",
+      "docstring": "Forgekeeper v2 package \u2013 Thoughtworld Orchestrator.\n\nModules:\n- orchestrator: runtime, policies, events, adapters\n- memory: summaries and facts storage\n- ui: FastAPI server to stream events",
+      "modules": [
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.__main__",
+          "path": "forgekeeper-v2/forgekeeper_v2/__main__.py",
+          "docstring": null,
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.cli",
+          "path": "forgekeeper-v2/forgekeeper_v2/cli.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "_missing_modules",
+              "docstring": null
+            },
+            {
+              "name": "_check_tools",
+              "docstring": null
+            },
+            {
+              "name": "install_packages",
+              "docstring": null
+            },
+            {
+              "name": "do_check",
+              "docstring": null
+            },
+            {
+              "name": "_build_llms",
+              "docstring": null
+            },
+            {
+              "name": "_run_demo",
+              "docstring": null
+            },
+            {
+              "name": "main",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.ui.server",
+          "path": "forgekeeper-v2/forgekeeper_v2/ui/server.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "create_app",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.forgekeeper_v2.memory",
+      "path": "forgekeeper-v2/forgekeeper_v2/memory",
+      "docstring": "Memory plane utilities: summarizer and facts store.",
+      "modules": [
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.memory.facts_store",
+          "path": "forgekeeper-v2/forgekeeper_v2/memory/facts_store.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "FactsStore",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.memory.summarizer",
+          "path": "forgekeeper-v2/forgekeeper_v2/memory/summarizer.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "compact",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.forgekeeper_v2.memory.agentic",
+      "path": "forgekeeper-v2/forgekeeper_v2/memory/agentic",
+      "docstring": null,
+      "modules": [
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.memory.agentic.feedback",
+          "path": "forgekeeper-v2/forgekeeper_v2/memory/agentic/feedback.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Feedback",
+              "docstring": null
+            },
+            {
+              "name": "FeedbackLog",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.memory.agentic.persistence",
+          "path": "forgekeeper-v2/forgekeeper_v2/memory/agentic/persistence.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "AgenticStore",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.memory.agentic.retrieval",
+          "path": "forgekeeper-v2/forgekeeper_v2/memory/agentic/retrieval.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Retriever",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.forgekeeper_v2.orchestrator",
+      "path": "forgekeeper-v2/forgekeeper_v2/orchestrator",
+      "docstring": "Orchestrator runtime package.",
+      "modules": [
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.buffers",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/buffers.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Buffers",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.events",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/events.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Event",
+              "docstring": null
+            },
+            {
+              "name": "JsonlRecorder",
+              "docstring": null
+            },
+            {
+              "name": "Watermark",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_utc_iso",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.orchestrator",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/orchestrator.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Orchestrator",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_estimate_tokens",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.policies",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/policies.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "TriggerPolicy",
+              "docstring": null
+            },
+            {
+              "name": "FloorPolicy",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_now",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.single",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/single.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "SingleOrchestrator",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_estimate_tokens",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters",
+      "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters",
+      "docstring": "Adapters for LLMs and tools.",
+      "modules": [
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.llm_base",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/llm_base.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "LLMBase",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.llm_mock",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/llm_mock.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "LLMMock",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.llm_openai",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/llm_openai.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "LLMOpenAI",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.llm_triton",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/llm_triton.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "LLMTriton",
+              "docstring": "Triton Inference Server adapter for local OSS models (e.g., 20B).\n\n- Requires `tritonclient[http]` unless FK_TRITON_FAKE_RESPONSE is set.\n- Configure with TRITON_URL (http://localhost:8000), TRITON_MODEL (oss-20b).\n- Input/Output defaults INPUT_0/OUTPUT_0 can be overridden via env."
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.tool_base",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/tool_base.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "ToolBase",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.tool_powershell",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/tool_powershell.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "ToolPowerShell",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_redact",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper-v2.forgekeeper_v2.orchestrator.adapters.tool_shell",
+          "path": "forgekeeper-v2/forgekeeper_v2/orchestrator/adapters/tool_shell.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "ToolShell",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core",
+      "path": "forgekeeper/core",
+      "docstring": "Unified runtime package exports.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.change_stager",
+          "path": "forgekeeper/core/change_stager.py",
+          "docstring": "Utilities for diffing and staging file changes (unified runtime).",
+          "classes": [
+            {
+              "name": "StageResult",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_write_log",
+              "docstring": null
+            },
+            {
+              "name": "diff_and_stage_changes",
+              "docstring": "Compare original and modified content and stage via Git if changed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.git",
+      "path": "forgekeeper/core/git",
+      "docstring": "Git-related helpers for the unified runtime.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.git.checks",
+          "path": "forgekeeper/core/git/checks.py",
+          "docstring": "Commit check selection and execution helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_run_commands",
+              "docstring": null
+            },
+            {
+              "name": "_select_commands",
+              "docstring": null
+            },
+            {
+              "name": "run_checks",
+              "docstring": "Run commit checks derived from ``files`` or ``commands``."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.git.commit_ops",
+          "path": "forgekeeper/core/git/commit_ops.py",
+          "docstring": "Commit and push helpers for the unified runtime.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "commit_changes",
+              "docstring": "Commit staged changes and capture a textual changelog."
+            },
+            {
+              "name": "push_branch",
+              "docstring": "Push the working branch to its remote."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.git.committer",
+          "path": "forgekeeper/core/git/committer.py",
+          "docstring": "Git commit orchestration for Forgekeeper.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_commit_and_push_impl",
+              "docstring": null
+            },
+            {
+              "name": "commit_and_push_changes",
+              "docstring": "Commit staged changes and optionally push them to a branch."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.git.pre_review",
+          "path": "forgekeeper/core/git/pre_review.py",
+          "docstring": "Pre-commit review helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "run_pre_review",
+              "docstring": "Run self-review and diff validation prior to committing."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.git.sandbox",
+          "path": "forgekeeper/core/git/sandbox.py",
+          "docstring": "Sandbox execution helpers for the unified runtime.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_collect_commands",
+              "docstring": null
+            },
+            {
+              "name": "_format_command",
+              "docstring": null
+            },
+            {
+              "name": "run_sandbox_checks",
+              "docstring": "Apply a diff inside a temporary worktree and run commands."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.llm",
+      "path": "forgekeeper/core/llm",
+      "docstring": "LLM facade definitions used during the legacy migration.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.llm.base",
+          "path": "forgekeeper/core/llm/base.py",
+          "docstring": "Shared LLM provider interfaces.",
+          "classes": [
+            {
+              "name": "LLMConfig",
+              "docstring": null
+            },
+            {
+              "name": "LLMProvider",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.llm.providers",
+          "path": "forgekeeper/core/llm/providers.py",
+          "docstring": "Provider registry placeholder.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "register",
+              "docstring": null
+            },
+            {
+              "name": "get",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.orchestrator",
+      "path": "forgekeeper/core/orchestrator",
+      "docstring": "Orchestrator package exposing duet/single agents and helpers.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.orchestrator.adapters",
+          "path": "forgekeeper/core/orchestrator/adapters.py",
+          "docstring": "Adapter abstractions used by the orchestrator tests.",
+          "classes": [
+            {
+              "name": "LLMBase",
+              "docstring": "Minimal async streaming interface for language models."
+            },
+            {
+              "name": "LLMMock",
+              "docstring": "Simple mock that emits a canned response on first iteration."
+            },
+            {
+              "name": "ToolBase",
+              "docstring": "Placeholder interface for future tool integrations."
+            },
+            {
+              "name": "ToolEvent",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.buffers",
+          "path": "forgekeeper/core/orchestrator/buffers.py",
+          "docstring": "In-memory buffers for orchestrator event tracking.",
+          "classes": [
+            {
+              "name": "Buffers",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.config",
+          "path": "forgekeeper/core/orchestrator/config.py",
+          "docstring": "Configuration helpers for creating orchestrator dependencies.",
+          "classes": [
+            {
+              "name": "DefaultOrchestratorConfig",
+              "docstring": "Helper for assembling :class:`Orchestrator` dependencies.\n\nThe core orchestrator accepts fully constructed contract objects.  This\nconfiguration class centralises the default wiring so production code and\ntests can easily opt into the stock ``LLMMock`` strategies, JSONL-backed\nrecorders, and tool routing without coupling the orchestrator itself to\nspecific implementations."
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.contracts",
+          "path": "forgekeeper/core/orchestrator/contracts.py",
+          "docstring": "Contracts describing orchestrator dependencies and helper factories.",
+          "classes": [
+            {
+              "name": "LLMEndpoint",
+              "docstring": "Protocol implemented by language-model endpoints used by the orchestrator.\n\nThe orchestrator expects streaming generation where each yielded chunk is a\n``(text, act)`` tuple.  Providers should emit activity notifications through\ntheir ``TriggerPolicy`` (see :class:`PolicyProvider`) when non-``THINK`` acts\nare produced so scheduling heuristics remain accurate."
+            },
+            {
+              "name": "ToolRouter",
+              "docstring": "Protocol responsible for lifecycle management of registered tools."
+            },
+            {
+              "name": "EventSink",
+              "docstring": "Protocol for recording orchestrator events."
+            },
+            {
+              "name": "PolicyProvider",
+              "docstring": "Protocol exposing timing/scheduling policies."
+            },
+            {
+              "name": "OrchestratorContracts",
+              "docstring": "Aggregate dependencies consumed by :class:`~.orchestrator.Orchestrator`."
+            },
+            {
+              "name": "OrchestratorExpectations",
+              "docstring": "Documentation for the default dependency expectations."
+            },
+            {
+              "name": "SimpleToolRouter",
+              "docstring": "Router that simply wraps a static iterable of tools."
+            },
+            {
+              "name": "DefaultPolicyProvider",
+              "docstring": "Policy provider returning static policies suitable for tests."
+            }
+          ],
+          "functions": [
+            {
+              "name": "default_llm_endpoint",
+              "docstring": "Return the default mock endpoint for the requested role."
+            },
+            {
+              "name": "default_tool_router",
+              "docstring": "Construct a :class:`ToolRouter` from raw tool instances."
+            },
+            {
+              "name": "default_event_sink",
+              "docstring": "Create an event sink backed by :class:`~.events.JsonlRecorder`."
+            },
+            {
+              "name": "default_policy_provider",
+              "docstring": "Build a :class:`PolicyProvider` with forgekeeper's default heuristics."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.events",
+          "path": "forgekeeper/core/orchestrator/events.py",
+          "docstring": "Event primitives and JSONL recorder for the orchestrator.",
+          "classes": [
+            {
+              "name": "Event",
+              "docstring": null
+            },
+            {
+              "name": "JsonlRecorder",
+              "docstring": "Append-only JSONL recorder with async-safe writes."
+            },
+            {
+              "name": "Watermark",
+              "docstring": "Monotonic time helper used for event sequencing."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_utc_iso",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.facts",
+          "path": "forgekeeper/core/orchestrator/facts.py",
+          "docstring": "Simple JSON-backed facts store for orchestrator context.",
+          "classes": [
+            {
+              "name": "FactsStore",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.orchestrator",
+          "path": "forgekeeper/core/orchestrator/orchestrator.py",
+          "docstring": "Duet orchestrator coordinating two language-model agents.",
+          "classes": [
+            {
+              "name": "Orchestrator",
+              "docstring": "Coordinates two LLM agents, optional tools, and contextual memory."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_estimate_tokens",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.policies",
+          "path": "forgekeeper/core/orchestrator/policies.py",
+          "docstring": "Floor/trigger policies for orchestrator turn-taking.",
+          "classes": [
+            {
+              "name": "TriggerPolicy",
+              "docstring": null
+            },
+            {
+              "name": "FloorPolicy",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_now",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.single",
+          "path": "forgekeeper/core/orchestrator/single.py",
+          "docstring": "Single-agent orchestrator used for quick smoke tests.",
+          "classes": [
+            {
+              "name": "SingleOrchestrator",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.orchestrator.summary",
+          "path": "forgekeeper/core/orchestrator/summary.py",
+          "docstring": "Helpers for condensing event streams into bullet summaries.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "compact",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.pipeline",
+      "path": "forgekeeper/core/pipeline",
+      "docstring": "Pipeline utilities for the unified runtime.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.pipeline.contracts",
+          "path": "forgekeeper/core/pipeline/contracts.py",
+          "docstring": "Shared type contracts and helpers for the pipeline layer.",
+          "classes": [
+            {
+              "name": "ExecutionResult",
+              "docstring": "Structured view over the payload returned by an executor."
+            },
+            {
+              "name": "StageOutcome",
+              "docstring": "Wrapper for staged file data produced by the pipeline."
+            },
+            {
+              "name": "PlannerSelector",
+              "docstring": "Callable responsible for providing planner metadata for a task."
+            },
+            {
+              "name": "ExecutorInvoker",
+              "docstring": "Callable responsible for executing a task."
+            },
+            {
+              "name": "StagingPolicy",
+              "docstring": "Callable responsible for staging file edits."
+            },
+            {
+              "name": "CommitPolicy",
+              "docstring": "Callable responsible for committing and optionally pushing changes."
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.core.pipeline.executor",
+          "path": "forgekeeper/core/pipeline/executor.py",
+          "docstring": "Executor helpers for the unified task pipeline.",
+          "classes": [
+            {
+              "name": "ParsedInstructions",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_parse_structured_text",
+              "docstring": null
+            },
+            {
+              "name": "_merge_payloads",
+              "docstring": null
+            },
+            {
+              "name": "_load_instructions",
+              "docstring": null
+            },
+            {
+              "name": "_resolve_original",
+              "docstring": null
+            },
+            {
+              "name": "_apply_edit_spec",
+              "docstring": null
+            },
+            {
+              "name": "build_default_executor",
+              "docstring": "Return a callable that converts structured instructions into pipeline edits."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.pipeline.loop",
+          "path": "forgekeeper/core/pipeline/loop.py",
+          "docstring": "Pipeline loop implementation for the unified runtime.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "run",
+              "docstring": "Execute the default pipeline once and persist the resulting state."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.pipeline.runner",
+          "path": "forgekeeper/core/pipeline/runner.py",
+          "docstring": "Pipeline runner helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "execute_pipeline",
+              "docstring": "Iterate over pipeline steps, executing each handler with shared context."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.pipeline.task_pipeline",
+          "path": "forgekeeper/core/pipeline/task_pipeline.py",
+          "docstring": "Task pipeline coordinator built on the unified task queue.",
+          "classes": [
+            {
+              "name": "PlanningContext",
+              "docstring": "Context shared with planning strategies."
+            },
+            {
+              "name": "StageRequest",
+              "docstring": "Context for staging an individual edit."
+            },
+            {
+              "name": "CommitRequest",
+              "docstring": "Context for committing staged changes."
+            },
+            {
+              "name": "TaskLifecycleContext",
+              "docstring": "State shared across lifecycle phases for ``run_next_task``."
+            },
+            {
+              "name": "TaskPipeline",
+              "docstring": "High-level helper around :class:`~forgekeeper.core.tasks.queue.TaskQueue`."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_default_planner",
+              "docstring": null
+            },
+            {
+              "name": "_default_stager",
+              "docstring": null
+            },
+            {
+              "name": "_default_committer",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.planning",
+      "path": "forgekeeper/core/planning",
+      "docstring": "Planning helpers for the unified runtime.",
+      "modules": [
+        {
+          "name": "forgekeeper.core.planning.agents",
+          "path": "forgekeeper/core/planning/agents.py",
+          "docstring": "Agent routing heuristics for task planning.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "register_agent",
+              "docstring": "Register or update an agent routing rule."
+            },
+            {
+              "name": "_split_description",
+              "docstring": null
+            },
+            {
+              "name": "_choose_agent",
+              "docstring": null
+            },
+            {
+              "name": "split_for_agents",
+              "docstring": "Split ``task`` into heuristic subtasks assigned to registered agents."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.planning.analysis",
+          "path": "forgekeeper/core/planning/analysis.py",
+          "docstring": "Simple file ranking heuristics for task planning.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_keyword_set",
+              "docstring": null
+            },
+            {
+              "name": "analyze_repo_for_task",
+              "docstring": "Return files ranked by simple keyword overlap with ``task_prompt``."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.planning.planner",
+          "path": "forgekeeper/core/planning/planner.py",
+          "docstring": "High-level task planning utilities.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_synthesize_edit",
+              "docstring": null
+            },
+            {
+              "name": "_task_description",
+              "docstring": null
+            },
+            {
+              "name": "plan_for_task",
+              "docstring": "Generate planning metadata for ``task`` using heuristic analysis."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.planning.summaries",
+          "path": "forgekeeper/core/planning/summaries.py",
+          "docstring": "Repository summarisation helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_should_ignore",
+              "docstring": null
+            },
+            {
+              "name": "summarize_file",
+              "docstring": null
+            },
+            {
+              "name": "summarize_repository",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.core.self_review",
+      "path": "forgekeeper/core/self_review",
+      "docstring": "Self-review loop placeholders.",
+      "modules": []
+    },
+    {
+      "name": "forgekeeper.core.tasks",
+      "path": "forgekeeper/core/tasks",
+      "docstring": null,
+      "modules": [
+        {
+          "name": "forgekeeper.core.tasks.memory",
+          "path": "forgekeeper/core/tasks/memory.py",
+          "docstring": "Simplified episodic memory interface for task weighting.",
+          "classes": [
+            {
+              "name": "MemoryIndex",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "load_memory_summaries",
+              "docstring": "Load summary statistics from the configured :class:`MemoryBackend`."
+            },
+            {
+              "name": "memory_weight",
+              "docstring": null
+            },
+            {
+              "name": "_tokenize",
+              "docstring": null
+            },
+            {
+              "name": "_accumulate_stats",
+              "docstring": null
+            },
+            {
+              "name": "_index_payload",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.tasks.parser",
+          "path": "forgekeeper/core/tasks/parser.py",
+          "docstring": "Markdown task parsing helpers for the unified runtime.",
+          "classes": [
+            {
+              "name": "ChecklistTask",
+              "docstring": null
+            },
+            {
+              "name": "Task",
+              "docstring": null
+            },
+            {
+              "name": "Section",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "_extract_section_name",
+              "docstring": null
+            },
+            {
+              "name": "parse_task_file",
+              "docstring": null
+            },
+            {
+              "name": "serialize",
+              "docstring": null
+            },
+            {
+              "name": "save",
+              "docstring": null
+            },
+            {
+              "name": "parse_tasks_md",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.core.tasks.queue",
+          "path": "forgekeeper/core/tasks/queue.py",
+          "docstring": "Task queue implementation backed by Markdown + episodic memory.",
+          "classes": [
+            {
+              "name": "CanonicalTask",
+              "docstring": null
+            },
+            {
+              "name": "TaskQueue",
+              "docstring": "Parse and manage tasks defined in ``tasks.md``."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_extract_priority",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.git",
+      "path": "forgekeeper/git",
+      "docstring": "Compatibility layer for legacy `forgekeeper.git` imports.",
+      "modules": [
+        {
+          "name": "forgekeeper.git.checks",
+          "path": "forgekeeper/git/checks.py",
+          "docstring": "Compatibility shim for git commit checks.",
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.git.commit_ops",
+          "path": "forgekeeper/git/commit_ops.py",
+          "docstring": "Compatibility shim for commit operations.",
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.git.outbox",
+          "path": "forgekeeper/git/outbox.py",
+          "docstring": "Compatibility shim exposing the global outbox helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "run_with_outbox",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.git.pre_review",
+          "path": "forgekeeper/git/pre_review.py",
+          "docstring": "Compatibility shim for pre-review helpers.",
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.git.sandbox",
+          "path": "forgekeeper/git/sandbox.py",
+          "docstring": null,
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.git.sandbox_checks",
+          "path": "forgekeeper/git/sandbox_checks.py",
+          "docstring": "Compatibility helpers for sandbox execution in the legacy git committer.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "_run_sandbox_checks",
+              "docstring": "Run sandbox checks and record failures for legacy callers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.inference_backends",
+      "path": "forgekeeper/inference_backends",
+      "docstring": "Inference backend helpers.",
+      "modules": [
+        {
+          "name": "forgekeeper.inference_backends.harmony",
+          "path": "forgekeeper/inference_backends/harmony.py",
+          "docstring": "Harmony prompt rendering helpers (simplified).",
+          "classes": [],
+          "functions": [
+            {
+              "name": "render_harmony",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.llm",
+      "path": "forgekeeper/llm",
+      "docstring": "LLM provider facade for the unified runtime.",
+      "modules": [
+        {
+          "name": "forgekeeper.llm.benchmark",
+          "path": "forgekeeper/llm/benchmark.py",
+          "docstring": "Simple benchmarking helpers.",
+          "classes": [
+            {
+              "name": "LLMCallable",
+              "docstring": null
+            }
+          ],
+          "functions": [
+            {
+              "name": "run_benchmark",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.llm.llm_service_triton",
+          "path": "forgekeeper/llm/llm_service_triton.py",
+          "docstring": "HTTP client for Triton-backed responses.",
+          "classes": [
+            {
+              "name": "TritonClient",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.llm.transformers_impl",
+          "path": "forgekeeper/llm/transformers_impl.py",
+          "docstring": "Minimal transformers-like provider used in tests.",
+          "classes": [
+            {
+              "name": "_Tokenizer",
+              "docstring": null
+            },
+            {
+              "name": "TransformersLLMProvider",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.llm.triton_impl",
+          "path": "forgekeeper/llm/triton_impl.py",
+          "docstring": "Minimal Triton provider stub.",
+          "classes": [
+            {
+              "name": "TritonRTLLMProvider",
+              "docstring": null
+            }
+          ],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.memory",
+      "path": "forgekeeper/memory",
+      "docstring": "Memory utilities exposed at the package root.",
+      "modules": [
+        {
+          "name": "forgekeeper.memory.backends",
+          "path": "forgekeeper/memory/backends.py",
+          "docstring": "Core memory backend interfaces and registry helpers.",
+          "classes": [
+            {
+              "name": "MemoryEntry",
+              "docstring": "Structured representation of a persisted memory entry.\n\nThe dataclass intentionally mirrors the JSON payload produced by the\nlegacy episodic memory module while also retaining arbitrary metadata via\n``extra``. Consumers can build instances manually or rely on\n:meth:`from_payload` for conversion from dictionaries loaded from disk."
+            },
+            {
+              "name": "MemoryBackend",
+              "docstring": "Protocol describing the required memory backend behaviour."
+            }
+          ],
+          "functions": [
+            {
+              "name": "register_memory_backend",
+              "docstring": "Register ``factory`` under ``name``.\n\nParameters\n----------\nname:\n    Unique backend identifier.\nfactory:\n    Callable that instantiates and returns a :class:`MemoryBackend`.\nreplace:\n    If ``False`` (default), attempting to register a duplicate name raises\n    :class:`ValueError`."
+            },
+            {
+              "name": "available_memory_backends",
+              "docstring": "Return the names of registered backends in registration order."
+            },
+            {
+              "name": "get_memory_backend",
+              "docstring": "Return an instantiated backend selected via configuration."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.memory.embeddings",
+          "path": "forgekeeper/memory/embeddings.py",
+          "docstring": "No-op embedding helpers used by episodic memory.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "store_task_embedding",
+              "docstring": "Persist an embedding for ``task_id`` (stub implementation)."
+            },
+            {
+              "name": "load_episodic_memory",
+              "docstring": null
+            },
+            {
+              "name": "retrieve_similar_tasks",
+              "docstring": null
+            },
+            {
+              "name": "similar_task_summaries",
+              "docstring": null
+            },
+            {
+              "name": "LocalEmbedder",
+              "docstring": null
+            },
+            {
+              "name": "SimpleTfidfVectorizer",
+              "docstring": null
+            },
+            {
+              "name": "cosine_similarity",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.memory.episodic",
+          "path": "forgekeeper/memory/episodic.py",
+          "docstring": "Episodic memory helpers for recording task outcomes.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "append_entry",
+              "docstring": "Append a structured entry to the episodic memory log."
+            }
+          ]
+        },
+        {
+          "name": "forgekeeper.memory.jsonl",
+          "path": "forgekeeper/memory/jsonl.py",
+          "docstring": "JSONL-backed memory backend implementation.",
+          "classes": [
+            {
+              "name": "JsonlMemoryReader",
+              "docstring": "Utility responsible for reading memory entries from a JSONL file.\n\nThe reader caches the parsed entries using the file's ``mtime`` and size as\na simple invalidation signal. The cache keeps behaviour deterministic while\navoiding redundant JSON decoding when the file has not changed between\ncalls."
+            },
+            {
+              "name": "JsonlMemoryBackend",
+              "docstring": "Persist episodic memories into a JSONL file with fsync semantics."
+            }
+          ],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.pipeline",
+      "path": "forgekeeper/pipeline",
+      "docstring": "Compatibility layer for legacy `forgekeeper.pipeline` imports.",
+      "modules": [
+        {
+          "name": "forgekeeper.pipeline.loop",
+          "path": "forgekeeper/pipeline/loop.py",
+          "docstring": null,
+          "classes": [],
+          "functions": []
+        },
+        {
+          "name": "forgekeeper.pipeline.main",
+          "path": "forgekeeper/pipeline/main.py",
+          "docstring": "Legacy entrypoint for `forgekeeper.pipeline.main`.",
+          "classes": [],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper.tasks",
+      "path": "forgekeeper/tasks",
+      "docstring": "Compatibility surface for legacy `forgekeeper.tasks` imports.",
+      "modules": [
+        {
+          "name": "forgekeeper.tasks.queue",
+          "path": "forgekeeper/tasks/queue.py",
+          "docstring": null,
+          "classes": [],
+          "functions": []
+        }
+      ]
+    },
+    {
+      "name": "goal_manager",
+      "path": "goal_manager",
+      "docstring": null,
+      "modules": [
+        {
+          "name": "goal_manager.delegator",
+          "path": "goal_manager/delegator.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "_dispatch_subtasks",
+              "docstring": "Route ``description`` to specialized agents with message passing."
+            }
+          ]
+        },
+        {
+          "name": "goal_manager.interfaces",
+          "path": "goal_manager/interfaces.py",
+          "docstring": "Interfaces for goal manager dependencies.",
+          "classes": [
+            {
+              "name": "PipelineExecutor",
+              "docstring": "Protocol for the task pipeline executor used by the goal manager."
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "goal_manager.manager",
+          "path": "goal_manager/manager.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "_TaskPipelineAdapter",
+              "docstring": "Wrap :class:`TaskPipeline` to present the ``PipelineExecutor`` protocol."
+            },
+            {
+              "name": "HighLevelGoalManager",
+              "docstring": "Manage autonomous goal execution."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_build_default_pipeline",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "goal_manager.planner",
+          "path": "goal_manager/planner.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "Subtask",
+              "docstring": "Representation of a planned subtask."
+            }
+          ],
+          "functions": [
+            {
+              "name": "_build_subtask_graph",
+              "docstring": "Decompose ``description`` into an ordered subtask graph."
+            }
+          ]
+        },
+        {
+          "name": "goal_manager.progress",
+          "path": "goal_manager/progress.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "log_goal_progress",
+              "docstring": "Append a progress note for ``goal_id`` to the goal log file."
+            }
+          ]
+        },
+        {
+          "name": "goal_manager.storage",
+          "path": "goal_manager/storage.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "_migrate_from_state_if_needed",
+              "docstring": "If goals.json is missing, try to migrate from state['active_goals']."
+            },
+            {
+              "name": "load_goals",
+              "docstring": "Load all goals from disk (or migrate from state if file missing)."
+            },
+            {
+              "name": "save_goals",
+              "docstring": "Persist the given goals list to disk."
+            },
+            {
+              "name": "get_active_goals",
+              "docstring": "Return descriptions of currently active goals."
+            },
+            {
+              "name": "add_goal",
+              "docstring": "Add a new goal and return its identifier.\n\nParameters\n----------\ndescription:\n    The textual description of the goal or subtask.\nsource:\n    A label indicating where the goal originated.\nparent_id:\n    If provided, the goal is treated as a subtask of ``parent_id``.\npriority:\n    Ordering hint used when scheduling subtasks. Higher values denote\n    earlier execution preference.\ndepends_on:\n    List of goal identifiers that must be completed before this goal."
+            },
+            {
+              "name": "deactivate_goal",
+              "docstring": "Mark the goal with ``goal_id`` as inactive. Return True if found."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "thoughts",
+      "path": "thoughts",
+      "docstring": "Thought management utilities for Forgekeeper.",
+      "modules": [
+        {
+          "name": "thoughts.generator",
+          "path": "thoughts/generator.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "_load_thought_log",
+              "docstring": null
+            },
+            {
+              "name": "_save_thought_log",
+              "docstring": null
+            },
+            {
+              "name": "generate_internal_prompt",
+              "docstring": "Create an internal prompt based on state, goals, and recent thoughts."
+            },
+            {
+              "name": "should_interact_with_user",
+              "docstring": "Return True if the thought should be surfaced to the user."
+            },
+            {
+              "name": "_append_thought",
+              "docstring": null
+            },
+            {
+              "name": "process_thought",
+              "docstring": "Persist the thought and evaluate whether to expose it."
+            }
+          ]
+        },
+        {
+          "name": "thoughts.loop",
+          "path": "thoughts/loop.py",
+          "docstring": null,
+          "classes": [
+            {
+              "name": "RecursiveThinker",
+              "docstring": "Background thread that generates and reflects on thoughts."
+            }
+          ],
+          "functions": []
+        },
+        {
+          "name": "thoughts.summary",
+          "path": "thoughts/summary.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "reflect_recent_thoughts",
+              "docstring": "Generate a reflection on recent thoughts."
+            },
+            {
+              "name": "summarize_thoughts",
+              "docstring": "Condense recent thoughts and tag the dominant emotion."
+            },
+            {
+              "name": "get_last_summary",
+              "docstring": "Return the most recent summary and emotion tag."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tools.labels",
+      "path": "tools/labels",
+      "docstring": "Label parsing and GitHub API helpers.",
+      "modules": [
+        {
+          "name": "tools.labels.github_api",
+          "path": "tools/labels/github_api.py",
+          "docstring": "GitHub label management helpers.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "list_existing_labels",
+              "docstring": null
+            },
+            {
+              "name": "ensure_labels",
+              "docstring": null
+            },
+            {
+              "name": "add_labels_to_pr",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "tools.labels.parser",
+          "path": "tools/labels/parser.py",
+          "docstring": "Parse `tasks.md` blocks for metadata used in PR labeling.",
+          "classes": [],
+          "functions": [
+            {
+              "name": "parse_tasks_md",
+              "docstring": "Return a mapping of task ID \u2192 metadata parsed from a `tasks.md` file."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tools.roadmap",
+      "path": "tools/roadmap",
+      "docstring": "Roadmap helper utilities.",
+      "modules": [
+        {
+          "name": "tools.roadmap.aggregator",
+          "path": "tools/roadmap/aggregator.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "format_task_block",
+              "docstring": null
+            },
+            {
+              "name": "write_tasks_md",
+              "docstring": null
+            },
+            {
+              "name": "sync_status",
+              "docstring": null
+            },
+            {
+              "name": "rollup_roadmap",
+              "docstring": null
+            }
+          ]
+        },
+        {
+          "name": "tools.roadmap.github",
+          "path": "tools/roadmap/github.py",
+          "docstring": null,
+          "classes": [],
+          "functions": [
+            {
+              "name": "gh_repo_slug",
+              "docstring": "Return the GitHub slug for the current repository."
+            },
+            {
+              "name": "fetch_prs_for_tasks",
+              "docstring": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "standalone_modules": [
+    {
+      "name": "conftest",
+      "path": "conftest.py",
+      "docstring": null,
+      "classes": [],
+      "functions": []
+    },
+    {
+      "name": "forgekeeper-v2.scripts.demo_duet",
+      "path": "forgekeeper-v2/scripts/demo_duet.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_events",
+      "path": "forgekeeper-v2/tests/test_events.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_jsonl_recorder_roundtrip",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_llm_openai",
+      "path": "forgekeeper-v2/tests/test_llm_openai.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "_CreateSequence",
+          "docstring": null
+        },
+        {
+          "name": "_StubMessage",
+          "docstring": null
+        },
+        {
+          "name": "_StubChoice",
+          "docstring": null
+        },
+        {
+          "name": "_StubResponse",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_stream_handles_structured_reasoning",
+          "docstring": null
+        },
+        {
+          "name": "test_stream_falls_back_to_completion_text",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_memory_agentic_basic",
+      "path": "forgekeeper-v2/tests/test_memory_agentic_basic.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_agentic_store_roundtrip",
+          "docstring": null
+        },
+        {
+          "name": "test_retriever_sets_context",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_orchestrator_duet",
+      "path": "forgekeeper-v2/tests/test_orchestrator_duet.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_orchestrator_duet_runs",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_policies",
+      "path": "forgekeeper-v2/tests/test_policies.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_trigger_policy_basic",
+          "docstring": null
+        },
+        {
+          "name": "test_floor_policy_preemption",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_tools_powershell",
+      "path": "forgekeeper-v2/tests/test_tools_powershell.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_tool_powershell_basic",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tests.test_tools_shell",
+      "path": "forgekeeper-v2/tests/test_tools_shell.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_tool_shell_echo",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tmp_fk_o_test",
+      "path": "forgekeeper-v2/tmp_fk_o_test.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "forgekeeper-v2.tmp_fk_o_test_run_tmp",
+      "path": "forgekeeper-v2/tmp_fk_o_test_run_tmp.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.download_hf_model",
+      "path": "scripts/download_hf_model.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.dual_llm_agent",
+      "path": "scripts/dual_llm_agent.py",
+      "docstring": null,
+      "classes": [],
+      "functions": []
+    },
+    {
+      "name": "scripts.fft_visualizer",
+      "path": "scripts/fft_visualizer.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "load_model",
+          "docstring": "Load a model and its tokenizer."
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.generate_roadmap_yaml",
+      "path": "scripts/generate_roadmap_yaml.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "parse",
+          "docstring": null
+        },
+        {
+          "name": "to_yaml",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.generate_tasks_from_roadmap",
+      "path": "scripts/generate_tasks_from_roadmap.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "parse_tasks",
+          "docstring": null
+        },
+        {
+          "name": "render",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.infer_cli",
+      "path": "scripts/infer_cli.py",
+      "docstring": "Simple CLI for querying a vLLM OpenAI-compatible endpoint.\n\nThe script sends a chat completion request with the provided prompt\nand prints the first completion text. By default the target endpoint is\nread from ``FK_CORE_API_BASE`` (falling back to ``http://localhost:8001``),\nbut can be overridden with ``--base-url``.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "_normalize_base_url",
+          "docstring": "Ensure the base URL contains the ``/v1`` prefix expected by OpenAI APIs."
+        },
+        {
+          "name": "build_headers",
+          "docstring": null
+        },
+        {
+          "name": "build_payload",
+          "docstring": null
+        },
+        {
+          "name": "_default_base_url",
+          "docstring": null
+        },
+        {
+          "name": "parse_args",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.llm_benchmark",
+      "path": "scripts/llm_benchmark.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_load_backend",
+          "docstring": null
+        },
+        {
+          "name": "_make_prompt",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.llm_smoke_test",
+      "path": "scripts/llm_smoke_test.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.mqtt_forgekeeper_listener",
+      "path": "scripts/mqtt_forgekeeper_listener.py",
+      "docstring": "MQTT listener for Forgekeeper tasks.\n\nConnects to a local broker, subscribes to ``forgekeeper/task``, decodes JSON\ninstructions, and publishes simple acknowledgements on ``forgekeeper/status``.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "process_forgekeeper_message",
+          "docstring": "Stub handler for Forgekeeper messages.\n\nCurrently logs the incoming message and publishes a simple acknowledgement\nto the Forgekeeper status topic. Future implementations may perform actions\nsuch as loading files, summarising, editing, and sending richer status\nupdates."
+        },
+        {
+          "name": "on_connect",
+          "docstring": null
+        },
+        {
+          "name": "on_disconnect",
+          "docstring": null
+        },
+        {
+          "name": "on_message",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.smoke_e2e_roundtrip",
+      "path": "scripts/smoke_e2e_roundtrip.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "post_json",
+          "docstring": null
+        },
+        {
+          "name": "gql_append",
+          "docstring": null
+        },
+        {
+          "name": "run_cli",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.smoke_graphql_append",
+      "path": "scripts/smoke_graphql_append.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "post_json",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.update_file_summary",
+      "path": "scripts/update_file_summary.py",
+      "docstring": "Regenerate `FILE_SUMMARY.md` with a one-line summary for each tracked file.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "git_tracked_files",
+          "docstring": "Return a sorted list of tracked file paths relative to repo root."
+        },
+        {
+          "name": "first_line",
+          "docstring": "Return the first line of a file, or note if binary/empty."
+        },
+        {
+          "name": "build_summary",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.update_requirements",
+      "path": "scripts/update_requirements.py",
+      "docstring": "Lock top-level dependencies in requirements.txt to exact versions.\n\nThe script reads package names from ``requirements.txt`` and writes them\nback with the versions currently installed in the environment.  Use this\nafter upgrading packages to refresh the pinned versions.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "scripts.wait_for_url",
+      "path": "scripts/wait_for_url.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "wait_for",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.git_committer.conftest",
+      "path": "tests/git_committer/conftest.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "init_repo",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.git_committer.test_abort_paths",
+      "path": "tests/git_committer/test_abort_paths.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_failing_checks_abort_commit",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_validation_blocks_commit",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_validation_allows_consistent_changes",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.git_committer.test_checks",
+      "path": "tests/git_committer/test_checks.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_python_checks_selected",
+          "docstring": null
+        },
+        {
+          "name": "test_ts_checks_selected",
+          "docstring": null
+        },
+        {
+          "name": "test_py_and_ts_checks_selected",
+          "docstring": null
+        },
+        {
+          "name": "test_no_checks_when_no_supported_files",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.git_committer.test_diff_validation",
+      "path": "tests/git_committer/test_diff_validation.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_diff_validation_blocks_commit",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_validation_allows_consistent_changes",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.git_committer.test_push",
+      "path": "tests/git_committer/test_push.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_changelog_returned",
+          "docstring": null
+        },
+        {
+          "name": "test_outcome_logged_to_memory",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.high_level_goal_manager.conftest",
+      "path": "tests/high_level_goal_manager/conftest.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "repo_root",
+          "docstring": "Return the repository root path."
+        }
+      ]
+    },
+    {
+      "name": "tests.high_level_goal_manager.test_autonomy_loop",
+      "path": "tests/high_level_goal_manager/test_autonomy_loop.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_periodic_run_expands_and_executes",
+          "docstring": "Complex goals are split into subtasks and executed periodically."
+        },
+        {
+          "name": "test_periodic_run_executes_single_task",
+          "docstring": "Simple goals execute without manual triggers."
+        }
+      ]
+    },
+    {
+      "name": "tests.high_level_goal_manager.test_delegator",
+      "path": "tests/high_level_goal_manager/test_delegator.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_label_based_agent_selection",
+          "docstring": null
+        },
+        {
+          "name": "test_success_history_agent_selection",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.high_level_goal_manager.test_planner",
+      "path": "tests/high_level_goal_manager/test_planner.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "DummyTask",
+          "docstring": null
+        },
+        {
+          "name": "DummyPipeline",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_autonomous_manager_triggers_pipeline",
+          "docstring": "High-level manager invokes pipeline when autonomous."
+        },
+        {
+          "name": "test_manager_no_autonomy",
+          "docstring": "Manager returns immediately when not autonomous."
+        },
+        {
+          "name": "test_complex_goal_breakdown",
+          "docstring": "Planner splits complex descriptions into subtasks."
+        }
+      ]
+    },
+    {
+      "name": "tests.memory.conftest",
+      "path": "tests/memory/conftest.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "repo_root",
+          "docstring": "Return the repository root path."
+        }
+      ]
+    },
+    {
+      "name": "tests.memory.test_append_and_tail",
+      "path": "tests/memory/test_append_and_tail.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_append_and_tail",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory.test_backends_interface",
+      "path": "tests/memory/test_backends_interface.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "_DummyBackend",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_memory_entry_roundtrip_preserves_metadata",
+          "docstring": null
+        },
+        {
+          "name": "test_get_memory_backend_uses_configuration",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory.test_cli_utils",
+      "path": "tests/memory/test_cli_utils.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_recent_pushes_cli",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory.test_jsonl_backend",
+      "path": "tests/memory/test_jsonl_backend.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_jsonl_backend_reads_existing_file",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_ast_patcher",
+      "path": "tests/memory_agentic/test_ast_patcher.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_docstring_patch",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_cli",
+      "path": "tests/memory_agentic/test_cli.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "run_cli",
+          "docstring": null
+        },
+        {
+          "name": "test_cli_list",
+          "docstring": null
+        },
+        {
+          "name": "test_cli_run_and_shadow",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_orchestrator",
+      "path": "tests/memory_agentic/test_orchestrator.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "DummyAgent",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_ranking_and_merge",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_persistence",
+      "path": "tests/memory_agentic/test_persistence.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_render_system_prompt",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_retrieval",
+      "path": "tests/memory_agentic/test_retrieval.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_index_and_search",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.memory_agentic.test_teh_typo",
+      "path": "tests/memory_agentic/test_teh_typo.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_typo_replacement",
+          "docstring": null
+        },
+        {
+          "name": "test_no_identifier_url_changes",
+          "docstring": null
+        },
+        {
+          "name": "test_multiple_occurrences_stable",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.task_queue.conftest",
+      "path": "tests/task_queue/conftest.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "StubMemoryBackend",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "tasks_file",
+          "docstring": null
+        },
+        {
+          "name": "queue_from_text",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.task_queue.test_parser",
+      "path": "tests/task_queue/test_parser.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_front_matter_skips_completed",
+          "docstring": null
+        },
+        {
+          "name": "test_checkbox_tasks_ignore_completed",
+          "docstring": null
+        },
+        {
+          "name": "test_legacy_checkbox_fallback",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.task_queue.test_queue_helpers",
+      "path": "tests/task_queue/test_queue_helpers.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_find_canonical_tasks",
+          "docstring": null
+        },
+        {
+          "name": "test_select_best_task_prefers_canonical",
+          "docstring": null
+        },
+        {
+          "name": "test_select_best_task_falls_back",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.task_queue.test_queue_ops",
+      "path": "tests/task_queue/test_queue_ops.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_next_task_priority_ordering",
+          "docstring": null
+        },
+        {
+          "name": "test_state_persistence",
+          "docstring": null
+        },
+        {
+          "name": "test_next_task_priority_and_fifo",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.task_queue.test_weighting",
+      "path": "tests/task_queue/test_weighting.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_memory_weight_affects_order",
+          "docstring": null
+        },
+        {
+          "name": "test_similarity_recall_affects_order",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_change_stager",
+      "path": "tests/test_change_stager.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "init_repo",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_and_stage_changes_success",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_and_stage_changes_failure",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_and_stage_changes_dry_run",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_and_stage_changes_accumulates",
+          "docstring": null
+        },
+        {
+          "name": "test_diff_and_stage_changes_runs_sandbox",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_chat_session",
+      "path": "tests/test_chat_session.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_generate_response",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_cli_wrapper",
+      "path": "tests/test_cli_wrapper.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_fake_result",
+          "docstring": null
+        },
+        {
+          "name": "test_main_invokes_start_wrapper",
+          "docstring": null
+        },
+        {
+          "name": "test_main_cli_only_passthrough",
+          "docstring": null
+        },
+        {
+          "name": "test_windows_extra_args_not_supported",
+          "docstring": null
+        },
+        {
+          "name": "test_stack_child_env",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_code_edit",
+      "path": "tests/test_code_edit.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_generate_code_edit_returns_diff",
+          "docstring": null
+        },
+        {
+          "name": "test_apply_unified_diff",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_commands",
+      "path": "tests/test_commands.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_add_command_appends_canonical_task",
+          "docstring": null
+        },
+        {
+          "name": "test_pushes_flag_displays_recent_pushes",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_embeddings",
+      "path": "tests/test_embeddings.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_vector_storage",
+          "docstring": null
+        },
+        {
+          "name": "test_blended_scoring",
+          "docstring": null
+        },
+        {
+          "name": "test_store_embeddings_persist",
+          "docstring": "Embeddings are stored and retrieved from the default SQLite path."
+        },
+        {
+          "name": "test_cosine_similarity_influences_ranking",
+          "docstring": "Cosine similarity from embeddings affects file ranking."
+        }
+      ]
+    },
+    {
+      "name": "tests.test_git_committer",
+      "path": "tests/test_git_committer.py",
+      "docstring": "Legacy Git committer test shim.\n\nThis file remains for backwards compatibility. All tests have moved to\n`tests/git_committer/` modules and are imported here so that running\n`pytest tests/test_git_committer.py` still executes the split tests.",
+      "classes": [],
+      "functions": []
+    },
+    {
+      "name": "tests.test_git_committer_checks",
+      "path": "tests/test_git_committer_checks.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_git_committer_checks",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_git_committer_sandbox",
+      "path": "tests/test_git_committer_sandbox.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_commit_aborts_when_sandbox_fails",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_goal_manager",
+      "path": "tests/test_goal_manager.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_goal_lifecycle",
+          "docstring": null
+        },
+        {
+          "name": "test_deactivate_missing",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_harmony_prompt_utils",
+      "path": "tests/test_harmony_prompt_utils.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_extract_directives",
+          "docstring": null
+        },
+        {
+          "name": "test_extract_directives_multiple",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_harmony_tool_call",
+      "path": "tests/test_harmony_tool_call.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_harmony_tool_call",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_high_level_goal_manager",
+      "path": "tests/test_high_level_goal_manager.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_autonomous_manager_triggers_pipeline",
+          "docstring": null
+        },
+        {
+          "name": "test_manager_no_autonomy",
+          "docstring": null
+        },
+        {
+          "name": "test_complex_goal_breakdown",
+          "docstring": null
+        },
+        {
+          "name": "test_label_based_agent_selection",
+          "docstring": null
+        },
+        {
+          "name": "test_success_history_agent_selection",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_inline_tool_call",
+      "path": "tests/test_inline_tool_call.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_inline_tool_call",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_labels_parser",
+      "path": "tests/test_labels_parser.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_parse_tasks_md_multiple_blocks",
+          "docstring": null
+        },
+        {
+          "name": "test_parse_tasks_md_ignores_missing_id",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_llm_benchmark",
+      "path": "tests/test_llm_benchmark.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_run_benchmark_calls_warmup",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_llm_service_triton",
+      "path": "tests/test_llm_service_triton.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_triton_request",
+          "docstring": null
+        },
+        {
+          "name": "test_triton_harmony_format",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_main_periodic_commits",
+      "path": "tests/test_main_periodic_commits.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_main_starts_periodic_commits",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_mark_done_if_merged",
+      "path": "tests/test_mark_done_if_merged.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_write_tasks",
+          "docstring": null
+        },
+        {
+          "name": "test_marks_done_when_pr_merged",
+          "docstring": null
+        },
+        {
+          "name": "test_no_change_when_pr_open",
+          "docstring": null
+        },
+        {
+          "name": "test_check_reviewed_tasks_invokes_for_each_id",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_memory_bank",
+      "path": "tests/test_memory_bank.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "DummyCollection",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "setup_bank",
+          "docstring": null
+        },
+        {
+          "name": "test_add_update_list_delete",
+          "docstring": null
+        },
+        {
+          "name": "test_evaluate_relevance_scores",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_memory_query",
+      "path": "tests/test_memory_query.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_query_similar_tasks",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_multi_agent_planner",
+      "path": "tests/test_multi_agent_planner.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_planner_registers_custom_agent_and_protocol",
+          "docstring": null
+        },
+        {
+          "name": "test_direct_message_roundtrip",
+          "docstring": null
+        },
+        {
+          "name": "test_subtask_distribution_across_agents",
+          "docstring": null
+        },
+        {
+          "name": "test_broadcast_context_shared_across_agents",
+          "docstring": null
+        },
+        {
+          "name": "test_goal_manager_routes_and_handoffs_between_agents",
+          "docstring": null
+        },
+        {
+          "name": "test_planner_includes_memory_context",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_openai_tool_call",
+      "path": "tests/test_openai_tool_call.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_openai_tool_call",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_outbox",
+      "path": "tests/test_outbox.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_outbox_records_and_replays",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_outbox_replay",
+      "path": "tests/test_outbox_replay.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_replay_pending_executes_action",
+          "docstring": null
+        },
+        {
+          "name": "test_failed_action_remains_and_replays",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_outbox_worker",
+      "path": "tests/test_outbox_worker.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_worker_retries_and_logs",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_pr_integration",
+      "path": "tests/test_pr_integration.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_pr_creation_and_status_update",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_pre_commit_review",
+      "path": "tests/test_pre_commit_review.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "setup_repo",
+          "docstring": null
+        },
+        {
+          "name": "test_pre_commit_review_blocks_commit",
+          "docstring": null
+        },
+        {
+          "name": "test_pre_commit_review_acknowledged_allows_commit",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_prompt_guard",
+      "path": "tests/test_prompt_guard.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_blocks_injection_phrase",
+          "docstring": null
+        },
+        {
+          "name": "test_escapes_control_tokens",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_recursive_thinker_loop",
+      "path": "tests/test_recursive_thinker_loop.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_recursive_thinker_start_stop",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_review_change_set",
+      "path": "tests/test_review_change_set.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_review_change_set_integration",
+          "docstring": null
+        },
+        {
+          "name": "test_review_change_set_detects_changed",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_review_staged_changes",
+      "path": "tests/test_review_staged_changes.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_review_staged_changes_integration",
+          "docstring": null
+        },
+        {
+          "name": "test_review_staged_changes_detects_staged",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_roadmap_committer",
+      "path": "tests/test_roadmap_committer.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_generate_sprint_plan",
+          "docstring": null
+        },
+        {
+          "name": "test_start_periodic_commits_env_and_summary",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_roadmap_sync",
+      "path": "tests/test_roadmap_sync.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_parse_tasks_md",
+          "docstring": null
+        },
+        {
+          "name": "test_format_task_block_roundtrip",
+          "docstring": null
+        },
+        {
+          "name": "test_sync_status_updates",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_roadmap_updater",
+      "path": "tests/test_roadmap_updater.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "init_repo",
+          "docstring": null
+        },
+        {
+          "name": "test_update_roadmap_appends",
+          "docstring": null
+        },
+        {
+          "name": "test_commit_logs_memory",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_run_checks",
+      "path": "tests/test_run_checks.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_fake_run_tool_factory",
+          "docstring": null
+        },
+        {
+          "name": "test_run_checks_pass",
+          "docstring": null
+        },
+        {
+          "name": "test_run_checks_fail",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_safe_update",
+      "path": "tests/test_safe_update.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_failed_self_review_resets_commit",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_sandbox",
+      "path": "tests/test_sandbox.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_sandbox_runs_commands",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_self_review",
+      "path": "tests/test_self_review.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_fake_run_factory",
+          "docstring": null
+        },
+        {
+          "name": "test_run_self_review_pass",
+          "docstring": null
+        },
+        {
+          "name": "test_run_self_review_fails_when_tests_missing",
+          "docstring": null
+        },
+        {
+          "name": "test_run_self_review_fails_llm",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_self_review_smoke",
+      "path": "tests/test_self_review_smoke.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "init_repo",
+          "docstring": null
+        },
+        {
+          "name": "commit_backend_change",
+          "docstring": null
+        },
+        {
+          "name": "test_smoke_test_pass",
+          "docstring": null
+        },
+        {
+          "name": "test_smoke_test_fail",
+          "docstring": null
+        },
+        {
+          "name": "_stub_pipeline",
+          "docstring": null
+        },
+        {
+          "name": "test_pipeline_aborts_on_failed_commit",
+          "docstring": null
+        },
+        {
+          "name": "test_pipeline_propagates_review_status",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_spawn_followup_task",
+      "path": "tests/test_spawn_followup_task.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "setup_env",
+          "docstring": null
+        },
+        {
+          "name": "_prep_files",
+          "docstring": null
+        },
+        {
+          "name": "test_spawn_task_on_self_review_failure",
+          "docstring": null
+        },
+        {
+          "name": "test_no_spawn_when_self_review_passes",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_task_pipeline",
+      "path": "tests/test_task_pipeline.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "_capture_goal_add",
+          "docstring": null
+        },
+        {
+          "name": "test_next_task_marks_in_progress",
+          "docstring": null
+        },
+        {
+          "name": "test_run_next_task_selection_and_completion",
+          "docstring": null
+        },
+        {
+          "name": "test_run_next_task_executor_updates_status",
+          "docstring": null
+        },
+        {
+          "name": "test_executor_applies_edits",
+          "docstring": null
+        },
+        {
+          "name": "test_pipeline_loop_persists_history",
+          "docstring": null
+        },
+        {
+          "name": "test_default_executor_parses_guidelines",
+          "docstring": null
+        },
+        {
+          "name": "test_pipeline_accepts_injected_strategies",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_thoughts_summary",
+      "path": "tests/test_thoughts_summary.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_summarize_thoughts_with_emotion",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_transformers_default_model",
+      "path": "tests/test_transformers_default_model.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_transformers_default_model",
+          "docstring": null
+        },
+        {
+          "name": "test_tiny_model_overrides_other_settings",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_triton_provider",
+      "path": "tests/test_triton_provider.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_fake_response",
+          "docstring": "Triton provider returns fake response when stubbed."
+        },
+        {
+          "name": "test_missing_model_path_raises",
+          "docstring": "Missing TRITON_MODEL env var triggers a clear error."
+        }
+      ]
+    },
+    {
+      "name": "tests.test_ts_support",
+      "path": "tests/test_ts_support.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "test_ts_summary_extraction",
+          "docstring": null
+        },
+        {
+          "name": "test_tsx_summary_extraction",
+          "docstring": null
+        },
+        {
+          "name": "test_analyzer_ranks_ts_files",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tests.test_v2_modes",
+      "path": "tests/test_v2_modes.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "EchoTool",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "test_single_mode_records_events",
+          "docstring": null
+        },
+        {
+          "name": "test_duet_mode_records_events",
+          "docstring": null
+        },
+        {
+          "name": "test_tool_events_recorded",
+          "docstring": null
+        },
+        {
+          "name": "test_inbox_messages_are_ingested",
+          "docstring": null
+        },
+        {
+          "name": "test_orchestrator_allows_custom_contracts",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.auto_label_pr",
+      "path": "tools/auto_label_pr.py",
+      "docstring": "Apply labels to the current pull request based on `tasks.md` metadata.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "repo_slug_from_env_or_git",
+          "docstring": "Prefer GITHUB_REPOSITORY env var; fallback to `git remote origin`."
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.mark_done_if_merged",
+      "path": "tools/mark_done_if_merged.py",
+      "docstring": null,
+      "classes": [
+        {
+          "name": "Task",
+          "docstring": null
+        }
+      ],
+      "functions": [
+        {
+          "name": "parse_tasks_md",
+          "docstring": null
+        },
+        {
+          "name": "format_task_block",
+          "docstring": null
+        },
+        {
+          "name": "write_tasks_md",
+          "docstring": null
+        },
+        {
+          "name": "gh_repo_slug",
+          "docstring": null
+        },
+        {
+          "name": "fetch_prs_for_task",
+          "docstring": null
+        },
+        {
+          "name": "mark_done_if_merged",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.nav.build_module_index",
+      "path": "tools/nav/build_module_index.py",
+      "docstring": "Build a repository-wide index of Python packages and modules.\n\nThis script walks the repository, skipping large vendor directories such as\n``node_modules`` and typical cache folders. It inspects each Python package and\nmodule, capturing module docstrings as well as top-level class and function\nsummaries. The collected data is written to both a machine-readable JSON file\nand a human-friendly Markdown document.\n\nUsage\n-----\n    python tools/nav/build_module_index.py [--root PATH]\n\nBy default the script assumes it lives inside ``tools/nav`` and walks the\nrepository root two directories above its location. Use ``--json-output`` and\n``--markdown-output`` to override the destinations of the generated files.",
+      "classes": [
+        {
+          "name": "DefinitionSummary",
+          "docstring": "Description of a top-level class or function."
+        },
+        {
+          "name": "ModuleSummary",
+          "docstring": "Summary of a Python module."
+        },
+        {
+          "name": "PackageSummary",
+          "docstring": "Summary of a Python package."
+        }
+      ],
+      "functions": [
+        {
+          "name": "normalize_docstring",
+          "docstring": null
+        },
+        {
+          "name": "short_doc",
+          "docstring": "Return a single-line summary for Markdown output."
+        },
+        {
+          "name": "parse_python_file",
+          "docstring": "Parse a Python module and capture its docstrings."
+        },
+        {
+          "name": "module_name_from_path",
+          "docstring": null
+        },
+        {
+          "name": "iter_python_files",
+          "docstring": null
+        },
+        {
+          "name": "find_package_parts",
+          "docstring": null
+        },
+        {
+          "name": "attach_modules_to_packages",
+          "docstring": null
+        },
+        {
+          "name": "build_index",
+          "docstring": null
+        },
+        {
+          "name": "render_markdown",
+          "docstring": null
+        },
+        {
+          "name": "render_module_details",
+          "docstring": null
+        },
+        {
+          "name": "parse_args",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.preview_task_status",
+      "path": "tools/preview_task_status.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "parse_tasks_md",
+          "docstring": null
+        },
+        {
+          "name": "gh",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.propose_pr",
+      "path": "tools/propose_pr.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "slugify",
+          "docstring": null
+        },
+        {
+          "name": "pick_next",
+          "docstring": null
+        },
+        {
+          "name": "run",
+          "docstring": null
+        },
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.roadmap_sync",
+      "path": "tools/roadmap_sync.py",
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    },
+    {
+      "name": "tools.smoke_backend",
+      "path": "tools/smoke_backend.py",
+      "docstring": "Run a simple backend smoke test.\n\nBuilds the backend, starts the server, probes the /health endpoint, and\nasserts an HTTP 200 response before shutting the server down.\n\nIf the backend directory, npm, or node are missing, the test is skipped.",
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "docstring": null
+        }
+      ]
+    }
+  ]
+}

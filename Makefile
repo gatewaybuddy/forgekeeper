@@ -1,4 +1,4 @@
-.PHONY: sync-roadmap propose-next-pr dev
+.PHONY: sync-roadmap propose-next-pr dev module-index
 
 sync-roadmap:
 	python tools/roadmap_sync.py
@@ -8,6 +8,9 @@ propose-next-pr:
 
 dev:
 	./scripts/start_local_stack.sh
+
+module-index:
+	python tools/nav/build_module_index.py
 
 .PHONY: up-backend up-ui up-inference up-agent up-worker down
 
