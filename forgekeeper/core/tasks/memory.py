@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
+
+from forgekeeper.memory import MemoryBackend, MemoryEntry, get_memory_backend
 
 @dataclass
 class MemoryIndex:
@@ -14,49 +15,27 @@ class MemoryIndex:
     entries: List[dict]
 
 
-def load_memory_summaries(task_file: Path) -> tuple[Dict[str, Dict[str, int | str]], MemoryIndex]:
-    mem_path = task_file.parent / ".forgekeeper" / "memory" / "episodic.jsonl"
-    stats: Dict[str, Dict[str, int | str]] = {}
-    entries: List[dict] = []
-    if not mem_path.exists():
-        return stats, MemoryIndex(stats, entries)
+def load_memory_summaries(
+    task_file: Path | None,
+    *,
+    backend: MemoryBackend | None = None,
+) -> tuple[Dict[str, Dict[str, int | str]], MemoryIndex]:
+    """Load summary statistics from the configured :class:`MemoryBackend`."""
 
-    for line in mem_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            data = json.loads(line)
-        except Exception:
-            continue
-        task_id = str(data.get("task_id") or data.get("id") or "").strip()
-        if not task_id:
-            continue
-        record = stats.setdefault(task_id, {
-            "failure": 0,
-            "negative_sentiment": 0,
-            "success": 0,
-            "positive_sentiment": 0,
-        })
-        status = str(data.get("status") or "").lower()
-        sentiment = str(data.get("sentiment") or "").lower()
-        if status in {"failed", "error", "blocked"}:
-            record["failure"] = int(record.get("failure", 0)) + 1
-        if status in {"success", "done", "completed"}:
-            record["success"] = int(record.get("success", 0)) + 1
-        if sentiment == "negative":
-            record["negative_sentiment"] = int(record.get("negative_sentiment", 0)) + 1
-        if sentiment == "positive":
-            record["positive_sentiment"] = int(record.get("positive_sentiment", 0)) + 1
-        summary_text = data.get("summary") or data.get("title") or data.get("body")
-        if summary_text:
-            record.setdefault("summary", summary_text)
-        entries.append({
-            "task_id": task_id,
-            "text": str(summary_text or data.get("title") or ""),
-            "status": status,
-            "sentiment": sentiment,
-        })
-    return stats, MemoryIndex(stats, entries)
+    # ``task_file`` is kept for backwards compatibility with the previous
+    # implementation where the Markdown file determined the memory location.
+    del task_file
+
+    backend = backend or get_memory_backend()
+
+    stats: Dict[str, Dict[str, int | str]] = {}
+    index_entries: List[dict] = []
+
+    for entry in backend.iter_entries():
+        _accumulate_stats(stats, entry)
+        index_entries.append(_index_payload(entry))
+
+    return stats, MemoryIndex(stats, index_entries)
 
 
 def memory_weight(
@@ -104,6 +83,51 @@ def memory_weight(
 
 def _tokenize(text: str) -> set[str]:
     return {token for token in re.findall(r"[a-zA-Z0-9]+", text.lower()) if token}
+
+
+def _accumulate_stats(
+    stats: Dict[str, Dict[str, int | str]],
+    entry: MemoryEntry,
+) -> None:
+    task_id = entry.task_id.strip()
+    if not task_id:
+        return
+
+    record = stats.setdefault(
+        task_id,
+        {
+            "failure": 0,
+            "negative_sentiment": 0,
+            "success": 0,
+            "positive_sentiment": 0,
+        },
+    )
+
+    status = entry.status.lower()
+    sentiment = entry.sentiment.lower()
+
+    if status in {"failed", "error", "blocked"}:
+        record["failure"] = int(record.get("failure", 0)) + 1
+    if status in {"success", "done", "completed"}:
+        record["success"] = int(record.get("success", 0)) + 1
+    if sentiment == "negative":
+        record["negative_sentiment"] = int(record.get("negative_sentiment", 0)) + 1
+    if sentiment == "positive":
+        record["positive_sentiment"] = int(record.get("positive_sentiment", 0)) + 1
+
+    summary_text = entry.summary or entry.title
+    if summary_text:
+        record.setdefault("summary", summary_text)
+
+
+def _index_payload(entry: MemoryEntry) -> dict:
+    summary_text = entry.summary or entry.title
+    return {
+        "task_id": entry.task_id,
+        "text": str(summary_text or ""),
+        "status": entry.status.lower(),
+        "sentiment": entry.sentiment.lower(),
+    }
 
 
 __all__ = ["MemoryIndex", "load_memory_summaries", "memory_weight"]

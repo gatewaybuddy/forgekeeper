@@ -1,6 +1,8 @@
 import json
 import sys
 
+from tests.task_queue.conftest import StubMemoryBackend
+
 
 def test_next_task_priority_ordering(queue_from_text):
     queue = queue_from_text(
@@ -60,7 +62,7 @@ labels: [test]
     from forgekeeper.state_manager import save_state
 
     def fake_run(state, path):
-        queue = TaskQueue(tasks_md)
+        queue = TaskQueue(tasks_md, backend=StubMemoryBackend())
         state.update({"current_task": queue.next_task()})
         save_state(state, path)
 
