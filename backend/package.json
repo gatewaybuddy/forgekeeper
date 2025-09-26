@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "worker": "ts-node --esm src/outboxWorker.ts",
-    "test": "echo \"No tests\""
+    "test": "node --loader ts-node/esm tests/resolvers.test.ts"
   },
   "dependencies": {
     "@apollo/server": "4.9.0",
