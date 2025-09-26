@@ -89,6 +89,12 @@ services:
     image: forgekeeper-frontend
     profiles: [ui]
     env_file: ./.env
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: ${FRONTEND_BACKEND_URL}
+    environment:
+      BACKEND_URL: ${FRONTEND_BACKEND_URL}
     networks: [forgekeeper-net]
     ports: ["${FRONTEND_PORT}:80"]
 

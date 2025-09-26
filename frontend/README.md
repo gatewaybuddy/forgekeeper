@@ -4,7 +4,7 @@ This is the React UI for Forgekeeper. It speaks exclusively to the GraphQL servi
 
 ## Prerequisites
 - Node 18+
-- The GraphQL service running locally (default `http://localhost:4000/graphql`). See the root `README.md` for setup.
+- The GraphQL service running locally (default `http://localhost:8000/graphql`). See the root `README.md` for setup.
 
 ## Install
 
@@ -16,13 +16,15 @@ npm install --prefix frontend
 
 ## Configure
 
-During development, Vite proxies `/graphql` to `http://localhost:4000`, so no extra config is required when running the backend locally. The app is served at `http://localhost:5173/`.
+During development, Vite proxies `/graphql` to the backend URL provided via `VITE_BACKEND_URL` (falling back to `http://localhost:8000`). The app is served at `http://localhost:5173/`.
 
-If you prefer an explicit URL, you may create `frontend/.env.local` and set:
+To override the backend URL, create `frontend/.env.local` (or export the variable in your shell) and set:
 
 ```
-VITE_GRAPHQL_URL=http://localhost:4000/graphql
+VITE_BACKEND_URL=http://localhost:8000
 ```
+
+When running via Docker, the frontend container reads `FRONTEND_BACKEND_URL` at boot and writes `window.__APP_CONFIG__` so the static assets can reach the backend service on the compose network.
 
 ## Develop
 

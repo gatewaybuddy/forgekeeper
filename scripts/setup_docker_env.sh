@@ -98,6 +98,8 @@ if ! $USE_DEFAULTS; then
   prompt_var FRONTEND_PORT 3000
   prompt_var BACKEND_PORT 8000
   prompt_var PYTHON_PORT 5000
+  prompt_var FRONTEND_BACKEND_URL "http://backend:$BACKEND_PORT"
+  prompt_var VITE_BACKEND_URL "http://localhost:$BACKEND_PORT"
   prompt_var MONGO_URI mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false
   prompt_secret OPENAI_API_KEY ""
   prompt_var LLM_BACKEND vllm
@@ -109,6 +111,8 @@ if ! $USE_DEFAULTS; then
 FRONTEND_PORT=$FRONTEND_PORT
 BACKEND_PORT=$BACKEND_PORT
 PYTHON_PORT=$PYTHON_PORT
+FRONTEND_BACKEND_URL=$FRONTEND_BACKEND_URL
+VITE_BACKEND_URL=$VITE_BACKEND_URL
 MONGO_URI=$MONGO_URI
 OPENAI_API_KEY=$OPENAI_API_KEY
 LLM_BACKEND=$LLM_BACKEND
@@ -128,6 +132,8 @@ EOF2
 FRONTEND_PORT=$FRONTEND_PORT
 BACKEND_PORT=$BACKEND_PORT
 PYTHON_PORT=$PYTHON_PORT
+FRONTEND_BACKEND_URL=$FRONTEND_BACKEND_URL
+VITE_BACKEND_URL=$VITE_BACKEND_URL
 MONGO_URI=$MONGO_URI
 OPENAI_API_KEY=$OPENAI_API_KEY
 LLM_BACKEND=$LLM_BACKEND
@@ -150,7 +156,7 @@ docker network inspect "$NET_NAME" >/dev/null 2>&1 || docker network create "$NE
 
 # --- build images ---
 docker build -t forgekeeper-backend "$SCRIPT_DIR/../backend"
-docker build -t forgekeeper-frontend "$SCRIPT_DIR/../frontend"
+docker build -t forgekeeper-frontend --build-arg BACKEND_URL="$FRONTEND_BACKEND_URL" "$SCRIPT_DIR/../frontend"
 docker build -t forgekeeper-python "$SCRIPT_DIR/.."
 
 # --- launch via compose ---
