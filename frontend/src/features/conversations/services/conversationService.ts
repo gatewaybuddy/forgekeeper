@@ -52,6 +52,7 @@ export function useConversationService(projectId: string | null): ConversationTr
         variables: {
           topic: 'forgekeeper/task',
           message: { content },
+          projectId,
         },
       });
     },
