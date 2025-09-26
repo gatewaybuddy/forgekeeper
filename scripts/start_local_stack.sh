@@ -192,29 +192,38 @@ if [ "$USE_INFERENCE" != "0" ] && ! $CLI_ONLY; then
       local var_name="$1"; local current_val="${!var_name:-}"
       if [ -n "$current_val" ]; then return 0; fi
       echo "Select model for $var_name:"
-      echo "  [1] mistralai/Mistral-7B-Instruct"
-      echo "  [2] WizardLM/WizardCoder-15B-V1.0"
-      echo "  [3] gpt-oss-20b-harmony"
+      echo "  [1] oss-gpt-20b (default)"
+      echo "  [2] mistralai/Mistral-7B-Instruct"
+      echo "  [3] WizardLM/WizardCoder-15B-V1.0"
       echo "  [4] Custom (enter HF id/name)"
       read -r -p "Enter choice [1-4]: " choice
       case "$choice" in
-        1|"" ) export "$var_name"="mistralai/Mistral-7B-Instruct" ;;
-        2) export "$var_name"="WizardLM/WizardCoder-15B-V1.0" ;;
-        3) export "$var_name"="gpt-oss-20b-harmony" ;;
+        1|"" ) export "$var_name"="oss-gpt-20b" ;;
+        2) export "$var_name"="mistralai/Mistral-7B-Instruct" ;;
+        3) export "$var_name"="WizardLM/WizardCoder-15B-V1.0" ;;
         4) read -r -p "Enter model id: " mid; export "$var_name"="$mid" ;;
-        *) export "$var_name"="mistralai/Mistral-7B-Instruct" ;;
+        *) export "$var_name"="oss-gpt-20b" ;;
       esac
     }
 
     select_model VLLM_MODEL_CORE
+    if [ -n "${VLLM_MODEL_CORE:-}" ]; then
+      echo "Using core model: $VLLM_MODEL_CORE"
+    fi
     # Prefer WizardCoder for coder if unset
     if [ -z "${VLLM_MODEL_CODER:-}" ]; then
       read -r -p "Use WizardCoder for coder model? [Y/n] " reply
       reply=${reply:-Y}
       if [[ $reply =~ ^[Yy]$ ]]; then
         export VLLM_MODEL_CODER="WizardLM/WizardCoder-15B-V1.0"
+        echo "Using coder model: $VLLM_MODEL_CODER"
       else
-        export VLLM_MODEL_CODER="$VLLM_MODEL_CORE"
+        if [ -n "${VLLM_MODEL_CORE:-}" ]; then
+          export VLLM_MODEL_CODER="$VLLM_MODEL_CORE"
+        else
+          export VLLM_MODEL_CODER="oss-gpt-20b"
+        fi
+        echo "WizardCoder disabled; using coder model: $VLLM_MODEL_CODER"
       fi
     fi
   fi

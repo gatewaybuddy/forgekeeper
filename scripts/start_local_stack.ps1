@@ -226,21 +226,32 @@ if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
     }
     if ($Backend -eq 'vllm' -and -not $env:VLLM_MODEL_CORE) {
         Write-Host 'Select model for VLLM_MODEL_CORE:'
-        Write-Host '  [1] mistralai/Mistral-7B-Instruct'
-        Write-Host '  [2] WizardLM/WizardCoder-15B-V1.0'
-        Write-Host '  [3] gpt-oss-20b-harmony'
+        Write-Host '  [1] oss-gpt-20b (default)'
+        Write-Host '  [2] mistralai/Mistral-7B-Instruct'
+        Write-Host '  [3] WizardLM/WizardCoder-15B-V1.0'
         Write-Host '  [4] Custom'
         $choice = Read-Host 'Enter choice [1-4]'
         switch ($choice) {
-            '2' { $env:VLLM_MODEL_CORE = 'WizardLM/WizardCoder-15B-V1.0' }
-            '3' { $env:VLLM_MODEL_CORE = 'gpt-oss-20b-harmony' }
+            '2' { $env:VLLM_MODEL_CORE = 'mistralai/Mistral-7B-Instruct' }
+            '3' { $env:VLLM_MODEL_CORE = 'WizardLM/WizardCoder-15B-V1.0' }
             '4' { $env:VLLM_MODEL_CORE = (Read-Host 'Enter model id') }
-            default { $env:VLLM_MODEL_CORE = 'mistralai/Mistral-7B-Instruct' }
+            default { $env:VLLM_MODEL_CORE = 'oss-gpt-20b' }
         }
+        Write-Host "Using core model: $env:VLLM_MODEL_CORE"
     }
     if ($Backend -eq 'vllm' -and -not $env:VLLM_MODEL_CODER) {
         $reply = Read-Host 'Use WizardCoder for coder model? [Y/n]'
-        if ($reply -match '^([Yy]|)$') { $env:VLLM_MODEL_CODER = 'WizardLM/WizardCoder-15B-V1.0' } else { $env:VLLM_MODEL_CODER = $env:VLLM_MODEL_CORE }
+        if ($reply -match '^([Yy]|)$') {
+            $env:VLLM_MODEL_CODER = 'WizardLM/WizardCoder-15B-V1.0'
+            Write-Host "Using coder model: $env:VLLM_MODEL_CODER"
+        } else {
+            if ($env:VLLM_MODEL_CORE) {
+                $env:VLLM_MODEL_CODER = $env:VLLM_MODEL_CORE
+            } else {
+                $env:VLLM_MODEL_CODER = 'oss-gpt-20b'
+            }
+            Write-Host "WizardCoder disabled; using coder model: $env:VLLM_MODEL_CODER"
+        }
     }
 }
 
@@ -373,13 +384,13 @@ if ($Detach) {
         ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
         Write-Host ("✅ Started CLI-only. PID => python={0}" -f $pythonProc.Id)
     } else {
-        $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
+        $backendProc = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'backend.out.log') -RedirectStandardError (Join-Path $LogDir 'backend.err.log') -WindowStyle Minimized -PassThru
         $argsPk = @('-m','forgekeeper')
         if ($Conversation) { $argsPk = @('-m','forgekeeper','--conversation') }
         $pythonProc = Start-Process -FilePath $python -ArgumentList $argsPk -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'python.out.log') -RedirectStandardError (Join-Path $LogDir 'python.err.log') -WindowStyle Minimized -PassThru
         $frontend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $rootDir -RedirectStandardOutput (Join-Path $LogDir 'frontend.out.log') -RedirectStandardError (Join-Path $LogDir 'frontend.err.log') -WindowStyle Minimized -PassThru
         $meta = [ordered]@{
-            backendPid  = $backend.Id
+            backendPid  = $backendProc.Id
             pythonPid   = $pythonProc.Id
             frontendPid = $frontend.Id
             llmPid      = if ($llmProc) { $llmProc.Id } else { $null }
@@ -387,7 +398,7 @@ if ($Detach) {
             startedAt   = (Get-Date).ToString('o')
         }
         ($meta | ConvertTo-Json) | Set-Content (Join-Path $LogDir 'pids.json')
-        Write-Host ("✅ Started. PIDs => backend={0}, python={1}, frontend={2}" -f $backend.Id, $pythonProc.Id, $frontend.Id)
+        Write-Host ("✅ Started. PIDs => backend={0}, python={1}, frontend={2}" -f $backendProc.Id, $pythonProc.Id, $frontend.Id)
     }
     Write-Host "➡️  Stop with: Stop-Process -Id <pid> (or close the apps)"
     exit 0
@@ -487,7 +498,7 @@ else {
         $processes = @($pythonProc)
     } else {
         # Start backend first, and optionally wait for health before launching frontend
-        $backend = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
+        $backendProc = Start-Process -FilePath $npmPath -ArgumentList @('--prefix','backend','run','dev') -WorkingDirectory $rootDir -NoNewWindow -PassThru
 
         $backendPort = if ($env:PORT) { [int]$env:PORT } else { 4000 }
         $backendHealth = "http://localhost:$backendPort/health"
@@ -520,7 +531,7 @@ else {
 
         $processes = @()
         if ($llmProc -and -not $llmProc.HasExited) { $processes += $llmProc }
-        $processes += @($backend, $pythonProc, $frontend) | Where-Object { $_ -and -not $_.HasExited }
+        $processes += @($backendProc, $pythonProc, $frontend) | Where-Object { $_ -and -not $_.HasExited }
     }
 
     try {

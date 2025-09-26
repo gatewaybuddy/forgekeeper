@@ -138,6 +138,7 @@ class SingleOrchestrator:
                         text = ev.text if isinstance(ev, _E) else getattr(ev, 'text', '')
                         if text:
                             await self.ingest("user", text, "INPUT", stream="ui")
+                            self.trig.nudge()
                     except Exception:
                         continue
             inbox_task = asyncio.create_task(_pump_inbox())

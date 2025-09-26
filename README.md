@@ -164,7 +164,13 @@ npm install --prefix frontend
 
 If you chose to launch services during installation or ran `scripts/setup_dev_env.sh --launch-services`, the GraphQL service, Python agent, and frontend will already be running. Use the commands below to start them manually if needed.
 
-### Start all services (legacy wrappers)
+### Start all services
+
+- `forgekeeper`
+  - Brings up backend, agent, frontend, and the default inference backend.
+  - `forgekeeper --cli-only` launches only the CLI agent (no services).
+
+Legacy wrappers remain available if you need direct access to the scripts:
 
 #### macOS/Linux
 ```bash
@@ -179,6 +185,7 @@ pwsh scripts/start_local_stack.ps1
 # or from repo root:
 pwsh ./start.ps1
 ```
+
 
 These scripts launch the GraphQL service, Python agent, and frontend concurrently. By default Forgekeeper routes LLM calls through a local OpenAI‑compatible gateway and will offer to start the GPU inference stack if not running. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
 
@@ -361,10 +368,10 @@ make -C forgekeeper load-test
 ```
 
 - On startup, if models are not set, you will be prompted to select:
-  - Core: Mistral-7B-Instruct (default)
-  - Coder: WizardCoder-15B (default), or re-use core
+  - Core: oss-gpt-20b (default)
+  - Coder: WizardCoder-15B (optional). Answer `n` to reuse the core model; the script will confirm the fallback in the console.
 
-- To disable the gateway for a run:
+- To disable the gateway for a run (or rely on the direct vLLM defaults in `.env`):
 
 ```bash
 FGK_USE_INFERENCE=0 ./scripts/start_local_stack.sh

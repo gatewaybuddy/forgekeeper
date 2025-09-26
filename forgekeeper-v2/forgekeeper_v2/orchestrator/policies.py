@@ -46,6 +46,14 @@ class TriggerPolicy:
     def decay(self) -> None:
         self._hysteresis = 1.0 + (self._hysteresis - 1.0) * 0.5
 
+    def nudge(self, now: Optional[float] = None) -> None:
+        """Force the next emission window to open after external input."""
+        now = now or _now()
+        if self.max_latency_s <= 0:
+            self._last_emit = now
+        else:
+            self._last_emit = min(self._last_emit, now - self.max_latency_s)
+
 
 @dataclass
 class FloorPolicy:
