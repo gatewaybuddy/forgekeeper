@@ -3,18 +3,29 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 
 from forgekeeper.core.git.sandbox import run_sandbox_checks
 
 LOG = logging.getLogger("forgekeeper.git.sandbox_checks")
 
 try:  # pragma: no cover - optional dependency during migration
+    from forgekeeper.memory import get_memory_backend
     from forgekeeper.memory.episodic import append_entry
 except Exception:  # pragma: no cover - fallback for partially migrated tree
 
+    def get_memory_backend():
+        LOG.debug("memory backend factory unavailable")
+        return None
+
     def append_entry(*_args, **_kwargs) -> None:
         LOG.debug("episodic.append_entry unavailable; sandbox failures will not be logged")
+
+
+if TYPE_CHECKING:
+    from forgekeeper.memory.backends import MemoryBackend
+
+    _memory_backend: MemoryBackend | None = get_memory_backend()
 
 
 def _run_sandbox_checks(

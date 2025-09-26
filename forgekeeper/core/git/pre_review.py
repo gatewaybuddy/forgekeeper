@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from forgekeeper.config import DEBUG_MODE
 from forgekeeper.logger import get_logger
 from forgekeeper import diff_validator, self_review
+from forgekeeper.memory import get_memory_backend
 from forgekeeper.memory.episodic import append_entry
+
+if TYPE_CHECKING:
+    from forgekeeper.memory.backends import MemoryBackend
+
+    _memory_backend: MemoryBackend = get_memory_backend()
 
 LOG = get_logger(__name__, debug=DEBUG_MODE)
 

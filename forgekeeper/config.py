@@ -33,6 +33,7 @@ FK_LLM_IMPL = os.getenv("FK_LLM_IMPL", "transformers")
 FK_MODEL_PATH = os.getenv("FK_MODEL_PATH")
 FK_DEVICE = os.getenv("FK_DEVICE", "cpu")
 FK_DTYPE = os.getenv("FK_DTYPE", "float32")
+FK_MEMORY_BACKEND = os.getenv("FK_MEMORY_BACKEND", "episodic")
 
 CHECKS_PY = _split_env("CHECKS_PY")
 CHECKS_TS = _split_env("CHECKS_TS")
