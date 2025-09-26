@@ -3,7 +3,7 @@ import { Box, IconButton, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import FolderTree from './FolderTree';
 import useFolders from './useFolders';
-import { Conversation } from './types';
+import { Conversation } from '../../types';
 
 interface FolderManagerProps {
   conversations: Conversation[];

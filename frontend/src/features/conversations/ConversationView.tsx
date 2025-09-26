@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { Conversation } from './types';
+import { Conversation } from '../../types';
 
 interface ConversationViewProps {
   conversation?: Conversation;

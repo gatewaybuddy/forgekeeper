@@ -1,5 +1,5 @@
 import { useReducer, useEffect } from 'react';
-import { Conversation } from './types';
+import { Conversation } from '../../types';
 
 type FolderAction =
   | { type: 'set'; payload: string[] }
