@@ -18,21 +18,22 @@ const projectsResolvers = {
   },
   Mutation: {
     createProject: async (_: unknown, { name, description }: any, { prisma }: Context) => {
+      // Avoid includes during create to prevent Prisma from using a transaction
+      // on MongoDB setups without a replica set
       return crud.create(
         prisma,
         'project',
         { id: uuidv4(), name, description },
-        { include: { conversations: { include: { messages: true } } } },
       );
     },
     updateProject: async (_: unknown, { id, name, description }: any, { prisma }: Context) => {
       const data: any = {};
       if (name !== undefined) data.name = name;
       if (description !== undefined) data.description = description;
+      // Avoid includes during update for the same no-replica-set compatibility
       return crud.update(prisma, 'project', {
         where: { id },
         data,
-        include: { conversations: { include: { messages: true } } },
       });
     },
     deleteProject: async (_: unknown, { id }: any, { prisma }: Context) => {

@@ -9,6 +9,7 @@ param(
     [switch]$RequireBackend,
     [int]$BackendWaitSeconds = 60,
     [switch]$CliOnly,
+    [switch]$Compose,
     [string]$ModelCore,
     [string]$ModelCoder,
     [ValidateSet('vllm','triton')] [string]$Backend = 'vllm',
@@ -57,6 +58,11 @@ if (Test-Path $dotenvPath) {
             if (-not [string]::IsNullOrWhiteSpace($k)) { Set-Item -Path ("Env:" + $k) -Value $v }
         }
     }
+}
+
+# Map MONGO_URI to DATABASE_URL if Prisma variable is missing
+if (-not $env:DATABASE_URL -and $env:MONGO_URI) {
+    $env:DATABASE_URL = $env:MONGO_URI
 }
 
 # Enable DEBUG_MODE when -Verbose is supplied
@@ -257,8 +263,8 @@ if ($env:FGK_USE_INFERENCE -ne '0' -and -not $CliOnly) {
     }
 }
 
-# Ensure MongoDB is running (local or Docker) unless CLI-only
-if (-not $CliOnly -and -not (Get-Process mongod -ErrorAction SilentlyContinue)) {
+# Ensure MongoDB is running (local or Docker) unless CLI-only or Compose mode
+if (-not $CliOnly -and -not $Compose -and -not (Get-Process mongod -ErrorAction SilentlyContinue)) {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Write-Warning '?? mongod not running and docker not found. Please start MongoDB manually.'
     } else {
@@ -276,6 +282,33 @@ if (-not $CliOnly -and -not (Get-Process mongod -ErrorAction SilentlyContinue)) 
             Write-Host "✅ Started MongoDB container 'forgekeeper-mongo'."
         }
     }
+}
+
+# Compose mode: run containers with rebuild and teardown on exit
+if ($Compose -and -not $CliOnly) {
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        Write-Error 'Docker is required for -Compose mode.'
+        exit 1
+    }
+    Push-Location $rootDir
+    try {
+        # Ensure network exists
+        try { & docker network inspect forgekeeper-net | Out-Null } catch { & docker network create forgekeeper-net | Out-Null }
+        Write-Host '🐳 Bringing up Forgekeeper stack via Docker Compose (with --build)'
+        # Build and start detached with profiles; include inference only if not using gateway
+        $profiles = @('--profile','backend','--profile','ui','--profile','agent')
+        if (($env:FGK_USE_INFERENCE ?? $env:USE_INFERENCE ?? '1') -eq '0') { $profiles += @('--profile','inference') }
+        & docker compose @profiles up -d --build
+        try {
+            & docker compose logs -f --tail=200
+        } finally {
+            Write-Host '🧹 Tearing down Docker Compose stack'
+            & docker compose down --remove-orphans | Out-Null
+        }
+    } finally {
+        Pop-Location
+    }
+    exit 0
 }
 
 if ($Detach) {

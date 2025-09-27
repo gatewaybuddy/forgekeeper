@@ -11,7 +11,8 @@ param(
     [switch]$RequireBackend,
     [int]$BackendWaitSeconds = 60,
     [string]$ModelCore,
-    [string]$ModelCoder
+    [string]$ModelCoder,
+    [switch]$Compose
 )
 
 Set-StrictMode -Version Latest
@@ -74,6 +75,7 @@ if ($PSBoundParameters.ContainsKey('Tiny')) {
 }
 if ($PSBoundParameters.ContainsKey('ModelCore') -and $ModelCore) { $splat.ModelCore = $ModelCore }
 if ($PSBoundParameters.ContainsKey('ModelCoder') -and $ModelCoder) { $splat.ModelCoder = $ModelCoder }
+if ($PSBoundParameters.ContainsKey('Compose')) { $splat.Compose = $true }
 
 & $target @splat
 

@@ -11,7 +11,8 @@ RUN mkdir -p /root/.cache/huggingface /var/log/vllm
 # Copy runtime scripts
 WORKDIR /app
 COPY scripts/run_vllm_core.sh scripts/run_vllm_coder.sh ./scripts/
-RUN chmod +x ./scripts/run_vllm_core.sh ./scripts/run_vllm_coder.sh
+RUN sed -i 's/\r$//' ./scripts/run_vllm_core.sh ./scripts/run_vllm_coder.sh \
+    && chmod +x ./scripts/run_vllm_core.sh ./scripts/run_vllm_coder.sh
 
 # Default ports for Core and Coder
 ENV VLLM_PORT_CORE=8000 \

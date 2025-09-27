@@ -7,8 +7,8 @@ import {
   DELETE_CONVERSATION,
   ARCHIVE_CONVERSATION,
   SET_RUNTIME_CONFIG,
-} from '../../graphql';
-import { Conversation } from '../../types';
+} from '../../../graphql';
+import { Conversation } from '../../../types';
 
 export interface ConversationTransport {
   conversations: Conversation[];

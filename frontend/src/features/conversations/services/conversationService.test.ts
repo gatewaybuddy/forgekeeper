@@ -18,7 +18,7 @@ const graphqlMocks = vi.hoisted(() => ({
   SET_RUNTIME_CONFIG: Symbol('SET_RUNTIME_CONFIG'),
 }));
 
-vi.mock('../../graphql', () => graphqlMocks);
+vi.mock('../../../graphql', () => graphqlMocks);
 
 const useMutationMock = apolloMocks.useMutation;
 const useQueryMock = apolloMocks.useQuery;

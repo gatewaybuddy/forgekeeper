@@ -1,6 +1,11 @@
-# Forgekeeper Development Roadmap
+# Forgekeeper Development Roadmap (Consolidated)
 
-This roadmap tracks the staged evolution of the unified runtime. For the active stabilization plan see `docs/ROADMAP.md`.
+This is the single, canonical roadmap for Forgekeeper. All planning flows from here. The generated task list (`tasks.md`) and YAML snapshot (`roadmap.yaml`) are derived from this file via:
+
+```
+python scripts/generate_tasks_from_roadmap.py
+python scripts/generate_roadmap_yaml.py
+```
 
 
 ## Milestones
@@ -10,13 +15,21 @@ This roadmap tracks the staged evolution of the unified runtime. For the active 
 |-----------|--------|
 | Core single-agent runtime | Done (v2 default) |
 | Agentic memory plane | Done (JSON store + feedback log) |
-| Queue & GraphQL callbacks | Next (Phase 3) |
-| UI wiring & observability | Planned (Phases 4 & 7) |
+| Queue & GraphQL callbacks | In Progress (Phase 3) |
+| Acts protocol + ToolShell | Planned (Phase 4) |
+| UI wiring & observability | Planned (Phases 5 & 7) |
 | Self-improvement loop | Planned (Phase 6+) |
 
 ## Migration Workstream
 - See `docs/migration_plan.md` for the detailed porting strategy.
 - Active task list lives in `automation/migration_tasks.yaml`.
+
+### Phase 0: Stabilization Baseline (In Progress)
+
+- [x] Add environment kill switches (`FGK_INFERENCE_BACKEND`, `FGK_USE_GATEWAY`, `FGK_MEMORY_BACKEND`)
+- [x] Add doctor scripts to verify GPU/LLM/backends (`scripts/doctor.sh`, `scripts/doctor.ps1`)
+- [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)
+- [ ] Event/logs smoke coverage for `.forgekeeper/events.jsonl` + fail-fast CI check
 
 ### Phase 1: Human-Guided Autonomy (Complete)
 - [x] Define agents and roles in `AGENTS.md`
@@ -34,7 +47,7 @@ This roadmap tracks the staged evolution of the unified runtime. For the active 
 - `forgekeeper/self_review/` reviews recent commits and logs check results for the active task.
 - `goal_manager/` unifies goal storage and high-level orchestration.
 
-### Phase 2: Semi-Autonomous Execution (Complete)
+### Phase 2: Shared State & Memory (Complete)
 
 - **Autonomous Execution**
   - [x] Read from `Tasks.md`
@@ -52,7 +65,19 @@ This roadmap tracks the staged evolution of the unified runtime. For the active 
 
 Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks, learn from results, and plan next steps with minimal oversight. Upcoming refinement will focus on improving memory retrieval fidelity and task scheduling heuristics.
 
-### Phase 3: Full Local Autonomy (Complete)
+- [x] JSON-backed agentic memory and event logs under `.forgekeeper/`
+- [ ] ContextLog DB adapter (SQLite/Mongo) for events (optional, parity with JSON)
+- [ ] Vector memory backend and retrieval scoring (P1)
+
+### Phase 3: Queue & GraphQL Callback Loop (In Progress)
+
+- [x] Outbox primitives for tool/action durability (`forgekeeper/outbox.py`)
+- [x] Smoke scripts for GraphQL append and E2E (`scripts/smoke_graphql_append.py`, `scripts/smoke_e2e_roundtrip.py`)
+- [ ] Implement `appendMessage` end-to-end callback with retries + idempotency
+- [ ] Worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff
+- [ ] Health/metrics: expose lag + retry counters on `/health`
+
+### Phase 3.5: Distributed Inference & Modularity (In Progress)
 
 - [x] M-030: Autonomous task execution based on high-level goals
 - [x] M-031: Emotion tagging for memory reflections
@@ -62,28 +87,36 @@ Phase 2 delivered a memory-informed workflow that lets Forgekeeper execute tasks
 
 Sprint plans are assembled by `forgekeeper/sprint_planner.py` from active goals and pending tasks. The generated `SprintPlan.md` is refreshed whenever the roadmap updates and committed for review alongside other changes.
 
-### Phase 3.5: Distributed Inference & Modularity (In Progress)
+### Phase 4: Acts Protocol + ToolShell (Planned)
 
-- [FK-351](tasks.md#fk-351): Compose profiles for modular deploys (agent-worker, backend-only, ui-only, inference-only) — Done
-- [FK-352](tasks.md#fk-352): Gateway registry + weighted routing (multi-node, model-aware) — Done
-- [FK-353](tasks.md#fk-353): Extract forgekeeper-core and client packages — Done
-- [FK-354](tasks.md#fk-354): Agent worker entrypoint with outbox polling — Done
-- [FK-355](tasks.md#fk-355): Multi-node deployment guide and examples — Done
-- [FK-356](tasks.md#fk-356): Helm charts for K8s (optional)
+- [ ] Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL
+- [ ] Implement sandboxed ToolShell with allowlist + gating
+- [ ] Record tool outputs back to ContextLog and surface in UI
 
-This phase introduces clean module boundaries and scalable deployment profiles to simplify code maintenance and enable multi-machine token compute.
+### Phase 5: UI Wiring & UX Gaps (Planned)
 
-### Phase 4: Agentic Memory Orchestration (Planned)
-
-- [FK-406](tasks.md#fk-406): Document memory agent architecture and extension points
-- [FK-407](tasks.md#fk-407): Integrate memory agents into the orchestration layer
-- [FK-408](tasks.md#fk-408): Expand memory agents with new heuristics and feedback loops
+- [ ] New Conversation button
+- [ ] Status Bar (GraphQL, Agent, Inference, Queue)
+- [ ] Lightweight message polling (streaming later)
 
 #### Completed Milestones
 - [x] Multi-file edit support in `task_pipeline.py`
 - [x] Diff-aware self-review with task-scoped tests in `self_review/`
 - [x] Subtask expansion in goal management via `goal_manager/manager.py`
 - [x] Consolidated conversation handling behind a single GraphQL storage path
+
+### Phase 6: Self-Improvement Loop (Planned)
+
+- [ ] Drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run first)
+- [ ] Git flow: temp branch → diff preview → PR; approvals for risky paths
+- [ ] Stabilize commit checks + self-review summaries in `logs/<task_id>/`
+
+### Phase 7: Observability & Guardrails (Planned)
+
+- [x] JSONL logs (`.forgekeeper/events.jsonl`)
+- [ ] Tail utility (`scripts/tail_logs.py`) and dev UX for fast triage
+- [ ] UI LogPanel wiring with filters
+- [ ] Guardrails: allowlist enforcement for ToolShell + redaction hooks
 
 ## 🧠 Future Capabilities
 See Backlog and in‑progress items in `tasks.md` for the canonical list and status.

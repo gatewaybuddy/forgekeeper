@@ -214,8 +214,8 @@ pwsh ./start.ps1
 These scripts launch the GraphQL service, Python agent, and frontend concurrently. By default Forgekeeper routes LLM calls through a local OpenAI‑compatible gateway and will offer to start the GPU inference stack if not running. Press <kbd>Ctrl+C</kbd> to stop all processes. The same behavior is available via `make dev`.
 
 Startup flags:
-- PowerShell: `pwsh ./start.ps1 [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-RequireBackend] [-BackendWaitSeconds 60] [-Detach] [-LogDir <dir>]`
-- Bash: `./start.sh [--debug] [--require-vllm] [--vllm-wait-seconds 120] [--require-backend] [--backend-wait-seconds 60]`
+- PowerShell: `pwsh ./start.ps1 [-Compose] [-Verbose] [-RequireVLLM] [-VLLMWaitSeconds 120] [-RequireBackend] [-BackendWaitSeconds 60] [-Detach] [-LogDir <dir>]`
+- Bash: `./start.sh [--compose] [--debug] [--require-vllm] [--vllm-wait-seconds 120] [--require-backend] [--backend-wait-seconds 60]`
 
 Behavior: without strict flags, the scripts wait briefly (~10s) for vLLM and backend before continuing; with `-RequireVLLM`/`--require-vllm` and `-RequireBackend`/`--require-backend`, they block until services are healthy or time out.
 
@@ -358,6 +358,37 @@ Selective service startup using Docker Compose profiles:
 - Python agent only: `make -C forgekeeper up-agent`
 - Backend outbox worker: `make -C forgekeeper up-worker`
 - Stop all: `make -C forgekeeper down`
+
+### Dev-Friendly Docker (Opt-in)
+
+For containerized development with automatic rebuilds and teardown:
+
+- Start all core services in containers and rebuild images each run:
+
+  ```bash
+  # macOS/Linux/WSL:
+  ./start.sh --compose
+  # Windows PowerShell:
+  pwsh ./start.ps1 -Compose
+  ```
+
+  Behavior:
+  - Builds images (`--build`) before starting containers.
+  - Attaches to logs; press Ctrl+C to stop.
+  - Tears down containers on exit (`docker compose down`).
+
+- Optional dev overrides with live code mounts and dev servers are provided in `docker-compose.dev.yml`.
+  It is not auto-wired. Use explicitly if desired:
+
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+  # later
+  docker compose down
+  ```
+
+The dev override mounts `./backend`, `./frontend`, and `./forgekeeper` into containers and runs
+`npm run dev` for backend/front and `python -m forgekeeper.main` for the agent, so most code changes
+apply without rebuilding. Use the base compose alone for production-like images.
 
 ### Packaging (FK-353)
 
@@ -682,6 +713,23 @@ Override the backend for a single run with `--backend`:
 ```bash
 python scripts/llm_smoke_test.py --backend vllm
 ```
+
+## Wiring Validation & Logs
+
+Run a consolidated wiring check after starting services:
+
+```bash
+python forgekeeper/scripts/validate_wiring.py
+```
+
+Tail runtime logs for quick triage:
+
+```bash
+python forgekeeper/scripts/tail_logs.py --follow
+```
+
+Notes:
+- If `.env` defines only `MONGO_URI`, the start scripts automatically map it to `DATABASE_URL` for Prisma. When running the backend directly via Node, set `DATABASE_URL` yourself or run the wrappers.
 
 ## Testing
 Run the Python test suite with:

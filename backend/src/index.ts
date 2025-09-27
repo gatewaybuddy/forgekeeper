@@ -25,7 +25,7 @@ async function main() {
     });
     const oldest = pending[0];
     const lag = oldest ? Date.now() - oldest.createdAt.getTime() : 0;
-    const retries = pending.filter((m) => m.retryCount > 0).length;
+    const retries = pending.filter((m: any) => m.retryCount > 0).length;
     const retryRate = pending.length ? retries / pending.length : 0;
     res.json({ lag, retryRate });
   });

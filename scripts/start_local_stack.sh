@@ -17,6 +17,8 @@ BACKEND_WAIT_SECONDS=60
 LLM_BACKEND=${FGK_LLM_BACKEND:-vllm}
 CONVERSATION=false
 USE_INFERENCE=${FGK_USE_INFERENCE:-1}
+# New: optional docker compose mode to run backend/ui/agent in containers
+COMPOSE_MODE=false
 
 usage() {
   cat <<'EOF'
@@ -34,6 +36,7 @@ Options:
   --require-backend       Wait for backend health; abort if not healthy.
   --backend-wait-seconds N  Seconds to wait for backend when required (default 60).
   --no-inference          Disable inference gateway integration for this run.
+  --compose               Use Docker Compose for backend/ui/agent (auto --build, auto teardown).
   --reset-prefs           Delete saved start preferences and re-prompt.
   --conversation          Run agent in duet conversation mode (passes --conversation).
   -h, --help              Show this help and exit.
@@ -61,6 +64,8 @@ while [[ $# -gt 0 ]]; do
       CONVERSATION=true; shift ;;
     --no-inference)
       USE_INFERENCE=0; shift ;;
+    --compose)
+      COMPOSE_MODE=true; shift ;;
     --reset-prefs)
       rm -f "$ROOT_DIR/.forgekeeper/start_prefs.env" 2>/dev/null || true; shift ;;
     -h|--help)
@@ -112,8 +117,14 @@ $DEBUG && export DEBUG_MODE=true || true
 if $CLI_ONLY; then export CLI_ONLY=true; fi
 debug_log "DEBUG_MODE=$DEBUG_MODE"
 
-: "${DATABASE_URL:=mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false}"
-export DATABASE_URL
+# Prefer explicit DATABASE_URL; otherwise map from MONGO_URI if present; else use sane default
+if [ -z "${DATABASE_URL:-}" ]; then
+  if [ -n "${MONGO_URI:-}" ]; then
+    export DATABASE_URL="$MONGO_URI"
+  else
+    export DATABASE_URL="mongodb://localhost:27017/forgekeeper?directConnection=true&retryWrites=false"
+  fi
+fi
 
 : "${VLLM_PORT_CORE:=8001}"
 : "${OPENAI_BASE_URL:=http://localhost:${VLLM_PORT_CORE}/v1}"
@@ -236,9 +247,11 @@ if [ "$USE_INFERENCE" != "0" ] && ! $CLI_ONLY; then
   fi
 fi
 
-# Ensure MongoDB is available before starting services (skip in CLI-only)
+# Ensure MongoDB is available before starting services (skip in CLI-only or compose mode)
 if $CLI_ONLY; then
   debug_log "CLI-only mode: skipping MongoDB checks"
+elif $COMPOSE_MODE; then
+  debug_log "Compose mode: MongoDB is managed by docker compose"
 elif pgrep mongod >/dev/null 2>&1; then
   echo "✅ MongoDB is running."
 elif command -v docker >/dev/null 2>&1 && \
@@ -258,6 +271,7 @@ else
         echo "❌ Failed to start forgekeeper-mongo container." >&2
         exit 1
       fi
+      MONGO_STARTED_EXISTING_BY_SCRIPT=true
     else
       echo "⚠️ MongoDB is required. Exiting." >&2
       exit 1
@@ -270,6 +284,7 @@ else
         echo "❌ Failed to launch MongoDB Docker container." >&2
         exit 1
       fi
+      MONGO_STARTED_BY_SCRIPT=true
     else
       echo "⚠️ MongoDB is required. Exiting." >&2
       exit 1
@@ -277,8 +292,8 @@ else
   fi
 fi
 
-# Ensure LLM backend is running; launch if health check fails (skip in CLI-only)
-if ! $CLI_ONLY; then
+# Ensure LLM backend is running; launch if health check fails (skip in CLI-only and compose mode)
+if ! $CLI_ONLY && ! $COMPOSE_MODE; then
 if [ "$LLM_BACKEND" = "triton" ]; then
   : "${TRITON_URL:=http://localhost:8000}"
   : "${TRITON_MODEL:=gpt-oss-20b}"
@@ -325,6 +340,7 @@ PY
       echo "📝 vLLM logs: logs/vllm_core.out, logs/vllm_core.err"
     elif command -v docker >/dev/null 2>&1; then
       echo "🐳 Starting dockerized vLLM (forgekeeper-vllm-core)..."
+      STARTED_VLLM_DOCKER=true
       bash scripts/start_vllm_core_docker.sh > logs/vllm_core.out 2> logs/vllm_core.err || true
       echo "👉 View logs: docker logs -f forgekeeper-vllm-core"
     else
@@ -354,42 +370,65 @@ if $CLI_ONLY; then
   echo "🚀 CLI-only mode: starting Python agent only"
   "$PYTHON" -m forgekeeper_v2.cli run --mode single
 else
-  # Start backend first
-  npm run dev --prefix backend &
-  BACKEND_PID=$!
-
-  # Wait for backend health before starting frontend (strict or non-strict)
-  BACKEND_PORT=${PORT:-4000}
-  BACKEND_HEALTH="http://localhost:${BACKEND_PORT}/health"
-  local_b_wait=$BACKEND_WAIT_SECONDS
-  $REQUIRE_BACKEND || local_b_wait=$(( local_b_wait < 10 ? local_b_wait : 10 ))
-  deadline=$((SECONDS+local_b_wait))
-  until curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1 || [ $SECONDS -ge $deadline ]; do
-    sleep 1
-  done
-  if curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1; then
-    echo "✅ Backend is healthy at $BACKEND_HEALTH"
-  else
-    if $REQUIRE_BACKEND; then
-      echo "❌ Backend did not become healthy at $BACKEND_HEALTH; aborting due to --require-backend" >&2
+  if $COMPOSE_MODE; then
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "❌ Docker is required for --compose mode." >&2
       exit 1
-    else
-      echo "⚠️ Backend not healthy yet at $BACKEND_HEALTH; continuing to start other services" >&2
     fi
-  fi
-
-  if $CONVERSATION; then
-    "$PYTHON" -m forgekeeper_v2.cli run --mode duet &
+    # Ensure required network exists for compose file
+    if ! docker network inspect forgekeeper-net >/dev/null 2>&1; then
+      echo "ℹ️ Creating docker network 'forgekeeper-net'"
+      docker network create forgekeeper-net >/dev/null
+    fi
+    echo "🐳 Bringing up Forgekeeper stack via Docker Compose (with --build)"
+    # Only start local inference stack when not using gateway
+    COMPOSE_PROFILES=(--profile backend --profile ui --profile agent)
+    if [ "${FGK_USE_INFERENCE:-${USE_INFERENCE:-1}}" = "0" ]; then
+      COMPOSE_PROFILES+=(--profile inference)
+    fi
+    # Ensure teardown on exit
+    trap 'echo "🧹 Tearing down Docker Compose stack"; docker compose down --remove-orphans >/dev/null 2>&1 || true; if [ "${STARTED_VLLM_DOCKER:-}" = "true" ]; then docker stop forgekeeper-vllm-core >/dev/null 2>&1 || true; fi; if [ "${MONGO_STARTED_BY_SCRIPT:-}" = "true" ] || [ "${MONGO_STARTED_EXISTING_BY_SCRIPT:-}" = "true" ]; then docker stop forgekeeper-mongo >/dev/null 2>&1 || true; fi; exit 0' INT TERM EXIT
+    # Build images and attach (Ctrl+C to stop, trap will down)
+    docker compose "${COMPOSE_PROFILES[@]}" up --build
   else
-    "$PYTHON" -m forgekeeper_v2.cli run --mode single &
+    # Local dev processes
+    # Start backend first
+    npm run dev --prefix backend &
+    BACKEND_PID=$!
+
+    # Wait for backend health before starting frontend (strict or non-strict)
+    BACKEND_PORT=${PORT:-4000}
+    BACKEND_HEALTH="http://localhost:${BACKEND_PORT}/health"
+    local_b_wait=$BACKEND_WAIT_SECONDS
+    $REQUIRE_BACKEND || local_b_wait=$(( local_b_wait < 10 ? local_b_wait : 10 ))
+    deadline=$((SECONDS+local_b_wait))
+    until curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1 || [ $SECONDS -ge $deadline ]; do
+      sleep 1
+    done
+    if curl -sSf "$BACKEND_HEALTH" >/dev/null 2>&1; then
+      echo "✅ Backend is healthy at $BACKEND_HEALTH"
+    else
+      if $REQUIRE_BACKEND; then
+        echo "❌ Backend did not become healthy at $BACKEND_HEALTH; aborting due to --require-backend" >&2
+        exit 1
+      else
+        echo "⚠️ Backend not healthy yet at $BACKEND_HEALTH; continuing to start other services" >&2
+      fi
+    fi
+
+    if $CONVERSATION; then
+      "$PYTHON" -m forgekeeper_v2.cli run --mode duet &
+    else
+      "$PYTHON" -m forgekeeper_v2.cli run --mode single &
+    fi
+    PYTHON_PID=$!
+
+    npm run dev --prefix frontend &
+    FRONTEND_PID=$!
+
+    trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} ${TRITON_PID:-} 2>/dev/null || true; if [ "${STARTED_VLLM_DOCKER:-}" = "true" ]; then docker stop forgekeeper-vllm-core >/dev/null 2>&1 || true; fi; if [ "${MONGO_STARTED_BY_SCRIPT:-}" = "true" ] || [ "${MONGO_STARTED_EXISTING_BY_SCRIPT:-}" = "true" ]; then docker stop forgekeeper-mongo >/dev/null 2>&1 || true; fi' EXIT
+    wait
   fi
-  PYTHON_PID=$!
-
-  npm run dev --prefix frontend &
-  FRONTEND_PID=$!
-
-  trap 'kill "$BACKEND_PID" "$PYTHON_PID" "$FRONTEND_PID" ${VLLM_PID:-} ${TRITON_PID:-} 2>/dev/null || true' EXIT
-  wait
 fi
 
 # Export conversation flag for downstream launchers

@@ -14,8 +14,8 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 echo "Repo root: $ROOT_DIR"
 
 # 1) Core toolchain checks
-if has_cmd python3; then PY=python3; ok "python3 found: $($PY --version 2>&1)"; 
-elif has_cmd python; then PY=python; ok "python found: $($PY --version 2>&1)"; 
+if has_cmd python3; then PY=python3; ok "python3 found: $($PY --version 2>&1)";
+elif has_cmd python; then PY=python; ok "python found: $($PY --version 2>&1)";
 else err "python not found"; fi
 
 if has_cmd pip; then ok "pip found: $(pip --version 2>&1)"; else warn "pip not found"; fi

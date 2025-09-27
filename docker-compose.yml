@@ -24,16 +24,26 @@ services:
     networks: [forgekeeper-net]
     ports: ["${VLLM_PORT_CORE:-8001}:${VLLM_CONTAINER_PORT:-8000}"]
     ipc: host
-    runtime: nvidia
-    device_requests:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     volumes:
       - ${VLLM_HF_CACHE_HOST_DIR:-./volumes/vllm-cache}:/root/.cache/huggingface
       - ${VLLM_MODELS_HOST_DIR:-./volumes/vllm-models}:/models
       - ${VLLM_LOGS_HOST_DIR:-./volumes/vllm-logs}:/var/log/vllm
-    entrypoint: ["./scripts/run_vllm_core.sh"]
+    entrypoint: ["python3","-m","vllm.entrypoints.openai.api_server"]
+    command: [
+      "--host","0.0.0.0",
+      "--port","${VLLM_CONTAINER_PORT:-8000}",
+      "--model","${VLLM_MODEL_CORE}",
+      "--tensor-parallel-size","${VLLM_TP:-1}",
+      "--max-model-len","${VLLM_MAX_MODEL_LEN:-4096}",
+      "--gpu-memory-utilization","${VLLM_GPU_MEMORY_UTILIZATION:-0.9}"
+    ]
 
   vllm-coder:
     image: forgekeeper-vllm
@@ -51,16 +61,26 @@ services:
     networks: [forgekeeper-net]
     ports: ["${VLLM_PORT_CODER:-8002}:${VLLM_CONTAINER_PORT:-8000}"]
     ipc: host
-    runtime: nvidia
-    device_requests:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     volumes:
       - ${VLLM_HF_CACHE_HOST_DIR:-./volumes/vllm-cache}:/root/.cache/huggingface
       - ${VLLM_MODELS_HOST_DIR:-./volumes/vllm-models}:/models
       - ${VLLM_LOGS_HOST_DIR:-./volumes/vllm-logs}:/var/log/vllm
-    entrypoint: ["./scripts/run_vllm_coder.sh"]
+    entrypoint: ["python3","-m","vllm.entrypoints.openai.api_server"]
+    command: [
+      "--host","0.0.0.0",
+      "--port","${VLLM_CONTAINER_PORT:-8000}",
+      "--model","${VLLM_MODEL_CODER}",
+      "--tensor-parallel-size","${VLLM_TP:-1}",
+      "--max-model-len","${VLLM_MAX_MODEL_LEN:-4096}",
+      "--gpu-memory-utilization","${VLLM_GPU_MEMORY_UTILIZATION:-0.9}"
+    ]
 
   backend:
     image: forgekeeper-backend
@@ -103,6 +123,9 @@ services:
 
   python:
     image: forgekeeper-python
+    build:
+      context: .
+      dockerfile: Dockerfile
     profiles: [agent]
     env_file: ./.env
     networks: [forgekeeper-net]
