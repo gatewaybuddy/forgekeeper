@@ -80,7 +80,7 @@ export default function App() {
         </section>
       )}
 
-      <div style={{flex: '1 1 auto', minHeight: 0, overflow: 'hidden'}}>
+      <div style={{display: 'flex', flex: '1 1 auto', minHeight: 0, overflow: 'hidden'}}>
         <Chat apiBase={apiBase} model={model} fill />
       </div>
     </div>
