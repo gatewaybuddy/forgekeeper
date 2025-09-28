@@ -24,11 +24,15 @@ try { & docker network inspect forgekeeper-net | Out-Null } catch { & docker net
 
 $args = @('-f', $ComposeFile)
 foreach ($p in $Profiles) { $args += @('--profile', $p) }
-$args += 'up','-d'
-if ($Build) { $args += '--build' }
 
-Write-Host "Bringing up stack via: docker compose $($args -join ' ')"
-& docker compose @args | Out-Null
+if ($Build) {
+  Write-Host "Building selected services: frontend"
+  & docker compose -f $ComposeFile build frontend | Out-Null
+}
+
+$upArgs = $args + @('up','-d')
+Write-Host "Bringing up stack via: docker compose $($upArgs -join ' ')"
+& docker compose @upArgs | Out-Null
 
 if ($IncludeMongo) {
   # Ensure mongo is up (service name mongodb); suppress errors if undefined

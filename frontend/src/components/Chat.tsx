@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chatOnce, streamChat } from '../lib/chatClient';
 
 type Role = 'system' | 'user' | 'assistant';
@@ -8,7 +8,7 @@ interface Message {
   reasoning?: string | null;
 }
 
-export function Chat({ apiBase, model }: { apiBase: string; model: string }) {
+export function Chat({ apiBase, model, fill }: { apiBase: string; model: string; fill?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'system', content: 'You are a helpful assistant.' }
   ]);
@@ -16,6 +16,9 @@ export function Chat({ apiBase, model }: { apiBase: string; model: string }) {
   const [streaming, setStreaming] = useState(false);
   const [showReasoning, setShowReasoning] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const [nearBottom, setNearBottom] = useState(true);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
 
@@ -98,40 +101,91 @@ export function Chat({ apiBase, model }: { apiBase: string; model: string }) {
     }
   }, [apiBase, input, messages, model]);
 
+  // Auto-scroll to bottom as messages update, but only when user is near bottom
+  useEffect(() => {
+    const sc = scrollRef.current;
+    const end = endRef.current;
+    if (!sc || !end) return;
+    // If user has scrolled far up, don't force-scroll unless streaming
+    const nb = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
+    setNearBottom(nb);
+    if (nb) {
+      end.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' });
+    }
+  }, [messages, streaming]);
+
+  const onScroll = useCallback(() => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const nb = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
+    setNearBottom(nb);
+  }, []);
+
   return (
-    <div>
-      <section style={{border:'1px solid #eee', borderRadius:8, padding:12, marginBottom:12, minHeight: 280}}>
+    <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
+      <div
+        ref={scrollRef}
+        style={{
+          border:'1px solid #eee',
+          borderRadius:8,
+          padding:12,
+          marginBottom:12,
+          // Use flex sizing so this box takes the remaining space without forcing the page to scroll
+          height: fill ? undefined : '55vh',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          background: '#fff',
+          scrollBehavior: 'smooth',
+          minHeight: 0,
+          flex: fill ? '1 1 auto' : undefined
+        }}
+        onScroll={onScroll}
+      >
         {messages.map((m, i) => (
-          <div key={i} style={{marginBottom:10}}>
+          <div key={i} style={{marginBottom:12}}>
             <div style={{fontWeight:600, fontSize:12, color:'#666', marginBottom:4}}>{m.role.toUpperCase()}</div>
-            <div style={{whiteSpace:'pre-wrap'}}>{m.content || <span style={{color:'#aaa'}}>(no content)</span>}</div>
+            <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
+              {m.content || <span style={{color:'#aaa'}}>(no content)</span>}
+            </div>
             {m.role === 'assistant' && showReasoning && (
               <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
                 <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
-                <div style={{whiteSpace:'pre-wrap', color:'#555'}}>{m.reasoning || <span style={{color:'#bbb'}}>(none)</span>}</div>
+                <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word', color:'#555'}}>
+                  {m.reasoning || <span style={{color:'#bbb'}}>(none)</span>}
+                </div>
               </div>
             )}
           </div>
         ))}
-      </section>
-
-      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
-        <input
-          placeholder="Ask something..."
-          value={input}
-          onChange={e=>setInput(e.target.value)}
-          onKeyDown={e=>{ if (e.key === 'Enter' && !e.shiftKey && canSend) onSend(); }}
-          style={{flex:1, padding:'10px 12px'}}
-        />
-        <button disabled={!canSend} onClick={onSend}>Send (stream)</button>
-        <button disabled={!canSend} onClick={onSendOnce}>Send (block)</button>
-        <button disabled={!streaming} onClick={onStop}>Stop</button>
-        <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
-          <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
-          <span style={{fontSize:12}}>Show reasoning</span>
-        </label>
+        <div ref={endRef} />
       </div>
-      <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}"</small>
+      {!nearBottom && (
+        <div style={{display:'flex', justifyContent:'center', marginTop: -8, marginBottom: 8}}>
+          <button onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth' })}>
+            Scroll to latest
+          </button>
+        </div>
+      )}
+
+      <div style={{flex: '0 0 auto'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+          <input
+            placeholder="Ask something..."
+            value={input}
+            onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{ if (e.key === 'Enter' && !e.shiftKey && canSend) onSend(); }}
+            style={{flex:1, padding:'10px 12px'}}
+          />
+          <button disabled={!canSend} onClick={onSend}>Send (stream)</button>
+          <button disabled={!canSend} onClick={onSendOnce}>Send (block)</button>
+          <button disabled={!streaming} onClick={onStop}>Stop</button>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
+            <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
+            <span style={{fontSize:12}}>Show reasoning</span>
+          </label>
+        </div>
+        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}"</small>
+      </div>
     </div>
   );
 }

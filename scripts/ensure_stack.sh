@@ -23,10 +23,13 @@ fi
 args=("-f" "$COMPOSE_FILE")
 for p in "${PROFILES[@]}"; do args+=("--profile" "$p"); done
 args+=(up -d)
-if [[ "$BUILD" == "1" ]]; then args+=(--build); fi
+if [[ "$BUILD" == "1" ]]; then
+  echo "Building selected services: frontend"
+  docker compose -f "$COMPOSE_FILE" build frontend >/dev/null
+fi
 
-echo "Bringing up stack: docker compose ${args[*]}"
-docker compose "${args[@]}" >/dev/null
+echo "Bringing up stack: docker compose ${args[*]} up -d"
+docker compose "${args[@]}" up -d >/dev/null
 
 if [[ "$INCLUDE_MONGO" == "1" ]]; then
   docker compose -f "$COMPOSE_FILE" up -d mongodb >/dev/null || true

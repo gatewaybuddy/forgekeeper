@@ -38,8 +38,17 @@ export default function App() {
   }, [healthUrls]);
 
   return (
-    <div style={{fontFamily:'system-ui,Segoe UI,Roboto,Helvetica,Arial', maxWidth: 960, margin: '0 auto', padding: 16}}>
-      <header style={{display:'flex', alignItems:'center', gap:12, marginBottom: 12}}>
+    <div style={{
+      fontFamily:'system-ui,Segoe UI,Roboto,Helvetica,Arial',
+      maxWidth: 960,
+      margin: '0 auto',
+      padding: 16,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      <header style={{display:'flex', alignItems:'center', gap:12, marginBottom: 12, flex: '0 0 auto'}}>
         <h1 style={{margin: 0, fontSize: 20}}>Forgekeeper Chat</h1>
         <StatusDot healthy={healthy} checking={checking} />
         <div style={{marginLeft:'auto', display:'flex', gap:8}}>
@@ -52,7 +61,15 @@ export default function App() {
       </header>
 
       {showSettings && (
-        <section style={{border:'1px solid #ddd', borderRadius:8, padding:12, marginBottom:12}}>
+        <section style={{
+          border:'1px solid #ddd',
+          borderRadius:8,
+          padding:12,
+          marginBottom:12,
+          flex: '0 0 auto',
+          maxHeight: '25vh',
+          overflowY: 'auto'
+        }}>
           <div style={{display:'flex', gap:12, alignItems:'center'}}>
             <label style={{display:'flex', alignItems:'center', gap:6}}>
               <span style={{fontSize:12, color:'#555'}}>API Base</span>
@@ -63,7 +80,9 @@ export default function App() {
         </section>
       )}
 
-      <Chat apiBase={apiBase} model={model} />
+      <div style={{flex: '1 1 auto', minHeight: 0, overflow: 'hidden'}}>
+        <Chat apiBase={apiBase} model={model} fill />
+      </div>
     </div>
   );
 }
