@@ -3,21 +3,25 @@ epic:
   title: "Multi-Role Model Operations Pipeline"
   description: |
     Deliver an end-to-end pipeline that enables independent agent roles to
-    collaborate on model evaluation, fine-tuning, and deployment tasks while
-    maintaining observability and guardrails.
+    collaborate on model evaluation, fine-tuning, safety review, and deployment
+    tasks while maintaining observability, governance, and rapid iteration
+    cycles.
   business_value: |
     Accelerates iteration on AI agents by providing a governed workflow that
     reduces coordination overhead, shortens feedback loops, and ensures
-    compliance with reliability requirements.
+    compliance with reliability and safety requirements across the model
+    lifecycle.
   stakeholders:
     product_owner: "Avery Chen"
     engineering_lead: "Jordan Ramirez"
     qa_lead: "Morgan Patel"
     ml_scientist: "Priya Desai"
+    safety_officer: "Noah Iglesias"
   success_metrics:
     - "Reduce average model update cycle time by 35% within two quarters."
     - "Achieve 99.5% successful hand-offs between automated roles."
     - "Maintain <1% regression rate across monitored evaluation benchmarks."
+    - "Resolve safety escalations within a median of 4 business hours."
 
 milestones:
   - id: M1
@@ -58,6 +62,22 @@ milestones:
       - "Progressive rollout tooling enforces approval gates per role."
       - "Incident response playbooks finalized and linked to monitoring alerts."
       - "Post-deployment review reports generated automatically."
+  - id: M4
+    title: "Safety, Observability, and Collaboration Enhancements"
+    target_date: 2024-11-15
+    owner: "Noah Iglesias"
+    summary: |
+      Layer in multi-provider abstractions, safety wrappers, reproducibility
+      tooling, and human-in-the-loop governance extensions that mature the
+      pipeline for regulated environments.
+    dependencies:
+      - M1
+      - M2
+      - M3
+    exit_criteria:
+      - "Provider abstraction module drives at least two inference backends."
+      - "Prompt snapshots, replay seeds, and minimal repro flows operational."
+      - "Human-in-the-loop hooks available in production workspace."
 
 tasks:
   - id: T1
@@ -120,6 +140,86 @@ tasks:
     deliverables:
       - "Telemetry ingestion adapters"
       - "Incident report templates"
+  - id: T7
+    milestone: M4
+    title: "Introduce provider abstraction layer"
+    description: |
+      Build a provider-agnostic interface with pluggable credentials to support
+      multiple inference backends and shared throttling controls.
+    assignee: "Jordan Ramirez"
+    deliverables:
+      - "providers/registry.py"
+      - "Provider contract documentation"
+  - id: T8
+    milestone: M4
+    title: "Persist prompt snapshots"
+    description: |
+      Capture and version prompt inputs, outputs, and metadata for replay,
+      auditability, and comparison across model revisions.
+    assignee: "Priya Desai"
+    deliverables:
+      - "storage/prompt_snapshots.py"
+      - "Snapshot retention SOP"
+  - id: T9
+    milestone: M4
+    title: "Deploy fence-safe wrappers"
+    description: |
+      Implement deterministic guard wrappers that enforce safety fences on
+      external tools, ensuring context-aware execution limits.
+    assignee: "Noah Iglesias"
+    deliverables:
+      - "safety/fence_wrappers.py"
+      - "Fence compliance checklist"
+  - id: T10
+    milestone: M4
+    title: "Provision sandbox runner"
+    description: |
+      Provide an isolated execution runner with ephemeral containers for risky
+      actions, including resource quotas and artifact capture.
+    assignee: "Morgan Patel"
+    deliverables:
+      - "sandbox/runner.py"
+      - "Sandbox usage playbook"
+  - id: T11
+    milestone: M4
+    title: "Revamp policy UX"
+    description: |
+      Deliver a policy management UX that surfaces approvals, escalation paths,
+      and actionable guidance for each role.
+    assignee: "Avery Chen"
+    deliverables:
+      - "frontend/src/policy/PolicyConsole.tsx"
+      - "Policy UX content guidelines"
+  - id: T12
+    milestone: M4
+    title: "Enable minimal repro capture"
+    description: |
+      Add tooling to capture minimal reproduction bundles for failing agent
+      runs, including environment metadata and prompts.
+    assignee: "Priya Desai"
+    deliverables:
+      - "diagnostics/minimal_repro.py"
+      - "Minimal repro SOP"
+  - id: T13
+    milestone: M4
+    title: "Record replay seeds"
+    description: |
+      Persist deterministic replay seeds for stochastic agents so that
+      evaluation reruns are comparable and auditable.
+    assignee: "Jordan Ramirez"
+    deliverables:
+      - "storage/replay_seeds.json"
+      - "Replay reproducibility guide"
+  - id: T14
+    milestone: M4
+    title: "Wire human-in-the-loop hooks"
+    description: |
+      Integrate manual approval hooks and escalation workflows with notification
+      routing for high-risk operations.
+    assignee: "Noah Iglesias"
+    deliverables:
+      - "workflows/hitl_hooks.yaml"
+      - "HITL escalation matrix"
 
 workstream_dependencies:
   - from: T2
@@ -128,6 +228,18 @@ workstream_dependencies:
   - from: T3
     to: T6
     rationale: "Telemetry integration depends on evaluation signal taxonomy."
+  - from: T7
+    to: T8
+    rationale: "Provider metadata must be available for snapshot capture."
+  - from: T9
+    to: T10
+    rationale: "Fence-safe boundaries inform sandbox resource policies."
+  - from: T12
+    to: T13
+    rationale: "Minimal repro bundles rely on deterministic replay seeds."
+  - from: T13
+    to: T14
+    rationale: "HITL hooks surface replay context for manual reviewers."
 
 communication_plan:
   cadence:
@@ -140,6 +252,12 @@ communication_plan:
       owner: "Project PM"
       participants:
         - "All contributors"
+    - channel: "Safety review stand-up"
+      owner: "Noah Iglesias"
+      participants:
+        - "Safety"
+        - "Policy"
+        - "Engineering"
   decision_log: "Confluence page: Multi-Role Pipeline Decisions"
 
 change_management:
@@ -148,6 +266,24 @@ change_management:
   rollback_plan: |
     Maintain previous release artifacts for two sprints and enable instant
     revert through orchestrator feature flags.
+
+artifacts:
+  - path: "providers/registry.py"
+    description: "Runtime registration and throttling for inference providers."
+  - path: "storage/prompt_snapshots.py"
+    description: "Persistence helpers for versioned prompt snapshots."
+  - path: "safety/fence_wrappers.py"
+    description: "Safety fence enforcement library."
+  - path: "sandbox/runner.py"
+    description: "Ephemeral container runner for sandboxed tasks."
+  - path: "frontend/src/policy/PolicyConsole.tsx"
+    description: "Policy management user experience surface."
+  - path: "diagnostics/minimal_repro.py"
+    description: "Minimal reproduction bundle generator."
+  - path: "storage/replay_seeds.json"
+    description: "Canonical replay seeds for stochastic scenarios."
+  - path: "workflows/hitl_hooks.yaml"
+    description: "Human-in-the-loop escalation and approval configuration."
 
 config_defaults:
   orchestration:
@@ -172,6 +308,36 @@ config_defaults:
       security: "Required for stage >= Canary"
       qa: "Required for all stages"
       product: "Required for GA"
+  providers:
+    default_provider: "openai:gpt-4o"
+    fallback_provider: "anthropic:claude-opus"
+    rate_limit_per_minute: 120
+  prompts:
+    snapshot_retention_days: 30
+    redact_sensitive_fields: true
+  safety:
+    fence_wrappers_enabled: true
+    max_external_call_tokens: 8192
+  sandbox:
+    runner_image: "registry.example.com/forgekeeper/sandbox:latest"
+    cpu_quota_cores: 2
+    memory_limit_gb: 8
+  policy_ux:
+    feature_flags:
+      approvals_dashboard: true
+      escalation_insights: true
+    default_notification_channel: "#policy-ops"
+  diagnostics:
+    minimal_repro_enabled: true
+    bundle_artifact_ttl_days: 14
+  replay:
+    seed_strategy: "deterministic"
+    store_history_versions: 5
+  hitl:
+    escalation_sla_minutes: 90
+    approver_groups:
+      - "Safety"
+      - "Product"
 
 test_matrix:
   suites:
@@ -195,6 +361,26 @@ test_matrix:
       owned_by: "QA"
       blocking: true
       automation: "Release candidate validation"
+    - name: "Provider Abstraction Regression"
+      scope: "Multi-provider contract conformance and throttling logic"
+      owned_by: "Engineering"
+      blocking: true
+      automation: "CI matrix against provider simulators"
+    - name: "Prompt Snapshot Integrity"
+      scope: "Snapshot persistence, redaction, and replay verification"
+      owned_by: "QA"
+      blocking: true
+      automation: "Nightly snapshot audit job"
+    - name: "Sandbox Safety Harness"
+      scope: "Fence wrapper enforcement and sandbox resource governance"
+      owned_by: "Safety"
+      blocking: true
+      automation: "Pre-release sandbox smoke tests"
+    - name: "HITL Escalation Flow"
+      scope: "Manual approval routing, replay context, and SLA alerts"
+      owned_by: "Policy"
+      blocking: false
+      automation: "Staging workflow with simulated escalations"
 
 risk_register:
   - id: R1
@@ -218,10 +404,25 @@ risk_register:
     mitigation: "Automated policy checks and quarterly audits."
     owner: "Security"
     status: "Active"
+  - id: R4
+    description: "Provider outages disrupt orchestrated workflows."
+    impact: "High"
+    likelihood: "Medium"
+    mitigation: "Failover via provider abstraction and sandbox dry-runs."
+    owner: "Engineering"
+    status: "Planned"
+  - id: R5
+    description: "Human-in-the-loop latency slows high-risk releases."
+    impact: "Medium"
+    likelihood: "Medium"
+    mitigation: "Escalation SLAs with automated reminders and backup approvers."
+    owner: "Policy"
+    status: "Active"
 
 open_questions:
   - "Should we centralize feature flag governance across roles?"
   - "What is the acceptable latency for telemetry-driven rollback?"
+  - "How frequently should replay seeds be rotated for privacy compliance?"
 
 metadata:
   created_by: "AI Planning Assistant"
