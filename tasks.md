@@ -1,66 +1,44 @@
 # ? Forgekeeper Tasks
 
-> Generated from Roadmap.md. Do not edit directly; update the roadmap and re-generate.
+> Generated from docs/plans/multi_role_pipeline.yaml via `python scripts/generate_tasks_from_plan.py`.
+> Do not edit directly; update the plan and re-run the generator.
 
-## Active & Backlog
+## M1 — Foundational Workflow Orchestration (Owner: Jordan Ramirez; Target: 2024-08-16)
+Establish the orchestration backbone, role definitions, and core data contracts required for multi-role collaboration.
+- [ ] T1 · define-role-interaction-contracts — Define role interaction contracts (Assignee: Avery Chen) — Capture the responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
+  - Deliverables: Role contract YAML schema; Example contract instances
+- [ ] T2 · implement-orchestration-service-skeleton — Implement orchestration service skeleton (Assignee: Jordan Ramirez) — Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and API endpoints for role actions.
+  - Deliverables: Service blueprint; Authenticated action endpoints
 
-- [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
-- [ ] Event/logs smoke coverage for `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
-- [ ] ContextLog DB adapter (SQLite/Mongo) for events (optional, parity with JSON)  (Phase 2: Shared State & Memory)
-- [ ] Vector memory backend and retrieval scoring (P1)  (Phase 2: Shared State & Memory)
-- [ ] Implement `appendMessage` end-to-end callback with retries + idempotency  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Health/metrics: expose lag + retry counters on `/health`  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Enforce Harmony role/channel ordering and hide analysis output from end users  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#roles-and-channels)
-- [ ] Serialize prompts with Harmony `<|start|>` headers, trailing `<|end|>`, and assistant resumptions  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#prompt-structure)
-- [ ] Extend system prompts with cutoff, date, reasoning effort, channel list, and tool declarations  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#system-message-guidance), [Built-in tools](docs/harmony_protocol_summary.md#built-in-tools)
-- [ ] Retain or drop `analysis` reasoning based on tool usage per Harmony guidance  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#reasoning-output-handling)
-- [ ] Restructure tool plumbing for developer `# Tools` specs and commentary-channel invocations  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#tool-and-function-calls)
-- [ ] Integrate `StreamableParser` to surface role/channel deltas during streaming responses  (Phase 3.6: Harmony Multi-Role Pipeline) — Ref: [Harmony protocol summary](docs/harmony_protocol_summary.md#streaming-and-decoding)
-- [ ] Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL  (Phase 4: Acts Protocol + ToolShell)
-- [ ] Implement sandboxed ToolShell with allowlist + gating  (Phase 4: Acts Protocol + ToolShell)
-- [ ] Record tool outputs back to ContextLog and surface in UI  (Phase 4: Acts Protocol + ToolShell)
-- [ ] New Conversation button  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Status Bar (GraphQL, Agent, Inference, Queue)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Lightweight message polling (streaming later)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run first)  (Phase 6: Self-Improvement Loop)
-- [ ] Git flow: temp branch → diff preview → PR; approvals for risky paths  (Phase 6: Self-Improvement Loop)
-- [ ] Stabilize commit checks + self-review summaries in `logs/<task_id>/`  (Phase 6: Self-Improvement Loop)
-- [ ] Tail utility (`scripts/tail_logs.py`) and dev UX for fast triage  (Phase 7: Observability & Guardrails)
-- [ ] UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
-- [ ] Guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
+## M2 — Evaluation and Feedback Automation (Owner: Priya Desai; Target: 2024-09-20)
+Automate evaluation loops, including test dataset curation, run scheduling, and structured feedback propagation between roles.
+- [ ] T3 · automate-evaluation-dataset-refresh — Automate evaluation dataset refresh (Assignee: Priya Desai) — Create scheduled jobs that refresh evaluation datasets and notify evaluators of drift or coverage gaps.
+  - Deliverables: Dataset refresh DAG; Coverage gap report
+- [ ] T4 · integrate-feedback-loop-dashboards — Integrate feedback loop dashboards (Assignee: Morgan Patel) — Build dashboards that aggregate evaluation results, role feedback, and workflow status for stakeholders.
+  - Deliverables: Feedback summary dashboard; Workflow SLA report
 
-## Completed
+## M3 — Governed Deployment Enablement (Owner: Morgan Patel; Target: 2024-10-25)
+Enable deployment guardrails, rollout automation, and post-deployment monitoring integrated with role responsibilities.
+- [ ] T5 · rollout-policy-enforcement — Rollout policy enforcement (Assignee: Jordan Ramirez) — Implement policy engines and approvals required for role-specific rollout gates and post-deployment monitoring.
+  - Deliverables: Policy engine configuration; Automated rollback triggers
+- [ ] T6 · post-deployment-telemetry-integration — Post-deployment telemetry integration (Assignee: Morgan Patel) — Connect live telemetry streams to the pipeline, enabling anomaly detection and structured incident reports per role.
+  - Deliverables: Telemetry ingestion adapters; Incident report templates
 
-- [x] Add environment kill switches (`FGK_INFERENCE_BACKEND`, `FGK_USE_GATEWAY`, `FGK_MEMORY_BACKEND`)  (Phase 0: Stabilization Baseline)
-- [x] Add doctor scripts to verify GPU/LLM/backends (`scripts/doctor.sh`, `scripts/doctor.ps1`)  (Phase 0: Stabilization Baseline)
-- [x] Define agents and roles in `AGENTS.md`  (Phase 1: Human-Guided Autonomy)
-- [x] Load and summarize code files  (Phase 1: Human-Guided Autonomy)
-- [x] Accept and interpret natural language task prompts  (Phase 1: Human-Guided Autonomy)
-- [x] Make and commit code edits with user approval  (Phase 1: Human-Guided Autonomy)
-- [x] Enable multi-agent task handoff between Core and Coder agents  (Phase 1: Human-Guided Autonomy)
-- [x] Verify and sanitize user prompts to prevent injection attacks  (Phase 1: Human-Guided Autonomy)
-- [x] Run a recursive self-review loop  (Phase 1: Human-Guided Autonomy)
-- [x] Integrate linting and test validation before commits  (Phase 1: Human-Guided Autonomy)
-- [x] Read from `Tasks.md`  (Phase 2: Shared State & Memory)
-- [x] Evaluate and rank tasks by priority and feasibility  (Phase 2: Shared State & Memory)
-- [x] Schedule and execute top-priority tasks without direct supervision  (Phase 2: Shared State & Memory)
-- [x] Request user confirmation before committing code changes  (Phase 2: Shared State & Memory)
-- [x] Log execution steps and errors for later review  (Phase 2: Shared State & Memory)
-- [x] Capture task context and results in a long-term memory store  (Phase 2: Shared State & Memory)
-- [x] Summarize each task outcome and tag with relevant metadata  (Phase 2: Shared State & Memory)
-- [x] Recall related memories when planning new tasks  (Phase 2: Shared State & Memory)
-- [x] Use reflections to refine task prioritization and execution strategies  (Phase 2: Shared State & Memory)
-- [x] Generate follow-up tasks based on insights from stored memories  (Phase 2: Shared State & Memory)
-- [x] JSON-backed agentic memory and event logs under `.forgekeeper/`  (Phase 2: Shared State & Memory)
-- [x] Outbox primitives for tool/action durability (`forgekeeper/outbox.py`)  (Phase 3: Queue & GraphQL Callback Loop)
-- [x] Smoke scripts for GraphQL append and E2E (`scripts/smoke_graphql_append.py`, `scripts/smoke_e2e_roundtrip.py`)  (Phase 3: Queue & GraphQL Callback Loop)
-- [x] M-030: Autonomous task execution based on high-level goals  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-031: Emotion tagging for memory reflections  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-032: Self-generated roadmap and sprint plans  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-033: Optional push to remote repo with changelog and justification  (Phase 3.5: Distributed Inference & Modularity)
-- [x] Multi-file edit support in `task_pipeline.py`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Diff-aware self-review with task-scoped tests in `self_review/`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Subtask expansion in goal management via `goal_manager/manager.py`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Consolidated conversation handling behind a single GraphQL storage path  (Phase 5: UI Wiring & UX Gaps)
-- [x] JSONL logs (`.forgekeeper/events.jsonl`)  (Phase 7: Observability & Guardrails)
+## M4 — Safety, Observability, and Collaboration Enhancements (Owner: Noah Iglesias; Target: 2024-11-15)
+Layer in multi-provider abstractions, safety wrappers, reproducibility tooling, and human-in-the-loop governance extensions that mature the pipeline for regulated environments.
+- [ ] T7 · introduce-provider-abstraction-layer — Introduce provider abstraction layer (Assignee: Jordan Ramirez) — Build a provider-agnostic interface with pluggable credentials to support multiple inference backends and shared throttling controls.
+  - Deliverables: providers/registry.py; Provider contract documentation
+- [ ] T8 · persist-prompt-snapshots — Persist prompt snapshots (Assignee: Priya Desai) — Capture and version prompt inputs, outputs, and metadata for replay, auditability, and comparison across model revisions.
+  - Deliverables: storage/prompt_snapshots.py; Snapshot retention SOP
+- [ ] T9 · deploy-fence-safe-wrappers — Deploy fence-safe wrappers (Assignee: Noah Iglesias) — Implement deterministic guard wrappers that enforce safety fences on external tools, ensuring context-aware execution limits.
+  - Deliverables: safety/fence_wrappers.py; Fence compliance checklist
+- [ ] T10 · provision-sandbox-runner — Provision sandbox runner (Assignee: Morgan Patel) — Provide an isolated execution runner with ephemeral containers for risky actions, including resource quotas and artifact capture.
+  - Deliverables: sandbox/runner.py; Sandbox usage playbook
+- [ ] T11 · revamp-policy-ux — Revamp policy UX (Assignee: Avery Chen) — Deliver a policy management UX that surfaces approvals, escalation paths, and actionable guidance for each role.
+  - Deliverables: frontend/src/policy/PolicyConsole.tsx; Policy UX content guidelines
+- [ ] T12 · enable-minimal-repro-capture — Enable minimal repro capture (Assignee: Priya Desai) — Add tooling to capture minimal reproduction bundles for failing agent runs, including environment metadata and prompts.
+  - Deliverables: diagnostics/minimal_repro.py; Minimal repro SOP
+- [ ] T13 · record-replay-seeds — Record replay seeds (Assignee: Jordan Ramirez) — Persist deterministic replay seeds for stochastic agents so that evaluation reruns are comparable and auditable.
+  - Deliverables: storage/replay_seeds.json; Replay reproducibility guide
+- [ ] T14 · wire-human-in-the-loop-hooks — Wire human-in-the-loop hooks (Assignee: Noah Iglesias) — Integrate manual approval hooks and escalation workflows with notification routing for high-risk operations.
+  - Deliverables: workflows/hitl_hooks.yaml; HITL escalation matrix
