@@ -32,6 +32,23 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
   return { content, reasoning, raw: json };
 }
 
+// Call server-side tool orchestrator (non-streaming). Useful when tools are required.
+export async function chatViaServer({ model, messages }: { model: string; messages: ChatMessageReq[]; }): Promise<ChatOnceResult> {
+  const resp = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages }),
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status}: ${txt}`);
+  }
+  const json = await resp.json();
+  const content = typeof json?.assistant?.content === 'string' ? json.assistant.content : null;
+  const reasoning = typeof json?.assistant?.reasoning === 'string' ? json.assistant.reasoning : null;
+  return { content, reasoning, raw: json };
+}
+
 function extractContent(c: any): string | null {
   if (typeof c === 'string') return c;
   if (!c) return null;

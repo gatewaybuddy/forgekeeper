@@ -38,3 +38,13 @@ Phase 3 — DevX and CI
 Phase 4 — Feature Bring-up (incremental)
 - Reintroduce components from `archive/` as needed, behind clear flags.
 - Maintain tests for every reintroduced unit.
+
+Phase 4.5 — Tool Orchestration (Server-Side)
+- Portable server module for OpenAI-style tool calls (Node/ESM):
+  - Implement `server.tools.mjs` with an allowlisted tool registry and runners (e.g., `get_time`, `echo`).
+  - Implement `server.orchestrator.mjs` to loop on `tool_calls` → execute → append `role:"tool"` → re-query until final.
+- Add `/api/chat` endpoint in the frontend Node server using the orchestrator.
+- Keep the module backend-agnostic so it can be moved to a dedicated backend later.
+- Frontend wiring (next): add a client helper to call `/api/chat` and route tool-requiring prompts through it.
+- Guardrails (next): add audit logs and input size limits; consider sandboxing for future tools.
+- Streaming (later): add SSE for the final turn once tool loop completes.

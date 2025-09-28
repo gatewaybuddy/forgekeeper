@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // Lightweight manual proxy; http-proxy-middleware removed to reduce ambiguity
 import { Readable } from 'node:stream';
+import { orchestrateWithTools } from './server.orchestrator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,8 @@ const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 app.use(compression());
+// JSON parser only for API routes to avoid interfering with SSE proxying
+app.use('/api', express.json({ limit: '1mb' }));
 const distDir = path.join(__dirname, 'dist');
 const apiBase = process.env.FRONTEND_VLLM_API_BASE || 'http://localhost:8001/v1';
 const targetOrigin = apiBase.replace(/\/v1\/?$/, '');
@@ -23,6 +26,24 @@ app.get('/config.json', (_req, res) => {
   const model = process.env.FRONTEND_VLLM_MODEL || 'core';
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ apiBase: '/v1', model }));
+});
+
+// Tool-enabled chat orchestration endpoint (non-streaming)
+// Body: { messages: OpenAI-like messages, model?: string }
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { messages, model } = req.body || {};
+    if (!Array.isArray(messages)) {
+      res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
+      return;
+    }
+    const upstreamBase = targetOrigin + '/v1';
+    const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
+    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages });
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
 });
 
 // Proxy endpoints implemented below

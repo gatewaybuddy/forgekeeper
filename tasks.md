@@ -24,6 +24,15 @@
 - [ ] UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
 - [ ] Guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
 
+### New — Tool Orchestration
+- [ ] Create portable server tool registry and runner (`frontend/server.tools.mjs`)  (Phase 4.5: Tool Orchestration)
+- [ ] Create server-side tool orchestrator loop (`frontend/server.orchestrator.mjs`)  (Phase 4.5: Tool Orchestration)
+- [ ] Add `/api/chat` endpoint using orchestrator in Node server (`frontend/server.mjs`)  (Phase 4.5: Tool Orchestration)
+- [ ] Add client helper to call `/api/chat` (`src/lib/chatClient.ts::chatViaServer`)  (Phase 4.5: Tool Orchestration)
+- [ ] Wire UI to route tool-enabled prompts to `/api/chat` (Chat.tsx)  (Phase 5: UI Wiring & UX Gaps)
+- [ ] Add basic guardrails and request limits for tools (server)  (Phase 7: Observability & Guardrails)
+- [ ] Consider streaming final turn via SSE for `/api/chat`  (Phase 4.5: Tool Orchestration)
+
 ## Completed
 
 - [x] Add environment kill switches (`FGK_INFERENCE_BACKEND`, `FGK_USE_GATEWAY`, `FGK_MEMORY_BACKEND`)  (Phase 0: Stabilization Baseline)
