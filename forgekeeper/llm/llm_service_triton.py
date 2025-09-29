@@ -29,6 +29,13 @@ class HarmonyResponse:
     def __str__(self) -> str:  # pragma: no cover - convenience
         return self.text
 
+    def structured_tool_calls(self, *, default_namespace: str = "functions") -> List["HarmonyToolCall"]:
+        """Return parsed tool calls with namespace and JSON arguments."""
+
+        from forgekeeper.llm.tool_usage import HarmonyToolCall, parse_tool_calls
+
+        return parse_tool_calls(self.tool_calls, default_namespace=default_namespace)
+
 
 class _HarmonyAccumulator:
     """Collects streamed Harmony events into a structured response."""

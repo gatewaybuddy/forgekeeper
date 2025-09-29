@@ -1,8 +1,14 @@
 # Forgekeeper Tasks (Fresh Start)
-
 Note: This file is currently maintained manually for the fresh-start codebase. The previous auto-generator lived under the legacy archive; once revived, we will switch back to generating from `ROADMAP.md`.
 
-## Active & Backlog
+
+## M1 — Foundational Workflow Orchestration (Owner: Jordan Ramirez; Target: 2024-08-16)
+Establish the orchestration backbone, role definitions, and core data contracts required for multi-role collaboration.
+- [ ] T1 · define-role-interaction-contracts — Define role interaction contracts (Assignee: Avery Chen) — Capture the responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
+  - Deliverables: Role contract YAML schema; Example contract instances
+- [ ] T2 · implement-orchestration-service-skeleton — Implement orchestration service skeleton (Assignee: Jordan Ramirez) — Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and API endpoints for role actions.
+  - Deliverables: Service blueprint; Authenticated action endpoints
+
 
 - [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
 - [ ] Event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
