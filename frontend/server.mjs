@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Lightweight manual proxy; http-proxy-middleware removed to reduce ambiguity
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
+import { TOOL_DEFS } from './server.tools.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,9 @@ console.log('Proxy middleware type:', typeof createProxyMiddleware);
 app.get('/config.json', (_req, res) => {
   const model = process.env.FRONTEND_VLLM_MODEL || 'core';
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ apiBase: '/v1', model }));
+  const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
+  const names = tools.map(t => t?.function?.name).filter(Boolean);
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: tools.length > 0, count: tools.length, names } }));
 });
 
 // Tool-enabled chat orchestration endpoint (non-streaming)
@@ -123,3 +126,16 @@ app.use((req, res, next) => {
 app.listen(port, () => {
   console.log(`Forgekeeper UI listening on http://0.0.0.0:${port}`);
 });
+
+
+// Tools metadata endpoint for UI discovery/debug
+app.get('/api/tools', (_req, res) => {
+  try {
+    const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
+    const names = tools.map(t => t?.function?.name).filter(Boolean);
+    res.json({ enabled: tools.length > 0, count: tools.length, names, defs: tools });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+

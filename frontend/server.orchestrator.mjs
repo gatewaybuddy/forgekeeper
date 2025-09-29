@@ -71,11 +71,12 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
     const choice = json?.choices?.[0] ?? {};
     const msg = choice?.message || choice;
     const toolCalls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
-    diagnostics.push({ iter, finish_reason: choice?.finish_reason, tool_calls_count: toolCalls.length });
+    const step = { iter, finish_reason: choice?.finish_reason, tool_calls_count: toolCalls.length, tools: [] };
 
     if (!toolCalls.length) {
       // Final answer
       const { content, reasoning } = toAppMsgOpenAI(msg);
+      diagnostics.push(step);
       return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, raw: json } };
     }
 
@@ -94,16 +95,19 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
           content: typeof result === 'string' ? result : JSON.stringify(result),
           tool_call_id: tc?.id || undefined,
         });
+        // record minimal diagnostics for debugging
+        step.tools.push({ id: tc?.id || null, name, args });
       } catch (e) {
         convo.push({
           role: 'tool',
           content: `Tool execution error: ${e?.message || String(e)}`,
           tool_call_id: tc?.id || undefined,
         });
+        step.tools.push({ id: tc?.id || null, name: tc?.function?.name || null, error: e?.message || String(e) });
       }
     }
+    diagnostics.push(step);
     // Loop will continue; upstream now sees tool results and can produce final
   }
   return { error: 'max_iterations_reached', messages: convo, debug: { diagnostics: 'max iters' } };
 }
-

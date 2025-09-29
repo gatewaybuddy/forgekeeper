@@ -1,12 +1,12 @@
-# ? Forgekeeper Tasks
+# Forgekeeper Tasks (Fresh Start)
 
-> Generated from Roadmap.md. Do not edit directly; update the roadmap and re-generate.
+Note: This file is currently maintained manually for the fresh-start codebase. The previous auto-generator lived under the legacy archive; once revived, we will switch back to generating from `ROADMAP.md`.
 
 ## Active & Backlog
 
 - [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
-- [ ] Event/logs smoke coverage for `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
-- [ ] ContextLog DB adapter (SQLite/Mongo) for events (optional, parity with JSON)  (Phase 2: Shared State & Memory)
+- [ ] Event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
+- [ ] ContextLog DB adapter (SQLite/Mongo) for events (parity with future JSON logs)  (Phase 2: Shared State & Memory)
 - [ ] Vector memory backend and retrieval scoring (P1)  (Phase 2: Shared State & Memory)
 - [ ] Implement `appendMessage` end-to-end callback with retries + idempotency  (Phase 3: Queue & GraphQL Callback Loop)
 - [ ] Worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff  (Phase 3: Queue & GraphQL Callback Loop)
@@ -24,46 +24,23 @@
 - [ ] UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
 - [ ] Guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
 
-### New — Tool Orchestration
-- [ ] Create portable server tool registry and runner (`frontend/server.tools.mjs`)  (Phase 4.5: Tool Orchestration)
-- [ ] Create server-side tool orchestrator loop (`frontend/server.orchestrator.mjs`)  (Phase 4.5: Tool Orchestration)
-- [ ] Add `/api/chat` endpoint using orchestrator in Node server (`frontend/server.mjs`)  (Phase 4.5: Tool Orchestration)
-- [ ] Add client helper to call `/api/chat` (`src/lib/chatClient.ts::chatViaServer`)  (Phase 4.5: Tool Orchestration)
-- [ ] Wire UI to route tool-enabled prompts to `/api/chat` (Chat.tsx)  (Phase 5: UI Wiring & UX Gaps)
+### Observability
+- [x] Add a minimal tools diagnostics panel in the UI (toggle under input)  (Phase 7: Observability & Guardrails)
+
+### Tool Orchestration
+- [x] Create portable server tool registry and runner (`frontend/server.tools.mjs`)  (Phase 4.5: Tool Orchestration)
+- [x] Create server-side tool orchestrator loop (`frontend/server.orchestrator.mjs`)  (Phase 4.5: Tool Orchestration)
+- [x] Add `/api/chat` endpoint using orchestrator in Node server (`frontend/server.mjs`)  (Phase 4.5: Tool Orchestration)
+- [x] Add client helper to call `/api/chat` (`frontend/src/lib/chatClient.ts::chatViaServer`)  (Phase 4.5: Tool Orchestration)
+- [x] Wire UI to route tool-enabled prompts to `/api/chat` (`frontend/src/components/Chat.tsx`)  (Phase 5: UI Wiring & UX Gaps)
 - [ ] Add basic guardrails and request limits for tools (server)  (Phase 7: Observability & Guardrails)
 - [ ] Consider streaming final turn via SSE for `/api/chat`  (Phase 4.5: Tool Orchestration)
 
 ## Completed
 
-- [x] Add environment kill switches (`FGK_INFERENCE_BACKEND`, `FGK_USE_GATEWAY`, `FGK_MEMORY_BACKEND`)  (Phase 0: Stabilization Baseline)
-- [x] Add doctor scripts to verify GPU/LLM/backends (`scripts/doctor.sh`, `scripts/doctor.ps1`)  (Phase 0: Stabilization Baseline)
-- [x] Define agents and roles in `AGENTS.md`  (Phase 1: Human-Guided Autonomy)
-- [x] Load and summarize code files  (Phase 1: Human-Guided Autonomy)
-- [x] Accept and interpret natural language task prompts  (Phase 1: Human-Guided Autonomy)
-- [x] Make and commit code edits with user approval  (Phase 1: Human-Guided Autonomy)
-- [x] Enable multi-agent task handoff between Core and Coder agents  (Phase 1: Human-Guided Autonomy)
-- [x] Verify and sanitize user prompts to prevent injection attacks  (Phase 1: Human-Guided Autonomy)
-- [x] Run a recursive self-review loop  (Phase 1: Human-Guided Autonomy)
-- [x] Integrate linting and test validation before commits  (Phase 1: Human-Guided Autonomy)
-- [x] Read from `Tasks.md`  (Phase 2: Shared State & Memory)
-- [x] Evaluate and rank tasks by priority and feasibility  (Phase 2: Shared State & Memory)
-- [x] Schedule and execute top-priority tasks without direct supervision  (Phase 2: Shared State & Memory)
-- [x] Request user confirmation before committing code changes  (Phase 2: Shared State & Memory)
-- [x] Log execution steps and errors for later review  (Phase 2: Shared State & Memory)
-- [x] Capture task context and results in a long-term memory store  (Phase 2: Shared State & Memory)
-- [x] Summarize each task outcome and tag with relevant metadata  (Phase 2: Shared State & Memory)
-- [x] Recall related memories when planning new tasks  (Phase 2: Shared State & Memory)
-- [x] Use reflections to refine task prioritization and execution strategies  (Phase 2: Shared State & Memory)
-- [x] Generate follow-up tasks based on insights from stored memories  (Phase 2: Shared State & Memory)
-- [x] JSON-backed agentic memory and event logs under `.forgekeeper/`  (Phase 2: Shared State & Memory)
-- [x] Outbox primitives for tool/action durability (`forgekeeper/outbox.py`)  (Phase 3: Queue & GraphQL Callback Loop)
-- [x] Smoke scripts for GraphQL append and E2E (`scripts/smoke_graphql_append.py`, `scripts/smoke_e2e_roundtrip.py`)  (Phase 3: Queue & GraphQL Callback Loop)
-- [x] M-030: Autonomous task execution based on high-level goals  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-031: Emotion tagging for memory reflections  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-032: Self-generated roadmap and sprint plans  (Phase 3.5: Distributed Inference & Modularity)
-- [x] M-033: Optional push to remote repo with changelog and justification  (Phase 3.5: Distributed Inference & Modularity)
-- [x] Multi-file edit support in `task_pipeline.py`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Diff-aware self-review with task-scoped tests in `self_review/`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Subtask expansion in goal management via `goal_manager/manager.py`  (Phase 5: UI Wiring & UX Gaps)
-- [x] Consolidated conversation handling behind a single GraphQL storage path  (Phase 5: UI Wiring & UX Gaps)
-- [x] JSONL logs (`.forgekeeper/events.jsonl`)  (Phase 7: Observability & Guardrails)
+- [x] Core runtime env toggles (`FK_LLM_IMPL`, `FK_CORE_API_BASE`, `FK_MEMORY_BACKEND`, etc.)  (Phase 0: Stabilization Baseline)
+- [x] Health-check + basic chat verification scripts (`scripts/test_vllm_health.*`, `scripts/test_harmony_basic.*`)  (Phase 1: Inference Core Online)
+- [x] CLI wrappers: `compose`, `up-core`, `chat`, `ensure-stack` (Python)  (Phase 1: Inference Core Online)
+- [x] Frontend Node server with reverse proxy for `/v1`, `/health`, `/healthz`  (Phase 2: Minimal Backend & Agent Wiring)
+- [x] Chat UI with streaming deltas and reasoning toggle  (Phase 2: Minimal Backend & Agent Wiring)
+- [x] Harmony protocol summary doc (`forgekeeper/docs/harmony_protocol_summary.md`)  (Docs)

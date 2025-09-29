@@ -8,6 +8,8 @@ export default function App() {
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [toolsAvailable, setToolsAvailable] = useState<boolean>(false);
+  const [toolNames, setToolNames] = useState<string[]>([]);
 
   const healthUrls = useMemo(() => ({
     healthz: apiBase.replace(/\/v1\/?$/, '') + '/healthz',
@@ -23,6 +25,11 @@ export default function App() {
           const cfg = await resp.json();
           if (cfg?.apiBase && typeof cfg.apiBase === 'string') setApiBase(cfg.apiBase);
           if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
+          if (cfg?.tools) {
+            setToolsAvailable(!!cfg.tools.enabled);
+            setToolNames(Array.isArray(cfg.tools.names) ? cfg.tools.names : []);
+          }
+          if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
         }
       } catch {}
     })();
@@ -33,6 +40,16 @@ export default function App() {
       if (!mounted) return;
       setHealthy(ok);
       setChecking(false);
+    })();
+    (async () => {
+      try {
+        const r = await fetch('/api/tools');
+        if (r.ok) {
+          const t = await r.json();
+          setToolsAvailable(!!t.enabled);
+          setToolNames(Array.isArray(t.names) ? t.names : []);
+        }
+      } catch {}
     })();
     return () => { mounted = false; };
   }, [healthUrls]);
@@ -88,7 +105,7 @@ export default function App() {
         minHeight: 0,
         overflow: 'hidden'
       }}>
-        <Chat apiBase={apiBase} model={model} fill />
+        <Chat apiBase={apiBase} model={model} fill toolsAvailable={toolsAvailable} toolNames={toolNames} />
       </div>
     </div>
   );
@@ -104,3 +121,4 @@ function StatusDot({ healthy, checking }: { healthy: boolean | null, checking: b
     </div>
   );
 }
+
