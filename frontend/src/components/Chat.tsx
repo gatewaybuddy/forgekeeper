@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { chatOnce, streamChat } from '../lib/chatClient';
+import { chatOnce, streamChat, chatViaServer } from '../lib/chatClient';
 
 type Role = 'system' | 'user' | 'assistant';
 interface Message {
@@ -8,19 +8,26 @@ interface Message {
   reasoning?: string | null;
 }
 
-export function Chat({ apiBase, model, fill }: { apiBase: string; model: string; fill?: boolean }) {
+export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiBase: string; model: string; fill?: boolean; toolsAvailable?: boolean; toolNames?: string[] }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'system', content: 'You are a helpful assistant.' }
   ]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [showReasoning, setShowReasoning] = useState(true);
+  const [toolDebug, setToolDebug] = useState<any>(null);
+  const [showToolDiag, setShowToolDiag] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const [nearBottom, setNearBottom] = useState(true);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
+  const toolsLabel = useMemo(() => {
+    if (!toolsAvailable) return 'unavailable';
+    const names = Array.isArray(toolNames) ? toolNames : [];
+    return 'available' + (names.length ? ' (' + names.join(', ') + ')' : '');
+  }, [toolsAvailable, toolNames]);
 
   const onSend = useCallback(async () => {
     const text = input.trim();
@@ -101,6 +108,25 @@ export function Chat({ apiBase, model, fill }: { apiBase: string; model: string;
     }
   }, [apiBase, input, messages, model]);
 
+  // Non-streaming send via server-side tool orchestrator (/api/chat)
+  const onSendTools = useCallback(async () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    const msgs = [...messages, { role: 'user' as const, content: text }];
+    setMessages(msgs);
+    setStreaming(true);
+    try {
+      const res = await chatViaServer({ model, messages: msgs.map(({ role, content }) => ({ role, content })) });
+      setMessages(prev => [...prev, { role: 'assistant', content: res.content || '', reasoning: res.reasoning || '' }]);
+      setToolDebug(res.raw?.debug || null);
+    } catch (e: any) {
+      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
+    } finally {
+      setStreaming(false);
+    }
+  }, [input, messages, model]);
+
   // Auto-scroll to bottom as messages update, but only when user is near bottom
   useEffect(() => {
     const sc = scrollRef.current;
@@ -178,15 +204,40 @@ export function Chat({ apiBase, model, fill }: { apiBase: string; model: string;
           />
           <button disabled={!canSend} onClick={onSend}>Send (stream)</button>
           <button disabled={!canSend} onClick={onSendOnce}>Send (block)</button>
+          <button disabled={!canSend || !toolsAvailable} title={!toolsAvailable ? 'Tools unavailable' : ''} onClick={onSendTools}>Send (tools)</button>
           <button disabled={!streaming} onClick={onStop}>Stop</button>
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
             <span style={{fontSize:12}}>Show reasoning</span>
           </label>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
+            <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />
+            <span style={{fontSize:12}}>Tools diagnostics</span>
+          </label>
         </div>
-        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}"</small>
+        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}" · Tools: {toolsLabel}</small>
+        {showToolDiag && toolDebug && (
+          <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>
+            <div style={{fontWeight:600, color:'#555', marginBottom:6}}>Tools Diagnostics</div>
+            <div style={{fontSize:12, color:'#555'}}>
+              {(toolDebug.diagnostics || []).map((step:any, idx:number) => (
+                <div key={idx} style={{marginBottom:6}}>
+                  <div>iter {step.iter}, finish_reason: {String(step.finish_reason ?? '')}, tool_calls: {step.tool_calls_count ?? (step.tools?.length ?? 0)}</div>
+                  {Array.isArray(step.tools) && step.tools.length > 0 && (
+                    <ul style={{margin:'4px 0 0 16px', padding:0}}>
+                      {step.tools.map((t:any,i:number)=> (
+                        <li key={i} style={{listStyle:'disc'}}>
+                          <code>{t.name}</code> args: <code>{typeof t.args === 'string' ? t.args : JSON.stringify(t.args)}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

@@ -23,7 +23,11 @@ COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm i --omit=dev; fi
 
 COPY --from=build /app/dist ./dist
-COPY server.mjs ./server.mjs
+# Copy server runtime files (tool orchestrator + registry + modular tools)
+COPY --from=build /app/server.mjs ./server.mjs
+COPY --from=build /app/server.orchestrator.mjs ./server.orchestrator.mjs
+COPY --from=build /app/server.tools.mjs ./server.tools.mjs
+COPY --from=build /app/tools ./tools
 
 ENV PORT=3000
 EXPOSE 3000
