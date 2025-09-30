@@ -30,6 +30,14 @@ if ($Build) {
   & docker compose -f $ComposeFile build frontend | Out-Null
 }
 
+# If image is missing locally, build it even when -Build not set
+$frontendImage = 'forgekeeper-frontend'
+try { $null = docker image inspect $frontendImage 2>$null } catch { $null = $null }
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "frontend image missing locally; building..."
+  & docker compose -f $ComposeFile build frontend | Out-Null
+}
+
 $upArgs = $args + @('up','-d')
 Write-Host "Bringing up stack via: docker compose $($upArgs -join ' ')"
 & docker compose @upArgs | Out-Null

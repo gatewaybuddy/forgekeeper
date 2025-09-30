@@ -25,6 +25,12 @@ const REGISTRY = new Map([
 ]);
 
 export async function runTool(name, args) {
+  // Optional runtime allowlist: TOOL_ALLOW=name1,name2
+  const allow = (process?.env?.TOOL_ALLOW || '').trim();
+  if (allow) {
+    const set = new Set(allow.split(',').map((s) => s.trim()).filter(Boolean));
+    if (!set.has(name)) throw new Error(`Tool not allowed by policy: ${name}`);
+  }
   const mod = REGISTRY.get(name);
   if (!mod || typeof mod.run !== 'function') throw new Error(`Unknown tool: ${name}`);
   try {
@@ -35,4 +41,3 @@ export async function runTool(name, args) {
 }
 
 export { FS_ROOT, MAX_READ_BYTES, MAX_WRITE_BYTES, resolveSafe } from './fs_common.mjs';
-
