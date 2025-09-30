@@ -74,6 +74,7 @@ export interface StreamDelta {
 export interface StreamFinal {
   reasoning?: string | null;
   content?: string | null;
+  continued?: boolean;
 }
 
 export async function streamChat({
@@ -144,3 +145,78 @@ export async function streamChat({
   }
 }
 
+
+// Stream via server-side tool orchestrator endpoint (/api/chat/stream)
+export async function streamViaServer({
+  model,
+  messages,
+  signal,
+  onDelta,
+  onDone,
+  onError
+}: {
+  model: string;
+  messages: ChatMessageReq[];
+  signal?: AbortSignal;
+  onDelta: (delta: StreamDelta) => void;
+  onDone: (final: StreamFinal) => void;
+  onError: (err: any) => void;
+}): Promise<void> {
+  const url = '/api/chat/stream';
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+    body: JSON.stringify({ model, messages }),
+    signal
+  });
+  if (!resp.ok || !resp.body) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status}: ${txt}`);
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let finalReasoning = '';
+  let finalContent = '';
+  let continued = false;
+  let currentEvent = '';
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line) { currentEvent = ''; continue; }
+        if (line.startsWith('event:')) { currentEvent = line.slice(6).trim(); continue; }
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') {
+          onDone({ reasoning: finalReasoning || null, content: finalContent || null, continued });
+          return;
+        }
+        try {
+          if (currentEvent === 'fk-debug') {
+            const dbg = JSON.parse(data);
+            if (dbg && dbg.continued) continued = true;
+          } else {
+            const chunk = JSON.parse(data);
+            const choice = (chunk as any)?.choices?.[0];
+            const delta = (choice as any)?.delta || {};
+            const r = typeof (delta as any).reasoning_content === 'string' ? (delta as any).reasoning_content : '';
+            const c = typeof (delta as any).content === 'string' ? (delta as any).content : '';
+            if (r) finalReasoning += r;
+            if (c) finalContent += c;
+            if (r || c) onDelta({ reasoningDelta: r || undefined, contentDelta: c || undefined });
+          }
+        } catch (e) {
+          // ignore malformed lines
+        }
+      }
+    }
+  } catch (err) {
+    onError(err);
+  }
+}

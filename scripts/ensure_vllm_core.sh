@@ -5,7 +5,7 @@ set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 CONTAINER="${CONTAINER:-forgekeeper-vllm-core-1}"
-IMAGE_REF="${IMAGE:-forgekeeper-vllm:latest}"
+IMAGE_REF="${IMAGE:-}"
 AUTO_BUILD="${AUTO_BUILD:-1}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,13 +38,19 @@ load_env() {
 
 load_env
 
+if [[ -z "$IMAGE_REF" ]]; then
+  if [[ -n "$VLLM_DOCKER_IMAGE" ]]; then IMAGE_REF="$VLLM_DOCKER_IMAGE"; else IMAGE_REF="vllm/vllm-openai:latest"; fi
+fi
+
 VPORT="${VLLM_CONTAINER_PORT:-8000}"
 VMODEL="${VLLM_MODEL_CORE:-/models/gpt-oss-20b}"
 VTP="${VLLM_TP:-1}"
-VMAXLEN="${VLLM_MAX_MODEL_LEN:-4096}"
+VMAXLEN="${VLLM_MAX_MODEL_LEN:-32768}"
 VUTIL="${VLLM_GPU_MEMORY_UTILIZATION:-0.9}"
+VDTYPE="${VLLM_DTYPE:-float16}"
+VMAXBTOK="${VLLM_MAX_NUM_BATCHED_TOKENS:-4096}"
 
-expected_cmd=("--host" "0.0.0.0" "--port" "$VPORT" "--model" "$VMODEL" "--served-model-name" "core" "--tensor-parallel-size" "$VTP" "--max-model-len" "$VMAXLEN" "--gpu-memory-utilization" "$VUTIL")
+expected_cmd=("--host" "0.0.0.0" "--port" "$VPORT" "--dtype" "$VDTYPE" "--model" "$VMODEL" "--served-model-name" "core" "--tensor-parallel-size" "$VTP" "--max-model-len" "$VMAXLEN" "--gpu-memory-utilization" "$VUTIL" "--max-num-batched-tokens" "$VMAXBTOK")
 
 container_exists() { docker inspect "$CONTAINER" >/dev/null 2>&1; }
 container_running() { [[ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || echo false)" == "true" ]]; }

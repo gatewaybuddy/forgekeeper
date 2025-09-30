@@ -37,6 +37,24 @@ def _run_compose() -> int:
             return ""
     compose_hash_before = _hash(cf_path)
     env_hash_before = _hash(env_path)
+    # Include a fingerprint of the frontend sources so image rebuilds trigger correctly
+    def _dir_hash(base: Path, excludes: list[str] | None = None) -> str:
+        try:
+            ex = set(excludes or [])
+            h = hashlib.sha256()
+            for p in sorted(base.rglob('*')):
+                if any(part in ex for part in p.parts):
+                    continue
+                if p.is_file():
+                    h.update(str(p.relative_to(base)).encode())
+                    try:
+                        h.update(p.read_bytes())
+                    except Exception:
+                        pass
+            return h.hexdigest()
+        except Exception:
+            return ""
+    frontend_hash = _dir_hash(root / 'frontend', excludes=['node_modules', 'dist'])
 
     # Decide whether to rebuild images: only when config (compose/.env) changed since last run
     state_dir = root / ".forgekeeper"
@@ -50,6 +68,7 @@ def _run_compose() -> int:
     curr_fingerprint = {
         "compose": compose_hash_before,
         "env": env_hash_before,
+        "frontend": frontend_hash,
         "compose_file": str(cf_path),
     }
     should_build = (prev != curr_fingerprint)

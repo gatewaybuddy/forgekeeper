@@ -3,6 +3,18 @@
 
 import { TOOL_DEFS, runTool } from './server.tools.mjs';
 
+function isIncomplete(text) {
+  if (!text) return true;
+  const t = String(text).trim();
+  if (t.length < 32) return true;
+  const terminals = '.!?"”’›»}]`';
+  const last = t.slice(-1);
+  if (!terminals.includes(last)) return true;
+  const ticks = (t.match(/```/g) || []).length;
+  if (ticks % 2 === 1) return true;
+  return false;
+}
+
 /**
  * Call upstream chat/completions (OpenAI-compatible) non-streaming.
  * Expects `messages` in OpenAI format.
@@ -14,7 +26,7 @@ async function callUpstream({ baseUrl, model, messages, tools, tool_choice }) {
     messages,
     temperature: 0.0,
     stream: false,
-    max_tokens: 512,
+    max_tokens: 1024,
   };
   if (Array.isArray(tools) && tools.length > 0) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
@@ -75,9 +87,25 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
 
     if (!toolCalls.length) {
       // Final answer
-      const { content, reasoning } = toAppMsgOpenAI(msg);
+      let { content, reasoning } = toAppMsgOpenAI(msg);
+      let finish = choice?.finish_reason;
+      let continued = 0;
+      // Lightweight auto-continue if truncated or too short
+      while ((finish === 'length' || isIncomplete(content)) && continued < 2) {
+        convo.push({ role: 'user', content: 'Continue.' });
+        const next = await callUpstream({ baseUrl, model, messages: convo, tool_choice: 'none' });
+        const ch2 = next?.choices?.[0] ?? {};
+        const msg2 = ch2?.message || ch2;
+        const { content: c2, reasoning: r2 } = toAppMsgOpenAI(msg2);
+        content = (content || '') + (c2 || '');
+        if (r2) reasoning = (reasoning || '') + r2;
+        finish = ch2?.finish_reason;
+        continued += 1;
+      }
+      step.continued = continued;
       diagnostics.push(step);
-      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, raw: json } };
+      const continuedTotal = diagnostics.reduce((s, st) => s + (st.continued || 0), 0);
+      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, raw: json } };
     }
 
     // Append assistant msg with tool_calls to history (as upstream would expect)

@@ -4,6 +4,9 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
 
 ## Quick Start
 
+- Copy environment template and adjust as needed:
+  - `cp forgekeeper/.env.example forgekeeper/.env`
+
 - Ensure vLLM Core only (idempotent):
   - Windows: `pwsh forgekeeper/scripts/ensure_vllm_core.ps1 -AutoBuild`
   - Linux/mac: `bash forgekeeper/scripts/ensure_vllm_core.sh`
@@ -14,7 +17,22 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
 
 - Chat with reasoning (streams deltas, then prints final):
   - Windows: `python -m forgekeeper chat -p "Say 'harmony ok'."`
-  - Non‑streaming fallback (Linux/mac): `python forgekeeper/scripts/test_harmony_basic.py`
+  - Non-streaming fallback (Linux/mac): `python forgekeeper/scripts/test_harmony_basic.py`
+
+### No‑GPU mock for smoke tests
+- Start a local mock OpenAI server and run the smoke script:
+  - `node forgekeeper/scripts/mock_openai_server.mjs` (serves `/v1/chat/completions`, `/health[z]`)
+  - In another shell: `FK_CORE_API_BASE=http://localhost:8001 python forgekeeper/scripts/test_harmony_basic.py`
+
+### Make targets
+- `make -C forgekeeper dev-ui` - run Vite dev server
+- `make -C forgekeeper ui-build` - typecheck + build UI
+- `make -C forgekeeper lint` - ESLint on `src/`
+- `make -C forgekeeper typecheck` - `tsc --noEmit`
+- `make -C forgekeeper test-ui` - vitest (server orchestrator)
+- `make -C forgekeeper test-py` - install + pytest
+- `make -C forgekeeper task-sanity` - lint task cards for required fields
+- `make -C forgekeeper pr-check TASK=T#` - locally enforce Allowed Touches for staged changes
 
 ## Frontend (Web UI)
 
@@ -29,7 +47,7 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
   - Client helper: `forgekeeper/frontend/src/lib/chatClient.ts::chatViaServer`.
   - Tools live under: `forgekeeper/frontend/tools/*.mjs` with aggregator `tools/index.mjs` (compat wrapper at `server.tools.mjs`).
   - Orchestrator loop: `forgekeeper/frontend/server.orchestrator.mjs` handles `tool_calls`.
-  - UI wiring: `Chat.tsx` includes a "Send (tools)" button that routes via `/api/chat`.
+  - UI wiring: `Chat.tsx` routes blocking sends via `/api/chat` and streaming sends via `/api/chat/stream` automatically (no separate tools button).
   - Discovery: `GET /api/tools` returns `{ enabled, count, names, defs }`; `/config.json` includes a `tools` summary. The UI disables tools when none available and shows the list in the footer.
 
 ### Built-in Tools (Server)
@@ -48,7 +66,18 @@ Environment controls (server.mjs process):
 - `PWSH_PATH` — override pwsh executable (defaults: `pwsh` or `powershell.exe` on Windows).
 
 ### Debugging tools
-- In the UI, enable “Tools diagnostics” to see recent tool calls (name + args) per step of the server-side orchestration.
+- In the UI, enable "Tools diagnostics" to see recent tool calls (name + args) per step of the server-side orchestration.
+
+### Server Policies & Limits
+- Tool allowlist: set `TOOL_ALLOW` to a comma‑separated list of tool names to permit (e.g., `get_time,echo,read_file`). If unset, all registered tools are allowed.
+- Rate limiting: set `API_RATE_PER_MIN` to an integer to limit requests per minute per IP for `/api/chat` and `/api/chat/stream` (0 disables limiting).
+- Metrics: GET `/metrics` returns counters `{ totalRequests, streamRequests, totalToolCalls, rateLimited }`.
+- Auditing: tool executions append JSON lines to `.forgekeeper/tools_audit.jsonl` (fields: `ts`, `name`, `args`, `iter`, `ip`).
+
+### Streaming Final Turn
+- Non‑streaming tools loop: `POST /api/chat` runs tool orchestration and returns `{ assistant, messages, debug }`.
+- Streaming final turn: `POST /api/chat/stream` runs the tool loop server‑side, then streams the final assistant turn from the upstream OpenAI‑compatible server via SSE (`text/event-stream`).
+- The Vite dev client can still stream directly from `/v1/chat/completions`; use the “Send (tools)” button to route via `/api/chat` or integrate your own SSE consumer for `/api/chat/stream`.
 
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
@@ -86,3 +115,6 @@ Environment controls (server.mjs process):
 
 - Protocol summary: `forgekeeper/docs/harmony_protocol_summary.md`
 - Roadmap: `forgekeeper/ROADMAP.md`
+
+## Contributing
+- Please read `CONTRIBUTING.md` for the Task Cards policy and local/CI enforcement details.

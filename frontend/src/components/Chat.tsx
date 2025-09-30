@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { chatOnce, streamChat, chatViaServer } from '../lib/chatClient';
+import { streamViaServer, chatViaServer } from '../lib/chatClient';
 
 type Role = 'system' | 'user' | 'assistant';
 interface Message {
@@ -21,18 +21,28 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const [nearBottom, setNearBottom] = useState(true);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [contNotice, setContNotice] = useState(false);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
-    if (!toolsAvailable) return 'unavailable';
+    if (!toolsAvailable) return '';
     const names = Array.isArray(toolNames) ? toolNames : [];
-    return 'available' + (names.length ? ' (' + names.join(', ') + ')' : '');
+    return names.length ? names.join(', ') : '';
   }, [toolsAvailable, toolNames]);
+
+  const refreshMetrics = useCallback(async () => {
+    try {
+      const r = await fetch('/metrics');
+      if (r.ok) setMetrics(await r.json());
+    } catch {}
+  }, []);
 
   const onSend = useCallback(async () => {
     const text = input.trim();
     if (!text) return;
     setInput('');
+    setContNotice(false);
     const msgs = [...messages, { role: 'user' as const, content: text }];
     setMessages(msgs);
 
@@ -42,8 +52,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      await streamChat({
-        apiBase,
+      await streamViaServer({
         model,
         messages: msgs.map(({ role, content }) => ({ role, content })),
         signal: controller.signal,
@@ -61,7 +70,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
             return out;
           });
         },
-        onDone: (final) => {
+        onDone: async (final) => {
           setMessages(prev => {
             const out = [...prev];
             const idx = out.length - 1;
@@ -74,6 +83,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
             };
             return out;
           });
+          if (final.continued) setContNotice(true);
+          await refreshMetrics();
         },
         onError: (err) => {
           setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err?.message || err}` }]);
@@ -85,7 +96,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
       setStreaming(false);
       abortRef.current = null;
     }
-  }, [apiBase, input, messages, model]);
+  }, [input, messages, model, refreshMetrics]);
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
@@ -95,24 +106,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
     const text = input.trim();
     if (!text) return;
     setInput('');
-    const msgs = [...messages, { role: 'user' as const, content: text }];
-    setMessages(msgs);
-    setStreaming(true);
-    try {
-      const res = await chatOnce({ apiBase, model, messages: msgs.map(({ role, content }) => ({ role, content })) });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.content || '', reasoning: res.reasoning || '' }]);
-    } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
-    } finally {
-      setStreaming(false);
-    }
-  }, [apiBase, input, messages, model]);
-
-  // Non-streaming send via server-side tool orchestrator (/api/chat)
-  const onSendTools = useCallback(async () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput('');
+    setContNotice(false);
     const msgs = [...messages, { role: 'user' as const, content: text }];
     setMessages(msgs);
     setStreaming(true);
@@ -120,12 +114,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
       const res = await chatViaServer({ model, messages: msgs.map(({ role, content }) => ({ role, content })) });
       setMessages(prev => [...prev, { role: 'assistant', content: res.content || '', reasoning: res.reasoning || '' }]);
       setToolDebug(res.raw?.debug || null);
+      if (res?.raw?.debug?.continuedTotal > 0) setContNotice(true);
+      await refreshMetrics();
     } catch (e: any) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
     } finally {
       setStreaming(false);
     }
-  }, [input, messages, model]);
+  }, [input, messages, model, refreshMetrics]);
+
+  // tools orchestration is built into both send modes now
 
   // Auto-scroll to bottom as messages update, but only when user is near bottom
   useEffect(() => {
@@ -146,6 +144,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
     const nb = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
     setNearBottom(nb);
   }, []);
+
+  useEffect(() => {
+    refreshMetrics();
+  }, [refreshMetrics]);
 
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
@@ -204,7 +206,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
           />
           <button disabled={!canSend} onClick={onSend}>Send (stream)</button>
           <button disabled={!canSend} onClick={onSendOnce}>Send (block)</button>
-          <button disabled={!canSend || !toolsAvailable} title={!toolsAvailable ? 'Tools unavailable' : ''} onClick={onSendTools}>Send (tools)</button>
+          
           <button disabled={!streaming} onClick={onStop}>Stop</button>
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
@@ -215,7 +217,23 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
             <span style={{fontSize:12}}>Tools diagnostics</span>
           </label>
         </div>
-        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}" · Tools: {toolsLabel}</small>
+        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}" {toolsLabel ? `— Tools: ${toolsLabel}` : ''}</small>
+        {contNotice && (
+          <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
+            Auto-continued to complete the response.
+          </div>
+        )}
+        {metrics && (
+          <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>
+            <div style={{fontWeight:600, color:'#555', marginBottom:6}}>Metrics</div>
+            <div style={{fontSize:12, color:'#555'}}>
+              totalRequests: <code>{String(metrics.totalRequests ?? 0)}</code>
+              {' '}streamRequests: <code>{String(metrics.streamRequests ?? 0)}</code>
+              {' '}totalToolCalls: <code>{String(metrics.totalToolCalls ?? 0)}</code>
+              {' '}rateLimited: <code>{String(metrics.rateLimited ?? 0)}</code>
+            </div>
+          </div>
+        )}
         {showToolDiag && toolDebug && (
           <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>
             <div style={{fontWeight:600, color:'#555', marginBottom:6}}>Tools Diagnostics</div>
@@ -241,3 +259,4 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
     </div>
   );
 }
+

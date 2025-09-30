@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forgekeeper"
+version = "0.0.0"
+description = "Forgekeeper CLI, scripts, and UI orchestration (fresh start)"
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "types-requests>=2.31.0.20240218",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = [
+  "forgekeeper/tests",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["forgekeeper*"]

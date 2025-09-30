@@ -1,9 +1,21 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
 
+ENV npm_config_loglevel=warn \
+    npm_config_audit=false \
+    npm_config_fund=false \
+    npm_config_progress=false \
+    npm_config_fetch_retries=5 \
+    npm_config_fetch_retry_maxtimeout=60000 \
+    npm_config_fetch_retry_mintimeout=2000 \
+    npm_config_legacy_peer_deps=true
+
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN if [ -f package-lock.json ]; then npm ci; elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; elif [ -f pnpm-lock.yaml ]; then npm install -g pnpm && pnpm i --frozen-lockfile; else npm i; fi
+RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm i --no-audit --no-fund; \
+    elif [ -f yarn.lock ]; then yarn install --frozen-lockfile || yarn install; \
+    elif [ -f pnpm-lock.yaml ]; then npm install -g pnpm && (pnpm i --frozen-lockfile || pnpm i); \
+    else npm i --no-audit --no-fund; fi
 
 COPY . .
 # Build-time config for API base and model
@@ -14,13 +26,16 @@ ENV VITE_VLLM_MODEL=${VITE_VLLM_MODEL}
 
 RUN npm run build
 
+# Prepare production node_modules to avoid reinstall in runtime stage
+RUN npm prune --omit=dev && mkdir -p /app/prod && cp -R node_modules /app/prod/node_modules
+
 # Runtime stage
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 
-# Copy runtime server and install only production deps
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm i --omit=dev; fi
+# Copy runtime server and production deps from build stage
+COPY package.json ./
+COPY --from=build /app/prod/node_modules ./node_modules
 
 COPY --from=build /app/dist ./dist
 # Copy server runtime files (tool orchestrator + registry + modular tools)

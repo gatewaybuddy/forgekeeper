@@ -4,7 +4,7 @@ param(
   [string]$ProjectDir,
   [string]$ComposeFile = 'docker-compose.yml',
   [string]$Container = 'forgekeeper-vllm-core-1',
-  [string]$Image = 'forgekeeper-vllm:latest',
+  [string]$Image,
   [switch]$AutoBuild
 )
 
@@ -30,14 +30,20 @@ function Load-DotEnv([string]$path) {
 }
 
 Load-DotEnv (Join-Path $ProjectDir '.env')
+if (-not $Image -or [string]::IsNullOrWhiteSpace($Image)) {
+  # Prefer env if provided, fall back to legacy name
+  $Image = if ($env:VLLM_DOCKER_IMAGE) { $env:VLLM_DOCKER_IMAGE } else { 'vllm/vllm-openai:latest' }
+}
 
 function Expected-Cmd() {
   $port = if ($env:VLLM_CONTAINER_PORT) { $env:VLLM_CONTAINER_PORT } else { '8000' }
   $model = if ($env:VLLM_MODEL_CORE) { $env:VLLM_MODEL_CORE } else { '/models/gpt-oss-20b' }
   $tp = if ($env:VLLM_TP) { $env:VLLM_TP } else { '1' }
-  $maxlen = if ($env:VLLM_MAX_MODEL_LEN) { $env:VLLM_MAX_MODEL_LEN } else { '4096' }
+  $maxlen = if ($env:VLLM_MAX_MODEL_LEN) { $env:VLLM_MAX_MODEL_LEN } else { '32768' }
   $util = if ($env:VLLM_GPU_MEMORY_UTILIZATION) { $env:VLLM_GPU_MEMORY_UTILIZATION } else { '0.9' }
-  @('--host','0.0.0.0','--port',"$port",'--model',"$model",'--served-model-name','core','--tensor-parallel-size',"$tp",'--max-model-len',"$maxlen",'--gpu-memory-utilization',"$util")
+  $dtype = if ($env:VLLM_DTYPE) { $env:VLLM_DTYPE } else { 'float16' }
+  $maxbtok = if ($env:VLLM_MAX_NUM_BATCHED_TOKENS) { $env:VLLM_MAX_NUM_BATCHED_TOKENS } else { '4096' }
+  @('--host','0.0.0.0','--port',"$port",'--dtype',"$dtype",'--model',"$model",'--served-model-name','core','--tensor-parallel-size',"$tp",'--max-model-len',"$maxlen",'--gpu-memory-utilization',"$util",'--max-num-batched-tokens',"$maxbtok")
 }
 
 function Get-ContainerJson([string]$name) {

@@ -28,6 +28,12 @@ if [[ "$BUILD" == "1" ]]; then
   docker compose -f "$COMPOSE_FILE" build frontend >/dev/null
 fi
 
+# If image missing locally, build even when BUILD=0
+if ! docker image inspect forgekeeper-frontend >/dev/null 2>&1; then
+  echo "frontend image missing locally; building..."
+  docker compose -f "$COMPOSE_FILE" build frontend >/dev/null
+fi
+
 echo "Bringing up stack: docker compose ${args[*]} up -d"
 docker compose "${args[@]}" up -d >/dev/null
 
