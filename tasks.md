@@ -1,10 +1,9 @@
 # Forgekeeper Tasks (Fresh Start)
-
 Note: This file is currently maintained manually for the fresh-start codebase. The previous auto-generator lived under the legacy archive; once revived, we will switch back to generating from `ROADMAP.md`.
 
 ## Policy
 - Every piece of development work must have a Task Card in this file with a unique `T#` and must be referenced by PRs via `Task ID: T#`.
-- Cards use the structure below; CI enforces presence of required fields and that changes stay within “Allowed Touches.”
+- Cards use the structure below; CI may enforce presence of required fields and that changes stay within "Allowed Touches."
 
 Task Card header format to use when adding a new task:
 - Header: `### T<NUMBER> - <Short title>`
@@ -20,7 +19,12 @@ Template to copy (replace placeholders and add details):
   - Done When: <concrete checks you can run>
   - Test Level: <smoke | unit | integration>
 
-## Active & Backlog
+## M1 - Foundational Workflow Orchestration (Owner: Jordan Ramirez; Target: 2024-08-16)
+Establish the orchestration backbone, role definitions, and core data contracts required for multi-role collaboration.
+- [ ] T1 - define-role-interaction-contracts — Capture responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
+  - Deliverables: Role contract YAML schema; Example contract instances
+- [ ] T2 - implement-orchestration-service-skeleton — Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and API endpoints for role actions.
+  - Deliverables: Service blueprint; Authenticated action endpoints
 
 - [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
 - [ ] Event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
@@ -319,3 +323,4 @@ Template to copy (replace placeholders and add details):
 - [x] Frontend Node server with reverse proxy for `/v1`, `/health`, `/healthz`  (Phase 2: Minimal Backend & Agent Wiring)
 - [x] Chat UI with streaming deltas and reasoning toggle  (Phase 2: Minimal Backend & Agent Wiring)
 - [x] Harmony protocol summary doc (`forgekeeper/docs/harmony_protocol_summary.md`)  (Docs)
+
