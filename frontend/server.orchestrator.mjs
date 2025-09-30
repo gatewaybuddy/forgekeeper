@@ -121,6 +121,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
         convo.push({
           role: 'tool',
           content: typeof result === 'string' ? result : JSON.stringify(result),
+          name: name || undefined,
           tool_call_id: tc?.id || undefined,
         });
         // record minimal diagnostics for debugging
@@ -129,6 +130,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
         convo.push({
           role: 'tool',
           content: `Tool execution error: ${e?.message || String(e)}`,
+          name: tc?.function?.name || undefined,
           tool_call_id: tc?.id || undefined,
         });
         step.tools.push({ id: tc?.id || null, name: tc?.function?.name || null, error: e?.message || String(e) });
