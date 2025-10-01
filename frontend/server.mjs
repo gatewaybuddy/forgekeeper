@@ -239,6 +239,10 @@ app.post('/api/chat/stream', async (req, res) => {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
     });
+    try {
+      res.write('event: fk-orchestration\n');
+      res.write('data: ' + JSON.stringify({ messages: convo, debug: out?.debug || null }) + '\n\n');
+    } catch {}
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';

@@ -1,14 +1,19 @@
-export type Role = 'system' | 'user' | 'assistant';
+export type Role = 'system' | 'user' | 'assistant' | 'tool';
 
 export interface ChatMessageReq {
   role: Role;
   content: string;
+  name?: string;
+  tool_call_id?: string;
 }
 
 export interface ChatOnceResult {
   content: string | null;
   reasoning: string | null;
   raw: any;
+  messages?: any[] | null;
+  diagnostics?: any;
+  debug?: any;
 }
 
 export async function chatOnce({ apiBase, model, messages }: { apiBase: string; model: string; messages: ChatMessageReq[]; }): Promise<ChatOnceResult> {
@@ -46,7 +51,10 @@ export async function chatViaServer({ model, messages }: { model: string; messag
   const json = await resp.json();
   const content = typeof json?.assistant?.content === 'string' ? json.assistant.content : null;
   const reasoning = typeof json?.assistant?.reasoning === 'string' ? json.assistant.reasoning : null;
-  return { content, reasoning, raw: json };
+  const messagesOut = Array.isArray(json?.messages) ? json.messages : null;
+  const diagnostics = json?.debug?.diagnostics ?? null;
+  const debug = json?.debug ?? null;
+  return { content, reasoning, raw: json, messages: messagesOut, diagnostics, debug };
 }
 
 function extractContent(c: any): string | null {
@@ -75,6 +83,9 @@ export interface StreamFinal {
   reasoning?: string | null;
   content?: string | null;
   continued?: boolean;
+  messages?: any[] | null;
+  diagnostics?: any;
+  debug?: any;
 }
 
 export async function streamChat({
@@ -153,7 +164,8 @@ export async function streamViaServer({
   signal,
   onDelta,
   onDone,
-  onError
+  onError,
+  onOrchestration
 }: {
   model: string;
   messages: ChatMessageReq[];
@@ -161,6 +173,7 @@ export async function streamViaServer({
   onDelta: (delta: StreamDelta) => void;
   onDone: (final: StreamFinal) => void;
   onError: (err: any) => void;
+  onOrchestration?: (payload: { messages?: any[] | null; debug?: any; diagnostics?: any }) => void;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
@@ -180,6 +193,9 @@ export async function streamViaServer({
   let finalContent = '';
   let continued = false;
   let currentEvent = '';
+  let orchestrationMessages: any[] | null | undefined;
+  let orchestrationDebug: any;
+  let orchestrationDiagnostics: any;
   try {
     while (true) {
       const { value, done } = await reader.read();
@@ -194,13 +210,30 @@ export async function streamViaServer({
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
         if (data === '[DONE]') {
-          onDone({ reasoning: finalReasoning || null, content: finalContent || null, continued });
+          onDone({
+            reasoning: finalReasoning || null,
+            content: finalContent || null,
+            continued,
+            messages: orchestrationMessages ?? null,
+            diagnostics: orchestrationDiagnostics,
+            debug: orchestrationDebug,
+          });
           return;
         }
         try {
           if (currentEvent === 'fk-debug') {
             const dbg = JSON.parse(data);
             if (dbg && dbg.continued) continued = true;
+          } else if (currentEvent === 'fk-orchestration') {
+            const payload = JSON.parse(data);
+            orchestrationMessages = Array.isArray(payload?.messages) ? payload.messages : null;
+            orchestrationDebug = payload?.debug ?? null;
+            orchestrationDiagnostics = payload?.debug?.diagnostics ?? payload?.diagnostics ?? null;
+            onOrchestration?.({
+              messages: orchestrationMessages,
+              debug: orchestrationDebug,
+              diagnostics: orchestrationDiagnostics,
+            });
           } else {
             const chunk = JSON.parse(data);
             const choice = (chunk as any)?.choices?.[0];

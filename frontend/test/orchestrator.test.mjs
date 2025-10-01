@@ -19,8 +19,8 @@ describe('orchestrateWithTools', () => {
     globalThis.fetch = vi.fn(async (url, init) => {
       const body = JSON.parse(init.body);
       const msgs = body.messages || [];
-      const last = msgs[msgs.length - 1] || {};
-      if (last.role === 'assistant' && Array.isArray(last.tool_calls)) {
+      const hasToolResult = msgs.some((m) => m.role === 'tool');
+      if (hasToolResult) {
         // After tool results are appended, respond with final
         return mkResponse({ choices: [{ message: { role: 'assistant', content: 'final from tool' }, finish_reason: 'stop' }] });
       }
@@ -32,8 +32,47 @@ describe('orchestrateWithTools', () => {
 
   it('loops on tool_calls and returns final', async () => {
     const out = await orchestrateWithTools({ baseUrl: 'http://fake/v1', model: 'core', messages: [{ role: 'user', content: 'hello' }] });
-    expect(out?.assistant?.content).toBe('final from tool');
+    expect(out?.assistant?.content).toContain('final from tool');
     expect(Array.isArray(out?.debug?.diagnostics)).toBe(true);
+  });
+
+  it('captures read_dir transcripts in conversation', async () => {
+    const priorFetch = globalThis.fetch;
+    const stub = vi.fn(async (_url, init) => {
+      const body = JSON.parse(init.body);
+      const msgs = body.messages || [];
+      const hasToolResult = msgs.some((m) => m.role === 'tool');
+      if (hasToolResult) {
+        return mkResponse({ choices: [{ message: { role: 'assistant', content: 'Listed directory.' }, finish_reason: 'stop' }] });
+      }
+      return mkResponse({
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [{ id: 'tc_read_dir', type: 'function', function: { name: 'read_dir', arguments: JSON.stringify({ dir: '.' }) } }]
+          },
+          finish_reason: 'tool_calls'
+        }]
+      });
+    });
+    globalThis.fetch = stub;
+    try {
+      const out = await orchestrateWithTools({ baseUrl: 'http://fake/v1', model: 'core', messages: [{ role: 'user', content: 'What is in the workspace?' }] });
+      expect(Array.isArray(out?.messages)).toBe(true);
+      const toolMsg = out.messages.find((m) => m.role === 'tool');
+      expect(toolMsg).toBeTruthy();
+      expect(toolMsg.name).toBe('read_dir');
+      const parsed = (() => {
+        try { return JSON.parse(toolMsg.content); } catch { return null; }
+      })();
+      expect(parsed).toBeTruthy();
+      expect(Array.isArray(parsed.entries)).toBe(true);
+      expect(parsed.entries.length).toBeGreaterThan(0);
+      expect(out?.debug?.diagnostics?.[0]?.tools?.[0]?.name).toBe('read_dir');
+    } finally {
+      globalThis.fetch = priorFetch;
+    }
   });
 });
 

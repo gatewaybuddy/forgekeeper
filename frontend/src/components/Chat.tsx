@@ -1,11 +1,128 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { streamViaServer, chatViaServer } from '../lib/chatClient';
+import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chatClient';
 
-type Role = 'system' | 'user' | 'assistant';
+type Role = 'system' | 'user' | 'assistant' | 'tool';
 interface Message {
   role: Role;
   content: string;
   reasoning?: string | null;
+  name?: string;
+  tool_call_id?: string;
+}
+
+function extractContentFragment(content: any): string {
+  if (typeof content === 'string') return content;
+  if (!content) return '';
+  if (Array.isArray(content)) {
+    let out = '';
+    for (const part of content) {
+      if (!part) continue;
+      if (typeof part === 'string') { out += part; continue; }
+      if (typeof part.text === 'string') out += part.text;
+      else if (typeof part.content === 'string') out += part.content;
+      else if (typeof part.value === 'string') out += part.value;
+    }
+    return out;
+  }
+  if (typeof content === 'object') {
+    if (typeof content.text === 'string') return content.text;
+    if (typeof content.content === 'string') return content.content;
+    if (typeof content.value === 'string') return content.value;
+  }
+  return '';
+}
+
+function formatToolContent(raw: any): string {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return raw;
+    }
+  }
+  if (raw == null) return '';
+  if (typeof raw === 'object') {
+    try {
+      return JSON.stringify(raw, null, 2);
+    } catch {
+      return String(raw);
+    }
+  }
+  return String(raw);
+}
+
+function mapServerMessageToUi(msg: any): Message | null {
+  if (!msg || typeof msg !== 'object') return null;
+  const role = msg.role;
+  if (role === 'tool') {
+    const content = formatToolContent(msg.content);
+    return {
+      role: 'tool',
+      content: content || '',
+      name: typeof msg.name === 'string' ? msg.name : undefined,
+      tool_call_id: typeof msg.tool_call_id === 'string' ? msg.tool_call_id : undefined,
+    };
+  }
+  if (role === 'assistant') {
+    const content = extractContentFragment(msg.content ?? null);
+    const reasoning = typeof msg.reasoning === 'string'
+      ? msg.reasoning
+      : (typeof msg.reasoning_content === 'string' ? msg.reasoning_content : null);
+    return { role: 'assistant', content: content || '', reasoning: reasoning ?? null };
+  }
+  if (role === 'system' || role === 'user') {
+    const content = extractContentFragment(msg.content ?? null);
+    return { role, content: content || '' };
+  }
+  return null;
+}
+
+function normalizeTranscript(serverMessages: any[] | null | undefined, final?: { content?: string | null; reasoning?: string | null }): Message[] {
+  const normalized: Message[] = [];
+  if (Array.isArray(serverMessages)) {
+    for (const entry of serverMessages) {
+      const mapped = mapServerMessageToUi(entry);
+      if (mapped) normalized.push(mapped);
+    }
+  }
+  if (final) {
+    const hasPayload = Object.prototype.hasOwnProperty.call(final, 'content') || Object.prototype.hasOwnProperty.call(final, 'reasoning');
+    if (hasPayload) {
+      const existing = normalized.length > 0 ? normalized[normalized.length - 1] : null;
+      const content = typeof final.content === 'string' ? final.content : (final.content ?? '');
+      const reasoning = typeof final.reasoning === 'string' ? final.reasoning : (final.reasoning ?? null);
+      if (existing && existing.role === 'assistant') {
+        normalized[normalized.length - 1] = { ...existing, content: content ?? '', reasoning: reasoning ?? existing.reasoning ?? null };
+      } else {
+        normalized.push({ role: 'assistant', content: content ?? '', reasoning: reasoning ?? null });
+      }
+    }
+  }
+  return normalized;
+}
+
+function toChatRequestMessages(msgs: Message[]): ChatMessageReq[] {
+  return msgs.map((msg) => {
+    if (msg.role === 'tool') {
+      return {
+        role: 'tool' as const,
+        content: msg.content ?? '',
+        name: msg.name,
+        tool_call_id: msg.tool_call_id,
+      };
+    }
+    return {
+      role: msg.role,
+      content: msg.content ?? '',
+    };
+  });
+}
+
+function toolPreview(text: string): string {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (!compact) return '(no output)';
+  return compact.length > 80 ? `${compact.slice(0, 80)}…` : compact;
 }
 
 const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
@@ -107,19 +224,31 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     if (!text) return;
     setInput('');
     setContNotice(false);
-    const msgs = [...messages, { role: 'user' as const, content: text }];
-    setMessages(msgs);
-
-    // Seed an assistant placeholder for streaming
-    setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
+    const userMessage: Message = { role: 'user', content: text };
+    const baseHistory = [...messages, userMessage];
+    const requestHistory = toChatRequestMessages(baseHistory);
+    setToolDebug(null);
+    setMessages(prev => [...prev, userMessage, { role: 'assistant', content: '', reasoning: '' }]);
     setStreaming(true);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
       await streamViaServer({
         model,
-        messages: msgs.map(({ role, content }) => ({ role, content })),
+        messages: requestHistory,
         signal: controller.signal,
+        onOrchestration: (payload) => {
+          if (payload?.messages) {
+            const conv = normalizeTranscript(payload.messages);
+            setMessages(() => [...conv, { role: 'assistant', content: '', reasoning: '' }]);
+          }
+          if (payload?.debug) {
+            setToolDebug(payload.debug);
+            if (payload.debug?.continuedTotal > 0) setContNotice(true);
+          } else if (payload?.diagnostics) {
+            setToolDebug({ diagnostics: payload.diagnostics });
+          }
+        },
         onDelta: (delta) => {
           setMessages(prev => {
             const out = [...prev];
@@ -147,15 +276,37 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             };
             return out;
           });
+          if (final.debug) {
+            setToolDebug(final.debug);
+            if (final.debug?.continuedTotal > 0) setContNotice(true);
+          } else if (final.diagnostics) {
+            setToolDebug({ diagnostics: final.diagnostics });
+          }
           if (final.continued) setContNotice(true);
           await refreshMetrics();
         },
         onError: (err) => {
-          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err?.message || err}` }]);
+          setMessages(prev => {
+            const out = [...prev];
+            const idx = out.length - 1;
+            if (idx >= 0 && out[idx].role === 'assistant') {
+              out[idx] = { role: 'assistant', content: `Error: ${err?.message || err}` };
+              return out;
+            }
+            return [...out, { role: 'assistant', content: `Error: ${err?.message || err}` }];
+          });
         }
       });
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
+      setMessages(prev => {
+        const out = [...prev];
+        const idx = out.length - 1;
+        if (idx >= 0 && out[idx].role === 'assistant') {
+          out[idx] = { role: 'assistant', content: `Error: ${e?.message || e}` };
+          return out;
+        }
+        return [...out, { role: 'assistant', content: `Error: ${e?.message || e}` }];
+      });
     } finally {
       setStreaming(false);
       abortRef.current = null;
@@ -171,14 +322,19 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     if (!text) return;
     setInput('');
     setContNotice(false);
-    const msgs = [...messages, { role: 'user' as const, content: text }];
-    setMessages(msgs);
+    const userMessage: Message = { role: 'user', content: text };
+    const baseHistory = [...messages, userMessage];
+    const requestHistory = toChatRequestMessages(baseHistory);
+    setMessages(baseHistory);
+    setToolDebug(null);
     setStreaming(true);
     try {
-      const res = await chatViaServer({ model, messages: msgs.map(({ role, content }) => ({ role, content })) });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.content || '', reasoning: res.reasoning || '' }]);
-      setToolDebug(res.raw?.debug || null);
-      if (res?.raw?.debug?.continuedTotal > 0) setContNotice(true);
+      const res = await chatViaServer({ model, messages: requestHistory });
+      const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
+      setMessages(conv);
+      const debug = res.debug ?? res.raw?.debug ?? null;
+      setToolDebug(debug);
+      if (debug?.continuedTotal > 0) setContNotice(true);
       await refreshMetrics();
     } catch (e: any) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
@@ -233,22 +389,47 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         }}
         onScroll={onScroll}
       >
-        {messages.map((m, i) => (
-          <div key={i} style={{marginBottom:12}}>
-            <div style={{fontWeight:600, fontSize:12, color:'#666', marginBottom:4}}>{m.role.toUpperCase()}</div>
-            <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
-              {m.content || <span style={{color:'#aaa'}}>(no content)</span>}
-            </div>
-            {m.role === 'assistant' && showReasoning && (
-              <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
-                <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
-                <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word', color:'#555'}}>
-                  {m.reasoning || <span style={{color:'#bbb'}}>(none)</span>}
-                </div>
+        {messages.map((m, i) => {
+          if (m.role === 'tool') {
+            const preview = toolPreview(m.content || '');
+            return (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <details style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: 8 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span>TOOL • {m.name || '(unnamed)'}</span>
+                    <span style={{ fontWeight: 400, color: '#4b5563' }}>{preview}</span>
+                  </summary>
+                  <div style={{ marginTop: 8 }}>
+                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e5e7eb', maxHeight: 260, overflowY: 'auto' }}>
+                      {m.content || '(no output)'}
+                    </pre>
+                    {m.tool_call_id && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280' }}>
+                        call id: <code>{m.tool_call_id}</code>
+                      </div>
+                    )}
+                  </div>
+                </details>
               </div>
-            )}
-          </div>
-        ))}
+            );
+          }
+          return (
+            <div key={i} style={{marginBottom:12}}>
+              <div style={{fontWeight:600, fontSize:12, color:'#666', marginBottom:4}}>{m.role.toUpperCase()}</div>
+              <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
+                {m.content ? m.content : <span style={{color:'#aaa'}}>(no content)</span>}
+              </div>
+              {m.role === 'assistant' && showReasoning && (
+                <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
+                  <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
+                  <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word', color:'#555'}}>
+                    {m.reasoning ? m.reasoning : <span style={{color:'#bbb'}}>(none)</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
       {!nearBottom && (
