@@ -19,37 +19,15 @@ Template to copy (replace placeholders and add details):
   - Done When: <concrete checks you can run>
   - Test Level: <smoke | unit | integration>
 
-## M1 - Foundational Workflow Orchestration (Owner: Jordan Ramirez; Target: 2024-08-16)
-Establish the orchestration backbone, role definitions, and core data contracts required for multi-role collaboration.
-- [ ] T1 - define-role-interaction-contracts — Capture responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
-  - Deliverables: Role contract YAML schema; Example contract instances
-- [ ] T2 - implement-orchestration-service-skeleton — Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and API endpoints for role actions.
-  - Deliverables: Service blueprint; Authenticated action endpoints
-
-- [ ] T3 - pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
-- [ ] T4 - event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
-- [ ] T5 - ContextLog DB adapter (SQLite/Mongo) for events (parity with future JSON logs)  (Phase 2: Shared State & Memory)
-- [ ] T6 - vector memory backend and retrieval scoring (P1)  (Phase 2: Shared State & Memory)
-- [ ] T7 - implement `appendMessage` end-to-end callback with retries + idempotency  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] T8 - worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] T9 - health/metrics: expose lag + retry counters on `/health`  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] T10 - define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL  (Phase 4: Acts Protocol + ToolShell)
-- [ ] T11 - implement sandboxed ToolShell with allowlist + gating  (Phase 4: Acts Protocol + ToolShell)
-- [ ] T12 - record tool outputs back to ContextLog and surface in UI  (Phase 4: Acts Protocol + ToolShell)
-- [ ] T13 - New Conversation button  (Phase 5: UI Wiring & UX Gaps)
-- [ ] T14 - Status Bar (GraphQL, Agent, Inference, Queue)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] T15 - Lightweight message polling (streaming later)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] T16 - drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run first)  (Phase 6: Self-Improvement Loop)
-- [ ] T17 - Git flow: temp branch → diff preview → PR; approvals for risky paths  (Phase 6: Self-Improvement Loop)
-- [ ] T18 - stabilize commit checks + self-review summaries in `logs/<task_id>/`  (Phase 6: Self-Improvement Loop)
-- [ ] T19 - tail utility (`scripts/tail_logs.py`) and dev UX for fast triage  (Phase 7: Observability & Guardrails)
-- [ ] T20 - UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
-- [ ] T21 - guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
-- [ ] T22 - add basic request limits for tools (server)  (Phase 7: Observability & Guardrails)
-- [ ] T23 - consider streaming final turn via SSE for `/api/chat` (optional)  (Phase 4.5: Tool Orchestration)
-- [ ] T24 - document `/api/chat/stream` usage in frontend UI and add a simple client helper (optional)  (Phase 5)
-- [ ] T25 - add size limits/redaction for tool args/results in audits (PII hygiene)  (Phase 7)
-- [ ] T26 - integrate `/metrics` with a tiny UI status panel (requests, tool calls, rate-limited count)  (Phase 7)
+## M1 - Tool Integration & Guardrails (Owner: Jordan Ramirez; Target: 2024-08-16)
+Harden the end-to-end tool pathway so chat users get reliable feedback, logged execution history, and safe guardrails.
+- [ ] T11 - Harden ToolShell execution sandbox and gating  (Phase 1: Tool Execution Core)
+- [ ] T12 - Persist tool outputs to ContextLog and surface them in UI diagnostics  (Phase 1: Tool Execution Core)
+- [ ] T21 - Enforce tool allowlists and redact sensitive arguments before logging  (Phase 2: Guardrails & Safety)
+- [ ] T22 - Apply per-request rate limits for tool invocations  (Phase 2: Guardrails & Safety)
+- [ ] T28 - Refresh system prompt instructions for tool-capable conversations  (Phase 0: Chat Foundations)
+- [ ] T29 - Improve UI feedback for tool success, errors, and follow-up actions  (Phase 1: Tool Execution Core)
+- [ ] T30 - Document tool usage patterns, limits, and troubleshooting steps  (Phase 0: Chat Foundations)
 
 ## Task Guidelines (Guardrails)
 - Keep tasks discrete and shippable within 4 hours of focused work.
@@ -61,154 +39,33 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 
 ## Detailed Scope and Guardrails
 
-### T1 — Define role interaction contracts
-- Goal: Capture responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
+### T11 — Harden ToolShell execution sandbox and gating
+- Goal: Lock down the Node-based ToolShell so only curated commands run with clear telemetry and env toggles.
 - Scope:
-  - Author a versioned schema describing required/optional fields for every role-to-role interaction.
-  - Provide example YAML contract instances for Planner, Implementer, Reviewer, and Orchestrator roles.
-  - Document validation instructions for contributors in the README.
+  - Centralize the allowlist, argument schema, and runtime limits used by ToolShell.
+  - Add a feature flag for enabling/disabling tool execution per environment.
+  - Emit structured logs for start/finish/error that downstream guardrails can consume.
 - Out of Scope:
-  - Implementing runtime enforcement inside the orchestrator.
-  - Automating contract publication to external services.
-- Allowed Touches: `docs/roles/contracts/*`, `forgekeeper/schemas/role_contracts.py`, `forgekeeper/config/role_contracts/*.yaml`, `README.md`.
+  - Creating new tool integrations beyond updating existing registry entries.
+  - Full multi-tenant isolation or containerized execution environments.
+- Allowed Touches: `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/config/*.ts`, `forgekeeper/README.md`.
 - Done When:
-  - `python -m pytest tests/contracts/test_role_contracts.py -q` validates the schema and samples.
-  - `python forgekeeper/schemas/role_contracts.py --validate docs/roles/contracts/*.yaml` exits 0.
-- Test Level: unit (schema validation).
-
-### T2 — Implement orchestration service skeleton
-- Goal: Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and role action endpoints.
-- Scope:
-  - Create a FastAPI (or similar) application exposing `/actions/{role}` endpoints with auth guards.
-  - Stub event sourcing by persisting requests to an in-memory store or SQLite table.
-  - Provide a docker-compose service entry and local run instructions.
-- Out of Scope:
-  - Production-grade queueing or distributed coordination.
-  - UI wiring beyond a simple health/heartbeat route.
-- Allowed Touches: `forgekeeper/orchestration/*`, `forgekeeper/api/routes/*.py`, `docker-compose.yml`, `docs/orchestration.md`.
-- Done When:
-  - `uvicorn forgekeeper.orchestration.app:app --reload` starts and serves `/health` + `/actions/planner` locally.
-  - `pytest tests/orchestration -q` passes.
-- Test Level: integration (service skeleton).
-
-### T3 — Pin dependency versions across stacks
-- Goal: Lock Python and Node dependencies to improve reproducibility.
-- Scope:
-  - Python: add/update `constraints.txt` and ensure local install honors it.
-  - Node: verify and document `npm ci` for `frontend/` (and `backend/` if present).
-  - Add a simple validation step in README/Makefile.
-- Out of Scope:
-  - Migrating libraries or large version upgrades.
-  - CI wiring beyond a single make/command stub.
-- Allowed Touches: `forgekeeper/constraints.txt`, `forgekeeper/README.md`, `forgekeeper/Makefile`.
-- Done When:
-  - `pip install -r forgekeeper/requirements.txt -c forgekeeper/constraints.txt` succeeds (Windows/mac/Linux).
-  - `npm --prefix forgekeeper/frontend ci` completes without changes; document the command.
-- Test Level: smoke only (local install commands).
-
-### T4 — Event/logs smoke coverage + fail-fast check
-- Goal: Establish a simple JSONL event log and a smoke validator.
-- Scope:
-  - Define event JSONL path: `.forgekeeper/events.jsonl`.
-  - Add a minimal script `scripts/tail_logs.py` (placeholder OK) or document a one-liner to validate JSON lines.
-- Out of Scope:
-  - Full observability stack, dashboards, or schema migrations.
-- Allowed Touches: `forgekeeper/scripts/tail_logs.py`, `forgekeeper/README.md`.
-- Done When:
-  - Running `python forgekeeper/scripts/tail_logs.py --validate .forgekeeper/events.jsonl` exits 0 if file contains valid JSON lines (or is empty).
-- Test Level: smoke only.
-
-### T5 — ContextLog DB adapter (SQLite/Mongo)
-- Goal: Provide a minimal append/query interface with SQLite default; Mongo optional.
-- Scope:
-  - Implement `append(role, act, payload)` and `tail(n)` using SQLite in `services/context_log/`.
-  - Document env toggle for Mongo (stub acceptable at this stage).
-- Out of Scope:
-  - Migrations, indexing strategies, or long-term retention.
-- Allowed Touches: `forgekeeper/services/context_log/sqlite.py`, `forgekeeper/README.md`.
-- Done When:
-  - Short script snippet in README appends and tails entries locally without exceptions.
-- Test Level: unit-level invocation in a REPL or tiny script.
-
-### T6 — Vector memory backend and retrieval scoring (P1)
-- Goal: Introduce an interchangeable vector adapter with a trivial scorer.
-- Scope:
-  - Define interface and a naive in-memory or SQLite-backed embedding store.
-  - Provide `put`, `search(query, k)` with simple cosine similarity placeholder.
-- Out of Scope:
-  - Real embedding models or external vector DB integrations.
-- Allowed Touches: `forgekeeper/services/memory/vector.py`, `forgekeeper/README.md`.
-- Done When:
-  - `python -c "from forgekeeper.services.memory.vector import put,search; put('a','hello'); print(search('hello',1))"` prints one result.
-- Test Level: unit only.
-
-### T7 — Implement `appendMessage` end-to-end callback with retries + idempotency
-- Goal: Ensure the agent can call `appendMessage` reliably.
-- Scope:
-  - Add retry with backoff and idempotency key to the callback client.
-  - Log attempts and final status to `.forgekeeper/events.jsonl`.
-- Out of Scope:
-  - Changing GraphQL schema beyond adding an idempotency header/key.
-- Allowed Touches: `forgekeeper/forgekeeper/*.py` (callback client only), `forgekeeper/README.md`.
-- Done When:
-  - Manual test shows transient failure retries and exactly one committed message.
-- Test Level: smoke via a local stub or mock server.
-
-### T8 — Worker: poll outbox → publish (GraphQL/MQTT) with backoff
-- Goal: Background worker loop that drains an outbox and publishes upstream.
-- Scope:
-  - Implement a polling loop with exponential backoff and jitter.
-  - Emit metrics: publish success/failure counts.
-- Out of Scope:
-  - Durable queues; a simple in-memory list is sufficient.
-- Allowed Touches: `forgekeeper/forgekeeper/*.py` (worker module only), `forgekeeper/README.md`.
-- Done When:
-  - Local run drains a seeded outbox and prints success metrics.
-- Test Level: smoke only.
-
-### T9 — Health/metrics: expose lag + retry counters on `/health`
-- Goal: Extend existing health endpoint to include queue lag and retry counters.
-- Scope:
-  - Add fields: `{ queue_lag, retry_count }` to health response.
-- Out of Scope:
-  - Prometheus integration beyond an optional `/metrics` text.
-- Allowed Touches: `forgekeeper/frontend/server.mjs` (or backend health route), `forgekeeper/README.md`.
-- Done When:
-  - `curl http://localhost:5173/health` (or service port) returns JSON with the new fields.
-- Test Level: smoke via curl.
-
-### T10 — Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL
-- Goal: Establish acts constants and brief docs.
-- Scope:
-  - Add an enum/constants and a short doc page.
-- Out of Scope:
-  - Complex state machines or multi-turn planners.
-- Allowed Touches: `forgekeeper/forgekeeper/*.py` (constants), `forgekeeper/docs/acts.md`.
-- Done When:
-  - Acts are importable and referenced in one log line during a demo run.
-- Test Level: unit only.
-
-### T11 — Implement sandboxed ToolShell with allowlist + gating
-- Goal: Minimal tool execution shell with allowlisted commands.
-- Scope:
-  - Implement allowlist, arg validation, size/time limits.
-- Out of Scope:
-  - Arbitrary process execution or network access beyond what’s explicitly allowed.
-- Allowed Touches: `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/README.md`.
-- Done When:
-  - `/api/tools` reflects enabled tools; disallowed tool returns a clear error.
+  - `npm --prefix forgekeeper/frontend run lint` passes with the updated ToolShell configuration.
+  - Calling a disallowed tool via `curl -X POST http://localhost:5173/api/tools` returns a gated error with the new telemetry fields.
 - Test Level: smoke via HTTP calls.
 
-### T12 — Record tool outputs to ContextLog and surface in UI
-- Goal: Persist tool outputs and show them in a simple panel.
+### T12 — Persist tool outputs to ContextLog and surface them in UI diagnostics
+- Goal: Make every tool call auditable and visible to chat participants without leaving the conversation.
 - Scope:
-  - Append tool results to ContextLog.
-  - UI: a minimal toggle/panel listing recent tool calls and outputs.
+  - Append tool request/response metadata to ContextLog with correlation IDs.
+  - Render a diagnostics drawer in the chat UI that lists recent tool calls with status and timestamps.
+  - Provide quick links or copy buttons for troubleshooting failed executions.
 - Out of Scope:
-  - Full filtering/triage; basic list is fine.
-- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/src/components/*`, ContextLog module.
+  - Building a full-text search or historical export for tool results.
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/src/components/*`, `forgekeeper/frontend/src/state/*`, `forgekeeper/services/context_log/*`, `forgekeeper/README.md`.
 - Done When:
-  - Triggering a tool shows an entry in the UI diagnostics and an append in the log.
+  - Triggering a tool via the chat UI appends an entry visible through `python forgekeeper/scripts/tail_logs.py --tail 5`.
+  - The diagnostics drawer displays success/error badges for the last three tool calls during a local dev session.
 - Test Level: smoke in UI.
 
 ### T13 — New Conversation button
@@ -299,26 +156,32 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Panel appears, lists events, filter hides non-matching rows.
 - Test Level: UI smoke.
 
-### T21 — Guardrails: allowlist enforcement for ToolShell + redaction hooks
-- Goal: Harden tool execution with explicit allowlist and arg redaction.
+### T21 — Enforce tool allowlists and redact sensitive arguments before logging
+- Goal: Ensure only supported tools run and sensitive parameters never leave the server as plain text.
 - Scope:
-  - Enforce allowlist; redact sensitive strings in args before logging.
+  - Validate incoming tool requests against the canonical allowlist produced by T11.
+  - Add argument scrubbing utilities that remove tokens such as API keys, emails, and file paths before logging.
+  - Cover edge cases with unit tests for the redaction helpers.
 - Out of Scope:
-  - Full DLP or secrets scanning.
-- Allowed Touches: `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`.
+  - Integrating third-party secret scanners or DLP APIs.
+- Allowed Touches: `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.guardrails.mjs`, `tests/frontend/test_tool_guardrails.ts`.
 - Done When:
-  - Disallowed tool attempt returns 403-style error; logs show redacted args.
-- Test Level: smoke via `/api/chat` tool calls.
+  - `npm --prefix forgekeeper/frontend run test` executes new guardrail unit tests successfully.
+  - Tool attempts with sensitive arguments show redacted payloads inside `.forgekeeper/events.jsonl`.
+- Test Level: unit + smoke via `/api/chat` tool calls.
 
-### T22 — Add basic request limits for tools (server)
-- Goal: Rate-limit tool-invoking requests.
+### T22 — Apply per-request rate limits for tool invocations
+- Goal: Prevent runaway tool loops by throttling chat-to-tool traffic at the server boundary.
 - Scope:
-  - Add simple token bucket or per-minute cap; return 429 with Retry-After.
+  - Implement a lightweight in-memory token bucket with configurable burst and refill parameters.
+  - Emit rate-limit metrics so tooling dashboards can alert on saturation.
+  - Document override instructions for local development.
 - Out of Scope:
-  - Multi-tenant quotas or persistence.
-- Allowed Touches: `forgekeeper/frontend/server.mjs`.
+  - Persistent quota tracking or user-specific allowance ledgers.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/server.metrics.mjs`, `forgekeeper/README.md`.
 - Done When:
-  - Bursty calls quickly surface 429; normal usage unaffected.
+  - `npm --prefix forgekeeper/frontend run lint` passes with the new middleware enabled by default.
+  - A local `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5173/api/chat; done` script returns at least one `429` once the bucket empties.
 - Test Level: smoke with a looped curl.
 
 ### T23 — Consider streaming final turn via SSE for `/api/chat` (optional)
@@ -383,6 +246,48 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 - Done When:
   - `python -m markdown ROADMAP.md` renders without errors.
 - Test Level: smoke.
+
+### T28 — Refresh system prompt instructions for tool-capable conversations
+- Goal: Align the base system/developer prompts with the hardened tool workflow so agents know when and how to call tools.
+- Scope:
+  - Update the shared system prompt text to highlight tool eligibility, guardrails, and failure-handling expectations.
+  - Regenerate any developer messages or prompt templates consumed by the frontend orchestrator.
+  - Document how to switch between tool-enabled and tool-disabled prompt variants for testing.
+- Out of Scope:
+  - Training new models or rewriting Harmony protocol guidance beyond tool usage specifics.
+- Allowed Touches: `forgekeeper/forgekeeper/config.py`, `forgekeeper/forgekeeper/llm/tool_usage.py`, `docs/prompts/system_prompt.md`, `forgekeeper/README.md`.
+- Done When:
+  - `python -m pytest forgekeeper/tests/test_tool_usage.py -q` passes with updated prompt helpers.
+  - Running `python - <<'PY'\nfrom forgekeeper.llm import tool_usage\nprint(tool_usage.render_tool_developer_message([])["content"])\nPY` shows the refreshed instructions mentioning tool guardrails.
+- Test Level: unit (prompt helper tests).
+
+### T29 — Improve UI feedback for tool success, errors, and follow-up actions
+- Goal: Provide immediate visual feedback in chat when a tool succeeds, fails, or needs user follow-up.
+- Scope:
+  - Add inline status toasts or message badges indicating tool execution outcomes.
+  - Surface actionable guidance (e.g., "retry", "view logs") when a tool fails or is rate-limited.
+  - Ensure accessibility by announcing status changes to screen readers.
+- Out of Scope:
+  - Major UI redesigns beyond augmenting existing chat components.
+- Allowed Touches: `forgekeeper/frontend/src/components/*`, `forgekeeper/frontend/src/state/*`, `forgekeeper/frontend/src/lib/*`, `forgekeeper/frontend/src/styles/*`.
+- Done When:
+  - `npm --prefix forgekeeper/frontend run lint` passes after UI updates.
+  - Triggering a successful and failed tool call during local dev shows distinct feedback elements in the chat transcript.
+- Test Level: UI smoke.
+
+### T30 — Document tool usage patterns, limits, and troubleshooting steps
+- Goal: Publish up-to-date documentation so contributors understand how to work with the tool-enabled chat stack.
+- Scope:
+  - Write a tooling quickstart covering configuration flags, feature toggles, and guardrail expectations.
+  - Add troubleshooting guides for common failures (rate limits, disallowed tools, missing telemetry).
+  - Link documentation from the project README and relevant onboarding materials.
+- Out of Scope:
+  - Auto-generated API references or deep protocol specifications already covered elsewhere.
+- Allowed Touches: `README.md`, `docs/tooling/*.md`, `docs/onboarding/*.md`.
+- Done When:
+  - Updated docs include a "Tool Guardrails" section listing limits and escalation steps.
+  - `python -m compileall docs` completes without errors, ensuring code samples are syntax-valid.
+- Test Level: documentation (smoke).
 
 ### Observability
 - [x] Add a minimal tools diagnostics panel in the UI (toggle under input)  (Phase 7: Observability & Guardrails)
