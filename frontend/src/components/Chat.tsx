@@ -10,24 +10,56 @@ interface Message {
 
 const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
 
+type ToolInstruction = { name: string; description?: string };
+
 /**
  * Keep the system prompt in sync with the tool allowlist. Adjust this helper if the
  * tool instructions need to change – it is the single source of truth for the prompt.
+ *
+ * The tool metadata comes from `/api/tools` (and falls back to the allowlisted name list)
+ * so that updating the server allowlist automatically updates the system message.
  */
-function buildSystemPrompt(toolNames?: string[], toolsAvailable?: boolean): string {
-  const names = Array.isArray(toolNames) ? toolNames.filter(Boolean) : [];
-  if (!toolsAvailable || names.length === 0) {
+function buildSystemPrompt(
+  toolNames?: string[],
+  toolsAvailable?: boolean,
+  toolMetadata?: ToolInstruction[]
+): string {
+  const entries: ToolInstruction[] = Array.isArray(toolMetadata) && toolMetadata.length > 0
+    ? toolMetadata.filter((tool) => typeof tool?.name === 'string')
+    : (Array.isArray(toolNames) ? toolNames.filter(Boolean).map((name) => ({ name })) : []);
+  if (!toolsAvailable || entries.length === 0) {
     return DEFAULT_SYSTEM_PROMPT;
   }
-  const readableList = names.join(', ');
-  return `${DEFAULT_SYSTEM_PROMPT} You can call the following tools when they will help solve the task: ${readableList}. Only call a tool when it is required, and otherwise respond normally.`;
+  const formatted = entries
+    .map(({ name, description }) => {
+      const trimmed = typeof description === 'string' ? description.trim() : '';
+      return trimmed ? `- ${name}: ${trimmed}` : `- ${name}`;
+    })
+    .join('\n');
+  return [
+    DEFAULT_SYSTEM_PROMPT,
+    'You may call JSON function tools when they will help solve the task.',
+    'Available tools:',
+    formatted,
+    'Call a tool only when necessary and otherwise respond normally.'
+  ].join('\n');
 }
 
-export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiBase: string; model: string; fill?: boolean; toolsAvailable?: boolean; toolNames?: string[] }) {
+export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMetadata }: {
+  apiBase: string;
+  model: string;
+  fill?: boolean;
+  toolsAvailable?: boolean;
+  toolNames?: string[];
+  toolMetadata?: ToolInstruction[];
+}) {
   const [messages, setMessages] = useState<Message[]>(() => [
-    { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable) }
+    { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable, toolMetadata) }
   ]);
-  const systemPrompt = useMemo(() => buildSystemPrompt(toolNames, toolsAvailable), [toolNames, toolsAvailable]);
+  const systemPrompt = useMemo(
+    () => buildSystemPrompt(toolNames, toolsAvailable, toolMetadata),
+    [toolMetadata, toolNames, toolsAvailable]
+  );
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [showReasoning, setShowReasoning] = useState(true);
@@ -43,9 +75,11 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
     if (!toolsAvailable) return '';
-    const names = Array.isArray(toolNames) ? toolNames : [];
+    const names = Array.isArray(toolMetadata) && toolMetadata.length
+      ? toolMetadata.map((tool) => tool.name).filter(Boolean)
+      : (Array.isArray(toolNames) ? toolNames : []);
     return names.length ? names.join(', ') : '';
-  }, [toolsAvailable, toolNames]);
+  }, [toolsAvailable, toolMetadata, toolNames]);
 
   const refreshMetrics = useCallback(async () => {
     try {

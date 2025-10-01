@@ -49,6 +49,7 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
   - Orchestrator loop: `frontend/server.orchestrator.mjs` handles `tool_calls`.
   - UI wiring: `Chat.tsx` routes blocking sends via `/api/chat` and streaming sends via `/api/chat/stream` automatically (no separate tools button).
   - Discovery: `GET /api/tools` returns `{ enabled, count, names, defs }`; `/config.json` includes a `tools` summary. The UI disables tools when none available and shows the list in the footer.
+  - System prompt: `Chat.tsx::buildSystemPrompt` uses the `/api/tools` metadata (falling back to the names list) to describe each tool. Update that helper if tool usage instructions change so the UI and allowlist stay in sync.
 
 ### Built-in Tools (Server)
 - `get_time`: returns current UTC ISO timestamp.
