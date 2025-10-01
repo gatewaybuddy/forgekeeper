@@ -24,8 +24,8 @@ test-ui:
 	npm --prefix forgekeeper/frontend run test
 
 test-py:
-	python -m pip install -e forgekeeper[dev]
-	cd forgekeeper && pytest -q
+	python -m pip install -e .[dev]
+	pytest -q tests
 
 mock-openai:
 	node forgekeeper/scripts/mock_openai_server.mjs
