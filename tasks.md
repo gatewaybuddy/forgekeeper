@@ -26,25 +26,30 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 - [ ] T2 - implement-orchestration-service-skeleton — Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and API endpoints for role actions.
   - Deliverables: Service blueprint; Authenticated action endpoints
 
-- [ ] Pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
-- [ ] Event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
-- [ ] ContextLog DB adapter (SQLite/Mongo) for events (parity with future JSON logs)  (Phase 2: Shared State & Memory)
-- [ ] Vector memory backend and retrieval scoring (P1)  (Phase 2: Shared State & Memory)
-- [ ] Implement `appendMessage` end-to-end callback with retries + idempotency  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Health/metrics: expose lag + retry counters on `/health`  (Phase 3: Queue & GraphQL Callback Loop)
-- [ ] Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL  (Phase 4: Acts Protocol + ToolShell)
-- [ ] Implement sandboxed ToolShell with allowlist + gating  (Phase 4: Acts Protocol + ToolShell)
-- [ ] Record tool outputs back to ContextLog and surface in UI  (Phase 4: Acts Protocol + ToolShell)
-- [ ] New Conversation button  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Status Bar (GraphQL, Agent, Inference, Queue)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Lightweight message polling (streaming later)  (Phase 5: UI Wiring & UX Gaps)
-- [ ] Drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run first)  (Phase 6: Self-Improvement Loop)
-- [ ] Git flow: temp branch → diff preview → PR; approvals for risky paths  (Phase 6: Self-Improvement Loop)
-- [ ] Stabilize commit checks + self-review summaries in `logs/<task_id>/`  (Phase 6: Self-Improvement Loop)
-- [ ] Tail utility (`scripts/tail_logs.py`) and dev UX for fast triage  (Phase 7: Observability & Guardrails)
-- [ ] UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
-- [ ] Guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
+- [ ] T3 - pin dependency versions across stacks (Python constraints + Node lockfiles validation)  (Phase 0: Stabilization Baseline)
+- [ ] T4 - event/logs smoke coverage for future `.forgekeeper/events.jsonl` + fail-fast CI check  (Phase 0: Stabilization Baseline)
+- [ ] T5 - ContextLog DB adapter (SQLite/Mongo) for events (parity with future JSON logs)  (Phase 2: Shared State & Memory)
+- [ ] T6 - vector memory backend and retrieval scoring (P1)  (Phase 2: Shared State & Memory)
+- [ ] T7 - implement `appendMessage` end-to-end callback with retries + idempotency  (Phase 3: Queue & GraphQL Callback Loop)
+- [ ] T8 - worker wiring: poll outbox → publish to backend (GraphQL/MQTT) with exponential backoff  (Phase 3: Queue & GraphQL Callback Loop)
+- [ ] T9 - health/metrics: expose lag + retry counters on `/health`  (Phase 3: Queue & GraphQL Callback Loop)
+- [ ] T10 - define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL  (Phase 4: Acts Protocol + ToolShell)
+- [ ] T11 - implement sandboxed ToolShell with allowlist + gating  (Phase 4: Acts Protocol + ToolShell)
+- [ ] T12 - record tool outputs back to ContextLog and surface in UI  (Phase 4: Acts Protocol + ToolShell)
+- [ ] T13 - New Conversation button  (Phase 5: UI Wiring & UX Gaps)
+- [ ] T14 - Status Bar (GraphQL, Agent, Inference, Queue)  (Phase 5: UI Wiring & UX Gaps)
+- [ ] T15 - Lightweight message polling (streaming later)  (Phase 5: UI Wiring & UX Gaps)
+- [ ] T16 - drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run first)  (Phase 6: Self-Improvement Loop)
+- [ ] T17 - Git flow: temp branch → diff preview → PR; approvals for risky paths  (Phase 6: Self-Improvement Loop)
+- [ ] T18 - stabilize commit checks + self-review summaries in `logs/<task_id>/`  (Phase 6: Self-Improvement Loop)
+- [ ] T19 - tail utility (`scripts/tail_logs.py`) and dev UX for fast triage  (Phase 7: Observability & Guardrails)
+- [ ] T20 - UI LogPanel wiring with filters  (Phase 7: Observability & Guardrails)
+- [ ] T21 - guardrails: allowlist enforcement for ToolShell + redaction hooks  (Phase 7: Observability & Guardrails)
+- [ ] T22 - add basic request limits for tools (server)  (Phase 7: Observability & Guardrails)
+- [ ] T23 - consider streaming final turn via SSE for `/api/chat` (optional)  (Phase 4.5: Tool Orchestration)
+- [ ] T24 - document `/api/chat/stream` usage in frontend UI and add a simple client helper (optional)  (Phase 5)
+- [ ] T25 - add size limits/redaction for tool args/results in audits (PII hygiene)  (Phase 7)
+- [ ] T26 - integrate `/metrics` with a tiny UI status panel (requests, tool calls, rate-limited count)  (Phase 7)
 
 ## Task Guidelines (Guardrails)
 - Keep tasks discrete and shippable within 4 hours of focused work.
@@ -56,7 +61,37 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 
 ## Detailed Scope and Guardrails
 
-### T1 — Pin dependency versions across stacks
+### T1 — Define role interaction contracts
+- Goal: Capture responsibilities, inputs, and outputs for each agent role in a shared schema with validation rules.
+- Scope:
+  - Author a versioned schema describing required/optional fields for every role-to-role interaction.
+  - Provide example YAML contract instances for Planner, Implementer, Reviewer, and Orchestrator roles.
+  - Document validation instructions for contributors in the README.
+- Out of Scope:
+  - Implementing runtime enforcement inside the orchestrator.
+  - Automating contract publication to external services.
+- Allowed Touches: `docs/roles/contracts/*`, `forgekeeper/schemas/role_contracts.py`, `forgekeeper/config/role_contracts/*.yaml`, `README.md`.
+- Done When:
+  - `python -m pytest tests/contracts/test_role_contracts.py -q` validates the schema and samples.
+  - `python forgekeeper/schemas/role_contracts.py --validate docs/roles/contracts/*.yaml` exits 0.
+- Test Level: unit (schema validation).
+
+### T2 — Implement orchestration service skeleton
+- Goal: Stand up the pipeline orchestrator with multi-tenant authentication, event sourcing, and role action endpoints.
+- Scope:
+  - Create a FastAPI (or similar) application exposing `/actions/{role}` endpoints with auth guards.
+  - Stub event sourcing by persisting requests to an in-memory store or SQLite table.
+  - Provide a docker-compose service entry and local run instructions.
+- Out of Scope:
+  - Production-grade queueing or distributed coordination.
+  - UI wiring beyond a simple health/heartbeat route.
+- Allowed Touches: `forgekeeper/orchestration/*`, `forgekeeper/api/routes/*.py`, `docker-compose.yml`, `docs/orchestration.md`.
+- Done When:
+  - `uvicorn forgekeeper.orchestration.app:app --reload` starts and serves `/health` + `/actions/planner` locally.
+  - `pytest tests/orchestration -q` passes.
+- Test Level: integration (service skeleton).
+
+### T3 — Pin dependency versions across stacks
 - Goal: Lock Python and Node dependencies to improve reproducibility.
 - Scope:
   - Python: add/update `constraints.txt` and ensure local install honors it.
@@ -71,7 +106,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `npm --prefix forgekeeper/frontend ci` completes without changes; document the command.
 - Test Level: smoke only (local install commands).
 
-### T2 — Event/logs smoke coverage + fail-fast check
+### T4 — Event/logs smoke coverage + fail-fast check
 - Goal: Establish a simple JSONL event log and a smoke validator.
 - Scope:
   - Define event JSONL path: `.forgekeeper/events.jsonl`.
@@ -83,7 +118,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Running `python forgekeeper/scripts/tail_logs.py --validate .forgekeeper/events.jsonl` exits 0 if file contains valid JSON lines (or is empty).
 - Test Level: smoke only.
 
-### T3 — ContextLog DB adapter (SQLite/Mongo)
+### T5 — ContextLog DB adapter (SQLite/Mongo)
 - Goal: Provide a minimal append/query interface with SQLite default; Mongo optional.
 - Scope:
   - Implement `append(role, act, payload)` and `tail(n)` using SQLite in `services/context_log/`.
@@ -95,7 +130,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Short script snippet in README appends and tails entries locally without exceptions.
 - Test Level: unit-level invocation in a REPL or tiny script.
 
-### T4 — Vector memory backend and retrieval scoring (P1)
+### T6 — Vector memory backend and retrieval scoring (P1)
 - Goal: Introduce an interchangeable vector adapter with a trivial scorer.
 - Scope:
   - Define interface and a naive in-memory or SQLite-backed embedding store.
@@ -107,7 +142,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `python -c "from forgekeeper.services.memory.vector import put,search; put('a','hello'); print(search('hello',1))"` prints one result.
 - Test Level: unit only.
 
-### T5 — Implement appendMessage callback with retries + idempotency
+### T7 — Implement `appendMessage` end-to-end callback with retries + idempotency
 - Goal: Ensure the agent can call `appendMessage` reliably.
 - Scope:
   - Add retry with backoff and idempotency key to the callback client.
@@ -119,7 +154,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Manual test shows transient failure retries and exactly one committed message.
 - Test Level: smoke via a local stub or mock server.
 
-### T6 — Worker: poll outbox → publish (GraphQL/MQTT) with backoff
+### T8 — Worker: poll outbox → publish (GraphQL/MQTT) with backoff
 - Goal: Background worker loop that drains an outbox and publishes upstream.
 - Scope:
   - Implement a polling loop with exponential backoff and jitter.
@@ -131,7 +166,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Local run drains a seeded outbox and prints success metrics.
 - Test Level: smoke only.
 
-### T7 — Health/metrics: expose lag + retry counters on `/health`
+### T9 — Health/metrics: expose lag + retry counters on `/health`
 - Goal: Extend existing health endpoint to include queue lag and retry counters.
 - Scope:
   - Add fields: `{ queue_lag, retry_count }` to health response.
@@ -142,7 +177,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `curl http://localhost:5173/health` (or service port) returns JSON with the new fields.
 - Test Level: smoke via curl.
 
-### T8 — Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL
+### T10 — Define acts: THINK, PLAN, EXEC, OBSERVE, REPORT, REQUEST-APPROVAL
 - Goal: Establish acts constants and brief docs.
 - Scope:
   - Add an enum/constants and a short doc page.
@@ -153,7 +188,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Acts are importable and referenced in one log line during a demo run.
 - Test Level: unit only.
 
-### T9 — Implement sandboxed ToolShell with allowlist + gating
+### T11 — Implement sandboxed ToolShell with allowlist + gating
 - Goal: Minimal tool execution shell with allowlisted commands.
 - Scope:
   - Implement allowlist, arg validation, size/time limits.
@@ -164,7 +199,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `/api/tools` reflects enabled tools; disallowed tool returns a clear error.
 - Test Level: smoke via HTTP calls.
 
-### T10 — Record tool outputs to ContextLog and surface in UI
+### T12 — Record tool outputs to ContextLog and surface in UI
 - Goal: Persist tool outputs and show them in a simple panel.
 - Scope:
   - Append tool results to ContextLog.
@@ -176,7 +211,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Triggering a tool shows an entry in the UI diagnostics and an append in the log.
 - Test Level: smoke in UI.
 
-### T11 — New Conversation button
+### T13 — New Conversation button
 - Goal: Simple UI affordance to start a new thread.
 - Scope:
   - Button clears local history and issues a new conversation ID.
@@ -187,7 +222,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Clicking the button yields an empty thread and fresh ID in logs.
 - Test Level: UI smoke.
 
-### T12 — Status Bar (GraphQL, Agent, Inference, Queue)
+### T14 — Status Bar (GraphQL, Agent, Inference, Queue)
 - Goal: Minimal status indicators.
 - Scope:
   - Read-only indicators sourced from existing health endpoints.
@@ -198,7 +233,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Each indicator shows up/down based on current health endpoints.
 - Test Level: UI smoke.
 
-### T13 — Lightweight message polling (streaming later)
+### T15 — Lightweight message polling (streaming later)
 - Goal: Poll for new messages on an interval.
 - Scope:
   - Client-side interval with basic backoff and pause on focus.
@@ -209,7 +244,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Messages appear within N seconds without manual refresh.
 - Test Level: UI smoke.
 
-### T14 — Drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run)
+### T16 — Drive Planner/Implementer/Reviewer from `automation/tasks.yaml` (dry-run)
 - Goal: Wire a dry-run loop that reads tasks and prints a plan.
 - Scope:
   - Parse YAML and emit a console plan; no writes.
@@ -220,7 +255,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `python forgekeeper/tools/automation/plan.py --dry-run` prints a plan for at least 3 tasks.
 - Test Level: unit/smoke.
 
-### T15 — Git flow: temp branch → diff preview → PR; approvals for risky paths
+### T17 — Git flow: temp branch → diff preview → PR; approvals for risky paths
 - Goal: Provide a scripted helper that branches, shows a diff, and opens a PR.
 - Scope:
   - Local script that shells to `git` and optionally `gh` if available.
@@ -231,7 +266,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Running the script on a dirty tree shows a clear preview and instructions; no push by default.
 - Test Level: manual smoke.
 
-### T16 — Stabilize commit checks + self-review summaries in `logs/<task_id>/`
+### T18 — Stabilize commit checks + self-review summaries in `logs/<task_id>/`
 - Goal: Write a short self-review and capture basic stats per task.
 - Scope:
   - On task completion, write a text/JSON summary with touched files and commands run.
@@ -242,7 +277,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - A demo run creates `logs/<task_id>/summary.json` and `review.txt`.
 - Test Level: smoke.
 
-### T17 — Tail utility and dev UX for fast triage
+### T19 — Tail utility and dev UX for fast triage
 - Goal: Provide a simple tail/grep helper for local logs.
 - Scope:
   - `scripts/tail_logs.py` with `--follow` and `--filter` options or a PowerShell equivalent.
@@ -253,7 +288,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `python forgekeeper/scripts/tail_logs.py --follow` prints new events.
 - Test Level: smoke.
 
-### T18 — UI LogPanel wiring with filters
+### T20 — UI LogPanel wiring with filters
 - Goal: A small panel listing recent events with a text filter.
 - Scope:
   - Read from `/api/logs` or a local stub; client-side filter only.
@@ -264,7 +299,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Panel appears, lists events, filter hides non-matching rows.
 - Test Level: UI smoke.
 
-### T19 — Guardrails: allowlist enforcement for ToolShell + redaction hooks
+### T21 — Guardrails: allowlist enforcement for ToolShell + redaction hooks
 - Goal: Harden tool execution with explicit allowlist and arg redaction.
 - Scope:
   - Enforce allowlist; redact sensitive strings in args before logging.
@@ -275,7 +310,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Disallowed tool attempt returns 403-style error; logs show redacted args.
 - Test Level: smoke via `/api/chat` tool calls.
 
-### T20 — Add basic request limits for tools (server)
+### T22 — Add basic request limits for tools (server)
 - Goal: Rate-limit tool-invoking requests.
 - Scope:
   - Add simple token bucket or per-minute cap; return 429 with Retry-After.
@@ -286,7 +321,7 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - Bursty calls quickly surface 429; normal usage unaffected.
 - Test Level: smoke with a looped curl.
 
-### T21 — Consider streaming final turn via SSE for `/api/chat` (optional)
+### T23 — Consider streaming final turn via SSE for `/api/chat` (optional)
 - Goal: Add SSE streaming for the final model turn behind a flag.
 - Scope:
   - Implement event stream for final turn; maintain non-streaming default.
@@ -296,6 +331,46 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 - Done When:
   - With `FRONTEND_ENABLE_SSE=1`, a test client receives `event: message` frames until `[DONE]`.
 - Test Level: smoke with curl or a tiny Node client.
+
+### T24 — Document `/api/chat/stream` usage in frontend UI
+- Goal: Teach contributors how to invoke the streaming endpoint and expose a helper in the UI codebase.
+- Scope:
+  - Add README or docs updates describing `/api/chat/stream` parameters and sample curl usage.
+  - Provide a lightweight client helper or hook in the frontend that wraps the streaming endpoint.
+- Out of Scope:
+  - Backend changes to streaming semantics.
+  - UI redesign beyond adding helper documentation/tooltips.
+- Allowed Touches: `docs/api/chat_stream.md`, `forgekeeper/frontend/src/lib/chatClient.ts`, `forgekeeper/frontend/README.md`.
+- Done When:
+  - Documentation renders the new instructions and includes example output.
+  - `npm --prefix forgekeeper/frontend run lint` (or equivalent) passes with the new helper.
+- Test Level: smoke (manual curl or devtools verification).
+
+### T25 — Add size limits/redaction for tool args/results in audits (PII hygiene)
+- Goal: Prevent oversized or sensitive payloads from leaking through tool audit trails.
+- Scope:
+  - Enforce a configurable payload size cap before writing to logs or ContextLog.
+  - Apply a redaction function for known sensitive fields prior to persistence.
+- Out of Scope:
+  - Full secrets scanning or third-party DLP integration.
+- Allowed Touches: `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/README.md`.
+- Done When:
+  - Unit tests covering oversized payload truncation and redaction pass.
+  - Manual tool invocation shows redacted output in `.forgekeeper/events.jsonl`.
+- Test Level: unit + smoke.
+
+### T26 — Integrate `/metrics` with a tiny UI status panel
+- Goal: Surface backend metrics (requests, tool calls, rate-limited count) inside the UI.
+- Scope:
+  - Add a lightweight fetcher polling `/metrics` and parsing the exposed counters.
+  - Render a compact status component within the existing diagnostics area.
+- Out of Scope:
+  - Real-time charting or historical retention.
+- Allowed Touches: `forgekeeper/frontend/src/components/*`, `forgekeeper/frontend/src/lib/*`, `forgekeeper/frontend/server.mjs`.
+- Done When:
+  - Local dev session shows live metric counts updating at least every 30 seconds.
+  - `npm --prefix forgekeeper/frontend run test` (or lint equivalent) passes.
+- Test Level: UI smoke.
 
 ### Observability
 - [x] Add a minimal tools diagnostics panel in the UI (toggle under input)  (Phase 7: Observability & Guardrails)
@@ -309,11 +384,6 @@ Establish the orchestration backbone, role definitions, and core data contracts 
 - [x] Remove explicit "Send (tools)" button; integrate tool orchestration into default send paths (stream/block)  (Phase 5: UI Wiring & UX Gaps)
 - [x] Add basic guardrails and request limits for tools (server)  (Phase 7: Observability & Guardrails)
 - [x] Consider streaming final turn via SSE for `/api/chat`  (Phase 4.5: Tool Orchestration)
-
-### New
-- [ ] Document `/api/chat/stream` usage in frontend UI and add a simple client helper (optional)  (Phase 5)
-- [ ] Add size limits/redaction for tool args/results in audits (PII hygiene)  (Phase 7)
-- [ ] Integrate `/metrics` with a tiny UI status panel (requests, tool calls, rate-limited count)  (Phase 7)
 
 ## Completed
 
