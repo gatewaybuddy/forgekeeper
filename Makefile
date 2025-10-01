@@ -4,36 +4,36 @@ help:
 	@echo "Targets: dev-ui, ui-build, ui-serve, lint, typecheck, test-ui, test-py, mock-openai, task-sanity, pr-check"
 
 dev-ui:
-	npm --prefix forgekeeper/frontend install
-	npm --prefix forgekeeper/frontend run dev
+	npm --prefix frontend install
+	npm --prefix frontend run dev
 
 ui-build:
-	npm --prefix forgekeeper/frontend ci --no-audit --no-fund || npm --prefix forgekeeper/frontend install
-	npm --prefix forgekeeper/frontend run build
+	npm --prefix frontend ci --no-audit --no-fund || npm --prefix frontend install
+	npm --prefix frontend run build
 
 ui-serve:
-	npm --prefix forgekeeper/frontend run serve
+	npm --prefix frontend run serve
 
 lint:
-	npm --prefix forgekeeper/frontend run lint
+	npm --prefix frontend run lint
 
 typecheck:
-	npm --prefix forgekeeper/frontend run typecheck
+	npm --prefix frontend run typecheck
 
 test-ui:
-	npm --prefix forgekeeper/frontend run test
+	npm --prefix frontend run test
 
 test-py:
-	python -m pip install -e forgekeeper[dev]
-	cd forgekeeper && pytest -q
+	python -m pip install -e .[dev]
+	pytest -q
 
 mock-openai:
-	node forgekeeper/scripts/mock_openai_server.mjs
+	node scripts/mock_openai_server.mjs
 
 task-sanity:
-	python forgekeeper/scripts/task_sanity.py lint-cards
+	python scripts/task_sanity.py lint-cards
 
-# Usage: make -C forgekeeper pr-check TASK=T7
+# Usage: make pr-check TASK=T7
 pr-check:
-	@if [ -z "$(TASK)" ]; then echo "Usage: make -C forgekeeper pr-check TASK=T#" && exit 2; fi
-	python forgekeeper/scripts/task_sanity.py check-pr --task-id $(TASK) --against staged
+	@if [ -z "$(TASK)" ]; then echo "Usage: make pr-check TASK=T#" && exit 2; fi
+	python scripts/task_sanity.py check-pr --task-id $(TASK) --against staged

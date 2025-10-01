@@ -102,13 +102,13 @@ def changed_files_staged() -> List[str]:
 
 ALWAYS_ALLOWED = [
     ".github/**",
-    "forgekeeper/ROADMAP.md",
-    "forgekeeper/tasks.md",
-    "forgekeeper/README.md",
-    "forgekeeper/docs/**",
+    "ROADMAP.md",
+    "tasks.md",
+    "README.md",
+    "docs/**",
     "CONTRIBUTING.md",
-    "forgekeeper/Makefile",
-    "forgekeeper/logs/**",
+    "Makefile",
+    "logs/**",
     ".forgekeeper/**",
 ]
 
@@ -215,11 +215,11 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     ap_lint = sub.add_parser("lint-cards", help="Verify each task card has required fields")
-    ap_lint.add_argument("--tasks-md", default="forgekeeper/tasks.md")
+    ap_lint.add_argument("--tasks-md", default="tasks.md")
     ap_lint.set_defaults(func=cmd_lint_cards)
 
     ap_check = sub.add_parser("check-pr", help="Enforce Allowed Touches for a PR/task")
-    ap_check.add_argument("--tasks-md", default="forgekeeper/tasks.md")
+    ap_check.add_argument("--tasks-md", default="tasks.md")
     ap_check.add_argument("--task-id", help="Explicit task id (e.g., T7)")
     ap_check.add_argument("--from-event", help="Path to GitHub event JSON (pull_request)")
     ap_check.add_argument("--base-sha", help="Base commit SHA for diff")

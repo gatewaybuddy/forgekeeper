@@ -5,11 +5,11 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
 ## Quick Start
 
 - Copy environment template and adjust as needed:
-  - `cp forgekeeper/.env.example forgekeeper/.env`
+  - `cp .env.example .env`
 
 - Ensure vLLM Core only (idempotent):
-  - Windows: `pwsh forgekeeper/scripts/ensure_vllm_core.ps1 -AutoBuild`
-  - Linux/mac: `bash forgekeeper/scripts/ensure_vllm_core.sh`
+  - Windows: `pwsh scripts/ensure_vllm_core.ps1 -AutoBuild`
+  - Linux/mac: `bash scripts/ensure_vllm_core.sh`
 
 - Ensure full stack (profiles + optional MongoDB):
   - Windows: `python -m forgekeeper ensure-stack --build --include-mongo`
@@ -17,36 +17,36 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
 
 - Chat with reasoning (streams deltas, then prints final):
   - Windows: `python -m forgekeeper chat -p "Say 'harmony ok'."`
-  - Non-streaming fallback (Linux/mac): `python forgekeeper/scripts/test_harmony_basic.py`
+  - Non-streaming fallback (Linux/mac): `python scripts/test_harmony_basic.py`
 
 ### No‑GPU mock for smoke tests
 - Start a local mock OpenAI server and run the smoke script:
-  - `node forgekeeper/scripts/mock_openai_server.mjs` (serves `/v1/chat/completions`, `/health[z]`)
-  - In another shell: `FK_CORE_API_BASE=http://localhost:8001 python forgekeeper/scripts/test_harmony_basic.py`
+  - `node scripts/mock_openai_server.mjs` (serves `/v1/chat/completions`, `/health[z]`)
+  - In another shell: `FK_CORE_API_BASE=http://localhost:8001 python scripts/test_harmony_basic.py`
 
 ### Make targets
-- `make -C forgekeeper dev-ui` - run Vite dev server
-- `make -C forgekeeper ui-build` - typecheck + build UI
-- `make -C forgekeeper lint` - ESLint on `src/`
-- `make -C forgekeeper typecheck` - `tsc --noEmit`
-- `make -C forgekeeper test-ui` - vitest (server orchestrator)
-- `make -C forgekeeper test-py` - install + pytest
-- `make -C forgekeeper task-sanity` - lint task cards for required fields
-- `make -C forgekeeper pr-check TASK=T#` - locally enforce Allowed Touches for staged changes
+- `make dev-ui` - run Vite dev server
+- `make ui-build` - typecheck + build UI
+- `make lint` - ESLint on `src/`
+- `make typecheck` - `tsc --noEmit`
+- `make test-ui` - vitest (server orchestrator)
+- `make test-py` - install + pytest
+- `make task-sanity` - lint task cards for required fields
+- `make pr-check TASK=T#` - locally enforce Allowed Touches for staged changes
 
 ## Frontend (Web UI)
 
 - Dev server (Vite + React):
-  - Install deps: `npm --prefix forgekeeper/frontend install`
-  - Start: `npm --prefix forgekeeper/frontend run dev`
+  - Install deps: `npm --prefix frontend install`
+  - Start: `npm --prefix frontend run dev`
   - Opens on `http://localhost:5173` and proxies `/v1`, `/health`, `/healthz` to the vLLM server.
   - Note: `/api/chat` is not available in Vite dev mode; use the server mode below.
 
 - Tool-enabled chat orchestration (server-side):
   - Endpoint: `POST /api/chat` (non-streaming) via `frontend/server.mjs`.
-  - Client helper: `forgekeeper/frontend/src/lib/chatClient.ts::chatViaServer`.
-  - Tools live under: `forgekeeper/frontend/tools/*.mjs` with aggregator `tools/index.mjs` (compat wrapper at `server.tools.mjs`).
-  - Orchestrator loop: `forgekeeper/frontend/server.orchestrator.mjs` handles `tool_calls`.
+  - Client helper: `frontend/src/lib/chatClient.ts::chatViaServer`.
+  - Tools live under: `frontend/tools/*.mjs` with aggregator `tools/index.mjs` (compat wrapper at `server.tools.mjs`).
+  - Orchestrator loop: `frontend/server.orchestrator.mjs` handles `tool_calls`.
   - UI wiring: `Chat.tsx` routes blocking sends via `/api/chat` and streaming sends via `/api/chat/stream` automatically (no separate tools button).
   - Discovery: `GET /api/tools` returns `{ enabled, count, names, defs }`; `/config.json` includes a `tools` summary. The UI disables tools when none available and shows the list in the footer.
 
@@ -85,7 +85,7 @@ Environment controls (server.mjs process):
   - Container serves static UI with an Express server and runtime config at `/config.json`.
   - Built-in reverse proxy maps `/v1`, `/health`, `/healthz` to the vLLM Core container (default target `http://vllm-core:8000`).
   - Configure via env: `FRONTEND_VLLM_API_BASE` (default `http://vllm-core:8000/v1`), `FRONTEND_VLLM_MODEL` (default `core`), `FRONTEND_PORT` (default `5173` via `.env`; compose fallback `3000` if unset).
-  - Local server mode (without Docker): `npm --prefix forgekeeper/frontend run build && npm --prefix forgekeeper/frontend run serve` (serves `/api/chat`).
+  - Local server mode (without Docker): `npm --prefix frontend run build && npm --prefix frontend run serve` (serves `/api/chat`).
 
 - Configure endpoints:
   - Default API base: `/v1` (proxied to `http://localhost:8001`).
@@ -94,7 +94,7 @@ Environment controls (server.mjs process):
 
 - Run end‑to‑end:
   1) Ensure Core: `python -m forgekeeper up-core`
-  2) Start UI: `npm --prefix forgekeeper/frontend run dev`
+  2) Start UI: `npm --prefix frontend run dev`
   3) Visit `http://localhost:5173` → send prompts; toggle “Show reasoning” to view chain‑of‑thought.
 
 ## CLI Reference
@@ -113,8 +113,8 @@ Environment controls (server.mjs process):
 
 ## Harmony Docs
 
-- Protocol summary: `forgekeeper/docs/harmony_protocol_summary.md`
-- Roadmap: `forgekeeper/ROADMAP.md`
+- Protocol summary: `docs/harmony_protocol_summary.md`
+- Roadmap: `ROADMAP.md`
 
 ## Contributing
 - Please read `CONTRIBUTING.md` for the Task Cards policy and local/CI enforcement details.
