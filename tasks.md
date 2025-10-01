@@ -372,6 +372,18 @@ Establish the orchestration backbone, role definitions, and core data contracts 
   - `npm --prefix forgekeeper/frontend run test` (or lint equivalent) passes.
 - Test Level: UI smoke.
 
+### T27 — Reorder roadmap phases around tool-ready chat
+- Goal: Align the roadmap with the current tool-first priorities and documented status.
+- Scope:
+  - Update `ROADMAP.md` so server/tool orchestration becomes Phase 1 and reorder subsequent phases accordingly.
+  - Refresh the status snapshot, exit criteria, and guardrail references to reflect the new ordering.
+- Out of Scope:
+  - Implementation changes to services, tooling, or UI beyond documentation updates.
+- Allowed Touches: `ROADMAP.md`
+- Done When:
+  - `python -m markdown ROADMAP.md` renders without errors.
+- Test Level: smoke.
+
 ### Observability
 - [x] Add a minimal tools diagnostics panel in the UI (toggle under input)  (Phase 7: Observability & Guardrails)
 
