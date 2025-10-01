@@ -8,10 +8,26 @@ interface Message {
   reasoning?: string | null;
 }
 
+const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
+
+/**
+ * Keep the system prompt in sync with the tool allowlist. Adjust this helper if the
+ * tool instructions need to change – it is the single source of truth for the prompt.
+ */
+function buildSystemPrompt(toolNames?: string[], toolsAvailable?: boolean): string {
+  const names = Array.isArray(toolNames) ? toolNames.filter(Boolean) : [];
+  if (!toolsAvailable || names.length === 0) {
+    return DEFAULT_SYSTEM_PROMPT;
+  }
+  const readableList = names.join(', ');
+  return `${DEFAULT_SYSTEM_PROMPT} You can call the following tools when they will help solve the task: ${readableList}. Only call a tool when it is required, and otherwise respond normally.`;
+}
+
 export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiBase: string; model: string; fill?: boolean; toolsAvailable?: boolean; toolNames?: string[] }) {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'system', content: 'You are a helpful assistant.' }
+  const [messages, setMessages] = useState<Message[]>(() => [
+    { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable) }
   ]);
+  const systemPrompt = useMemo(() => buildSystemPrompt(toolNames, toolsAvailable), [toolNames, toolsAvailable]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [showReasoning, setShowReasoning] = useState(true);
@@ -37,6 +53,20 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames }: { apiB
       if (r.ok) setMetrics(await r.json());
     } catch {}
   }, []);
+
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 0) {
+        return [{ role: 'system', content: systemPrompt }];
+      }
+      const [first, ...rest] = prev;
+      if (first.role !== 'system') {
+        return [{ role: 'system', content: systemPrompt }, ...prev];
+      }
+      if (first.content === systemPrompt) return prev;
+      return [{ ...first, content: systemPrompt }, ...rest];
+    });
+  }, [systemPrompt]);
 
   const onSend = useCallback(async () => {
     const text = input.trim();
