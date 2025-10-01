@@ -2,6 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Chat } from './components/Chat';
 import { checkHealth } from './lib/health';
 
+type ToolMetadata = { name: string; description?: string };
+
+function normalizeToolMetadata(defs: unknown): ToolMetadata[] {
+  if (!Array.isArray(defs)) return [];
+  return defs
+    .map((raw) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const fn = (raw as { function?: { name?: unknown; description?: unknown } }).function;
+      const name = typeof fn?.name === 'string' ? fn.name : undefined;
+      if (!name) return null;
+      const description = typeof fn?.description === 'string' ? fn.description : undefined;
+      return { name, description } satisfies ToolMetadata;
+    })
+    .filter((item): item is ToolMetadata => !!item);
+}
+
 export default function App() {
   const [apiBase, setApiBase] = useState<string>(import.meta.env.VITE_VLLM_API_BASE || '/v1');
   const [model, setModel] = useState<string>(import.meta.env.VITE_VLLM_MODEL || 'core');
@@ -10,6 +26,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(false);
   const [toolNames, setToolNames] = useState<string[]>([]);
+  const [toolMetadata, setToolMetadata] = useState<ToolMetadata[]>([]);
 
   const healthUrls = useMemo(() => ({
     healthz: apiBase.replace(/\/v1\/?$/, '') + '/healthz',
@@ -27,11 +44,16 @@ export default function App() {
           if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
           if (cfg?.tools) {
             setToolsAvailable(!!cfg.tools.enabled);
-            setToolNames(Array.isArray(cfg.tools.names) ? cfg.tools.names : []);
+            const names = Array.isArray(cfg.tools.names) ? cfg.tools.names : [];
+            setToolNames(names);
+            const meta = normalizeToolMetadata(cfg.tools.defs);
+            if (meta.length) setToolMetadata(meta);
           }
           if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to load /config.json runtime overrides.', err);
+      }
     })();
     let mounted = true;
     setChecking(true);
@@ -47,9 +69,14 @@ export default function App() {
         if (r.ok) {
           const t = await r.json();
           setToolsAvailable(!!t.enabled);
-          setToolNames(Array.isArray(t.names) ? t.names : []);
+          const names = Array.isArray(t.names) ? t.names : [];
+          setToolNames(names);
+          const meta = normalizeToolMetadata(t.defs);
+          setToolMetadata(meta.length ? meta : names.map((name) => ({ name })));
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch /api/tools metadata.', err);
+      }
     })();
     return () => { mounted = false; };
   }, [healthUrls]);
@@ -105,7 +132,14 @@ export default function App() {
         minHeight: 0,
         overflow: 'hidden'
       }}>
-        <Chat apiBase={apiBase} model={model} fill toolsAvailable={toolsAvailable} toolNames={toolNames} />
+        <Chat
+          apiBase={apiBase}
+          model={model}
+          fill
+          toolsAvailable={toolsAvailable}
+          toolNames={toolNames}
+          toolMetadata={toolMetadata}
+        />
       </div>
     </div>
   );
