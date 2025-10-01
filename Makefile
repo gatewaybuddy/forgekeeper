@@ -25,7 +25,9 @@ test-ui:
 
 test-py:
 	python -m pip install -e .[dev]
-	pytest -q
+
+	pytest -q tests
+
 
 mock-openai:
 	node scripts/mock_openai_server.mjs
