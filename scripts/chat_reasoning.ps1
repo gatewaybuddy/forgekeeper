@@ -10,7 +10,7 @@ param(
   [int]$MaxTokens = 256,
   [switch]$NoStream,
   [int]$WaitSeconds = 600,
-  [string]$Container = 'forgekeeper-vllm-core-1',
+  [string]$Container = 'forgekeeper-llama-core-1',
   [switch]$AutoWait
 )
 
@@ -37,6 +37,14 @@ if (-not $ApiKey -or [string]::IsNullOrWhiteSpace($ApiKey)) {
   $ApiKey = if ($env:OPENAI_API_KEY) { $env:OPENAI_API_KEY } else { 'dev-key' }
 }
 
+# Resolve target container name dynamically from FK_CORE_KIND if caller did not override
+if ($env:FK_CORE_KIND -and $env:FK_CORE_KIND.ToLower() -eq 'vllm') {
+  if ($Container -eq 'forgekeeper-llama-core-1') { $Container = 'forgekeeper-vllm-core-1' }
+}
+elseif ($env:FK_CORE_GPU -and $env:FK_CORE_GPU -eq '0') {
+  if ($Container -eq 'forgekeeper-llama-core-1') { $Container = 'forgekeeper-llama-core-cpu-1' }
+}
+
 $headers = @{ 'Authorization' = "Bearer $ApiKey" }
 $body = @{ 
   model = $Model
@@ -60,7 +68,7 @@ function Tail-Logs([string]$container, [int]$lines=8) {
 }
 
 function Wait-For-Health([string]$base, [int]$timeoutSec, [string]$container) {
-  Write-Host "⏳ vLLM Core: waiting for health (up to $timeoutSec s). It may still be loading the model..."
+  Write-Host "⏳ Core: waiting for health (up to $timeoutSec s). It may still be loading the model..."
   $deadline = (Get-Date).AddSeconds($timeoutSec)
   $lastPrint = (Get-Date).AddSeconds(-99)
   do {
@@ -68,7 +76,7 @@ function Wait-For-Health([string]$base, [int]$timeoutSec, [string]$container) {
     $now = Get-Date
     if (($now - $lastPrint).TotalSeconds -ge 5) {
       $snippet = Tail-Logs $container 6
-      if ($snippet) { Write-Host "--- vLLM recent logs ---`n$snippet`n------------------------" }
+      if ($snippet) { Write-Host "--- core recent logs ---`n$snippet`n------------------------" }
       $lastPrint = $now
     }
     Start-Sleep -Seconds 3
@@ -82,12 +90,20 @@ function Invoke-Blocking {
   $msg = $resp.choices[0].message
   $reasoning = $null
   $final = $null
-  if ($msg.PSObject.Properties.Name -contains 'reasoning_content') { $reasoning = [string]$msg.reasoning_content }
-  if ($msg.PSObject.Properties.Name -contains 'content') {
-    $c = $msg.content
+  $rcProp = $msg.PSObject.Properties['reasoning_content']
+  if ($null -ne $rcProp -and $null -ne $rcProp.Value) { $reasoning = [string]$rcProp.Value }
+  $contentProp = $msg.PSObject.Properties['content']
+  if ($null -ne $contentProp) {
+    $c = $contentProp.Value
     if ($c -is [string]) { $final = $c }
     elseif ($c -is [System.Collections.IEnumerable]) {
-      $tmp = ""; foreach ($p in $c) { if ($p -is [string]) { $tmp += $p } elseif ($p.PSObject.Properties.Name -contains 'text') { $tmp += [string]$p.text } elseif ($p.PSObject.Properties.Name -contains 'content') { $tmp += [string]$p.content } }
+      $tmp = ""; foreach ($p in $c) {
+        if ($p -is [string]) { $tmp += $p; continue }
+        $pText = $p.PSObject.Properties['text']
+        if ($null -ne $pText -and $null -ne $pText.Value) { $tmp += [string]$pText.Value; continue }
+        $pContent = $p.PSObject.Properties['content']
+        if ($null -ne $pContent -and $null -ne $pContent.Value) { $tmp += [string]$pContent.Value; continue }
+      }
       if ($tmp) { $final = $tmp }
     }
   }
@@ -128,12 +144,14 @@ function Invoke-Stream {
       if (-not $obj.choices -or $obj.choices.Count -lt 1) { continue }
       $delta = $obj.choices[0].delta
       if ($null -eq $delta) { continue }
-      if ($delta.PSObject.Properties.Name -contains 'reasoning_content' -and $delta.reasoning_content) {
-        $accReasoning += [string]$delta.reasoning_content
-        $buf += [string]$delta.reasoning_content
+      $rc = $delta.PSObject.Properties['reasoning_content']
+      if ($null -ne $rc -and $null -ne $rc.Value) {
+        $accReasoning += [string]$rc.Value
+        $buf += [string]$rc.Value
       }
-      if ($delta.PSObject.Properties.Name -contains 'content' -and $delta.content) {
-        $accFinal += [string]$delta.content
+      $ct = $delta.PSObject.Properties['content']
+      if ($null -ne $ct -and $null -ne $ct.Value) {
+        $accFinal += [string]$ct.Value
       }
       $nowMs = $sw.ElapsedMilliseconds
       if ($buf.Length -ge $flushThreshold -or ($nowMs - $lastFlushMs) -ge $flushIntervalMs) {
