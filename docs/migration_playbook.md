@@ -34,3 +34,13 @@ Open questions
 - Should sandbox jobs invoke pipeline hooks automatically or remain opt-in?
 
 Keep this document updated as milestones close or new risks surface.
+
+GPU Setup Gotchas (2025-10-04)
+------------------------------
+- Use the correct llama.cpp server image: set `LLAMA_DOCKER_GPU_IMAGE=ghcr.io/ggml-org/llama.cpp:server-cuda`.
+- Do not pass `--api` to the server; the `server-*` images expose the OpenAI API by default.
+- Ensure Docker sees the NVIDIA runtime: `docker info` should list `Runtimes: ... nvidia`. If missing, install/enable NVIDIA Container Toolkit in Docker Desktop (WSL2).
+- Validate GPU passthrough quickly: `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi`.
+- If you started the CPU fallback first, free port 8001 before switching to GPU: `docker compose -f forgekeeper/docker-compose.yml stop llama-core-cpu && docker compose -f forgekeeper/docker-compose.yml rm -f llama-core-cpu`.
+- Start the stack with auto-detect + health wait: `pwsh forgekeeper/scripts/start_gpu.ps1 -TimeoutSeconds 600`.
+- Model path: keep `LLAMA_MODELS_HOST_DIR` pointing at your host models dir and `LLAMA_MODEL_CORE` to the `.gguf` file; verify via `GET http://localhost:8001/v1/models`.

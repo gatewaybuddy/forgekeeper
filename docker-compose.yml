@@ -1,13 +1,53 @@
 services:
+  # Default inference core (llama.cpp C++ server, GPU/cuBLAS)
+  llama-core:
+    image: ${LLAMA_DOCKER_GPU_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    profiles: [inference]
+    env_file: ./.env
+    ports:
+      - "${LLAMA_PORT_CORE:-8001}:${LLAMA_CONTAINER_PORT:-8080}"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ${LLAMA_MODELS_HOST_DIR:-./models}:/models
+    networks: [forgekeeper-net]
+    command: [
+      "-m","${LLAMA_MODEL_CORE}",
+      "--host","0.0.0.0",
+      "--port","${LLAMA_CONTAINER_PORT:-8080}",
+      "-c","${LLAMA_N_CTX:-4096}",
+      "--n-gpu-layers","${LLAMA_N_GPU_LAYERS:--1}"
+    ]
+
+  # CPU fallback (LocalAI) when GPU not available
+  llama-core-cpu:
+    image: ${LOCALAI_DOCKER_IMAGE:-localai/localai:latest}
+    profiles: [inference-cpu]
+    env_file: ./.env
+    environment:
+      MODELS_PATH: /models
+    ports:
+      - "${LLAMA_PORT_CORE:-8001}:${LLAMA_CONTAINER_PORT:-8080}"
+    ipc: host
+    volumes:
+      - ${LLAMA_MODELS_HOST_DIR:-./models}:/models
+    networks: [forgekeeper-net]
+
+  # Optional vLLM Core (kept for compatibility; not started by default)
   vllm-core:
     image: ${VLLM_DOCKER_IMAGE:-vllm/vllm-openai:latest}
-    profiles: [inference]
+    profiles: [inference-vllm]
     env_file: ./.env
     environment:
       HF_HOME: /root/.cache/huggingface
       HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
       VLLM_LOG_DIR: /var/log/vllm
-      # baseline env only; no forced CUDA arch or attention overrides
     ports:
       - "${VLLM_PORT_CORE:-8001}:${VLLM_CONTAINER_PORT:-8000}"
     ipc: host
@@ -42,8 +82,11 @@ services:
     profiles: [ui]
     build:
       context: ./frontend
+      args:
+        VITE_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
+        VITE_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
     environment:
-      FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://vllm-core:8000/v1}
+      FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
       FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
       PORT: 3000
     ports:
