@@ -281,6 +281,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         model,
         messages: requestHistory,
         signal: controller.signal,
+        maxTokens: genMaxTokens,
+        contTokens: genContTokens,
+        contAttempts: genContAttempts,
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -373,7 +376,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     setToolDebug(null);
     setStreaming(true);
     try {
-      const res = await chatViaServer({ model, messages: requestHistory });
+      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens });
       const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
       setMessages(conv);
       const debug = res.debug ?? res.raw?.debug ?? null;

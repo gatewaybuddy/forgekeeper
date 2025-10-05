@@ -40,11 +40,11 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
 }
 
 // Call server-side tool orchestrator (non-streaming). Useful when tools are required.
-export async function chatViaServer({ model, messages }: { model: string; messages: ChatMessageReq[]; }): Promise<ChatOnceResult> {
+export async function chatViaServer({ model, messages, maxTokens }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; }): Promise<ChatOnceResult> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({ model, messages, max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined }),
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
@@ -167,7 +167,10 @@ export async function streamViaServer({
   onDelta,
   onDone,
   onError,
-  onOrchestration
+  onOrchestration,
+  maxTokens,
+  contTokens,
+  contAttempts,
 }: {
   model: string;
   messages: ChatMessageReq[];
@@ -176,12 +179,15 @@ export async function streamViaServer({
   onDone: (final: StreamFinal) => void;
   onError: (err: any) => void;
   onOrchestration?: (payload: { messages?: any[] | null; debug?: any; diagnostics?: any }) => void;
+  maxTokens?: number;
+  contTokens?: number;
+  contAttempts?: number;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, cont_tokens: contTokens, cont_attempts: contAttempts }),
     signal
   });
   if (!resp.ok || !resp.body) {

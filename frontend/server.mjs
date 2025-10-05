@@ -93,7 +93,7 @@ app.post('/api/chat', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model } = req.body || {};
+    const { messages, model, max_tokens } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -101,7 +101,7 @@ app.post('/api/chat', async (req, res) => {
     const upstreamBase = targetOrigin + '/v1';
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = resolveAllowedTools();
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed });
+    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : undefined });
     try {
       // accumulate tool metrics + audit
       const diags = out?.debug?.diagnostics || [];
@@ -233,7 +233,7 @@ app.post('/api/chat/stream', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model } = req.body || {};
+    const { messages, model, max_tokens, cont_tokens, cont_attempts } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -242,7 +242,7 @@ app.post('/api/chat/stream', async (req, res) => {
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = resolveAllowedTools();
     // First: run tool loop non-streaming to produce convo with tool results
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed });
+    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : undefined });
     const convo = Array.isArray(out?.messages) ? out.messages : messages;
 
     // Now: stream the final turn from upstream
@@ -257,7 +257,10 @@ app.post('/api/chat/stream', async (req, res) => {
       const ticks = (t.match(/```/g) || []).length;
       return (ticks % 2 === 1);
     };
-    const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: 1536 };
+    const maxOut = (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : 1536;
+    const contOut = (typeof cont_tokens === 'number' && cont_tokens > 0) ? cont_tokens : 1024;
+    const contMax = (typeof cont_attempts === 'number' && cont_attempts >= 0) ? Math.min(cont_attempts, 6) : 3;
+    const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: maxOut };
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -310,9 +313,9 @@ app.post('/api/chat/stream', async (req, res) => {
     }
     // Heuristic continuation loop: try up to 3 times if incomplete
     let attempts = 0;
-    while (isIncomplete(finalContent) && attempts < 3) {
+    while (isIncomplete(finalContent) && attempts < contMax) {
       try {
-        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: 1024 };
+        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: contOut };
         const cont = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
         if (!cont.ok) break;
         const j = await cont.json();

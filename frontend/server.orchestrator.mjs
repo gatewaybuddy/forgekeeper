@@ -45,14 +45,14 @@ function sanitizeMessagesForTools(messages) {
   return out;
 }
 
-async function callUpstream({ baseUrl, model, messages, tools, tool_choice }) {
+async function callUpstream({ baseUrl, model, messages, tools, tool_choice, maxTokens }) {
   const url = baseUrl.replace(/\/$/, '') + '/chat/completions';
   const body = {
     model,
     messages: sanitizeMessagesForTools(messages),
     temperature: 0.0,
     stream: false,
-    max_tokens: 1536,
+    max_tokens: (typeof maxTokens === 'number' && maxTokens > 0) ? maxTokens : 1536,
   };
   if (Array.isArray(tools) && tools.length > 0) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
@@ -101,11 +101,11 @@ function extractContent(c) {
  * @param {Array} [params.tools] optional tool defs; defaults to TOOL_DEFS
  * @param {number} [params.maxIterations] safety cap
  */
-export async function orchestrateWithTools({ baseUrl, model, messages, tools = TOOL_DEFS, maxIterations = 4 }) {
+export async function orchestrateWithTools({ baseUrl, model, messages, tools = TOOL_DEFS, maxIterations = 4, maxTokens }) {
   const convo = Array.isArray(messages) ? [...messages] : [];
   const diagnostics = [];
   for (let iter = 0; iter < maxIterations; iter++) {
-    const json = await callUpstream({ baseUrl, model, messages: convo, tools, tool_choice: 'auto' });
+    const json = await callUpstream({ baseUrl, model, messages: convo, tools, tool_choice: 'auto', maxTokens });
     const choice = json?.choices?.[0] ?? {};
     const msg = choice?.message || choice;
     const toolCalls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
@@ -119,7 +119,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
       // Lightweight auto-continue if truncated or too short
       while ((finish === 'length' || isIncomplete(content)) && continued < 2) {
         convo.push({ role: 'user', content: 'Continue.' });
-        const next = await callUpstream({ baseUrl, model, messages: convo, tool_choice: 'none' });
+        const next = await callUpstream({ baseUrl, model, messages: convo, tool_choice: 'none', maxTokens });
         const ch2 = next?.choices?.[0] ?? {};
         const msg2 = ch2?.message || ch2;
         const { content: c2, reasoning: r2 } = toAppMsgOpenAI(msg2);
