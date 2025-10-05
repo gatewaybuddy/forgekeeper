@@ -37,7 +37,11 @@ export async function run({ command, timeout_ms = 10000, cwd } = {}) {
     cwd: typeof cwd === 'string' && cwd.trim() ? cwd : (process.env.PWSH_CWD || undefined),
   };
   const { stdout, stderr } = await execFileAsync(exe, args, execOpts).catch(err => {
+    const code = err?.code || '';
     const msg = err?.stderr || err?.message || String(err);
+    if (String(code).toUpperCase() === 'ENOENT') {
+      throw new Error(`pwsh not found (path: ${exe}). Install PowerShell in the container or set PWSH_PATH.`);
+    }
     throw new Error(`pwsh error: ${msg}`);
   });
   return { stdout, stderr };

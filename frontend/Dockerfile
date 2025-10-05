@@ -33,6 +33,16 @@ RUN npm prune --omit=dev && mkdir -p /app/prod && cp -R node_modules /app/prod/n
 FROM node:20-slim
 WORKDIR /app
 
+# Install PowerShell (pwsh) for run_powershell tool support
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget gpg ca-certificates \
+    && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm -f packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends powershell \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy runtime server and production deps from build stage
 COPY package.json ./
 COPY --from=build /app/prod/node_modules ./node_modules
