@@ -1,7 +1,7 @@
 // Server-side chat orchestration with OpenAI-style tool calls.
 // Portable: depends only on fetch and the local tool registry.
 
-import { TOOL_DEFS, runTool } from './server.tools.mjs';
+import { getToolDefs, runTool } from './server.tools.mjs';
 
 function isIncomplete(text) {
   if (!text) return true;
@@ -101,11 +101,12 @@ function extractContent(c) {
  * @param {Array} [params.tools] optional tool defs; defaults to TOOL_DEFS
  * @param {number} [params.maxIterations] safety cap
  */
-export async function orchestrateWithTools({ baseUrl, model, messages, tools = TOOL_DEFS, maxIterations = 4, maxTokens }) {
+export async function orchestrateWithTools({ baseUrl, model, messages, tools, maxIterations = 4, maxTokens }) {
   const convo = Array.isArray(messages) ? [...messages] : [];
   const diagnostics = [];
   for (let iter = 0; iter < maxIterations; iter++) {
-    const json = await callUpstream({ baseUrl, model, messages: convo, tools, tool_choice: 'auto', maxTokens });
+    const toolDefs = Array.isArray(tools) && tools.length ? tools : await getToolDefs();
+    const json = await callUpstream({ baseUrl, model, messages: convo, tools: toolDefs, tool_choice: 'auto', maxTokens });
     const choice = json?.choices?.[0] ?? {};
     const msg = choice?.message || choice;
     const toolCalls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
