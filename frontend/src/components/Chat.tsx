@@ -198,6 +198,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [psEnabled, setPsEnabled] = useState<boolean | null>(null);
   const [psCwd, setPsCwd] = useState<string>('');
   const [toolAllow, setToolAllow] = useState<string>('');
+  // Hamburger + modals
+  const [showMenu, setShowMenu] = useState(false);
+  const [showSysModal, setShowSysModal] = useState(false);
+  const [showToolsModal, setShowToolsModal] = useState(false);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
@@ -485,7 +489,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       )}
 
       <div style={{flex: '0 0 auto'}}>
-        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6, position:'relative'}}>
           <input
             placeholder="Ask something..."
             value={input}
@@ -505,6 +509,17 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />
             <span style={{fontSize:12}}>Tools diagnostics</span>
           </label>
+
+          {/* Hamburger menu (top-right of controls row) */}
+          <div style={{marginLeft:'auto'}}>
+            <button aria-label="Menu" title="Menu" onClick={()=>setShowMenu(v=>!v)} style={{padding:'8px 10px'}}>☰</button>
+            {showMenu && (
+              <div style={{position:'absolute', right:8, top:'100%', background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 20px rgba(0,0,0,0.08)', zIndex:50, minWidth:200}} onMouseLeave={()=>setShowMenu(false)}>
+                <button onClick={()=>{ setShowSysModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Assistant System Prompt…</button>
+                <button onClick={()=>{ setShowToolsModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tools Settings…</button>
+              </div>
+            )}
+          </div>
         </div>
         <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}" {toolsLabel ? `— Tools: ${toolsLabel}` : ''}</small>
         {contNotice && (
