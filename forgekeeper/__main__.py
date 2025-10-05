@@ -253,7 +253,7 @@ def _run_ensure_stack(build: bool, include_mongo: bool, profiles: list[str] | No
     return 1
 
 
-def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: bool, tools: str | None = None, workdir: str | None = None) -> int:
+def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: bool, tools: str | None = None, workdir: str | None = None, system: str | None = None) -> int:
     # Tools demo path (Python-only) when --tools is provided
     if tools:
         try:
@@ -317,9 +317,9 @@ def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: b
             }
         ]
 
-        system = (
+        system = system or (
             "You are a local development assistant. Use the provided tools when helpful. "
-            "Do not mention policies. If a tool result is long, summarize succinctly."
+            "Do not mention or reference any policy documents. If a tool result is long, summarize succinctly."
         )
         messages = [
             {"role": "system", "content": system},
@@ -374,6 +374,8 @@ def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: b
             cmd += ["-Model", model]
         if no_stream:
             cmd += ["-NoStream"]
+        if system:
+            cmd += ["-System", system]
         return subprocess.call(cmd)
     else:
         # Minimal Python fallback using the basic test (non-streaming)
@@ -403,6 +405,7 @@ def main(argv: list[str] | None = None) -> int:
     s_chat.add_argument("--no-stream", dest="no_stream", action="store_true", help="Disable streaming (prints final text only)")
     s_chat.add_argument("--tools", dest="tools", choices=["dir"], default=None, help="Enable simple tools demo (Python path) — 'dir' only")
     s_chat.add_argument("--workdir", dest="workdir", default=None, help="Restrict tools to this workspace root (default: repo root)")
+    s_chat.add_argument("--system", dest="system", default=None, help="Override system prompt")
 
     s_ens = sub.add_parser("ensure-stack", help="Idempotently ensure full stack is up (profiles, optional mongo)")
     s_ens.add_argument("--build", dest="build", action="store_true", help="Build images before starting")
@@ -429,7 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "up-core":
         return _run_up_core()
     if args.cmd == "chat":
-        return _run_chat(args.prompt, args.base_url, args.model, args.no_stream, tools=args.tools, workdir=args.workdir)
+        return _run_chat(args.prompt, args.base_url, args.model, args.no_stream, tools=args.tools, workdir=args.workdir, system=args.system)
     if args.cmd == "ensure-stack":
         return _run_ensure_stack(args.build, args.include_mongo, args.profiles, args.compose_file)
     if args.cmd == "switch-core":
