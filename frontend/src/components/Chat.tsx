@@ -523,46 +523,55 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             </div>
           </div>
         )}
-        {/* System Prompt editor */}
-        <div style={{marginTop:8, padding:10, background:'#ecfeff', border:'1px solid #bae6fd', borderRadius:8}}>
-          <div style={{fontWeight:600, color:'#155e75', marginBottom:6}}>Assistant System Prompt</div>
-          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
-            <label style={{display:'flex', alignItems:'center', gap:6}}>
-              <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
-                const on = e.target.checked;
-                setSysMode(on ? 'custom' : 'auto');
-                try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
-              }} />
-              <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
-            </label>
-            <span style={{fontSize:12, color:'#475569'}}>
-              {sysMode === 'custom' ? 'Using custom' : 'Using auto'}
-            </span>
+        {/* Overlays (modals) for settings */}
+        {showSysModal && (
+          <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={()=>setShowSysModal(false)}>
+            <div style={{width:'min(800px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+                <div style={{fontWeight:700, color:'#155e75'}}>Assistant System Prompt</div>
+                <button onClick={()=>setShowSysModal(false)} aria-label="Close" title="Close">✕</button>
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
+                    const on = e.target.checked;
+                    setSysMode(on ? 'custom' : 'auto');
+                    try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
+                  }} />
+                  <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
+                </label>
+                <span style={{fontSize:12, color:'#475569'}}>
+                  {sysMode === 'custom' ? 'Using custom' : 'Using auto'}
+                </span>
+              </div>
+              <textarea
+                value={sysCustom}
+                onChange={e=>setSysCustom(e.target.value)}
+                placeholder={systemPrompt}
+                rows={8}
+                style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
+                disabled={sysMode !== 'custom'}
+              />
+              <div style={{display:'flex', gap:8, marginTop:10, justifyContent:'flex-end'}}>
+                <button onClick={()=>setShowSysModal(false)}>Close</button>
+                <button onClick={() => {
+                  try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
+                  setSysMode('custom');
+                  setMessages(prev => {
+                    const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
+                    return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
+                  });
+                  setShowSysModal(false);
+                }} disabled={sysMode !== 'custom'}>Apply</button>
+                <button onClick={() => {
+                  setSysMode('auto'); setSysCustom('');
+                  try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
+                  setShowSysModal(false);
+                }}>Reset to auto</button>
+              </div>
+            </div>
           </div>
-          <textarea
-            value={sysCustom}
-            onChange={e=>setSysCustom(e.target.value)}
-            placeholder={systemPrompt}
-            rows={4}
-            style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
-            disabled={sysMode !== 'custom'}
-          />
-          <div style={{display:'flex', gap:8, marginTop:6}}>
-            <button onClick={() => {
-              try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
-              setSysMode('custom');
-              // trigger apply by updating effectiveSystem via state
-              setMessages(prev => {
-                const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
-                return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
-              });
-            }} disabled={sysMode !== 'custom'}>Apply</button>
-            <button onClick={() => {
-              setSysMode('auto'); setSysCustom('');
-              try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
-            }}>Reset to auto</button>
-          </div>
-        </div>
+        )}
         {showToolDiag && toolDebug && (
           <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>
             <div style={{fontWeight:600, color:'#555', marginBottom:6}}>Tools Diagnostics</div>
@@ -595,33 +604,43 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             </div>
           </div>
         )}
-        {/* Tools Settings (dev) */}
-        <div style={{marginTop:8, padding:10, background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:8}}>
-          <div style={{fontWeight:600, color:'#3730a3', marginBottom:6}}>Tools Settings (local dev)</div>
-          <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
-            <label style={{display:'flex', alignItems:'center', gap:6}}>
-              <input type="checkbox" checked={!!psEnabled} onChange={e=>setPsEnabled(e.target.checked)} />
-              <span style={{fontSize:12}}>Enable PowerShell tool</span>
-            </label>
-            <label style={{display:'flex', alignItems:'center', gap:6}}>
-              <span style={{fontSize:12}}>Working dir (cwd):</span>
-              <input value={psCwd} onChange={e=>setPsCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
-            </label>
-            <label style={{display:'flex', alignItems:'center', gap:6}}>
-              <span style={{fontSize:12}}>Allowlist (empty = all):</span>
-              <input value={toolAllow} onChange={e=>setToolAllow(e.target.value)} placeholder="get_time,echo,read_dir" style={{padding:'4px 6px', fontSize:12, minWidth:260}} />
-            </label>
-            <button onClick={async ()=>{
-              try {
-                const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, cwd: psCwd || null, allow: toolAllow }) });
-                if (!r.ok) throw new Error(await r.text());
-                await refreshMetrics();
-              } catch (e:any) {
-                alert(`Failed to update tool config: ${e?.message || e}`);
-              }
-            }}>Save</button>
+        {showToolsModal && (
+          <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={()=>setShowToolsModal(false)}>
+            <div style={{width:'min(800px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+                <div style={{fontWeight:700, color:'#3730a3'}}>Tools Settings (local dev)</div>
+                <button onClick={()=>setShowToolsModal(false)} aria-label="Close" title="Close">✕</button>
+              </div>
+              <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:8}}>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <input type="checkbox" checked={!!psEnabled} onChange={e=>setPsEnabled(e.target.checked)} />
+                  <span style={{fontSize:12}}>Enable PowerShell tool</span>
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Working dir (cwd):</span>
+                  <input value={psCwd} onChange={e=>setPsCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Allowlist (empty = all):</span>
+                  <input value={toolAllow} onChange={e=>setToolAllow(e.target.value)} placeholder="get_time,echo,read_dir" style={{padding:'4px 6px', fontSize:12, minWidth:260}} />
+                </label>
+              </div>
+              <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+                <button onClick={()=>setShowToolsModal(false)}>Close</button>
+                <button onClick={async ()=>{
+                  try {
+                    const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, cwd: psCwd || null, allow: toolAllow }) });
+                    if (!r.ok) throw new Error(await r.text());
+                    await refreshMetrics();
+                    setShowToolsModal(false);
+                  } catch (e:any) {
+                    alert(`Failed to update tool config: ${e?.message || e}`);
+                  }
+                }}>Save</button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
