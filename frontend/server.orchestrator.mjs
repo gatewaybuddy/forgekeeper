@@ -52,7 +52,7 @@ async function callUpstream({ baseUrl, model, messages, tools, tool_choice }) {
     messages: sanitizeMessagesForTools(messages),
     temperature: 0.0,
     stream: false,
-    max_tokens: 1024,
+    max_tokens: 1536,
   };
   if (Array.isArray(tools) && tools.length > 0) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;

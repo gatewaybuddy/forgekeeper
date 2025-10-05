@@ -257,7 +257,7 @@ app.post('/api/chat/stream', async (req, res) => {
       const ticks = (t.match(/```/g) || []).length;
       return (ticks % 2 === 1);
     };
-    const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: 1024 };
+    const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: 1536 };
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -308,25 +308,28 @@ app.post('/api/chat/stream', async (req, res) => {
         res.write(line + '\n\n');
       }
     }
-    // simple heuristic: if no content or extremely short, do a one-shot continuation
-    if (isIncomplete(finalContent)) {
+    // Heuristic continuation loop: try up to 3 times if incomplete
+    let attempts = 0;
+    while (isIncomplete(finalContent) && attempts < 3) {
       try {
-        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: 512 };
+        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: 1024 };
         const cont = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
-        if (cont.ok) {
-          const j = await cont.json();
-          const c = j?.choices?.[0];
-          const msg = c?.message || c;
-          const appended = (typeof msg?.content === 'string') ? msg.content : (Array.isArray(msg?.content) ? msg.content.map(p => (typeof p === 'string' ? p : (p?.text || p?.content || p?.value || ''))).join('') : '');
-          if (appended) {
-            // announce continuation to UI
-            res.write('event: fk-debug\n');
-            res.write('data: ' + JSON.stringify({ continued: true }) + '\n\n');
-            const out = { choices: [{ index: 0, delta: { content: appended } }] };
-            res.write('data: ' + JSON.stringify(out) + '\n\n');
-          }
-        }
-      } catch {}
+        if (!cont.ok) break;
+        const j = await cont.json();
+        const c = j?.choices?.[0];
+        const msg = c?.message || c;
+        const appended = (typeof msg?.content === 'string') ? msg.content : (Array.isArray(msg?.content) ? msg.content.map(p => (typeof p === 'string' ? p : (p?.text || p?.content || p?.value || ''))).join('') : '');
+        if (!appended) break;
+        // announce continuation and stream the appended chunk
+        res.write('event: fk-debug\n');
+        res.write('data: ' + JSON.stringify({ continued: true }) + '\n\n');
+        const out = { choices: [{ index: 0, delta: { content: appended } }] };
+        res.write('data: ' + JSON.stringify(out) + '\n\n');
+        finalContent += appended;
+        attempts += 1;
+      } catch {
+        break;
+      }
     }
     res.write('data: [DONE]\n\n');
     res.end();

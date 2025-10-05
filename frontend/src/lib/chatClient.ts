@@ -111,7 +111,7 @@ export async function streamChat({
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-    body: JSON.stringify({ model, messages, temperature: 0.0, stream: true, max_tokens: 512 }),
+    body: JSON.stringify({ model, messages, temperature: 0.0, stream: true, max_tokens: 1024 }),
     signal
   });
   if (!resp.ok || !resp.body) {
