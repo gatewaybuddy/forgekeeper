@@ -27,7 +27,10 @@ app.get('/config.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
   const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
   const names = tools.map(t => t?.function?.name).filter(Boolean);
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: tools.length > 0, count: tools.length, names } }));
+  const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
+  const allow = (process.env.TOOL_ALLOW || '').trim();
+  const cwd = process.env.PWSH_CWD || null;
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: tools.length > 0, count: tools.length, names, powershellEnabled, allow, cwd } }));
 });
 
 // Resolve tool allowlist from env
@@ -112,6 +115,37 @@ app.post('/api/chat', async (req, res) => {
       }
     } catch {}
     res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// Admin: runtime toggle for tools (danger: no auth; intended for local dev only)
+app.get('/api/tools/config', async (_req, res) => {
+  try {
+    const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
+    const allow = (process.env.TOOL_ALLOW || '').trim();
+    const cwd = process.env.PWSH_CWD || null;
+    res.json({ powershellEnabled, allow, cwd });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+app.post('/api/tools/config', async (req, res) => {
+  try {
+    const { powershellEnabled, allow, cwd } = req.body || {};
+    if (typeof powershellEnabled === 'boolean') {
+      process.env.FRONTEND_ENABLE_POWERSHELL = powershellEnabled ? '1' : '0';
+    }
+    if (typeof allow === 'string') {
+      process.env.TOOL_ALLOW = allow;
+    }
+    if (typeof cwd === 'string' || cwd === null) {
+      if (cwd === null || cwd.trim() === '') delete process.env.PWSH_CWD;
+      else process.env.PWSH_CWD = cwd;
+    }
+    res.json({ ok: true, powershellEnabled: process.env.FRONTEND_ENABLE_POWERSHELL === '1', allow: (process.env.TOOL_ALLOW || '').trim(), cwd: process.env.PWSH_CWD || null });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }

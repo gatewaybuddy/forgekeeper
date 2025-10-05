@@ -89,6 +89,9 @@ services:
     environment:
       FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
       FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
+      FRONTEND_ENABLE_POWERSHELL: ${FRONTEND_ENABLE_POWERSHELL:-1}
+      # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
+      # TOOL_ALLOW: "get_time,echo,read_dir"
       PORT: 3000
     ports:
       - "${FRONTEND_PORT:-3000}:3000"

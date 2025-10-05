@@ -395,12 +395,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         {messages.map((m, i) => {
           if (m.role === 'tool') {
             const preview = toolPreview(m.content || '');
+            const prev = i > 0 ? messages[i-1] : null;
+            const prevCalls = Array.isArray((prev as any)?.tool_calls) ? (prev as any).tool_calls : [];
+            const paired = !!(m.tool_call_id && prevCalls.some((c:any)=> c?.id === m.tool_call_id));
             return (
-              <div key={i} style={{ marginBottom: 12 }}>
+              <div key={i} style={{ marginBottom: 12, border: paired ? '1px solid #d1fae5' : '1px solid #fee2e2', borderRadius: 8, padding: 6, background: paired ? '#f0fdf4' : '#fff7f7' }}>
                 <details style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: 8 }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 12, color: '#374151', display: 'flex', flexDirection: 'row', alignItems: 'baseline', gap: 8, justifyContent: 'space-between' }}>
                     <span>TOOL • {m.name || '(unnamed)'}</span>
                     <span style={{ fontWeight: 400, color: '#4b5563' }}>{preview}</span>
+                    <span style={{ fontWeight: 600, color: paired ? '#065f46' : '#b91c1c' }}>{paired ? 'paired' : 'orphan'}</span>
                   </summary>
                   <div style={{ marginTop: 8 }}>
                     <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', fontSize: 12, background: '#fff', padding: 8, borderRadius: 6, border: '1px solid #e5e7eb', maxHeight: 260, overflowY: 'auto' }}>
@@ -491,11 +495,22 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <div>iter {step.iter}, finish_reason: {String(step.finish_reason ?? '')}, tool_calls: {step.tool_calls_count ?? (step.tools?.length ?? 0)}</div>
                   {Array.isArray(step.tools) && step.tools.length > 0 && (
                     <ul style={{margin:'4px 0 0 16px', padding:0}}>
-                      {step.tools.map((t:any,i:number)=> (
-                        <li key={i} style={{listStyle:'disc'}}>
-                          <code>{t.name}</code> args: <code>{typeof t.args === 'string' ? t.args : JSON.stringify(t.args)}</code>
-                        </li>
-                      ))}
+                      {step.tools.map((t:any,i:number)=> {
+                        const argsStr = typeof t.args === 'string' ? t.args : JSON.stringify(t.args);
+                        const preview = typeof t.preview === 'string' ? t.preview : '';
+                        const timing = typeof t.ms === 'number' ? `${t.ms} ms` : '';
+                        return (
+                          <li key={i} style={{listStyle:'disc', marginBottom: 4}}>
+                            <div><code>{t.name}</code> args: <code>{argsStr}</code>{timing ? ` — ${timing}` : ''}</div>
+                            {preview && (
+                              <div style={{ marginTop: 2, color:'#6b7280' }}>out: <code>{preview}</code></div>
+                            )}
+                            {t.error && (
+                              <div style={{ marginTop: 2, color:'#b91c1c' }}>error: <code>{t.error}</code></div>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>

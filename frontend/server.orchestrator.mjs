@@ -143,7 +143,9 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
         const name = tc?.function?.name;
         let args = {};
         try { args = tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {}; } catch {}
+        const t0 = Date.now();
         const result = await runTool(name, args);
+        const ms = Date.now() - t0;
         convo.push({
           role: 'tool',
           content: typeof result === 'string' ? result : JSON.stringify(result),
@@ -151,7 +153,8 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools = T
           tool_call_id: tc?.id || undefined,
         });
         // record minimal diagnostics for debugging
-        step.tools.push({ id: tc?.id || null, name, args });
+        const preview = typeof result === 'string' ? result : (JSON.stringify(result).slice(0, 160) + (JSON.stringify(result).length > 160 ? '…' : ''));
+        step.tools.push({ id: tc?.id || null, name, args, ms, preview });
       } catch (e) {
         convo.push({
           role: 'tool',

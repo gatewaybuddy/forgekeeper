@@ -12,6 +12,7 @@ export const def = {
       properties: {
         command: { type: 'string', description: 'PowerShell command text.' },
         timeout_ms: { type: 'integer', description: 'Timeout in ms (default 10000).' },
+        cwd: { type: 'string', description: 'Working directory (server container path). Optional.' },
       },
       required: ['command'],
       additionalProperties: false,
@@ -20,7 +21,8 @@ export const def = {
   },
 };
 
-export async function run({ command, timeout_ms = 10000 } = {}) {
+export async function run({ command, timeout_ms = 10000, cwd } = {}) {
+  // Gated by env; server may toggle this at runtime by updating process.env
   if (process.env.FRONTEND_ENABLE_POWERSHELL !== '1') {
     throw new Error('PowerShell tool disabled (set FRONTEND_ENABLE_POWERSHELL=1 to enable)');
   }
@@ -29,7 +31,12 @@ export async function run({ command, timeout_ms = 10000 } = {}) {
   const args = process.platform === 'win32'
     ? ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command]
     : ['-NoLogo', '-NoProfile', '-Command', command];
-  const { stdout, stderr } = await execFileAsync(exe, args, { timeout: Number(timeout_ms) || 10000, windowsHide: true }).catch(err => {
+  const execOpts = {
+    timeout: Number(timeout_ms) || 10000,
+    windowsHide: true,
+    cwd: typeof cwd === 'string' && cwd.trim() ? cwd : (process.env.PWSH_CWD || undefined),
+  };
+  const { stdout, stderr } = await execFileAsync(exe, args, execOpts).catch(err => {
     const msg = err?.stderr || err?.message || String(err);
     throw new Error(`pwsh error: ${msg}`);
   });
