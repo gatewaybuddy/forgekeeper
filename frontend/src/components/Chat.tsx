@@ -206,6 +206,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [genMaxTokens, setGenMaxTokens] = useState<number>(1536);
   const [genContTokens, setGenContTokens] = useState<number>(1024);
   const [genContAttempts, setGenContAttempts] = useState<number>(3);
+  const [genAuto, setGenAuto] = useState<boolean>(false);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
@@ -229,9 +230,11 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       const mt = Number(localStorage.getItem('fk_gen_max_tokens') || '0');
       const ct = Number(localStorage.getItem('fk_gen_cont_tokens') || '0');
       const ca = Number(localStorage.getItem('fk_gen_cont_attempts') || '0');
+      const au = localStorage.getItem('fk_gen_auto') === '1';
       if (mt > 0) setGenMaxTokens(mt);
       if (ct > 0) setGenContTokens(ct);
       if (ca >= 0) setGenContAttempts(ca);
+      setGenAuto(au);
       const mode = localStorage.getItem('fk_sys_prompt_mode') || 'auto';
       setSysMode(mode === 'custom' ? 'custom' : 'auto');
       const txt = localStorage.getItem('fk_sys_prompt_text') || '';
