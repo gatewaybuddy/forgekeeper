@@ -788,6 +788,21 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   </>
                 )}
               </div>
+
+              {/* Rebuild helper */}
+              <div style={{marginTop:12, padding:10, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8}}>
+                <div style={{fontWeight:600, color:'#334155', marginBottom:6}}>Rebuild Frontend (apply Dockerfile changes)</div>
+                <div style={{fontSize:12, color:'#334155', marginBottom:6}}>Run this on your host:</div>
+                <pre style={{whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'monospace', fontSize:12, background:'#fff', padding:8, border:'1px solid #e2e8f0', borderRadius:6}}>
+docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
+                </pre>
+                <button onClick={()=>{
+                  const cmd = 'docker compose -f forgekeeper/docker-compose.yml up -d --build frontend';
+                  if (navigator?.clipboard?.writeText) {
+                    navigator.clipboard.writeText(cmd).catch(()=>{});
+                  }
+                }}>Copy command</button>
+              </div>
             </div>
           </div>
         )}

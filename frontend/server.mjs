@@ -94,7 +94,6 @@ const metrics = { totalRequests: 0, totalToolCalls: 0, rateLimited: 0, streamReq
 // JSONL audit for tools
 import fs from 'node:fs';
 import { mkdirSync } from 'node:fs';
-import path from 'node:path';
 const auditDir = path.join(process.cwd(), '.forgekeeper');
 const auditFile = path.join(auditDir, 'tools_audit.jsonl');
 function auditTool(rec) {
