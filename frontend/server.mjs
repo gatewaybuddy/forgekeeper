@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Lightweight manual proxy; http-proxy-middleware removed to reduce ambiguity
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
-import { TOOL_DEFS } from './server.tools.mjs';
+import { getToolDefs, reloadTools, writeToolFile } from './server.tools.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,28 +22,24 @@ const targetOrigin = apiBase.replace(/\/v1\/?$/, '');
 console.log('Proxy target:', targetOrigin);
 
 // Runtime config for the UI
-app.get('/config.json', (_req, res) => {
+app.get('/config.json', async (_req, res) => {
   const model = process.env.FRONTEND_VLLM_MODEL || 'core';
   res.setHeader('Content-Type', 'application/json');
-  const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
-  const names = tools.map(t => t?.function?.name).filter(Boolean);
+  const tools = await getToolDefs().catch(() => []);
+  const names = Array.isArray(tools) ? tools.map(t => t?.function?.name).filter(Boolean) : [];
   const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
   const allow = (process.env.TOOL_ALLOW || '').trim();
   const cwd = process.env.PWSH_CWD || null;
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: tools.length > 0, count: tools.length, names, powershellEnabled, allow, cwd } }));
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, allow, cwd } }));
 });
 
 // Resolve tool allowlist from env
-function resolveAllowedTools() {
+async function resolveAllowedTools() {
+  const defs = await getToolDefs().catch(() => []);
   const allow = (process.env.TOOL_ALLOW || '').trim();
-  if (!allow) return TOOL_DEFS;
-  const set = new Set(
-    allow
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-  return TOOL_DEFS.filter((t) => set.has(t?.function?.name));
+  if (!allow) return defs;
+  const set = new Set(allow.split(',').map((s) => s.trim()).filter(Boolean));
+  return defs.filter((t) => set.has(t?.function?.name));
 }
 
 // in-memory token bucket for basic per-IP rate limiting
@@ -125,7 +121,7 @@ app.post('/api/chat', async (req, res) => {
     }
     const upstreamBase = targetOrigin + '/v1';
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
-    const allowed = resolveAllowedTools();
+    const allowed = await resolveAllowedTools();
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens };
     const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });
     if (!out.debug) out.debug = {};
@@ -250,6 +246,29 @@ app.get('/metrics', (_req, res) => {
   res.json(metrics);
 });
 
+// Self-update routes
+app.post('/api/tools/reload', async (_req, res) => {
+  try {
+    if (process.env.FRONTEND_ENABLE_SELF_UPDATE !== '1') return res.status(403).json({ error: 'forbidden', message: 'Self-update disabled' });
+    const out = await reloadTools();
+    res.json({ ok: true, count: out.count });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+app.post('/api/tools/write', async (req, res) => {
+  try {
+    if (process.env.FRONTEND_ENABLE_SELF_UPDATE !== '1') return res.status(403).json({ error: 'forbidden', message: 'Self-update disabled' });
+    const { name, code } = req.body || {};
+    const info = await writeToolFile(String(name || ''), String(code || ''));
+    const out = await reloadTools();
+    res.json({ ok: true, path: info.path, loaded: out.count });
+  } catch (e) {
+    res.status(400).json({ error: 'bad_request', message: e?.message || String(e) });
+  }
+});
+
 // Streaming final turn after tool orchestration
 // Body: { messages, model }
 app.post('/api/chat/stream', async (req, res) => {
@@ -268,7 +287,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
     const upstreamBase = targetOrigin + '/v1';
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
-    const allowed = resolveAllowedTools();
+    const allowed = await resolveAllowedTools();
     // First: run tool loop non-streaming to produce convo with tool results
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens, contOut: cont_tokens, contMax: cont_attempts };
     const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });

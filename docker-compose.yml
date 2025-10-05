@@ -93,6 +93,8 @@ services:
       PWSH_PATH: ${PWSH_PATH:-/usr/bin/pwsh}
       # Optional working directory for PowerShell tool
       # PWSH_CWD: /workspace
+      # Enable dynamic tool reload/write endpoints (dev only)
+      FRONTEND_ENABLE_SELF_UPDATE: ${FRONTEND_ENABLE_SELF_UPDATE:-1}
       # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
       # TOOL_ALLOW: "get_time,echo,read_dir"
       PORT: 3000
