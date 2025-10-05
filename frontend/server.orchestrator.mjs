@@ -19,11 +19,37 @@ function isIncomplete(text) {
  * Call upstream chat/completions (OpenAI-compatible) non-streaming.
  * Expects `messages` in OpenAI format.
  */
+function sanitizeMessagesForTools(messages) {
+  // Drop orphan tool messages (those not immediately following an assistant tool_calls message)
+  const out = [];
+  let lastHadToolCalls = false;
+  for (const m of (Array.isArray(messages) ? messages : [])) {
+    const role = m?.role;
+    if (role === 'assistant') {
+      const tcs = Array.isArray(m?.tool_calls) ? m.tool_calls : [];
+      lastHadToolCalls = tcs.length > 0;
+      out.push(m);
+    } else if (role === 'tool') {
+      if (lastHadToolCalls) {
+        out.push(m);
+        // after a tool result, expect possibly more tool results; keep lastHadToolCalls true
+      } else {
+        // orphan tool message; skip to satisfy Jinja template expectations
+        continue;
+      }
+    } else {
+      lastHadToolCalls = false;
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 async function callUpstream({ baseUrl, model, messages, tools, tool_choice }) {
   const url = baseUrl.replace(/\/$/, '') + '/chat/completions';
   const body = {
     model,
-    messages,
+    messages: sanitizeMessagesForTools(messages),
     temperature: 0.0,
     stream: false,
     max_tokens: 1024,

@@ -8,6 +8,7 @@ interface Message {
   reasoning?: string | null;
   name?: string;
   tool_call_id?: string;
+  tool_calls?: any[];
 }
 
 function extractContentFragment(content: any): string {
@@ -69,7 +70,8 @@ function mapServerMessageToUi(msg: any): Message | null {
     const reasoning = typeof msg.reasoning === 'string'
       ? msg.reasoning
       : (typeof msg.reasoning_content === 'string' ? msg.reasoning_content : null);
-    return { role: 'assistant', content: content || '', reasoning: reasoning ?? null };
+    const tool_calls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : undefined;
+    return { role: 'assistant', content: content || '', reasoning: reasoning ?? null, tool_calls };
   }
   if (role === 'system' || role === 'user') {
     const content = extractContentFragment(msg.content ?? null);
@@ -115,6 +117,7 @@ function toChatRequestMessages(msgs: Message[]): ChatMessageReq[] {
     return {
       role: msg.role,
       content: msg.content ?? '',
+      ...(msg.role === 'assistant' && Array.isArray((msg as any).tool_calls) ? { tool_calls: (msg as any).tool_calls } : {}),
     };
   });
 }

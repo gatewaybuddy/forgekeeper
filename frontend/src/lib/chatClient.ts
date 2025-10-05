@@ -5,6 +5,8 @@ export interface ChatMessageReq {
   content: string;
   name?: string;
   tool_call_id?: string;
+  // Optional: preserve assistant tool_calls to keep tool<->result pairing on round-trips
+  tool_calls?: any[];
 }
 
 export interface ChatOnceResult {
