@@ -165,7 +165,7 @@ function buildSystemPrompt(
   ].join('\n');
 }
 
-export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMetadata, toolStorage }: {
+export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMetadata, toolStorage, repoWrite }: {
   apiBase: string;
   model: string;
   fill?: boolean;
@@ -173,6 +173,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   toolNames?: string[];
   toolMetadata?: ToolInstruction[];
   toolStorage?: { path: string; bindMounted: boolean };
+  repoWrite?: { enabled: boolean; root: string; allowed: string[]; maxBytes: number } | undefined;
 }) {
   const [messages, setMessages] = useState<Message[]>(() => [
     { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable, toolMetadata) }
@@ -201,6 +202,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [toolAllow, setToolAllow] = useState<string>('');
   const [bashEnabled, setBashEnabled] = useState<boolean | null>(null);
   const [bashCwd, setBashCwd] = useState<string>('');
+  // Repo editor state
+  const [repoPath, setRepoPath] = useState<string>('');
+  const [repoContent, setRepoContent] = useState<string>('');
+  const [repoStatus, setRepoStatus] = useState<string>('');
   // Hamburger + modals
   const [showMenu, setShowMenu] = useState(false);
   const [showSysModal, setShowSysModal] = useState(false);
@@ -742,6 +747,46 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                     alert(`Failed to update tool config: ${e?.message || e}`);
                   }
                 }}>Save</button>
+              </div>
+
+              {/* Repo file editor (dev) */}
+              <div style={{marginTop:12, padding:10, background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8}}>
+                <div style={{fontWeight:600, color:'#9a3412', marginBottom:6}}>Repo File Editor (dev)</div>
+                {!repoWrite?.enabled && (
+                  <div style={{fontSize:12, color:'#9a3412', marginBottom:8}}>FRONTEND_ENABLE_REPO_WRITE is disabled.</div>
+                )}
+                {repoWrite?.enabled && (
+                  <>
+                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+                      <span style={{fontSize:12}}>Path:</span>
+                      <select value={repoPath} onChange={e=>setRepoPath(e.target.value)} style={{padding:'4px 6px', fontSize:12}}>
+                        <option value="">(select)</option>
+                        {(repoWrite?.allowed || []).map((p) => (<option key={p} value={p}>{p}</option>))}
+                      </select>
+                      <button onClick={async()=>{
+                        try {
+                          if (!repoPath) return;
+                          const r = await fetch(`/api/repo/read?path=${encodeURIComponent(repoPath)}`);
+                          if (!r.ok) throw new Error(await r.text());
+                          const j = await r.json();
+                          setRepoContent(String(j?.content || ''));
+                          setRepoStatus('Loaded.');
+                        } catch (e:any) { setRepoStatus(`Load failed: ${e?.message || e}`); }
+                      }}>Load</button>
+                      <button onClick={async()=>{
+                        try {
+                          if (!repoPath) return;
+                          const r = await fetch('/api/repo/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: repoPath, content: repoContent }) });
+                          if (!r.ok) throw new Error(await r.text());
+                          setRepoStatus('Saved. Rebuild the frontend to apply runtime changes.');
+                        } catch (e:any) { setRepoStatus(`Save failed: ${e?.message || e}`); }
+                      }}>Save</button>
+                      {repoStatus && <span style={{fontSize:12, color:'#9a3412'}}>{repoStatus}</span>}
+                    </div>
+                    <textarea value={repoContent} onChange={e=>setRepoContent(e.target.value)} rows={10} style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #fed7aa', borderRadius:6}} placeholder="Select a file and click Load" />
+                    <div style={{fontSize:11, color:'#9a3412', marginTop:6}}>Writes to repo root {repoWrite?.root || '/workspace'}; allowed: {(repoWrite?.allowed || []).join(', ')}; max bytes: {String(repoWrite?.maxBytes || 0)}</div>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -99,6 +99,10 @@ services:
       # BASH_CWD: /workspace
       # Enable dynamic tool reload/write endpoints (dev only)
       FRONTEND_ENABLE_SELF_UPDATE: ${FRONTEND_ENABLE_SELF_UPDATE:-1}
+      FRONTEND_ENABLE_REPO_WRITE: ${FRONTEND_ENABLE_REPO_WRITE:-1}
+      REPO_ROOT: ${REPO_ROOT:-/workspace}
+      REPO_WRITE_MAX_BYTES: ${REPO_WRITE_MAX_BYTES:-131072}
+      REPO_WRITE_ALLOW: ${REPO_WRITE_ALLOW:-frontend/Dockerfile,docker-compose.yml}
       # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
       # TOOL_ALLOW: "get_time,echo,read_dir"
       PORT: 3000

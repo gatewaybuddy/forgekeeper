@@ -94,6 +94,7 @@ const metrics = { totalRequests: 0, totalToolCalls: 0, rateLimited: 0, streamReq
 // JSONL audit for tools
 import fs from 'node:fs';
 import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 const auditDir = path.join(process.cwd(), '.forgekeeper');
 const auditFile = path.join(auditDir, 'tools_audit.jsonl');
 function auditTool(rec) {
@@ -305,6 +306,51 @@ app.post('/api/tools/write', async (req, res) => {
     const info = await writeToolFile(String(name || ''), String(code || ''));
     const out = await reloadTools();
     res.json({ ok: true, path: info.path, loaded: out.count });
+  } catch (e) {
+    res.status(400).json({ error: 'bad_request', message: e?.message || String(e) });
+  }
+});
+
+// Repo read/write endpoints (dev only) used by the editor panel
+function resolveRepoSafe(rel) {
+  const base = path.resolve(process.env.REPO_ROOT || '/workspace');
+  const full = path.resolve(base, String(rel || '.'));
+  const back = path.relative(base, full);
+  if (back.startsWith('..') || path.isAbsolute(back)) throw new Error('Path escapes repo root');
+  return { base, full };
+}
+
+function isRepoWriteAllowed(p) {
+  const allow = (process.env.REPO_WRITE_ALLOW || 'frontend/Dockerfile,docker-compose.yml')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  return allow.includes(p);
+}
+
+app.get('/api/repo/read', async (req, res) => {
+  try {
+    if (process.env.FRONTEND_ENABLE_REPO_WRITE !== '1') return res.status(403).json({ error: 'forbidden', message: 'Repo write disabled' });
+    const rel = String(req.query.path || '');
+    if (!isRepoWriteAllowed(rel)) return res.status(400).json({ error: 'bad_request', message: 'Path not allowed' });
+    const { full } = resolveRepoSafe(rel);
+    const data = fs.readFileSync(full, 'utf8');
+    res.json({ path: rel, content: data });
+  } catch (e) {
+    res.status(400).json({ error: 'bad_request', message: e?.message || String(e) });
+  }
+});
+
+app.post('/api/repo/write', async (req, res) => {
+  try {
+    if (process.env.FRONTEND_ENABLE_REPO_WRITE !== '1') return res.status(403).json({ error: 'forbidden', message: 'Repo write disabled' });
+    const rel = String(req.body?.path || '');
+    const content = String(req.body?.content || '');
+    if (!isRepoWriteAllowed(rel)) return res.status(400).json({ error: 'bad_request', message: 'Path not allowed' });
+    const maxBytes = Number(process.env.REPO_WRITE_MAX_BYTES || 128 * 1024);
+    if (Buffer.byteLength(content, 'utf8') > maxBytes) return res.status(400).json({ error: 'bad_request', message: `Content exceeds limit (${maxBytes} bytes)` });
+    const { full } = resolveRepoSafe(rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content, 'utf8');
+    res.json({ ok: true, path: rel, bytes: Buffer.byteLength(content, 'utf8') });
   } catch (e) {
     res.status(400).json({ error: 'bad_request', message: e?.message || String(e) });
   }
