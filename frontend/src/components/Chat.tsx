@@ -202,6 +202,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [showMenu, setShowMenu] = useState(false);
   const [showSysModal, setShowSysModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
+  // Generation controls
+  const [genMaxTokens, setGenMaxTokens] = useState<number>(1536);
+  const [genContTokens, setGenContTokens] = useState<number>(1024);
+  const [genContAttempts, setGenContAttempts] = useState<number>(3);
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
@@ -216,6 +220,22 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     try {
       const r = await fetch('/metrics');
       if (r.ok) setMetrics(await r.json());
+    } catch {}
+  }, []);
+
+  // Load generation controls + system override from storage
+  useEffect(() => {
+    try {
+      const mt = Number(localStorage.getItem('fk_gen_max_tokens') || '0');
+      const ct = Number(localStorage.getItem('fk_gen_cont_tokens') || '0');
+      const ca = Number(localStorage.getItem('fk_gen_cont_attempts') || '0');
+      if (mt > 0) setGenMaxTokens(mt);
+      if (ct > 0) setGenContTokens(ct);
+      if (ca >= 0) setGenContAttempts(ca);
+      const mode = localStorage.getItem('fk_sys_prompt_mode') || 'auto';
+      setSysMode(mode === 'custom' ? 'custom' : 'auto');
+      const txt = localStorage.getItem('fk_sys_prompt_text') || '';
+      if (txt) setSysCustom(txt);
     } catch {}
   }, []);
 
