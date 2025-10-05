@@ -31,8 +31,9 @@ app.get('/config.json', async (_req, res) => {
   const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
   const allow = (process.env.TOOL_ALLOW || '').trim();
   const cwd = process.env.PWSH_CWD || null;
-  // Detect if /app/tools is a separate mount (bind-mounted)
+  // Detect if /app/tools is a separate mount (bind-mounted) and repo mount
   let storage = { path: '/app/tools', bindMounted: false };
+  let repo = { root: process.env.REPO_ROOT || '/workspace', bindMounted: false };
   try {
     const s = fs.statSync('/app/tools');
     const p = fs.statSync('/app');
@@ -40,7 +41,14 @@ app.get('/config.json', async (_req, res) => {
       storage.bindMounted = s.dev !== p.dev;
     }
   } catch {}
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, allow, cwd, storage } }));
+  try {
+    const rs = fs.statSync(repo.root);
+    const ap = fs.statSync('/app');
+    if (rs && ap && typeof rs.dev === 'number' && typeof ap.dev === 'number') {
+      repo.bindMounted = rs.dev !== ap.dev;
+    }
+  } catch {}
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, allow, cwd, storage, repo } }));
 });
 
 // Resolve tool allowlist from env

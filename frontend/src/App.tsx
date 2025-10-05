@@ -13,7 +13,8 @@ function normalizeToolMetadata(defs: unknown): ToolMetadata[] {
       const name = typeof fn?.name === 'string' ? fn.name : undefined;
       if (!name) return null;
       const description = typeof fn?.description === 'string' ? fn.description : undefined;
-      return { name, description } satisfies ToolMetadata;
+      // Coerce to the wider ToolMetadata type so the filter predicate can narrow correctly
+      return { name, description } as ToolMetadata;
     })
     .filter((item): item is ToolMetadata => !!item);
 }
@@ -27,6 +28,7 @@ export default function App() {
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(false);
   const [toolNames, setToolNames] = useState<string[]>([]);
   const [toolMetadata, setToolMetadata] = useState<ToolMetadata[]>([]);
+  const [toolStorage, setToolStorage] = useState<{ path: string; bindMounted: boolean } | null>(null);
 
   const healthUrls = useMemo(() => ({
     healthz: apiBase.replace(/\/v1\/?$/, '') + '/healthz',
@@ -46,8 +48,11 @@ export default function App() {
             setToolsAvailable(!!cfg.tools.enabled);
             const names = Array.isArray(cfg.tools.names) ? cfg.tools.names : [];
             setToolNames(names);
-            const meta = normalizeToolMetadata(cfg.tools.defs);
-            if (meta.length) setToolMetadata(meta);
+          const meta = normalizeToolMetadata(cfg.tools.defs);
+          if (meta.length) setToolMetadata(meta);
+          if (cfg.tools.storage && typeof cfg.tools.storage.path === 'string') {
+            setToolStorage({ path: cfg.tools.storage.path, bindMounted: !!cfg.tools.storage.bindMounted });
+          }
           }
           if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
         }
@@ -72,7 +77,7 @@ export default function App() {
           const names = Array.isArray(t.names) ? t.names : [];
           setToolNames(names);
           const meta = normalizeToolMetadata(t.defs);
-          setToolMetadata(meta.length ? meta : names.map((name) => ({ name })));
+          setToolMetadata(meta.length ? meta : names.map((name: string) => ({ name })));
         }
       } catch (err) {
         console.warn('Failed to fetch /api/tools metadata.', err);
@@ -139,6 +144,7 @@ export default function App() {
           toolsAvailable={toolsAvailable}
           toolNames={toolNames}
           toolMetadata={toolMetadata}
+          toolStorage={toolStorage || undefined}
         />
       </div>
     </div>

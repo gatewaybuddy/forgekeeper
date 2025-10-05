@@ -107,6 +107,7 @@ services:
     networks: [forgekeeper-net]
     volumes:
       - ./frontend/tools:/app/tools:rw
+      - ./:/workspace:rw
 
 networks:
   forgekeeper-net:

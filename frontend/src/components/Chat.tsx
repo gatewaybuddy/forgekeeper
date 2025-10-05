@@ -165,13 +165,14 @@ function buildSystemPrompt(
   ].join('\n');
 }
 
-export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMetadata }: {
+export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMetadata, toolStorage }: {
   apiBase: string;
   model: string;
   fill?: boolean;
   toolsAvailable?: boolean;
   toolNames?: string[];
   toolMetadata?: ToolInstruction[];
+  toolStorage?: { path: string; bindMounted: boolean };
 }) {
   const [messages, setMessages] = useState<Message[]>(() => [
     { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable, toolMetadata) }
@@ -551,7 +552,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             )}
           </div>
         </div>
-        <small style={{color:'#666'}}>Using model "{model}" at base "{apiBase}" {toolsLabel ? `— Tools: ${toolsLabel}` : ''}</small>
+        <small style={{color:'#666'}}>
+          Using model "{model}" at base "{apiBase}" {toolsLabel ? `- Tools: ${toolsLabel}` : ''}
+          {toolStorage && (
+            <>
+              {' '}• Tools dir: <code>{toolStorage.path}</code> {toolStorage.bindMounted ? '(mounted)' : '(internal)'}
+            </>
+          )}
+        </small>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
             Auto-continued to complete the response.
