@@ -158,9 +158,11 @@ app.post('/api/chat', async (req, res) => {
 app.get('/api/tools/config', async (_req, res) => {
   try {
     const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
+    const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
     const allow = (process.env.TOOL_ALLOW || '').trim();
     const cwd = process.env.PWSH_CWD || null;
-    res.json({ powershellEnabled, allow, cwd });
+    const bashCwd = process.env.BASH_CWD || null;
+    res.json({ powershellEnabled, bashEnabled, allow, cwd, bashCwd });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }
@@ -168,9 +170,12 @@ app.get('/api/tools/config', async (_req, res) => {
 
 app.post('/api/tools/config', async (req, res) => {
   try {
-    const { powershellEnabled, allow, cwd } = req.body || {};
+    const { powershellEnabled, bashEnabled, allow, cwd, bashCwd } = req.body || {};
     if (typeof powershellEnabled === 'boolean') {
       process.env.FRONTEND_ENABLE_POWERSHELL = powershellEnabled ? '1' : '0';
+    }
+    if (typeof bashEnabled === 'boolean') {
+      process.env.FRONTEND_ENABLE_BASH = bashEnabled ? '1' : '0';
     }
     if (typeof allow === 'string') {
       process.env.TOOL_ALLOW = allow;
@@ -179,7 +184,18 @@ app.post('/api/tools/config', async (req, res) => {
       if (cwd === null || cwd.trim() === '') delete process.env.PWSH_CWD;
       else process.env.PWSH_CWD = cwd;
     }
-    res.json({ ok: true, powershellEnabled: process.env.FRONTEND_ENABLE_POWERSHELL === '1', allow: (process.env.TOOL_ALLOW || '').trim(), cwd: process.env.PWSH_CWD || null });
+    if (typeof bashCwd === 'string' || bashCwd === null) {
+      if (bashCwd === null || bashCwd.trim() === '') delete process.env.BASH_CWD;
+      else process.env.BASH_CWD = bashCwd;
+    }
+    res.json({
+      ok: true,
+      powershellEnabled: process.env.FRONTEND_ENABLE_POWERSHELL === '1',
+      bashEnabled: process.env.FRONTEND_ENABLE_BASH === '1',
+      allow: (process.env.TOOL_ALLOW || '').trim(),
+      cwd: process.env.PWSH_CWD || null,
+      bashCwd: process.env.BASH_CWD || null,
+    });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }

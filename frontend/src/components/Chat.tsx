@@ -198,6 +198,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [psEnabled, setPsEnabled] = useState<boolean | null>(null);
   const [psCwd, setPsCwd] = useState<string>('');
   const [toolAllow, setToolAllow] = useState<string>('');
+  const [bashEnabled, setBashEnabled] = useState<boolean | null>(null);
+  const [bashCwd, setBashCwd] = useState<string>('');
   // Hamburger + modals
   const [showMenu, setShowMenu] = useState(false);
   const [showSysModal, setShowSysModal] = useState(false);
@@ -262,6 +264,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           setPsEnabled(!!j?.powershellEnabled);
           setPsCwd(typeof j?.cwd === 'string' ? j.cwd : '');
           setToolAllow(typeof j?.allow === 'string' ? j.allow : '');
+          setBashEnabled(!!j?.bashEnabled);
+          setBashCwd(typeof j?.bashCwd === 'string' ? j.bashCwd : '');
         }
       } catch {}
     })();
@@ -692,8 +696,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <span style={{fontSize:12}}>Enable PowerShell tool</span>
                 </label>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <input type="checkbox" checked={!!bashEnabled} onChange={e=>setBashEnabled(e.target.checked)} />
+                  <span style={{fontSize:12}}>Enable Bash tool</span>
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
                   <span style={{fontSize:12}}>Working dir (cwd):</span>
                   <input value={psCwd} onChange={e=>setPsCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Bash cwd:</span>
+                  <input value={bashCwd} onChange={e=>setBashCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
                 </label>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
                   <span style={{fontSize:12}}>Allowlist (empty = all):</span>
@@ -704,7 +716,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                 <button onClick={()=>setShowToolsModal(false)}>Close</button>
                 <button onClick={async ()=>{
                   try {
-                    const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, cwd: psCwd || null, allow: toolAllow }) });
+                    const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, bashEnabled: !!bashEnabled, cwd: psCwd || null, bashCwd: bashCwd || null, allow: toolAllow }) });
                     if (!r.ok) throw new Error(await r.text());
                     await refreshMetrics();
                     setShowToolsModal(false);
