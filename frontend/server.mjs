@@ -29,6 +29,7 @@ app.get('/config.json', async (_req, res) => {
   const names = Array.isArray(tools) ? tools.map(t => t?.function?.name).filter(Boolean) : [];
   const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
   const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
+  const selfUpdateEnabled = process.env.FRONTEND_ENABLE_SELF_UPDATE === '1';
   const allow = (process.env.TOOL_ALLOW || '').trim();
   const cwd = process.env.PWSH_CWD || null;
   // Detect if /app/tools is a separate mount (bind-mounted) and repo mount
@@ -48,7 +49,13 @@ app.get('/config.json', async (_req, res) => {
       repo.bindMounted = rs.dev !== ap.dev;
     }
   } catch {}
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, allow, cwd, storage, repo } }));
+  const repoWrite = {
+    enabled: process.env.FRONTEND_ENABLE_REPO_WRITE === '1',
+    root: repo.root,
+    allowed: (process.env.REPO_WRITE_ALLOW || 'frontend/Dockerfile,docker-compose.yml').split(',').map(s => s.trim()).filter(Boolean),
+    maxBytes: Number(process.env.REPO_WRITE_MAX_BYTES || 128 * 1024),
+  };
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite } }));
 });
 
 // Resolve tool allowlist from env

@@ -29,6 +29,7 @@ export default function App() {
   const [toolNames, setToolNames] = useState<string[]>([]);
   const [toolMetadata, setToolMetadata] = useState<ToolMetadata[]>([]);
   const [toolStorage, setToolStorage] = useState<{ path: string; bindMounted: boolean } | null>(null);
+  const [toolCaps, setToolCaps] = useState<{ selfUpdateEnabled?: boolean; repoWrite?: { enabled: boolean; root: string; allowed: string[]; maxBytes: number } } | null>(null);
 
   const healthUrls = useMemo(() => ({
     healthz: apiBase.replace(/\/v1\/?$/, '') + '/healthz',
@@ -53,6 +54,7 @@ export default function App() {
           if (cfg.tools.storage && typeof cfg.tools.storage.path === 'string') {
             setToolStorage({ path: cfg.tools.storage.path, bindMounted: !!cfg.tools.storage.bindMounted });
           }
+          setToolCaps({ selfUpdateEnabled: !!cfg.tools.selfUpdateEnabled, repoWrite: cfg.tools.repoWrite });
           }
           if (cfg?.model && typeof cfg.model === 'string') setModel(cfg.model);
         }

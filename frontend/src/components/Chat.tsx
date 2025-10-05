@@ -720,6 +720,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <input value={toolAllow} onChange={e=>setToolAllow(e.target.value)} placeholder="get_time,echo,read_dir" style={{padding:'4px 6px', fontSize:12, minWidth:260}} />
                 </label>
               </div>
+              {/* Capabilities summary */}
+              <div style={{marginBottom:8, padding:10, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8}}>
+                <div style={{fontWeight:600, color:'#334155', marginBottom:6}}>Capabilities</div>
+                <div style={{fontSize:12, color:'#334155'}}>
+                  <div>Tools dir: <code>{toolStorage?.path || '/app/tools'}</code> {toolStorage?.bindMounted ? '(mounted)' : '(internal)'}</div>
+                  <div>Repo mount: <code>/workspace</code> (mounted)</div>
+                  <div>Self-update routes: <code>POST /api/tools/write</code>, <code>/api/tools/reload</code> (dev)</div>
+                  <div>Repo write tool: <code>write_repo_file</code> (enable with FRONTEND_ENABLE_REPO_WRITE=1)</div>
+                </div>
+              </div>
               <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
                 <button onClick={()=>setShowToolsModal(false)}>Close</button>
                 <button onClick={async ()=>{
