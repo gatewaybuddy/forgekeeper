@@ -73,8 +73,13 @@ def _run_compose() -> int:
     }
     should_build = (prev != curr_fingerprint)
 
-    # Prefer only UI + inference profiles for a clean default
-    profiles = ["ui", "inference"]
+    # Prefer only UI + inference profiles for a clean default; switch based on FK_CORE_KIND
+    core_kind = os.getenv("FK_CORE_KIND", "llama").strip().lower()
+    gpu_pref = os.getenv("FK_CORE_GPU", "1").strip()
+    if core_kind == "vllm":
+        profiles = ["ui", "inference-vllm"]
+    else:
+        profiles = ["ui", "inference-cpu"] if gpu_pref == "0" else ["ui", "inference"]
     rc = _run_ensure_stack(build=should_build, include_mongo=False, profiles=profiles, compose_file=compose_file)
     if rc != 0:
         # Fallback to legacy start wrappers only if ensure fails or missing
@@ -119,10 +124,40 @@ def _run_compose() -> int:
         return default
 
     frontend_port = _get_env_value(env_path, 'FRONTEND_PORT', '3000')
-    vllm_core_port = _get_env_value(env_path, 'VLLM_PORT_CORE', '8001')
+    # Prefer llama/localai core port; fall back to legacy vLLM env
+    core_port = _get_env_value(env_path, 'LLAMA_PORT_CORE', _get_env_value(env_path, 'VLLM_PORT_CORE', '8001'))
     print(f"Forgekeeper UI: http://localhost:{frontend_port}")
     print(f"Frontend health: http://localhost:{frontend_port}/health-ui")
-    print(f"vLLM Core API: http://localhost:{vllm_core_port}/v1")
+    print(f"Core API: http://localhost:{core_port}/v1")
+
+    # Optional health wait for the Core (models or health endpoints)
+    try:
+        import time, urllib.request
+        base = _get_env_value(env_path, 'FK_CORE_API_BASE', f'http://localhost:{core_port}')
+        urls = [
+            base.rstrip('/') + '/v1/models',
+            base.rstrip('/') + '/healthz',
+            base.rstrip('/') + '/health',
+        ]
+        deadline = time.time() + 60
+        ok = False
+        while time.time() < deadline and not ok:
+            for url in urls:
+                try:
+                    with urllib.request.urlopen(url, timeout=3) as r:
+                        if 200 <= getattr(r, 'status', 200) < 500:
+                            ok = True
+                            break
+                except Exception:
+                    pass
+            if not ok:
+                time.sleep(2)
+        if ok:
+            print('Core health check: ok')
+        else:
+            print('Core health check: pending (may still be loading model)')
+    except Exception:
+        pass
 
     # Hold foreground; teardown on Ctrl+C
     try:
@@ -159,22 +194,27 @@ def _run_compose() -> int:
 def _run_up_core() -> int:
     root = Path(__file__).resolve().parents[1]
     # Prefer idempotent ensure script: starts if missing, recreates only if config changed
+    core_kind = os.getenv("FK_CORE_KIND", "llama").strip().lower()
+    gpu_pref = os.getenv("FK_CORE_GPU", "1").strip()
     if platform.system() == "Windows":
-        ps1 = root / "scripts" / "ensure_vllm_core.ps1"
+        ps1 = root / "scripts" / ("ensure_vllm_core.ps1" if core_kind == "vllm" else "ensure_llama_core.ps1")
         shell = shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
         if shell and ps1.exists():
-            return subprocess.call([shell, "-NoLogo", "-NoProfile", "-File", str(ps1), "-ProjectDir", str(root), "-ComposeFile", "docker-compose.yml", "-AutoBuild"])
+            return subprocess.call([shell, "-NoLogo", "-NoProfile", "-File", str(ps1), "-ProjectDir", str(root), "-ComposeFile", "docker-compose.yml"])
     # Fallback: prefer shell ensure script if present
-    sh_ensure = root / "scripts" / "ensure_vllm_core.sh"
+    sh_ensure = root / "scripts" / ("ensure_vllm_core.sh" if core_kind == "vllm" else "ensure_llama_core.sh")
     bash = shutil.which("bash")
     if bash and sh_ensure.exists():
         env = os.environ.copy()
         env["PROJECT_DIR"] = str(root)
         env["COMPOSE_FILE"] = "docker-compose.yml"
-        env["AUTO_BUILD"] = "1"
         return subprocess.call([bash, str(sh_ensure)], env=env)
     # Final fallback: bring up via docker compose
-    cmd = [shutil.which("docker") or "docker", "compose", "-f", str(root / "docker-compose.yml"), "up", "-d", "--build", "vllm-core"]
+    if core_kind == "vllm":
+        service = "vllm-core"
+    else:
+        service = "llama-core-cpu" if gpu_pref == "0" else "llama-core"
+    cmd = [shutil.which("docker") or "docker", "compose", "-f", str(root / "docker-compose.yml"), "up", "-d", service]
     return subprocess.call(cmd)
 
 
@@ -213,7 +253,113 @@ def _run_ensure_stack(build: bool, include_mongo: bool, profiles: list[str] | No
     return 1
 
 
-def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: bool) -> int:
+def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: bool, tools: str | None = None, workdir: str | None = None) -> int:
+    # Tools demo path (Python-only) when --tools is provided
+    if tools:
+        try:
+            from openai import OpenAI  # type: ignore
+        except Exception:
+            print("openai package not installed. Try: pip install openai", file=sys.stderr)
+            return 1
+
+        base = base_url or os.getenv("FK_CORE_API_BASE", "http://localhost:8001")
+        api_base = base.rstrip('/') + '/v1'
+        client = OpenAI(base_url=api_base, api_key=os.getenv("OPENAI_API_KEY", "dev-key"))
+        mdl = model or os.getenv("VLLM_MODEL_CORE", "local")
+
+        # Restrict the tool to a safe workspace root; default to current repo root
+        repo_root = Path(__file__).resolve().parents[2]
+        safe_root = Path(workdir).resolve() if workdir else repo_root
+        try:
+            safe_root = safe_root.resolve()
+        except Exception:
+            safe_root = repo_root
+
+        def _list_dir(arg_path: str | None) -> str:
+            p = Path(arg_path or ".")
+            if not p.is_absolute():
+                p = (safe_root / p).resolve()
+            # ensure path stays within safe_root
+            try:
+                p.relative_to(safe_root)
+            except Exception:
+                return f"Refusing to list outside of {safe_root}"
+            if not p.exists() or not p.is_dir():
+                return f"Path not found or not a directory: {p}"
+            entries = []
+            for i, e in enumerate(p.iterdir()):
+                if i >= 50:
+                    entries.append("... (truncated)")
+                    break
+                kind = "dir" if e.is_dir() else "file"
+                try:
+                    sz = e.stat().st_size if e.is_file() else 0
+                except Exception:
+                    sz = 0
+                entries.append(f"{kind}\t{e.name}\t{sz}")
+            rel = str(p)
+            return f"Listing of {rel} (max 50):\n" + "\n".join(entries)
+
+        tools_spec = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_dir",
+                    "description": "List files in a directory within the local workspace.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Relative path from workspace root"}
+                        },
+                        "required": []
+                    },
+                },
+            }
+        ]
+
+        system = (
+            "You are a local development assistant. Use the provided tools when helpful. "
+            "Do not mention policies. If a tool result is long, summarize succinctly."
+        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ]
+        for _ in range(3):
+            resp = client.chat.completions.create(
+                model=mdl,
+                messages=messages,
+                tools=tools_spec,
+                tool_choice="auto",
+                temperature=0.2,
+                max_tokens=256,
+            )
+            choice = resp.choices[0]
+            msg = choice.message
+            tc = getattr(msg, "tool_calls", None)
+            if tc:
+                for call in tc:
+                    fname = call.function.name
+                    import json as _json
+                    try:
+                        args = _json.loads(call.function.arguments or "{}")
+                    except Exception:
+                        args = {}
+                    if fname == "list_dir":
+                        out = _list_dir(args.get("path"))
+                    else:
+                        out = f"Tool {fname} not implemented."
+                    messages.append({"role": "tool", "tool_call_id": call.id, "content": out})
+                # continue the loop to let the model observe tool results
+                continue
+            # no tool calls -> final
+            content = getattr(msg, "content", None)
+            print(content or "")
+            return 0
+        # fallback if tools loop didn’t converge
+        print("(tools) no final answer produced", file=sys.stderr)
+        return 1
+
     root = Path(__file__).resolve().parents[1]
     if platform.system() == "Windows":
         ps1 = root / "scripts" / "chat_reasoning.ps1"
@@ -248,19 +394,25 @@ def main(argv: list[str] | None = None) -> int:
 
     s_comp = sub.add_parser("compose", help="Ensure full stack (build), hold FG; Ctrl+C tears down")
 
-    s_upc = sub.add_parser("up-core", help="Start only vLLM Core via compose")
+    s_upc = sub.add_parser("up-core", help="Start only Core (llama.cpp) via compose")
 
     s_chat = sub.add_parser("chat", help="Send a prompt and stream reasoning/final")
     s_chat.add_argument("-p", "--prompt", required=False, default="", help="Prompt text (reads stdin if omitted)")
     s_chat.add_argument("--base-url", dest="base_url", default=None)
     s_chat.add_argument("--model", dest="model", default=None)
-    s_chat.add_argument("--no-stream", dest="no_stream", action="store_true")
+    s_chat.add_argument("--no-stream", dest="no_stream", action="store_true", help="Disable streaming (prints final text only)")
+    s_chat.add_argument("--tools", dest="tools", choices=["dir"], default=None, help="Enable simple tools demo (Python path) — 'dir' only")
+    s_chat.add_argument("--workdir", dest="workdir", default=None, help="Restrict tools to this workspace root (default: repo root)")
 
     s_ens = sub.add_parser("ensure-stack", help="Idempotently ensure full stack is up (profiles, optional mongo)")
     s_ens.add_argument("--build", dest="build", action="store_true", help="Build images before starting")
     s_ens.add_argument("--include-mongo", dest="include_mongo", action="store_true", help="Also ensure MongoDB is up")
     s_ens.add_argument("--profile", dest="profiles", action="append", default=None, help="Compose profile to enable (repeat)")
     s_ens.add_argument("--compose-file", dest="compose_file", default=None, help="Compose file path (defaults to script's)")
+
+    s_switch = sub.add_parser("switch-core", help="Switch inference core (llama|vllm), update .env, and restart services")
+    s_switch.add_argument("kind", choices=["llama", "vllm"], help="Target core backend")
+    s_switch.add_argument("--no-restart", dest="no_restart", action="store_true", help="Only update .env; do not restart services")
 
     args = p.parse_args(argv)
 
@@ -271,15 +423,74 @@ def main(argv: list[str] | None = None) -> int:
             print("Compose start failed or was cancelled; bringing up Core only...", file=sys.stderr)
             rc2 = _run_up_core()
             if rc2 == 0:
-                print("vLLM Core started. Try: python -m forgekeeper chat -p 'Hello'", file=sys.stderr)
+                print("Core started. Try: python -m forgekeeper chat -p 'Hello'", file=sys.stderr)
             return rc2
         return 0
     if args.cmd == "up-core":
         return _run_up_core()
     if args.cmd == "chat":
-        return _run_chat(args.prompt, args.base_url, args.model, args.no_stream)
+        return _run_chat(args.prompt, args.base_url, args.model, args.no_stream, tools=args.tools, workdir=args.workdir)
     if args.cmd == "ensure-stack":
         return _run_ensure_stack(args.build, args.include_mongo, args.profiles, args.compose_file)
+    if args.cmd == "switch-core":
+        root = Path(__file__).resolve().parents[1]
+        env_path = root / ".env"
+        target = args.kind.strip().lower()
+
+        # Update .env
+        try:
+            text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+        except Exception:
+            text = ""
+        lines = text.splitlines() if text else []
+        out_lines: list[str] = []
+        saw_kind = False
+        saw_api = False
+        for line in lines:
+            s = line.strip()
+            if s.startswith("FK_CORE_KIND="):
+                out_lines.append(f"FK_CORE_KIND={target}")
+                saw_kind = True
+            elif s.startswith("FK_CORE_API_BASE="):
+                base = "http://llama-core:8000" if target == "llama" else "http://vllm-core:8000"
+                out_lines.append(f"FK_CORE_API_BASE={base}")
+                saw_api = True
+            else:
+                out_lines.append(line)
+        if not saw_kind:
+            out_lines.append(f"FK_CORE_KIND={target}")
+        if not saw_api:
+            base = "http://llama-core:8000" if target == "llama" else "http://vllm-core:8000"
+            out_lines.append(f"FK_CORE_API_BASE={base}")
+        try:
+            env_path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+        except Exception as e:
+            print(f"Failed to update {env_path}: {e}", file=sys.stderr)
+            return 1
+        print(f"Updated {env_path} → FK_CORE_KIND={target}")
+
+        if args.no_restart:
+            return 0
+
+        # Stop the opposite core to avoid port conflicts
+        opposite = "vllm-core" if target == "llama" else "llama-core"
+        docker = shutil.which("docker") or "docker"
+        try:
+            subprocess.call([docker, "compose", "-f", str(root / "docker-compose.yml"), "stop", opposite])
+        except Exception:
+            pass
+
+        # Restart stack with selected profiles and dynamic proxy
+        os.environ["FK_CORE_KIND"] = target
+        profiles = ["ui", "inference"] if target == "llama" else ["ui", "inference-vllm"]
+        rc = _run_ensure_stack(build=False, include_mongo=False, profiles=profiles, compose_file="docker-compose.yml")
+        if rc != 0:
+            print("Failed to restart stack; try running 'python -m forgekeeper compose'", file=sys.stderr)
+        else:
+            core_port = os.getenv("LLAMA_PORT_CORE") if target == "llama" else os.getenv("VLLM_PORT_CORE")
+            core_port = core_port or "8001"
+            print(f"Switched core to {target}. Core API: http://localhost:{core_port}/v1")
+        return rc
 
     p.print_help()
     return 0

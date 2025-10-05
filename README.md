@@ -1,23 +1,34 @@
 # Forgekeeper (Fresh Start)
 
-Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full stack, and chat with reasoning.
+Quick CLI entry points and scripts to bring up the Core (llama.cpp by default), ensure the full stack, and chat with reasoning.
 
 ## Quick Start
 
 - Copy environment template and adjust as needed:
   - `cp .env.example .env`
 
-- Ensure vLLM Core only (idempotent):
-  - Windows: `pwsh scripts/ensure_vllm_core.ps1 -AutoBuild`
-  - Linux/mac: `bash scripts/ensure_vllm_core.sh`
+- Choose inference core (default is llama.cpp):
+  - Edit `.env` and set `FK_CORE_KIND=llama` (default) or `FK_CORE_KIND=vllm`.
 
+- Ensure Core only (idempotent):
+  - Windows: `pwsh scripts/ensure_llama_core.ps1`
+  - Linux/mac: `bash scripts/ensure_llama_core.sh`
+  
 - Ensure full stack (profiles + optional MongoDB):
   - Windows: `python -m forgekeeper ensure-stack --build --include-mongo`
   - Linux/mac: `python -m forgekeeper ensure-stack --build --include-mongo --compose-file archive/docker-compose.yml`
 
-- Chat with reasoning (streams deltas, then prints final):
-  - Windows: `python -m forgekeeper chat -p "Say 'harmony ok'."`
-  - Non-streaming fallback (Linux/mac): `python scripts/test_harmony_basic.py`
+- Chat
+  - Python CLI (streaming default): `python -m forgekeeper chat -p "Say 'harmony ok'."`
+  - Python CLI non-stream: `python -m forgekeeper chat -p "Hello" --no-stream`
+  - Tools demo (safe dir listing): `python -m forgekeeper chat -p "List current folder" --tools dir`
+  - PowerShell script (Windows):
+    - Streaming: `pwsh forgekeeper/scripts/chat_reasoning.ps1 -Prompt "Hello"`
+    - Non-stream: `pwsh forgekeeper/scripts/chat_reasoning.ps1 -Prompt "Hello" -NoStream`
+
+Streaming vs non‑stream
+- Streaming prints tokens as they arrive via SSE; you’ll see partial reasoning chunks `[r]` and a final `[final]` line.
+- Non‑stream waits for the response to finish and prints only the final text.
 
 ### No‑GPU mock for smoke tests
 - Start a local mock OpenAI server and run the smoke script:
@@ -39,7 +50,7 @@ Quick CLI entry points and scripts to bring up the vLLM Core, ensure the full st
 - Dev server (Vite + React):
   - Install deps: `npm --prefix frontend install`
   - Start: `npm --prefix frontend run dev`
-  - Opens on `http://localhost:5173` and proxies `/v1`, `/health`, `/healthz` to the vLLM server.
+  - Opens on `http://localhost:5173` and proxies `/v1`, `/health`, `/healthz` to the Core server.
   - Note: `/api/chat` is not available in Vite dev mode; use the server mode below.
 
 - Tool-enabled chat orchestration (server-side):
@@ -84,8 +95,8 @@ Environment controls (server.mjs process):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).
   - Container serves static UI with an Express server and runtime config at `/config.json`.
-  - Built-in reverse proxy maps `/v1`, `/health`, `/healthz` to the vLLM Core container (default target `http://vllm-core:8000`).
-  - Configure via env: `FRONTEND_VLLM_API_BASE` (default `http://vllm-core:8000/v1`), `FRONTEND_VLLM_MODEL` (default `core`), `FRONTEND_PORT` (default `5173` via `.env`; compose fallback `3000` if unset).
+  - Built-in reverse proxy maps `/v1`, `/health`, `/healthz` to the Core container (default target `http://llama-core:8000`).
+  - Configure via env: `FRONTEND_VLLM_API_BASE` (default `http://llama-core:8000/v1`), `FRONTEND_VLLM_MODEL` (default `core`), `FRONTEND_PORT` (default `5173` via `.env`; compose fallback `3000` if unset).
   - Local server mode (without Docker): `npm --prefix frontend run build && npm --prefix frontend run serve` (serves `/api/chat`).
 
 - Configure endpoints:
@@ -104,13 +115,18 @@ Environment controls (server.mjs process):
   - Tries platform start wrapper (`start.ps1`/`start.sh`). If unavailable/fails, falls back to `up-core` and prints a hint.
 
 - `python -m forgekeeper up-core`
-  - Ensures the `vllm-core` container is up (rebuilds only if config changed).
+  - Ensures the default core (`llama-core`) is up. Use `FK_CORE_KIND=vllm` to switch and use vLLM instead.
 
 - `python -m forgekeeper ensure-stack [--build] [--include-mongo] [--profile NAME ...] [--compose-file FILE]`
   - Cross‑platform wrapper over `scripts/ensure_stack.ps1|.sh`. Defaults to profiles: backend, ui, agent, inference.
 
 - `python -m forgekeeper chat [--base-url URL] [--model NAME] [--no-stream] -p PROMPT`
-  - PowerShell streaming client on Windows; simple non‑streaming Python fallback elsewhere.
+  - PowerShell streaming client on Windows; simple non-streaming Python fallback elsewhere.
+  - When using the Python CLI, pass `--no-stream` (two hyphens). The PowerShell switch is `-NoStream` only when calling the `.ps1` directly.
+  - Tools demo: add `--tools dir` to enable a minimal `list_dir` function; restrict with `--workdir PATH`.
+
+- `python -m forgekeeper switch-core {llama|vllm} [--no-restart]`
+  - Updates `.env` (FK_CORE_KIND, FK_CORE_API_BASE) and restarts the appropriate services (UI + selected core). Use `--no-restart` to skip service changes.
 
 ## Harmony Docs
 
