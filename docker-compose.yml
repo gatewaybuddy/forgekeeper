@@ -22,7 +22,8 @@ services:
       "--host","0.0.0.0",
       "--port","${LLAMA_CONTAINER_PORT:-8080}",
       "-c","${LLAMA_N_CTX:-4096}",
-      "--n-gpu-layers","${LLAMA_N_GPU_LAYERS:--1}"
+      "--n-gpu-layers","${LLAMA_N_GPU_LAYERS:--1}",
+      "--jinja"
     ]
 
   # CPU fallback (LocalAI) when GPU not available
