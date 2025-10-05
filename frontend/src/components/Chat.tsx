@@ -191,6 +191,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [nearBottom, setNearBottom] = useState(true);
   const [metrics, setMetrics] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
+  // System prompt (auto from tools vs user override)
+  const [sysMode, setSysMode] = useState<'auto' | 'custom'>('auto');
+  const [sysCustom, setSysCustom] = useState<string>('');
   // Runtime tool config (local dev only)
   const [psEnabled, setPsEnabled] = useState<boolean | null>(null);
   const [psCwd, setPsCwd] = useState<string>('');
@@ -213,6 +216,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   }, []);
 
   // Fetch runtime tool config (dev-only; no auth)
+  // Load saved system prompt override
+  useEffect(() => {
+    try {
+      const mode = localStorage.getItem('fk_sys_prompt_mode') || 'auto';
+      setSysMode(mode === 'custom' ? 'custom' : 'auto');
+      const txt = localStorage.getItem('fk_sys_prompt_text') || '';
+      if (txt) setSysCustom(txt);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -227,19 +240,24 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     })();
   }, []);
 
+  const effectiveSystem = useMemo(() => {
+    const c = sysMode === 'custom' ? (sysCustom || '') : '';
+    return (sysMode === 'custom' && c.trim().length > 0) ? c : systemPrompt;
+  }, [sysMode, sysCustom, systemPrompt]);
+
   useEffect(() => {
     setMessages(prev => {
       if (prev.length === 0) {
-        return [{ role: 'system', content: systemPrompt }];
+        return [{ role: 'system', content: effectiveSystem }];
       }
       const [first, ...rest] = prev;
       if (first.role !== 'system') {
-        return [{ role: 'system', content: systemPrompt }, ...prev];
+        return [{ role: 'system', content: effectiveSystem }, ...prev];
       }
-      if (first.content === systemPrompt) return prev;
-      return [{ ...first, content: systemPrompt }, ...rest];
+      if (first.content === effectiveSystem) return prev;
+      return [{ ...first, content: effectiveSystem }, ...rest];
     });
-  }, [systemPrompt]);
+  }, [effectiveSystem]);
 
   const onSend = useCallback(async () => {
     const text = input.trim();
@@ -505,6 +523,46 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             </div>
           </div>
         )}
+        {/* System Prompt editor */}
+        <div style={{marginTop:8, padding:10, background:'#ecfeff', border:'1px solid #bae6fd', borderRadius:8}}>
+          <div style={{fontWeight:600, color:'#155e75', marginBottom:6}}>Assistant System Prompt</div>
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+            <label style={{display:'flex', alignItems:'center', gap:6}}>
+              <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
+                const on = e.target.checked;
+                setSysMode(on ? 'custom' : 'auto');
+                try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
+              }} />
+              <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
+            </label>
+            <span style={{fontSize:12, color:'#475569'}}>
+              {sysMode === 'custom' ? 'Using custom' : 'Using auto'}
+            </span>
+          </div>
+          <textarea
+            value={sysCustom}
+            onChange={e=>setSysCustom(e.target.value)}
+            placeholder={systemPrompt}
+            rows={4}
+            style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
+            disabled={sysMode !== 'custom'}
+          />
+          <div style={{display:'flex', gap:8, marginTop:6}}>
+            <button onClick={() => {
+              try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
+              setSysMode('custom');
+              // trigger apply by updating effectiveSystem via state
+              setMessages(prev => {
+                const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
+                return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
+              });
+            }} disabled={sysMode !== 'custom'}>Apply</button>
+            <button onClick={() => {
+              setSysMode('auto'); setSysCustom('');
+              try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
+            }}>Reset to auto</button>
+          </div>
+        </div>
         {showToolDiag && toolDebug && (
           <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>
             <div style={{fontWeight:600, color:'#555', marginBottom:6}}>Tools Diagnostics</div>

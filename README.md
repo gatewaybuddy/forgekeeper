@@ -30,6 +30,10 @@ Streaming vs non‑stream
 - Streaming prints tokens as they arrive via SSE; you’ll see partial reasoning chunks `[r]` and a final `[final]` line.
 - Non‑stream waits for the response to finish and prints only the final text.
 
+System prompt
+- UI: open the "Assistant System Prompt" panel to switch between the auto‑generated prompt (includes tool list) and a custom prompt. The custom prompt is saved to localStorage and applied to the first system message in the chat.
+- CLI: pass a one‑off override with `--system "..."` when using `python -m forgekeeper chat`.
+
 ### No‑GPU mock for smoke tests
 - Start a local mock OpenAI server and run the smoke script:
   - `node scripts/mock_openai_server.mjs` (serves `/v1/chat/completions`, `/health[z]`)
