@@ -191,6 +191,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [nearBottom, setNearBottom] = useState(true);
   const [metrics, setMetrics] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
+  // Runtime tool config (local dev only)
+  const [psEnabled, setPsEnabled] = useState<boolean | null>(null);
+  const [psCwd, setPsCwd] = useState<string>('');
+  const [toolAllow, setToolAllow] = useState<string>('');
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
@@ -206,6 +210,21 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       const r = await fetch('/metrics');
       if (r.ok) setMetrics(await r.json());
     } catch {}
+  }, []);
+
+  // Fetch runtime tool config (dev-only; no auth)
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/tools/config');
+        if (r.ok) {
+          const j = await r.json();
+          setPsEnabled(!!j?.powershellEnabled);
+          setPsCwd(typeof j?.cwd === 'string' ? j.cwd : '');
+          setToolAllow(typeof j?.allow === 'string' ? j.allow : '');
+        }
+      } catch {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -518,6 +537,33 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             </div>
           </div>
         )}
+        {/* Tools Settings (dev) */}
+        <div style={{marginTop:8, padding:10, background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:8}}>
+          <div style={{fontWeight:600, color:'#3730a3', marginBottom:6}}>Tools Settings (local dev)</div>
+          <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+            <label style={{display:'flex', alignItems:'center', gap:6}}>
+              <input type="checkbox" checked={!!psEnabled} onChange={e=>setPsEnabled(e.target.checked)} />
+              <span style={{fontSize:12}}>Enable PowerShell tool</span>
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:6}}>
+              <span style={{fontSize:12}}>Working dir (cwd):</span>
+              <input value={psCwd} onChange={e=>setPsCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
+            </label>
+            <label style={{display:'flex', alignItems:'center', gap:6}}>
+              <span style={{fontSize:12}}>Allowlist (empty = all):</span>
+              <input value={toolAllow} onChange={e=>setToolAllow(e.target.value)} placeholder="get_time,echo,read_dir" style={{padding:'4px 6px', fontSize:12, minWidth:260}} />
+            </label>
+            <button onClick={async ()=>{
+              try {
+                const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, cwd: psCwd || null, allow: toolAllow }) });
+                if (!r.ok) throw new Error(await r.text());
+                await refreshMetrics();
+              } catch (e:any) {
+                alert(`Failed to update tool config: ${e?.message || e}`);
+              }
+            }}>Save</button>
+          </div>
+        </div>
       </div>
     </div>
   );
