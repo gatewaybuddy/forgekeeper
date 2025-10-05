@@ -565,50 +565,84 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         {showSysModal && (
           <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={()=>setShowSysModal(false)}>
             <div style={{width:'min(800px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-                <div style={{fontWeight:700, color:'#155e75'}}>Assistant System Prompt</div>
-                <button onClick={()=>setShowSysModal(false)} aria-label="Close" title="Close">✕</button>
-              </div>
-              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+              <div style={{fontWeight:700, color:'#155e75'}}>Assistant System Prompt</div>
+              <button onClick={()=>setShowSysModal(false)} aria-label="Close" title="Close">✕</button>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+              <label style={{display:'flex', alignItems:'center', gap:6}}>
+                <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
+                  const on = e.target.checked;
+                  setSysMode(on ? 'custom' : 'auto');
+                  try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
+                }} />
+                <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
+              </label>
+              <span style={{fontSize:12, color:'#475569'}}>
+                {sysMode === 'custom' ? 'Using custom' : 'Using auto'}
+              </span>
+            </div>
+            <textarea
+              value={sysCustom}
+              onChange={e=>setSysCustom(e.target.value)}
+              placeholder={systemPrompt}
+              rows={8}
+              style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
+              disabled={sysMode !== 'custom'}
+            />
+            <div style={{marginTop:10, padding:10, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8}}>
+              <div style={{fontWeight:600, color:'#334155', marginBottom:6}}>Generation</div>
+              <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
-                  <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
-                    const on = e.target.checked;
-                    setSysMode(on ? 'custom' : 'auto');
-                    try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
-                  }} />
-                  <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
+                  <input type="checkbox" checked={genAuto} onChange={e=>{ setGenAuto(e.target.checked); try { localStorage.setItem('fk_gen_auto', e.target.checked ? '1' : '0'); } catch {} }} />
+                  <span style={{fontSize:12}}>Auto tokens (server chooses)</span>
                 </label>
-                <span style={{fontSize:12, color:'#475569'}}>
-                  {sysMode === 'custom' ? 'Using custom' : 'Using auto'}
-                </span>
-              </div>
-              <textarea
-                value={sysCustom}
-                onChange={e=>setSysCustom(e.target.value)}
-                placeholder={systemPrompt}
-                rows={8}
-                style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
-                disabled={sysMode !== 'custom'}
-              />
-              <div style={{display:'flex', gap:8, marginTop:10, justifyContent:'flex-end'}}>
-                <button onClick={()=>setShowSysModal(false)}>Close</button>
-                <button onClick={() => {
-                  try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
-                  setSysMode('custom');
-                  setMessages(prev => {
-                    const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
-                    return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
-                  });
-                  setShowSysModal(false);
-                }} disabled={sysMode !== 'custom'}>Apply</button>
-                <button onClick={() => {
-                  setSysMode('auto'); setSysCustom('');
-                  try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
-                  setShowSysModal(false);
-                }}>Reset to auto</button>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Max output tokens:</span>
+                  <input type="number" min={64} max={8192} value={genMaxTokens}
+                         onChange={e=>setGenMaxTokens(Math.max(64, Math.min(8192, Number(e.target.value)||0)))}
+                         style={{width:100, padding:'4px 6px', fontSize:12}} disabled={genAuto} />
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Continue tokens:</span>
+                  <input type="number" min={64} max={4096} value={genContTokens}
+                         onChange={e=>setGenContTokens(Math.max(64, Math.min(4096, Number(e.target.value)||0)))}
+                         style={{width:100, padding:'4px 6px', fontSize:12}} disabled={genAuto} />
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Continue attempts:</span>
+                  <input type="number" min={0} max={6} value={genContAttempts}
+                         onChange={e=>setGenContAttempts(Math.max(0, Math.min(6, Number(e.target.value)||0)))}
+                         style={{width:100, padding:'4px 6px', fontSize:12}} disabled={genAuto} />
+                </label>
               </div>
             </div>
+            <div style={{display:'flex', gap:8, marginTop:10, justifyContent:'flex-end'}}>
+              <button onClick={()=>setShowSysModal(false)}>Close</button>
+              <button onClick={() => {
+                try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
+                setSysMode('custom');
+                setMessages(prev => {
+                  const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
+                  return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
+                });
+                try {
+                  localStorage.setItem('fk_gen_max_tokens', String(genMaxTokens));
+                  localStorage.setItem('fk_gen_cont_tokens', String(genContTokens));
+                  localStorage.setItem('fk_gen_cont_attempts', String(genContAttempts));
+                  localStorage.setItem('fk_gen_auto', genAuto ? '1' : '0');
+                } catch {}
+                setShowSysModal(false);
+              }} disabled={sysMode !== 'custom'}>Apply</button>
+              <button onClick={() => {
+                setSysMode('auto'); setSysCustom('');
+                try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
+                try { localStorage.removeItem('fk_gen_max_tokens'); localStorage.removeItem('fk_gen_cont_tokens'); localStorage.removeItem('fk_gen_cont_attempts'); localStorage.removeItem('fk_gen_auto'); } catch {}
+                setShowSysModal(false);
+              }}>Reset to auto</button>
+            </div>
           </div>
+        </div>
         )}
         {showToolDiag && toolDebug && (
           <div style={{marginTop:8, padding:10, background:'#f6f8fa', border:'1px solid #e5e7eb', borderRadius:8}}>

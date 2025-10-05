@@ -84,6 +84,31 @@ function auditTool(rec) {
 
 // Tool-enabled chat orchestration endpoint (non-streaming)
 // Body: { messages: OpenAI-like messages, model?: string }
+function estimateTokenPlan(messages, fallback) {
+  try {
+    const msgs = Array.isArray(messages) ? messages : [];
+    const firstUser = msgs.find(m => m && m.role === 'user');
+    const lastUser = [...msgs].reverse().find(m => m && m.role === 'user');
+    const text = String((firstUser && firstUser.content) || '').toLowerCase();
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const longHints = /(novella|chapter|chapters|book|long\s+story|epic|act\s+\d|scene\s+\d)/i.test(text);
+    const shortHints = /(summary|tl;dr|brief|concise)/i.test(text);
+    const outlineHints = /(outline|bulleted|bullet|list|steps|step-by-step)/i.test(text);
+    let maxOut = 1536;
+    if (longHints || words > 150) maxOut = 3072;
+    if (words > 300) maxOut = 4096;
+    if (shortHints && words < 60) maxOut = 768;
+    if (outlineHints && !longHints) maxOut = Math.max(1024, Math.min(2048, Math.floor(words * 6)));
+    maxOut = Math.max(512, Math.min(4096, maxOut));
+    let contOut = Math.min(2048, Math.max(512, Math.floor(maxOut * 0.66)));
+    let contMax = longHints ? 4 : 2;
+    if (lastUser && /continue\.?$/.test(String(lastUser.content || '').toLowerCase().trim())) contMax = Math.max(contMax, 3);
+    return { maxOut, contOut, contMax };
+  } catch {
+    return fallback || { maxOut: 1536, contOut: 1024, contMax: 3 };
+  }
+}
+
 app.post('/api/chat', async (req, res) => {
   try {
     metrics.totalRequests += 1;
@@ -93,7 +118,7 @@ app.post('/api/chat', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model, max_tokens } = req.body || {};
+    const { messages, model, max_tokens, auto_tokens } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -101,7 +126,10 @@ app.post('/api/chat', async (req, res) => {
     const upstreamBase = targetOrigin + '/v1';
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = resolveAllowedTools();
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : undefined });
+    const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens };
+    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });
+    if (!out.debug) out.debug = {};
+    out.debug.tokenPlan = plan;
     try {
       // accumulate tool metrics + audit
       const diags = out?.debug?.diagnostics || [];
@@ -233,7 +261,7 @@ app.post('/api/chat/stream', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model, max_tokens, cont_tokens, cont_attempts } = req.body || {};
+    const { messages, model, max_tokens, cont_tokens, cont_attempts, auto_tokens } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -242,7 +270,8 @@ app.post('/api/chat/stream', async (req, res) => {
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = resolveAllowedTools();
     // First: run tool loop non-streaming to produce convo with tool results
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : undefined });
+    const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens, contOut: cont_tokens, contMax: cont_attempts };
+    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });
     const convo = Array.isArray(out?.messages) ? out.messages : messages;
 
     // Now: stream the final turn from upstream
@@ -257,9 +286,9 @@ app.post('/api/chat/stream', async (req, res) => {
       const ticks = (t.match(/```/g) || []).length;
       return (ticks % 2 === 1);
     };
-    const maxOut = (typeof max_tokens === 'number' && max_tokens > 0) ? max_tokens : 1536;
-    const contOut = (typeof cont_tokens === 'number' && cont_tokens > 0) ? cont_tokens : 1024;
-    const contMax = (typeof cont_attempts === 'number' && cont_attempts >= 0) ? Math.min(cont_attempts, 6) : 3;
+    const maxOut = (typeof plan.maxOut === 'number' && plan.maxOut > 0) ? plan.maxOut : 1536;
+    const contOut = (typeof plan.contOut === 'number' && plan.contOut > 0) ? plan.contOut : 1024;
+    const contMax = (typeof plan.contMax === 'number' && plan.contMax >= 0) ? Math.min(plan.contMax, 6) : 3;
     const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: maxOut };
     const upstream = await fetch(url, {
       method: 'POST',
@@ -277,8 +306,10 @@ app.post('/api/chat/stream', async (req, res) => {
       Connection: 'keep-alive',
     });
     try {
+      const debug = out?.debug || {};
+      debug.tokenPlan = { maxOut, contOut, contMax };
       res.write('event: fk-orchestration\n');
-      res.write('data: ' + JSON.stringify({ messages: convo, debug: out?.debug || null }) + '\n\n');
+      res.write('data: ' + JSON.stringify({ messages: convo, debug }) + '\n\n');
     } catch {}
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder('utf-8');

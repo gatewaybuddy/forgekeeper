@@ -40,11 +40,11 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
 }
 
 // Call server-side tool orchestrator (non-streaming). Useful when tools are required.
-export async function chatViaServer({ model, messages, maxTokens }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; }): Promise<ChatOnceResult> {
+export async function chatViaServer({ model, messages, maxTokens, autoTokens }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; }): Promise<ChatOnceResult> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined }),
+    body: JSON.stringify({ model, messages, max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined, auto_tokens: !!autoTokens }),
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
@@ -171,6 +171,7 @@ export async function streamViaServer({
   maxTokens,
   contTokens,
   contAttempts,
+  autoTokens,
 }: {
   model: string;
   messages: ChatMessageReq[];
@@ -182,12 +183,13 @@ export async function streamViaServer({
   maxTokens?: number;
   contTokens?: number;
   contAttempts?: number;
+  autoTokens?: boolean;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens, cont_tokens: contTokens, cont_attempts: contAttempts }),
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, cont_tokens: contTokens, cont_attempts: contAttempts, auto_tokens: !!autoTokens }),
     signal
   });
   if (!resp.ok || !resp.body) {
