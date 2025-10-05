@@ -90,9 +90,13 @@ services:
       FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
       FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
       FRONTEND_ENABLE_POWERSHELL: ${FRONTEND_ENABLE_POWERSHELL:-1}
+      FRONTEND_ENABLE_BASH: ${FRONTEND_ENABLE_BASH:-1}
       PWSH_PATH: ${PWSH_PATH:-/usr/bin/pwsh}
+      BASH_PATH: ${BASH_PATH:-/bin/bash}
       # Optional working directory for PowerShell tool
       # PWSH_CWD: /workspace
+      # Optional working directory for Bash tool
+      # BASH_CWD: /workspace
       # Enable dynamic tool reload/write endpoints (dev only)
       FRONTEND_ENABLE_SELF_UPDATE: ${FRONTEND_ENABLE_SELF_UPDATE:-1}
       # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.

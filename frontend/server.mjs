@@ -28,9 +28,19 @@ app.get('/config.json', async (_req, res) => {
   const tools = await getToolDefs().catch(() => []);
   const names = Array.isArray(tools) ? tools.map(t => t?.function?.name).filter(Boolean) : [];
   const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
+  const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
   const allow = (process.env.TOOL_ALLOW || '').trim();
   const cwd = process.env.PWSH_CWD || null;
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, allow, cwd } }));
+  // Detect if /app/tools is a separate mount (bind-mounted)
+  let storage = { path: '/app/tools', bindMounted: false };
+  try {
+    const s = fs.statSync('/app/tools');
+    const p = fs.statSync('/app');
+    if (s && p && typeof s.dev === 'number' && typeof p.dev === 'number') {
+      storage.bindMounted = s.dev !== p.dev;
+    }
+  } catch {}
+  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, allow, cwd, storage } }));
 });
 
 // Resolve tool allowlist from env
