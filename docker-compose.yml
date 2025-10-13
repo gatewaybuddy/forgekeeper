@@ -86,6 +86,7 @@ services:
       args:
         VITE_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
         VITE_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
+    env_file: ./.env
     environment:
       FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
       FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
