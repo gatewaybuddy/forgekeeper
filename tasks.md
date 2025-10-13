@@ -39,6 +39,84 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 
 ## Detailed Scope and Guardrails
 
+### T101 - Reasoning Modes (off | brief | two_phase)
+- Goal: Introduce selectable reasoning modes with safe defaults and small analysis budgets.
+- Scope:
+  - Add `FRONTEND_REASONING_MODE` env (values: `off|brief|two_phase`, default `brief`).
+  - In server orchestrator: gate Harmony analysis extraction and streaming by mode; for `off` skip analysis; for `brief` stream and cap; for `two_phase` stop after analysis.
+  - UI: expose a simple selector in dev menu; persist choice in `localStorage`.
+  - Docs: describe modes and when to use which.
+- Out of Scope:
+  - Non-Harmony model-specific templates beyond current support.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.harmony.mjs`, `forgekeeper/frontend/src/components/Chat.tsx`, `forgekeeper/frontend/src/lib/chatClient.ts`, `forgekeeper/README.md`.
+- Done When:
+  - Changing the selector alters server behavior without restarting (via env or live toggle).
+  - In `brief`, reasoning is streamed and capped; in `off`, no reasoning field emitted; in `two_phase`, Phase 1 halts before final.
+- Test Level: smoke (manual) + unit (delta parsing helper).
+
+### T102 - Reasoning Budget & Caps
+- Goal: Keep analysis concise and predictable.
+- Scope:
+  - Add `FRONTEND_REASONING_MAX_TOKENS` (default 192) and enforce in Harmony rendering/streaming.
+  - Align `FRONTEND_TOOL_MAX_ITERS` default with orchestrator loop cap (3) and enforce timeouts per tool call (`FRONTEND_TOOL_TIMEOUT_MS`).
+- Out of Scope:
+  - Per-tool custom timeouts.
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/server.tools.mjs`, `forgekeeper/README.md`.
+- Done When:
+  - A long prompt shows truncated analysis near the configured budget; tool loops abort after the configured iter/timeout.
+- Test Level: unit (budget estimator) + smoke.
+
+### T103 - Stop & Revise (Developer Message)
+- Goal: Allow mid-stream abort and relaunch with targeted guidance.
+- Scope:
+  - UI: add a "Stop & Revise" action to stop current stream and open a small textarea for a developer note.
+  - Server: accept an optional `developer` message role and ensure Harmony renderer includes it as `<|start|>developer`.
+  - Orchestrator: on relaunch, preserve prior context + inject the developer note before the last user turn.
+- Out of Scope:
+  - Persisting these notes across sessions.
+- Allowed Touches: `forgekeeper/frontend/src/components/Chat.tsx`, `forgekeeper/frontend/server.harmony.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`, `forgekeeper/README.md`.
+- Done When:
+  - Aborting and relaunching with a developer note materially changes the output and the note appears in the Harmony prompt (debug mode).
+- Test Level: smoke.
+
+### T104 - Two‑Phase Harmony (Approve Analysis → Generate Final)
+- Goal: Add a gated two-call flow for high-risk or ambiguous tasks.
+- Scope:
+  - Phase 1 endpoint: render with `prefillFinal=false` and stop at `<|channel|>final` tag; return `assistant.reasoning` only.
+  - UI: show analysis with an editable textarea; "Approve & Continue" triggers Phase 2.
+  - Phase 2 endpoint: include approved analysis as assistant analysis + optional developer message; prefill final channel and return `assistant.content`.
+- Out of Scope:
+  - Persisting approval history or publishing analysis externally.
+- Allowed Touches: `forgekeeper/frontend/server.harmony.mjs`, `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/src/components/Chat.tsx`, `forgekeeper/frontend/src/lib/chatClient.ts`, `forgekeeper/README.md`.
+- Done When:
+  - Phase 1 returns only analysis; Phase 2 produces final that references approved analysis; toggle controlled by `FRONTEND_REASONING_MODE=two_phase`.
+- Test Level: integration (end-to-end through UI).
+
+### T105 - Reflection Pass (Optional)
+- Goal: Add an optional, low-cost self-critique step with a tiny correction budget.
+- Scope:
+  - Add `FRONTEND_REFLECTION_ENABLED=1` to enable; orchestrator runs a checklist prompt after final and applies a small follow-up call if corrections are found.
+  - Log that reflection ran and how many tokens were used.
+- Out of Scope:
+  - Heavy multi-round debate or large second-pass rewrites.
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`, `forgekeeper/README.md`, `docs/reflection.md`.
+- Done When:
+  - With reflection enabled, at least one small correction can be observed on a seeded failing example; logs show token usage.
+- Test Level: smoke + doc example.
+
+### T106 - Context Hygiene & Compaction Polish
+- Goal: Keep transcripts within budget and semantically relevant.
+- Scope:
+  - Tune compaction to prioritize (system|developer) + last user + last 10 turns + tool summaries + rolling summary.
+  - Raise `FRONTEND_CTX_LIMIT` to match `LLAMA_N_CTX` by default and verify budgeting math.
+  - Add diagnostics to `/api/diagnose` to show compaction method and token estimates.
+- Out of Scope:
+  - Tokenizer-accurate counting (approximation acceptable).
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/src/components/Chat.tsx`.
+- Done When:
+  - Diagnostics show compaction method + before/after estimates; long chats stay within budget without losing the recent tool I/O context.
+- Test Level: smoke.
+
 ### T11 — Harden ToolShell execution sandbox and gating
 - Goal: Lock down the Node-based ToolShell so only curated commands run with clear telemetry and env toggles.
 - Scope:

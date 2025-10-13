@@ -54,9 +54,46 @@ Phase 3 — DevX and CI
 - Add CI job for vLLM health and basic chat verification (gateway or local).
 - Add PR templates and labels for the new track.
 
-Phase 4 — Feature Bring-up (incremental)
+Phase 4 - Feature Bring-up (incremental)
 - Reintroduce components from `archive/` as needed, behind clear flags.
 - Maintain tests for every reintroduced unit.
+
+## Reasoning UX & Orchestration (New Track)
+
+Goals
+- Provide predictable, debuggable reasoning flows for chat and code edits.
+- Let users stop, refine, and relaunch with targeted guidance without losing context.
+- Keep deterministic defaults for code/tooling; allow higher entropy for ideation where explicitly enabled.
+
+Key Capabilities
+- Reasoning modes: `off` | `brief` | `two_phase`.
+  - `off`: do not request/parse analysis; final only.
+  - `brief` (default): request analysis with a small budget and stream it; render in a collapsible box.
+  - `two_phase`: Phase 1 emits analysis only; user can edit/approve; Phase 2 generates final from the approved plan.
+- Budgets and caps: small analysis budget (128–256 tokens) and hard limits for tool iterations and auto-continue.
+- Stop & Revise: abort the current stream, inject a developer steering message, and relaunch.
+- Reflection pass (optional): cheap follow-up call that critiques the draft against a checklist; applies a small correction budget.
+- Context hygiene: sliding-window + summary compaction aligned to core context (4096 right now); keep only last system/developer, last user, recent tools I/O, and a short rolling summary.
+
+Feature Flags (proposed)
+- `FRONTEND_REASONING_MODE`: `off|brief|two_phase` (default `brief`).
+- `FRONTEND_REASONING_MAX_TOKENS`: integer (default 192).
+- `FRONTEND_TOOL_MAX_ITERS`: integer (default 3); `FRONTEND_TOOL_TIMEOUT_MS` (default 20000).
+- `FRONTEND_REFLECTION_ENABLED`: `0|1` (default `0`).
+- `FRONTEND_CTX_LIMIT`: already present; keep aligned with `LLAMA_N_CTX`.
+
+Milestones
+- M-R1: Brief Reasoning Mode (streaming, capped, deterministic).
+- M-R2: Stop & Revise (developer message) and deterministic relaunch.
+- M-R3: Two‑Phase Harmony (Approve analysis → Generate final) behind a flag.
+- M-R4: Optional Reflection Pass (checklist‑driven critique + tiny fix budget).
+- M-R5: Context Hygiene & Compaction polish (budget-aware, tool transcript focusing).
+
+Exit Criteria
+- Reasoning appears in UI when enabled; absent when off.
+- Abort → Revise relaunch works with a developer message and preserves prior context.
+- Two‑phase flow: Phase 1 halts at analysis; Phase 2 consumes the approved analysis plus edits and produces a final.
+- Reflection pass, when enabled, edits only within its token budget and logs that it ran.
 
 ## Phase Exit Criteria
 
