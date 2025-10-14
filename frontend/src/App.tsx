@@ -147,6 +147,7 @@ export default function App() {
           toolNames={toolNames}
           toolMetadata={toolMetadata}
           toolStorage={toolStorage || undefined}
+          repoWrite={toolCaps?.repoWrite}
         />
       </div>
     </div>

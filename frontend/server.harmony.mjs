@@ -190,3 +190,58 @@ function findFirst(s, needles) {
   }
   return best;
 }
+
+// --- Simple tool-call protocol helpers for Harmony text prompts ---
+
+// Parse one or more <tool_call>{...}</tool_call> blocks from text.
+// Returns an array of objects with at least { name, arguments } when valid.
+export function extractHarmonyToolCalls(text) {
+  try {
+    if (!text) return [];
+    const t = String(text);
+    const re = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+    const out = [];
+    for (const m of t.matchAll(re)) {
+      const raw = (m[1] || '').trim();
+      try {
+        const obj = JSON.parse(raw);
+        const name = obj?.name;
+        const args = obj?.arguments;
+        if (typeof name === 'string' && (typeof args === 'object' || typeof args === 'undefined')) {
+          out.push({ name, arguments: args || {}, id: obj?.id || null });
+        }
+      } catch { /* ignore invalid blocks */ }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+// Render tool results as one or more <tool_result>{...}</tool_result> blocks suitable
+// for inclusion in a developer message so the model can continue.
+export function renderHarmonyToolResults(results) {
+  try {
+    const blocks = [];
+    for (const r of (Array.isArray(results) ? results : [])) {
+      const payload = {
+        name: r?.name || null,
+        id: r?.id || null,
+        result: r?.result,
+      };
+      blocks.push(`<tool_result>${JSON.stringify(payload)}</tool_result>`);
+    }
+    return blocks.join('\n');
+  } catch {
+    return '';
+  }
+}
+
+// Strip any custom <tool_call> or <tool_result> blocks from text for clean display.
+export function stripHarmonyToolTags(text) {
+  try {
+    return String(text || '').replace(/<tool_(?:call|result)>[\s\S]*?<\/tool_(?:call|result)>/g, '').trim();
+  } catch {
+    return String(text || '');
+  }
+}

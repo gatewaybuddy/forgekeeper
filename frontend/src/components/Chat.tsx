@@ -184,6 +184,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   );
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [fkFinal, setFkFinal] = useState('');
   const [showReasoning, setShowReasoning] = useState(true);
   const [toolDebug, setToolDebug] = useState<any>(null);
   const [showToolDiag, setShowToolDiag] = useState(false);
@@ -192,6 +193,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const endRef = useRef<HTMLDivElement | null>(null);
   const [nearBottom, setNearBottom] = useState(true);
   const [metrics, setMetrics] = useState<any>(null);
+  const [diag, setDiag] = useState<any>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
   // System prompt (auto from tools vs user override)
   const [sysMode, setSysMode] = useState<'auto' | 'custom'>('auto');
@@ -202,6 +206,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [toolAllow, setToolAllow] = useState<string>('');
   const [bashEnabled, setBashEnabled] = useState<boolean | null>(null);
   const [bashCwd, setBashCwd] = useState<string>('');
+  const [httpEnabled, setHttpEnabled] = useState<boolean | null>(null);
+  const [httpInfo, setHttpInfo] = useState<{ maxBytes: number; timeoutMs: number } | null>(null);
   // Repo editor state
   const [repoPath, setRepoPath] = useState<string>('');
   const [repoContent, setRepoContent] = useState<string>('');
@@ -211,10 +217,15 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [showSysModal, setShowSysModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
   // Generation controls
-  const [genMaxTokens, setGenMaxTokens] = useState<number>(1536);
-  const [genContTokens, setGenContTokens] = useState<number>(1024);
-  const [genContAttempts, setGenContAttempts] = useState<number>(3);
+  const [genMaxTokens, setGenMaxTokens] = useState<number>(512);
+  const [genContTokens, setGenContTokens] = useState<number>(512);
+  const [genContAttempts, setGenContAttempts] = useState<number>(0);
+  const [genTemp, setGenTemp] = useState<number>(0.0);
+  const [genTopP, setGenTopP] = useState<number>(0.4);
   const [genAuto, setGenAuto] = useState<boolean>(false);
+  // Send strategy: auto chooses stream vs block based on prompt
+  type SendStrategy = 'auto' | 'stream' | 'block';
+  const [sendStrategy, setSendStrategy] = useState<SendStrategy>('auto');
 
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
@@ -232,6 +243,20 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     } catch {}
   }, []);
 
+  const runDiagnostics = useCallback(async () => {
+    try {
+      setDiagLoading(true);
+      const r = await fetch('/api/diagnose');
+      if (!r.ok) throw new Error(await r.text());
+      const j = await r.json();
+      setDiag(j);
+    } catch (e:any) {
+      setDiag({ ok: false, errors: [e?.message || String(e)] });
+    } finally {
+      setDiagLoading(false);
+    }
+  }, []);
+
   // Load generation controls + system override from storage
   useEffect(() => {
     try {
@@ -243,6 +268,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       if (ct > 0) setGenContTokens(ct);
       if (ca >= 0) setGenContAttempts(ca);
       setGenAuto(au);
+      const tp = Number(localStorage.getItem('fk_gen_temp') || 'NaN');
+      const pp = Number(localStorage.getItem('fk_gen_top_p') || 'NaN');
+      if (!Number.isNaN(tp)) setGenTemp(Math.max(0, Math.min(2, tp)));
+      if (!Number.isNaN(pp)) setGenTopP(Math.max(0, Math.min(1, pp)));
       const mode = localStorage.getItem('fk_sys_prompt_mode') || 'auto';
       setSysMode(mode === 'custom' ? 'custom' : 'auto');
       const txt = localStorage.getItem('fk_sys_prompt_text') || '';
@@ -272,6 +301,12 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           setToolAllow(typeof j?.allow === 'string' ? j.allow : '');
           setBashEnabled(!!j?.bashEnabled);
           setBashCwd(typeof j?.bashCwd === 'string' ? j.bashCwd : '');
+          if (typeof j?.httpFetchEnabled === 'boolean') setHttpEnabled(!!j.httpFetchEnabled);
+          if (j?.httpFetch && typeof j.httpFetch === 'object') {
+            const mb = Number((j.httpFetch as any).maxBytes || 0);
+            const to = Number((j.httpFetch as any).timeoutMs || 0);
+            setHttpInfo({ maxBytes: mb, timeoutMs: to });
+          }
         }
       } catch {}
     })();
@@ -317,6 +352,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         maxTokens: genMaxTokens,
         contTokens: genContTokens,
         contAttempts: genContAttempts,
+        autoTokens: !!genAuto,
+        temperature: genTemp,
+        topP: genTopP,
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -324,7 +362,13 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           }
           if (payload?.debug) {
             setToolDebug(payload.debug);
+            try { setCompaction(payload.debug?.compaction ?? null); } catch {}
             if (payload.debug?.continuedTotal > 0) setContNotice(true);
+            try {
+              if ((payload as any)?.debug?.fkFinal && typeof (payload as any)?.debug?.content === 'string') {
+                setFkFinal((payload as any).debug.content);
+              }
+            } catch {}
           } else if (payload?.diagnostics) {
             setToolDebug({ diagnostics: payload.diagnostics });
           }
@@ -397,6 +441,48 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     abortRef.current?.abort();
   }, []);
 
+  const chooseSendMode = useCallback((text: string, history: Message[]): SendStrategy => {
+    try {
+      const t = text.toLowerCase();
+      const words = t.split(/\s+/).filter(Boolean).length;
+      const longHints = /(novella|chapter|chapters|book|long\s+story|epic|act\s+\d|scene\s+\d|step[- ]by[- ]step|explain in detail|write code|implement|function|class|regex|script|docker|compose|diff|patch|unit test|typescript|react|sql)/i.test(t);
+      const shortHints = /(summary|tl;dr|brief|concise|one sentence|quick answer|short answer|tiny)/i.test(t);
+      if (longHints) return 'stream';
+      if (shortHints && words < 60) return 'block';
+      if (words < 35 && /\?$/.test(t)) return 'block';
+      return 'stream';
+    } catch { return 'stream'; }
+  }, []);
+
+  const onSendSmart = useCallback(async () => {
+    const text = input.trim();
+    if (!text) return;
+    const mode = sendStrategy === 'auto' ? chooseSendMode(text, messages) : sendStrategy;
+    if (mode === 'block') {
+      // Run non-stream via server orchestrator
+      setInput('');
+      setContNotice(false);
+      const userMessage: Message = { role: 'user', content: text };
+      const baseHistory = [...messages, userMessage];
+      const requestHistory = toChatRequestMessages(baseHistory);
+      setToolDebug(null);
+      setMessages(prev => [...prev, userMessage]);
+      try {
+        const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP });
+        const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
+        setMessages(conv);
+        if (res.debug) setToolDebug(res.debug);
+        if (res.diagnostics) setToolDebug({ diagnostics: res.diagnostics });
+        await refreshMetrics();
+      } catch (e: any) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
+      }
+      return;
+    }
+    // Default to streaming
+    await onSend();
+  }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics]);
+
   const onSendOnce = useCallback(async () => {
     const text = input.trim();
     if (!text) return;
@@ -409,7 +495,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     setToolDebug(null);
     setStreaming(true);
     try {
-      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens });
+      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP });
+      try { setCompaction((res as any)?.debug?.compaction ?? null); } catch {}
       const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
       setMessages(conv);
       const debug = res.debug ?? res.raw?.debug ?? null;
@@ -503,6 +590,11 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
                 {m.content ? m.content : <span style={{color:'#aaa'}}>(no content)</span>}
               </div>
+              {i === messages.length - 1 && m.role === 'assistant' && toolDebug?.toolsUsed && Array.isArray(toolDebug.toolsUsed) && toolDebug.toolsUsed.length > 0 && (
+                <div style={{marginTop:6, display:'flex', gap:6, flexWrap:'wrap'}}>
+                  <span style={{fontSize:11, color:'#0f766e', background:'#ccfbf1', border:'1px solid #99f6e4', padding:'2px 6px', borderRadius:999}}>Used tools: {toolDebug.toolsUsed.join(', ')}</span>
+                </div>
+              )}
               {m.role === 'assistant' && showReasoning && (
                 <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
                   <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
@@ -530,12 +622,19 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             placeholder="Ask something..."
             value={input}
             onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if (e.key === 'Enter' && !e.shiftKey && canSend) onSend(); }}
+            onKeyDown={e=>{ if (e.key === 'Enter' && !e.shiftKey && canSend) onSendSmart(); }}
             style={{flex:1, padding:'10px 12px'}}
           />
-          <button disabled={!canSend} onClick={onSend}>Send (stream)</button>
-          <button disabled={!canSend} onClick={onSendOnce}>Send (block)</button>
-          
+          <button disabled={!canSend} onClick={onSendSmart}>Send</button>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <label style={{fontSize:12, color:'#555'}}>Mode</label>
+            <select value={sendStrategy} onChange={e=>setSendStrategy(e.target.value as SendStrategy)} style={{padding:'6px 8px', fontSize:12}}>
+              <option value="auto">auto</option>
+              <option value="stream">stream</option>
+              <option value="block">block</option>
+            </select>
+          </div>
+
           <button disabled={!streaming} onClick={onStop}>Stop</button>
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
@@ -565,9 +664,40 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             </>
           )}
         </small>
+        <div style={{marginTop:6}}>
+          <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
+        </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
             Auto-continued to complete the response.
+          </div>
+        )}
+        {diag && (
+          <div style={{marginTop:8, padding:10, background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:8}}>
+            <div style={{fontWeight:600, color:'#3730a3', marginBottom:6}}>Diagnostics</div>
+            <div style={{fontSize:12, color: diag.ok ? '#166534' : '#991b1b'}}>
+              Status: {diag.ok ? 'OK' : 'Issues detected'}
+              {Array.isArray(diag.errors) && diag.errors.length > 0 && (
+                <div style={{marginTop:4}}>Errors: {diag.errors.join('; ')}</div>
+              )}
+            </div>
+            <details style={{marginTop:8}} open>
+              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Environment</summary>
+              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.env, null, 2)}</pre>
+            </details>
+            <details style={{marginTop:8}} open>
+              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Mounts</summary>
+              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.mounts, null, 2)}</pre>
+            </details>
+            <details style={{marginTop:8}}>
+              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Upstream</summary>
+              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.upstream, null, 2)}</pre>
+            </details>
+          </div>
+        )}
+        {compaction && (
+          <div style={{marginTop:8, padding:8, background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:8, color:'#3730a3', fontSize:12}}>
+            Context summarized ({String(compaction?.method || 'auto')}). Budget ~{String(compaction?.budget || '')} tokens.
           </div>
         )}
         {metrics && (
@@ -635,6 +765,18 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                          onChange={e=>setGenContAttempts(Math.max(0, Math.min(6, Number(e.target.value)||0)))}
                          style={{width:100, padding:'4px 6px', fontSize:12}} disabled={genAuto} />
                 </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Temperature:</span>
+                  <input type="number" min={0} max={2} step={0.05} value={genTemp}
+                         onChange={e=>setGenTemp(Math.max(0, Math.min(2, Number(e.target.value)||0)))}
+                         style={{width:90, padding:'4px 6px', fontSize:12}} />
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12}}>Top‑p:</span>
+                  <input type="number" min={0} max={1} step={0.05} value={genTopP}
+                         onChange={e=>setGenTopP(Math.max(0, Math.min(1, Number(e.target.value)||0)))}
+                         style={{width:90, padding:'4px 6px', fontSize:12}} />
+                </label>
               </div>
             </div>
             <div style={{display:'flex', gap:8, marginTop:10, justifyContent:'flex-end'}}>
@@ -651,6 +793,8 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   localStorage.setItem('fk_gen_cont_tokens', String(genContTokens));
                   localStorage.setItem('fk_gen_cont_attempts', String(genContAttempts));
                   localStorage.setItem('fk_gen_auto', genAuto ? '1' : '0');
+                  localStorage.setItem('fk_gen_temp', String(genTemp));
+                  localStorage.setItem('fk_gen_top_p', String(genTopP));
                 } catch {}
                 setShowSysModal(false);
               }} disabled={sysMode !== 'custom'}>Apply</button>
@@ -713,6 +857,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <span style={{fontSize:12}}>Enable Bash tool</span>
                 </label>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <input type="checkbox" checked={!!httpEnabled} onChange={e=>setHttpEnabled(e.target.checked)} />
+                  <span style={{fontSize:12}}>Enable HTTP fetch tool</span>
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
                   <span style={{fontSize:12}}>Working dir (cwd):</span>
                   <input value={psCwd} onChange={e=>setPsCwd(e.target.value)} placeholder="/work" style={{padding:'4px 6px', fontSize:12}} />
                 </label>
@@ -733,14 +881,36 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <div>Repo mount: <code>/workspace</code> (mounted)</div>
                   <div>Self-update routes: <code>POST /api/tools/write</code>, <code>/api/tools/reload</code> (dev)</div>
                   <div>Repo write tool: <code>write_repo_file</code> (enable with FRONTEND_ENABLE_REPO_WRITE=1)</div>
+                  <div>HTTP fetch: {httpEnabled ? 'enabled' : 'disabled'}{httpInfo ? ` (max ${httpInfo.maxBytes} bytes, timeout ${httpInfo.timeoutMs} ms)` : ''}</div>
                 </div>
               </div>
+              {/* Inference settings */}
+              <div style={{marginTop:8, marginBottom:8, padding:10, background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8}}>
+                <div style={{fontWeight:600, color:'#14532d', marginBottom:6}}>Inference</div>
+                <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:6}}>
+                    <span style={{fontSize:12}}>Temperature:</span>
+                    <input type="number" min={0} max={2} step={0.05} value={genTemp}
+                           onChange={e=>setGenTemp(Math.max(0, Math.min(2, Number(e.target.value)||0)))}
+                           style={{width:90, padding:'4px 6px', fontSize:12}} />
+                  </label>
+                  <label style={{display:'flex', alignItems:'center', gap:6}}>
+                    <span style={{fontSize:12}}>Top‑p:</span>
+                    <input type="number" min={0} max={1} step={0.05} value={genTopP}
+                           onChange={e=>setGenTopP(Math.max(0, Math.min(1, Number(e.target.value)||0)))}
+                           style={{width:90, padding:'4px 6px', fontSize:12}} />
+                  </label>
+                  <div style={{fontSize:11, color:'#166534'}}>Lower = more deterministic and concise.</div>
+                </div>
+              </div>
+
               <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
                 <button onClick={()=>setShowToolsModal(false)}>Close</button>
                 <button onClick={async ()=>{
                   try {
-                    const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, bashEnabled: !!bashEnabled, cwd: psCwd || null, bashCwd: bashCwd || null, allow: toolAllow }) });
+                    const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, bashEnabled: !!bashEnabled, httpFetchEnabled: !!httpEnabled, cwd: psCwd || null, bashCwd: bashCwd || null, allow: toolAllow }) });
                     if (!r.ok) throw new Error(await r.text());
+                    try { localStorage.setItem('fk_gen_temp', String(genTemp)); localStorage.setItem('fk_gen_top_p', String(genTopP)); } catch {}
                     await refreshMetrics();
                     setShowToolsModal(false);
                   } catch (e:any) {

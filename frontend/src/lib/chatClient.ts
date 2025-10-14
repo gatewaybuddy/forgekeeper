@@ -40,11 +40,18 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
 }
 
 // Call server-side tool orchestrator (non-streaming). Useful when tools are required.
-export async function chatViaServer({ model, messages, maxTokens, autoTokens }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; }): Promise<ChatOnceResult> {
+export async function chatViaServer({ model, messages, maxTokens, autoTokens, temperature, topP }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; temperature?: number; topP?: number; }): Promise<ChatOnceResult> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined, auto_tokens: !!autoTokens }),
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined,
+      auto_tokens: !!autoTokens,
+      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+      top_p: (typeof topP === 'number' && !Number.isNaN(topP)) ? topP : undefined,
+    }),
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
@@ -172,6 +179,8 @@ export async function streamViaServer({
   contTokens,
   contAttempts,
   autoTokens,
+  temperature,
+  topP,
 }: {
   model: string;
   messages: ChatMessageReq[];
@@ -184,12 +193,23 @@ export async function streamViaServer({
   contTokens?: number;
   contAttempts?: number;
   autoTokens?: boolean;
+  temperature?: number;
+  topP?: number;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens, cont_tokens: contTokens, cont_attempts: contAttempts, auto_tokens: !!autoTokens }),
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      cont_tokens: contTokens,
+      cont_attempts: contAttempts,
+      auto_tokens: !!autoTokens,
+      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+      top_p: (typeof topP === 'number' && !Number.isNaN(topP)) ? topP : undefined,
+    }),
     signal
   });
   if (!resp.ok || !resp.body) {
@@ -244,6 +264,19 @@ export async function streamViaServer({
               debug: orchestrationDebug,
               diagnostics: orchestrationDiagnostics,
             });
+          } else if (currentEvent === 'fk-final') {
+            const fin = JSON.parse(data);
+            const c = typeof fin?.content === 'string' ? fin.content : '';
+            const r = typeof fin?.reasoning === 'string' ? fin.reasoning : '';
+            if (r && !finalReasoning) {
+              finalReasoning = r;
+              onDelta({ reasoningDelta: r });
+            }
+            if (c && !finalContent) {
+              finalContent = c;
+              onDelta({ contentDelta: c });
+            }
+            onOrchestration?.({ debug: { fkFinal: true, content: c } });
           } else {
             const chunk = JSON.parse(data);
             const choice = (chunk as any)?.choices?.[0];

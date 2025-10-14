@@ -51,6 +51,7 @@ COPY --from=build /app/dist ./dist
 # Copy server runtime files (tool orchestrator + registry + modular tools)
 COPY --from=build /app/server.mjs ./server.mjs
 COPY --from=build /app/server.orchestrator.mjs ./server.orchestrator.mjs
+COPY --from=build /app/server.harmony.mjs ./server.harmony.mjs
 COPY --from=build /app/server.tools.mjs ./server.tools.mjs
 COPY --from=build /app/tools ./tools
 

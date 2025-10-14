@@ -11,7 +11,11 @@ param(
   [switch]$NoStream,
   [int]$WaitSeconds = 600,
   [string]$Container = 'forgekeeper-llama-core-1',
-  [switch]$AutoWait
+  [switch]$AutoWait,
+  # Use Harmony-minimal prompt via /completions to get a concise final only
+  [switch]$HarmonyMinimal,
+  # Soft-limit for internal reasoning (tokens); appends guidance to the system message
+  [int]$ReasoningLimit
 )
 
 Set-StrictMode -Version Latest
@@ -46,6 +50,12 @@ elseif ($env:FK_CORE_GPU -and $env:FK_CORE_GPU -eq '0') {
 }
 
 $headers = @{ 'Authorization' = "Bearer $ApiKey" }
+
+# Apply a soft reasoning limit by enriching the system prompt
+if ($PSBoundParameters.ContainsKey('ReasoningLimit') -and $ReasoningLimit -gt 0) {
+  $System = ($System + "`nKeep internal analysis under $ReasoningLimit tokens. Output only the final answer in content.").Trim()
+}
+
 $body = @{ 
   model = $Model
   messages = @(
@@ -169,7 +179,27 @@ try {
   if ($AutoWait -and -not (Test-Health $BaseUrl)) {
     [void](Wait-For-Health -base $BaseUrl -timeoutSec $WaitSeconds -container $Container)
   }
-  if ($NoStream) { Invoke-Blocking -Headers $headers -Body $body }
+  if ($HarmonyMinimal) {
+    # Build minimal Harmony prompt for a concise final
+    $hm = @('<|start|>system<|message|>',
+            'Answer in one short, plain-English sentence. Do not include tags, code, or special symbols.',
+            '<|end|>',
+            '<|start|>user<|message|>', $Prompt, '<|end|>',
+            '<|start|>assistant<|channel|>final<|message|>') -join "`n"
+    $body2 = @{
+      model = $Model
+      prompt = $hm
+      temperature = $Temperature
+      max_tokens = $MaxTokens
+      stream = $false
+      stop = @('<|end|>','<|channel|>','<|return|>')
+    }
+    $resp = Invoke-RestMethod -Method Post -Uri ($apiBase + '/completions') -Headers $headers -ContentType 'application/json' -Body ($body2 | ConvertTo-Json -Depth 6)
+    $txt = [string]$resp.content
+    if (-not [string]::IsNullOrWhiteSpace($txt)) { Write-Host "[final] $txt" }
+    else { Write-Warning 'No final content returned.' }
+  }
+  elseif ($NoStream) { Invoke-Blocking -Headers $headers -Body $body }
   else { Invoke-Stream -Headers $headers -Body $body }
 } catch {
   Write-Warning "Request failed: $($_.Exception.Message)"

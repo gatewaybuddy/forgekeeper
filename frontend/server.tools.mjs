@@ -6,6 +6,8 @@ import { pathToFileURL } from 'node:url';
 let REGISTRY = new Map();
 let TOOL_DEFS_CACHE = [];
 let LAST_LOADED_AT = 0;
+// When static fallback is used, we delegate to the aggregated index module
+let STATIC_AGG = null;
 const TOOLS_DIR = path.resolve(process.cwd(), 'tools');
 const SELF_UPDATE_ENABLED = process.env.FRONTEND_ENABLE_SELF_UPDATE === '1';
 const WRITE_MAX = Number(process.env.TOOLS_SELF_MAX_BYTES || 64 * 1024);
@@ -36,6 +38,7 @@ async function tryDynamicLoad() {
   REGISTRY = tmpRegistry;
   TOOL_DEFS_CACHE = defs;
   LAST_LOADED_AT = Date.now();
+  STATIC_AGG = null;
   return { defs, count: defs.length };
 }
 
@@ -43,14 +46,9 @@ async function tryStaticFallback() {
   // Fall back to static aggregate if dynamic fails
   const agg = await import('./tools/index.mjs');
   TOOL_DEFS_CACHE = Array.isArray(agg.TOOL_DEFS) ? agg.TOOL_DEFS : [];
-  REGISTRY = new Map([
-    ['get_time', agg],
-    ['echo', agg],
-    ['read_dir', agg],
-    ['read_file', agg],
-    ['write_file', agg],
-    ['run_powershell', agg],
-  ]);
+  // In fallback mode we route all executions through the aggregator's runTool
+  STATIC_AGG = agg;
+  REGISTRY = new Map();
   LAST_LOADED_AT = Date.now();
   return { defs: TOOL_DEFS_CACHE, count: TOOL_DEFS_CACHE.length };
 }
@@ -79,10 +77,13 @@ export async function runTool(name, args) {
     const set = new Set(allow.split(',').map((s) => s.trim()).filter(Boolean));
     if (!set.has(name)) throw new Error(`Tool not allowed by policy: ${name}`);
   }
-  if (REGISTRY.size === 0) await reloadTools();
-  const mod = REGISTRY.get(name);
-  if (!mod || typeof mod.run !== 'function') throw new Error(`Unknown tool: ${name}`);
+  if (!STATIC_AGG && REGISTRY.size === 0) await reloadTools();
   try {
+    if (STATIC_AGG && typeof STATIC_AGG.runTool === 'function') {
+      return await STATIC_AGG.runTool(name, args || {});
+    }
+    const mod = REGISTRY.get(name);
+    if (!mod || typeof mod.run !== 'function') throw new Error(`Unknown tool: ${name}`);
     return await mod.run(args || {});
   } catch (e) {
     return `Tool error (${name}): ${e?.message || String(e)}`;

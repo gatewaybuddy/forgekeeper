@@ -6,12 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { getToolDefs, reloadTools, writeToolFile } from './server.tools.mjs';
+import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+// Force safe defaults if unset to handle GPT-OSS Harmony mismatch
+if (!process.env.FRONTEND_USE_HARMONY) process.env.FRONTEND_USE_HARMONY = '1';
+// Enable Harmony tool injection by default (can be disabled by setting to '0')
+if (!process.env.FRONTEND_HARMONY_TOOLS) process.env.FRONTEND_HARMONY_TOOLS = '1';
 
 app.use(compression());
 // JSON parser only for API routes to avoid interfering with SSE proxying
@@ -29,6 +34,7 @@ app.get('/config.json', async (_req, res) => {
   const names = Array.isArray(tools) ? tools.map(t => t?.function?.name).filter(Boolean) : [];
   const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
   const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
+  const httpFetchEnabled = process.env.FRONTEND_ENABLE_HTTP_FETCH === '1';
   const selfUpdateEnabled = process.env.FRONTEND_ENABLE_SELF_UPDATE === '1';
   const allow = (process.env.TOOL_ALLOW || '').trim();
   const cwd = process.env.PWSH_CWD || null;
@@ -55,7 +61,15 @@ app.get('/config.json', async (_req, res) => {
     allowed: (process.env.REPO_WRITE_ALLOW || 'frontend/Dockerfile,docker-compose.yml').split(',').map(s => s.trim()).filter(Boolean),
     maxBytes: Number(process.env.REPO_WRITE_MAX_BYTES || 128 * 1024),
   };
-  res.end(JSON.stringify({ apiBase: '/v1', model, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite } }));
+  const isGptOss = (s) => { try { const n = String(s||'').toLowerCase(); return n.includes('gpt-oss') || n.includes('gpt_oss') || n.includes('gptoss') || n.includes('oss-') || n.includes('harmony'); } catch { return false; } };
+  const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || isGptOss(model);
+  const harmonyToolsEnabled = process.env.FRONTEND_HARMONY_TOOLS === '1';
+  const httpFetch = {
+    enabled: httpFetchEnabled,
+    maxBytes: Number(process.env.HTTP_FETCH_MAX_BYTES || 64 * 1024),
+    timeoutMs: Number(process.env.HTTP_FETCH_TIMEOUT_MS || 8000),
+  };
+  res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
 });
 
 // Resolve tool allowlist from env
@@ -107,6 +121,8 @@ function auditTool(rec) {
 // Body: { messages: OpenAI-like messages, model?: string }
 function estimateTokenPlan(messages, fallback) {
   try {
+    const hardMax = Number(process.env.FRONTEND_MAX_TOKENS || '4096');
+    const hardCont = Number(process.env.FRONTEND_CONT_TOKENS || Math.floor(hardMax * 0.5));
     const msgs = Array.isArray(messages) ? messages : [];
     const firstUser = msgs.find(m => m && m.role === 'user');
     const lastUser = [...msgs].reverse().find(m => m && m.role === 'user');
@@ -115,18 +131,34 @@ function estimateTokenPlan(messages, fallback) {
     const longHints = /(novella|chapter|chapters|book|long\s+story|epic|act\s+\d|scene\s+\d)/i.test(text);
     const shortHints = /(summary|tl;dr|brief|concise)/i.test(text);
     const outlineHints = /(outline|bulleted|bullet|list|steps|step-by-step)/i.test(text);
-    let maxOut = 1536;
-    if (longHints || words > 150) maxOut = 3072;
-    if (words > 300) maxOut = 4096;
-    if (shortHints && words < 60) maxOut = 768;
-    if (outlineHints && !longHints) maxOut = Math.max(1024, Math.min(2048, Math.floor(words * 6)));
-    maxOut = Math.max(512, Math.min(4096, maxOut));
-    let contOut = Math.min(2048, Math.max(512, Math.floor(maxOut * 0.66)));
-    let contMax = longHints ? 4 : 2;
-    if (lastUser && /continue\.?$/.test(String(lastUser.content || '').toLowerCase().trim())) contMax = Math.max(contMax, 3);
+    // Aim high by default; let upstream cap if needed
+    let maxOut = hardMax;
+    if (shortHints && words < 60) maxOut = Math.min(hardMax, 1536);
+    if (outlineHints && !longHints) maxOut = Math.min(hardMax, Math.max(2048, Math.floor(words * 8)));
+    let contOut = Math.min(hardMax, Math.max(1024, Math.floor(maxOut * 0.66), hardCont));
+    let contMax = longHints ? 4 : 3;
+    if (lastUser && /continue\.?$/.test(String(lastUser.content || '').toLowerCase().trim())) contMax = Math.max(contMax, 4);
     return { maxOut, contOut, contMax };
   } catch {
-    return fallback || { maxOut: 1536, contOut: 1024, contMax: 3 };
+    const hardMax = Number(process.env.FRONTEND_MAX_TOKENS || '4096');
+    const hardCont = Number(process.env.FRONTEND_CONT_TOKENS || Math.floor(hardMax * 0.5));
+    return fallback || { maxOut: hardMax, contOut: hardCont, contMax: 4 };
+  }
+}
+
+// Safer completion heuristic for streamed responses
+function isProbablyIncomplete(text) {
+  try {
+    if (!text) return true;
+    const t = String(text).trim();
+    if (t.length < 32) return true;
+    const terminals = ".!?\\\"'”’)]}`»";
+    const last = t.slice(-1);
+    if (!terminals.includes(last)) return true;
+    const ticks = (t.match(/```/g) || []).length;
+    return (ticks % 2 === 1);
+  } catch {
+    return false;
   }
 }
 
@@ -139,7 +171,7 @@ app.post('/api/chat', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model, max_tokens, auto_tokens } = req.body || {};
+    const { messages, model, max_tokens, auto_tokens, temperature, top_p, presence_penalty, frequency_penalty } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -148,7 +180,18 @@ app.post('/api/chat', async (req, res) => {
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = await resolveAllowedTools();
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens };
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });
+    const out = await orchestrateWithTools({
+      baseUrl: upstreamBase,
+      model: mdl,
+      messages,
+      tools: allowed,
+      maxIterations: 4,
+      maxTokens: plan.maxOut,
+      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+      topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+      presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+      frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+    });
     if (!out.debug) out.debug = {};
     out.debug.tokenPlan = plan;
     try {
@@ -158,8 +201,11 @@ app.post('/api/chat', async (req, res) => {
         if (Array.isArray(step.tools)) {
           metrics.totalToolCalls += step.tools.length;
           for (const t of step.tools) {
-            auditTool({ name: t?.name || null, args: t?.args || null, iter: step.iter || 0, ip });
+            auditTool({ name: t?.name || null, args: t?.args || null, iter: step.iter || 0, ip, ms: t?.ms || null, preview: t?.preview || null, error: t?.error || null });
           }
+        }
+        if (step?.autoExecuted) {
+          auditTool({ name: step.autoExecuted, args: {}, iter: step.iter || 0, ip, autoExecuted: true });
         }
       }
     } catch {}
@@ -174,10 +220,16 @@ app.get('/api/tools/config', async (_req, res) => {
   try {
     const powershellEnabled = process.env.FRONTEND_ENABLE_POWERSHELL === '1';
     const bashEnabled = process.env.FRONTEND_ENABLE_BASH === '1';
+    const httpFetchEnabled = process.env.FRONTEND_ENABLE_HTTP_FETCH === '1';
     const allow = (process.env.TOOL_ALLOW || '').trim();
     const cwd = process.env.PWSH_CWD || null;
     const bashCwd = process.env.BASH_CWD || null;
-    res.json({ powershellEnabled, bashEnabled, allow, cwd, bashCwd });
+    const httpFetch = {
+      enabled: httpFetchEnabled,
+      maxBytes: Number(process.env.HTTP_FETCH_MAX_BYTES || 64 * 1024),
+      timeoutMs: Number(process.env.HTTP_FETCH_TIMEOUT_MS || 8000),
+    };
+    res.json({ powershellEnabled, bashEnabled, httpFetchEnabled, httpFetch, allow, cwd, bashCwd });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }
@@ -185,12 +237,15 @@ app.get('/api/tools/config', async (_req, res) => {
 
 app.post('/api/tools/config', async (req, res) => {
   try {
-    const { powershellEnabled, bashEnabled, allow, cwd, bashCwd } = req.body || {};
+    const { powershellEnabled, bashEnabled, httpFetchEnabled, allow, cwd, bashCwd } = req.body || {};
     if (typeof powershellEnabled === 'boolean') {
       process.env.FRONTEND_ENABLE_POWERSHELL = powershellEnabled ? '1' : '0';
     }
     if (typeof bashEnabled === 'boolean') {
       process.env.FRONTEND_ENABLE_BASH = bashEnabled ? '1' : '0';
+    }
+    if (typeof httpFetchEnabled === 'boolean') {
+      process.env.FRONTEND_ENABLE_HTTP_FETCH = httpFetchEnabled ? '1' : '0';
     }
     if (typeof allow === 'string') {
       process.env.TOOL_ALLOW = allow;
@@ -207,9 +262,15 @@ app.post('/api/tools/config', async (req, res) => {
       ok: true,
       powershellEnabled: process.env.FRONTEND_ENABLE_POWERSHELL === '1',
       bashEnabled: process.env.FRONTEND_ENABLE_BASH === '1',
+      httpFetchEnabled: process.env.FRONTEND_ENABLE_HTTP_FETCH === '1',
       allow: (process.env.TOOL_ALLOW || '').trim(),
       cwd: process.env.PWSH_CWD || null,
       bashCwd: process.env.BASH_CWD || null,
+      httpFetch: {
+        enabled: process.env.FRONTEND_ENABLE_HTTP_FETCH === '1',
+        maxBytes: Number(process.env.HTTP_FETCH_MAX_BYTES || 64 * 1024),
+        timeoutMs: Number(process.env.HTTP_FETCH_TIMEOUT_MS || 8000),
+      }
     });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
@@ -287,6 +348,42 @@ app.get('/metrics', (_req, res) => {
   res.json(metrics);
 });
 
+// Self-diagnostics endpoint: checks env, mounts, upstream health, tools
+app.get('/api/diagnose', async (_req, res) => {
+  const results = { ok: true, warnings: [], errors: [], env: {}, mounts: {}, upstream: {}, tools: {}, metrics };
+  try {
+    results.env = {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      FRONTEND_VLLM_API_BASE: process.env.FRONTEND_VLLM_API_BASE || null,
+      FRONTEND_VLLM_MODEL: process.env.FRONTEND_VLLM_MODEL || null,
+      FRONTEND_ENABLE_POWERSHELL: process.env.FRONTEND_ENABLE_POWERSHELL || '0',
+      FRONTEND_ENABLE_BASH: process.env.FRONTEND_ENABLE_BASH || '0',
+      REPO_ROOT: process.env.REPO_ROOT || '/workspace',
+    };
+    const checkMount = (p) => { try { const s = fs.statSync(p); return { exists: true, isDir: s.isDirectory?.() ?? true, dev: s.dev ?? null }; } catch (e) { return { exists: false, error: String(e) }; } };
+    const canWrite = (p) => { try { fs.accessSync(p, fs.constants.W_OK); return true; } catch { return false; } };
+    results.mounts = {
+      tools: { path: '/app/tools', ...checkMount('/app/tools'), writable: canWrite('/app/tools') },
+      workspace: { path: process.env.REPO_ROOT || '/workspace', ...checkMount(process.env.REPO_ROOT || '/workspace'), writable: canWrite(process.env.REPO_ROOT || '/workspace') },
+    };
+    try {
+      const defs = await getToolDefs().catch(() => []);
+      results.tools = { count: Array.isArray(defs) ? defs.length : 0, names: Array.isArray(defs) ? defs.map(d => d?.function?.name).filter(Boolean) : [] };
+    } catch {}
+    try {
+      const hu = await fetch(targetOrigin + '/healthz').catch(() => null);
+      if (hu && hu.status !== 404) results.upstream.healthz = { status: hu.status };
+      const h = await fetch(targetOrigin + '/health').catch(() => null);
+      results.upstream.health = h ? { status: h.status } : { error: 'no_response' };
+      const m = await fetch(targetOrigin + '/v1/models').catch(() => null);
+      if (m) results.upstream.models = { status: m.status };
+    } catch (e) { results.errors.push('Upstream check failed: ' + String(e)); results.ok = false; }
+  } catch (e) { results.ok = false; results.errors.push(String(e)); }
+  res.json(results);
+});
+
 // Self-update routes
 app.post('/api/tools/reload', async (_req, res) => {
   try {
@@ -307,6 +404,24 @@ app.post('/api/tools/write', async (req, res) => {
     res.json({ ok: true, path: info.path, loaded: out.count });
   } catch (e) {
     res.status(400).json({ error: 'bad_request', message: e?.message || String(e) });
+  }
+});
+
+// Harmony debug endpoint: compare raw vs extracted final
+app.post('/api/harmony/debug', async (req, res) => {
+  try {
+    const { prompt } = req.body || {};
+    const p = typeof prompt === 'string' && prompt.trim() ? prompt.trim() : 'Say exactly: Hello.';
+    const rendered = renderHarmonyMinimal([{ role: 'user', content: p }]);
+    const url = targetOrigin.replace(/\/$/, '') + '/v1/completions';
+    const body = { model: process.env.FRONTEND_VLLM_MODEL || process.env.FRONTEND_MODEL || 'core', prompt: rendered, max_tokens: 128, temperature: Number(process.env.FRONTEND_TEMP || '0.2'), stop: ['<|end|>', '<|channel|>', '<|return|>'] };
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    const raw = j?.choices?.[0]?.text || '';
+    const extracted = extractHarmonyFinalStrict(raw);
+    res.json({ rendered, raw: raw?.slice(0, 800) || '', extracted });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }
 });
 
@@ -366,7 +481,7 @@ app.post('/api/chat/stream', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model, max_tokens, cont_tokens, cont_attempts, auto_tokens } = req.body || {};
+    const { messages, model, max_tokens, cont_tokens, cont_attempts, auto_tokens, temperature, top_p, presence_penalty, frequency_penalty } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -376,11 +491,23 @@ app.post('/api/chat/stream', async (req, res) => {
     const allowed = await resolveAllowedTools();
     // First: run tool loop non-streaming to produce convo with tool results
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens, contOut: cont_tokens, contMax: cont_attempts };
-    const out = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages, tools: allowed, maxIterations: 4, maxTokens: plan.maxOut });
+    const out = await orchestrateWithTools({
+      baseUrl: upstreamBase,
+      model: mdl,
+      messages,
+      tools: allowed,
+      maxIterations: 4,
+      maxTokens: plan.maxOut,
+      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+      topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+      presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+      frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+    });
     const convo = Array.isArray(out?.messages) ? out.messages : messages;
 
-    // Now: stream the final turn from upstream
-    const url = upstreamBase.replace(/\/$/, '') + '/chat/completions';
+    // Now: stream the final turn from upstream (or fallback to Harmony non-stream)
+    const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || /gpt[-_]?oss|oss-|harmony/i.test(mdl);
+    const url = useHarmony ? (targetOrigin.replace(/\/$/, '') + '/v1/completions') : (upstreamBase.replace(/\/$/, '') + '/chat/completions');
     const isIncomplete = (text) => {
       if (!text) return true;
       const t = String(text).trim();
@@ -393,8 +520,38 @@ app.post('/api/chat/stream', async (req, res) => {
     };
     const maxOut = (typeof plan.maxOut === 'number' && plan.maxOut > 0) ? plan.maxOut : 1536;
     const contOut = (typeof plan.contOut === 'number' && plan.contOut > 0) ? plan.contOut : 1024;
-    const contMax = (typeof plan.contMax === 'number' && plan.contMax >= 0) ? Math.min(plan.contMax, 6) : 3;
-    const body = { model: mdl, messages: convo, temperature: 0.0, stream: true, max_tokens: maxOut };
+    const envContMax = Number(process.env.FRONTEND_CONT_ATTEMPTS || '0');
+    const contMax = (typeof envContMax === 'number' && envContMax >= 0) ? Math.min(envContMax, 6) : 0;
+    if (useHarmony) {
+      // Render via orchestrator non-stream and emit fk-final
+      const nonStream = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages: convo, tools: [], maxIterations: 1, maxTokens: maxOut });
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' });
+      try {
+        const debug = nonStream?.debug || {};
+        res.write('event: fk-orchestration\n');
+        res.write('data: ' + JSON.stringify({ messages: nonStream?.messages || messages, debug }) + '\n\n');
+        const content = typeof nonStream?.assistant?.content === 'string' ? nonStream.assistant.content : '';
+        const reasoning = typeof nonStream?.assistant?.reasoning === 'string' ? nonStream.assistant.reasoning : null;
+        res.write('event: fk-final\n');
+        res.write('data: ' + JSON.stringify({ content, reasoning }) + '\n\n');
+      } catch {}
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+    const body = {
+      model: mdl,
+      messages: convo,
+      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : Number(process.env.FRONTEND_TEMP || '0.0'),
+      top_p: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : Number(process.env.FRONTEND_TOP_P || '0.4'),
+      presence_penalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : Number(process.env.FRONTEND_PRESENCE_PENALTY || '0.0'),
+      frequency_penalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : Number(process.env.FRONTEND_FREQUENCY_PENALTY || '0.2'),
+      stream: true,
+      max_tokens: maxOut,
+    };
+    if (!useHarmony) {
+      body.stop = ['\nUSER:', '\nUser:', '\nASSISTANT:', '\nAssistant:'];
+    }
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -410,17 +567,51 @@ app.post('/api/chat/stream', async (req, res) => {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
     });
+    // Prepare orchestration payload; emit after first delta to avoid confusing simple SSE clients
+    let sentOrchestration = false;
+    let orchestrationPayload = null;
     try {
       const debug = out?.debug || {};
       debug.tokenPlan = { maxOut, contOut, contMax };
-      res.write('event: fk-orchestration\n');
-      res.write('data: ' + JSON.stringify({ messages: convo, debug }) + '\n\n');
+      orchestrationPayload = { messages: convo, debug };
     } catch {}
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
     let finalContent = '';
-    // proxy SSE while tracking final content; delay forwarding [DONE]
+    let finalReasoning = '';
+    const extractPartText = (part) => {
+      if (!part) return '';
+      if (typeof part === 'string') return part;
+      if (typeof part.text === 'string') return part.text;
+      if (typeof part.content === 'string') return part.content;
+      if (typeof part.value === 'string') return part.value;
+      return '';
+    };
+    const extractDelta = (choice) => {
+      // Normalize upstream chunk into separate reasoning/content strings
+      try {
+        const d = choice?.delta || {};
+        let r = '';
+        let c = '';
+        if (typeof d.reasoning_content === 'string') r += d.reasoning_content;
+        else if (Array.isArray(d.reasoning_content)) r += d.reasoning_content.map(extractPartText).join('');
+        if (typeof d.content === 'string') c += d.content;
+        else if (Array.isArray(d.content)) c += d.content.map(extractPartText).join('');
+        // Some providers place text at choice level
+        if (!r && !c) {
+          const msg = choice?.message || {};
+          if (typeof msg?.reasoning_content === 'string') r += msg.reasoning_content;
+          else if (Array.isArray(msg?.reasoning_content)) r += msg.reasoning_content.map(extractPartText).join('');
+          if (typeof msg?.content === 'string') c += msg.content;
+          else if (Array.isArray(msg?.content)) c += msg.content.map(extractPartText).join('');
+        }
+        // Fallback to completions-style `text`
+        if (!r && !c && typeof choice?.text === 'string') c = choice.text;
+        return { r, c };
+      } catch { return { r: '', c: '' }; }
+    };
+    // proxy SSE while tracking final content; normalize deltas if needed
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -432,24 +623,46 @@ app.post('/api/chat/stream', async (req, res) => {
         if (!line) continue;
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
-        if (data === '[DONE]') {
-          // hold [DONE] until after optional fallback
-          continue;
-        }
+        if (data === '[DONE]') { continue; }
         try {
           const chunk = JSON.parse(data);
           const choice = chunk?.choices?.[0];
-          const delta = choice?.delta || {};
-          const text = typeof delta.content === 'string' ? delta.content : '';
-          if (text) finalContent += text;
-        } catch {}
-        // forward chunk
-        res.write(line + '\n\n');
+          const { r, c } = extractDelta(choice);
+          if (r) finalReasoning += r;
+          if (c) finalContent += c;
+          if (r || c) {
+            if (!sentOrchestration && orchestrationPayload) {
+              try {
+                res.write('event: fk-orchestration\n');
+                res.write('data: ' + JSON.stringify(orchestrationPayload) + '\n\n');
+              } catch {}
+              sentOrchestration = true;
+            }
+            const delta = {};
+            if (r) delta.reasoning_content = r;
+            if (c) delta.content = c;
+            const out = { choices: [{ index: (choice?.index ?? 0), delta }] };
+            res.write('data: ' + JSON.stringify(out) + '\n\n');
+          } else {
+            // Pass through other events untouched (e.g., tool_calls)
+            res.write(line + '\n\n');
+          }
+        } catch {
+          res.write(line + '\n\n');
+        }
       }
     }
-    // Heuristic continuation loop: try up to 3 times if incomplete
+    // If the upstream produced no deltas, still emit orchestration once
+    if (!sentOrchestration && orchestrationPayload) {
+      try {
+        res.write('event: fk-orchestration\n');
+        res.write('data: ' + JSON.stringify(orchestrationPayload) + '\n\n');
+      } catch {}
+      sentOrchestration = true;
+    }
+    // Heuristic continuation loop: try additional turns if incomplete
     let attempts = 0;
-    while (isIncomplete(finalContent) && attempts < contMax) {
+    while (isProbablyIncomplete(finalContent) && attempts < contMax) {
       try {
         const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: contOut };
         const cont = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
@@ -470,6 +683,11 @@ app.post('/api/chat/stream', async (req, res) => {
         break;
       }
     }
+    try {
+      // Emit a final normalized event as a safety net for clients
+      res.write('event: fk-final\n');
+      res.write('data: ' + JSON.stringify({ content: finalContent || null, reasoning: finalReasoning || null }) + '\n\n');
+    } catch {}
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (e) {
@@ -495,6 +713,19 @@ app.get('/api/tools', (_req, res) => {
     const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
     const names = tools.map(t => t?.function?.name).filter(Boolean);
     res.json({ enabled: tools.length > 0, count: tools.length, names, defs: tools });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// Tail tool audit for debugging (dev only)
+app.get('/api/tools/audit', async (req, res) => {
+  try {
+    const n = Math.max(1, Math.min(Number(req.query?.n || 50), 500));
+    const text = fs.existsSync(auditFile) ? fs.readFileSync(auditFile, 'utf8') : '';
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    const last = lines.slice(-n).map((l) => { try { return JSON.parse(l); } catch { return { raw: l }; } });
+    res.json({ count: last.length, items: last });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }
