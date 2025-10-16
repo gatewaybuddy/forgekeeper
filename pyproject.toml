@@ -8,6 +8,7 @@ version = "0.0.0"
 description = "Forgekeeper CLI, scripts, and UI orchestration (fresh start)"
 requires-python = ">=3.10"
 dependencies = [
+  "pydantic>=2.5",
   "requests>=2.31",
 ]
 

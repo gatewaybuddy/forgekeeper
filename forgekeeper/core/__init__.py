@@ -5,11 +5,28 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__all__ = ["change_stager", "git", "llm", "orchestrator", "pipeline", "planning", "self_review", "tasks"]
+from .artifacts import Artifact, Ticket
+
+_CLASS_EXPORTS = {"Artifact": Artifact, "Ticket": Ticket}
+_MODULE_EXPORTS = [
+    "artifacts",
+    "change_stager",
+    "git",
+    "llm",
+    "orchestrator",
+    "pipeline",
+    "planning",
+    "self_review",
+    "tasks",
+]
+
+__all__ = list(_CLASS_EXPORTS) + _MODULE_EXPORTS
 
 
 def __getattr__(name: str) -> Any:
-    if name in __all__:
+    if name in _CLASS_EXPORTS:
+        return _CLASS_EXPORTS[name]
+    if name in _MODULE_EXPORTS:
         module = importlib.import_module(f"{__name__}.{name}")
         globals()[name] = module
         return module
