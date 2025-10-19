@@ -75,7 +75,10 @@ System prompt
 - `run_powershell` (gated): runs a PowerShell command if enabled.
 
 Environment controls (server.mjs process):
-- `TOOLS_FS_ROOT` — sandbox root for `read_dir`/`write_file` (default: current working dir of server).
+- `TOOLS_FS_ROOT` — sandbox root for `read_dir`/`write_file`.
+  - Default: current working dir of the server process.
+  - Docker: docker-compose sets `TOOLS_FS_ROOT=/workspace/sandbox` so files persist in the bind-mounted repo directory (`./ -> /workspace`).
+  - Override in `.env` if you want another persisted path (e.g., `/workspace/data`).
 - `TOOLS_MAX_WRITE_BYTES` — max bytes for `write_file` (default: 65536).
 - `TOOLS_MAX_READ_BYTES` — max bytes for `read_file` (default: 65536).
 - `FRONTEND_ENABLE_POWERSHELL=1` — enable `run_powershell` tool (disabled by default).

@@ -156,9 +156,16 @@ function buildSystemPrompt(
       return trimmed ? `- ${name}: ${trimmed}` : `- ${name}`;
     })
     .join('\n');
+  const hasBash = entries.some(e => e.name === 'run_bash');
+  const extras: string[] = [];
+  extras.push('You may call JSON function tools when they will help solve the task.');
+  if (hasBash) {
+    extras.push('When the user asks you to run shell commands (e.g., git/npm/bash), call run_bash with a single script string. Chain commands with &&.');
+    extras.push('After executing shell commands, summarize stdout/stderr briefly and verify results with read_dir or read_file in the sandbox.');
+  }
   return [
     DEFAULT_SYSTEM_PROMPT,
-    'You may call JSON function tools when they will help solve the task.',
+    ...extras,
     'Available tools:',
     formatted,
     'Call a tool only when necessary and otherwise respond normally.'

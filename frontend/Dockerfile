@@ -40,7 +40,7 @@ RUN apt-get update \
     && dpkg -i packages-microsoft-prod.deb \
     && rm -f packages-microsoft-prod.deb \
     && apt-get update \
-    && apt-get install -y --no-install-recommends powershell \
+    && apt-get install -y --no-install-recommends powershell git bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy runtime server and production deps from build stage
