@@ -226,6 +226,7 @@ export async function streamViaServer({
   let finalReasoning = '';
   let finalContent = '';
   let continued = false;
+  const contEvents: Array<{ attempt?: number; reason?: string }> = [];
   let currentEvent = '';
   let orchestrationMessages: any[] | null | undefined;
   let orchestrationDebug: any;
@@ -257,7 +258,11 @@ export async function streamViaServer({
         try {
           if (currentEvent === 'fk-debug') {
             const dbg = JSON.parse(data);
-            if (dbg && dbg.continued) continued = true;
+            if (dbg && dbg.continued) {
+              continued = true;
+              contEvents.push({ attempt: dbg.attempt, reason: dbg.reason });
+              onOrchestration?.({ debug: { continued: true, attempt: dbg.attempt, reason: dbg.reason } });
+            }
           } else if (currentEvent === 'fk-orchestration') {
             const payload = JSON.parse(data);
             orchestrationMessages = Array.isArray(payload?.messages) ? payload.messages : null;
@@ -280,7 +285,9 @@ export async function streamViaServer({
               finalContent = c;
               onDelta({ contentDelta: c });
             }
-            onOrchestration?.({ debug: { fkFinal: true, content: c } });
+            const dbg = { fkFinal: true, content: c } as any;
+            if (contEvents.length > 0) { dbg.continuedTotal = contEvents.length; dbg.continuations = contEvents; }
+            onOrchestration?.({ debug: dbg });
           } else {
             const chunk = JSON.parse(data);
             const choice = (chunk as any)?.choices?.[0];

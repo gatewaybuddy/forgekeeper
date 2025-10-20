@@ -222,6 +222,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const lastEventTsRef = useRef<string>('');
   const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
+  const [contDetails, setContDetails] = useState<Array<{attempt?: number; reason?: string}>>([]);
   // System prompt (auto from tools vs user override)
   const [sysMode, setSysMode] = useState<'auto' | 'custom'>('auto');
   const [sysCustom, setSysCustom] = useState<string>('');
@@ -399,7 +400,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           if (payload?.debug) {
             setToolDebug(payload.debug);
             try { setCompaction(payload.debug?.compaction ?? null); } catch {}
-            if (payload.debug?.continuedTotal > 0) setContNotice(true);
+            if (payload.debug?.continuedTotal > 0) {
+              setContNotice(true);
+              if (Array.isArray(payload.debug?.continuations)) setContDetails(payload.debug.continuations);
+            }
+            if (payload.debug?.continued && payload.debug?.reason) {
+              setContNotice(true);
+              setContDetails((prev) => [...prev, { attempt: payload.debug.attempt, reason: payload.debug.reason }]);
+            }
             try {
               if ((payload as any)?.debug?.fkFinal && typeof (payload as any)?.debug?.content === 'string') {
                 setFkFinal((payload as any).debug.content);
@@ -438,7 +446,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           });
           if (final.debug) {
             setToolDebug(final.debug);
-            if (final.debug?.continuedTotal > 0) setContNotice(true);
+            if (final.debug?.continuedTotal > 0) {
+              setContNotice(true);
+              if (Array.isArray(final.debug?.continuations)) setContDetails(final.debug.continuations);
+            }
           } else if (final.diagnostics) {
             setToolDebug({ diagnostics: final.diagnostics });
           }
@@ -823,7 +834,12 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
-            Auto-continued to complete the response.
+            <div style={{fontWeight:600}}>Auto-continued to complete the response.</div>
+            {Array.isArray(contDetails) && contDetails.length > 0 && (
+              <div style={{marginTop:4}}>
+                Attempts: {contDetails.map(d => `${d.attempt ?? ''}${d.reason ? `:${d.reason}` : ''}`).join(', ')}
+              </div>
+            )}
           </div>
         )}
         {diag && (

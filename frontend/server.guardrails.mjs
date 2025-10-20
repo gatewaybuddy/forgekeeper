@@ -18,14 +18,15 @@ export function redactPreview(input) {
   try {
     const str = typeof input === 'string' ? input : JSON.stringify(input);
     const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-    const token = /\b(sk|api|token|secret)[-_]?[a-z0-9]{12,}\b/gi;
+    // Common secret markers + Stripe-like keys: sk_test_*, sk_live_*
+    const token = /(sk_(live|test)_[A-Za-z0-9_-]{8,}|\b(api|token|secret)[-_]?[A-Za-z0-9]{12,}\b)/gi;
     const urlCreds = /(https?:\/\/)([^\s:@]+):([^\s@]+)@/gi;
-    let out = str.replace(email, '<redacted:email>');
+    // Redact URL credentials first to avoid email regex swallowing parts of the URL
+    let out = str.replace(urlCreds, (_m, p1) => `${p1}<redacted:creds>@`);
+    out = out.replace(email, '<redacted:email>');
     out = out.replace(token, '<redacted:token>');
-    out = out.replace(urlCreds, (_m, p1) => `${p1}<redacted:creds>@`);
     return truncatePreview(out);
   } catch {
     return truncatePreview(String(input || ''));
   }
 }
-
