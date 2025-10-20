@@ -9,6 +9,7 @@ const MAX_BYTES = Number(process.env.FRONEND_CTXLOG_MAX_BYTES || process.env.CTX
 // Simple in-memory tail cache for most-recent file to avoid repeated disk reads
 // Cache invalidates when file size or mtime changes.
 const tailCache = new Map(); // fp -> { size, mtimeMs, lines }
+let filesCache = { ts: 0, list: [] };
 
 function hourKey(d = new Date()) {
   const y = d.getUTCFullYear();
@@ -45,7 +46,21 @@ export function appendEvent(ev) {
   try {
     const fp = currentFile();
     const withTs = ev.ts ? ev : { ...ev, ts: new Date().toISOString() };
-    fs.appendFileSync(fp, JSON.stringify(withTs) + '\n');
+    const line = JSON.stringify(withTs) + '\n';
+    fs.appendFileSync(fp, line);
+    // Update cache for this file if present
+    try {
+      const st = statSync(fp);
+      const cached = tailCache.get(fp);
+      if (cached) {
+        const next = { size: st.size, mtimeMs: st.mtimeMs, lines: [...cached.lines, JSON.stringify(withTs)] };
+        tailCache.set(fp, next);
+      }
+      // Update files list cache to include current file at head
+      const now = Date.now();
+      const list = filesCache.list.filter(x => x !== fp);
+      filesCache = { ts: now, list: [fp, ...list] };
+    } catch {}
     return true;
   } catch {
     return false;
@@ -55,10 +70,15 @@ export function appendEvent(ev) {
 export function tailEvents(n = 50, conv_id = null) {
   try {
     ensureDir();
-    const files = readdirSync(BASE_DIR)
-      .filter((f) => f.startsWith('ctx-') && f.endsWith('.jsonl'))
-      .map((f) => path.join(BASE_DIR, f))
-      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+    let files = filesCache.list;
+    const now = Date.now();
+    if (!Array.isArray(files) || files.length === 0 || (now - (filesCache.ts || 0) > 2000)) {
+      files = readdirSync(BASE_DIR)
+        .filter((f) => f.startsWith('ctx-') && f.endsWith('.jsonl'))
+        .map((f) => path.join(BASE_DIR, f))
+        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+      filesCache = { ts: now, list: files };
+    }
     const out = [];
     for (const fp of files) {
       let lines = null;

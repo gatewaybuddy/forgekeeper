@@ -129,3 +129,6 @@ Phase 4 — Feature Bring-up (incremental)
 - Distributed inference, multi-GPU sharding, or performance tuning beyond loggable latency.
 - Full-featured persistence or vector DB selection; a minimal adapter or stub is sufficient until Phase 2 completes.
 - UI polish beyond functional flows explicitly listed in tasks.
+
+### Next: Self‑Improvement Plan
+See docs/roadmap/self_improvement_plan.md for the prioritized plan (TGT → SAPL → MIP), acceptance criteria, flags, and milestones.
