@@ -914,6 +914,28 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   {' '}fence: <code>{String(metrics.continuations?.fence ?? 0)}</code>
                 </>
               )}
+              {Array.isArray(metrics.contHistory) && metrics.contHistory.length > 0 && (
+                <div style={{marginTop:6}}>
+                  <span style={{fontSize:12, color:'#555'}}>continuations (last 10m): </span>
+                  {(() => {
+                    const now = Date.now();
+                    const bins = new Array(10).fill(0);
+                    for (const e of metrics.contHistory) {
+                      const dt = now - Number(e.t || 0);
+                      const min = Math.floor(dt / 60000);
+                      if (min >= 0 && min < 10) bins[9 - min] += 1; // rightmost is recent
+                    }
+                    const max = Math.max(1, ...bins);
+                    return (
+                      <span style={{display:'inline-flex', gap:2, marginLeft:6, verticalAlign:'middle'}}>
+                        {bins.map((v,i)=> (
+                          <span key={i} style={{display:'inline-block', width:6, height:Math.max(2, Math.round((v/max)*12)), background:'#64748b'}} title={`${v} at t-${9-i}m`} />
+                        ))}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         )}
