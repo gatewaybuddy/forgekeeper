@@ -3,6 +3,7 @@ import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chat
 import { tailContextLog, type CtxEvent } from '../lib/ctxClient';
 import StatusBar from './StatusBar';
 import DiagnosticsDrawer from './DiagnosticsDrawer';
+import TasksDrawer from './TasksDrawer';
 import { injectDeveloperNoteBeforeLastUser } from '../lib/convoUtils';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
@@ -244,6 +245,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [showMenu, setShowMenu] = useState(false);
   const [showSysModal, setShowSysModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
+  const [showTasks, setShowTasks] = useState(false);
   // Generation controls
   const [genMaxTokens, setGenMaxTokens] = useState<number>(512);
   const [genContTokens, setGenContTokens] = useState<number>(512);
@@ -843,6 +845,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               <div style={{position:'absolute', right:8, top:'100%', background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 20px rgba(0,0,0,0.08)', zIndex:50, minWidth:200}} onMouseLeave={()=>setShowMenu(false)}>
                 <button onClick={()=>{ setShowSysModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Assistant System Prompt…</button>
                 <button onClick={()=>{ setShowToolsModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tools Settings…</button>
+                <button onClick={()=>{ setShowTasks(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tasks…</button>
               </div>
             )}
           </div>
@@ -1206,6 +1209,7 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
         )}
       </div>
       {drawerOpen && <DiagnosticsDrawer events={ctxEvents} onClose={()=>setDrawerOpen(false)} />}
+      {showTasks && <TasksDrawer onClose={()=>setShowTasks(false)} />}
       {reviseOpen && (
         <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:110}} onClick={()=>setReviseOpen(false)}>
           <div style={{width:'min(720px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
