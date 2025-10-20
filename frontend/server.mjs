@@ -104,7 +104,7 @@ function rateCheck(ip) {
 }
 
 // minimal metrics
-const metrics = { totalRequests: 0, totalToolCalls: 0, rateLimited: 0, streamRequests: 0 };
+const metrics = { totalRequests: 0, totalToolCalls: 0, rateLimited: 0, streamRequests: 0, continuations: { total: 0, short: 0, punct: 0, fence: 0 } };
 
 // JSONL audit for tools
 import fs from 'node:fs';
@@ -738,6 +738,8 @@ app.post('/api/chat/stream', async (req, res) => {
         attempts += 1;
         contInfo.push({ attempt: attempts, reason: rsn });
         try { appendEvent({ actor: 'assistant', act: 'auto_continue', conv_id: convId, trace_id: traceId, attempt: attempts, reason: rsn }); } catch {}
+        try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; } catch {}
+        try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; } catch {}
       } catch {
         break;
       }

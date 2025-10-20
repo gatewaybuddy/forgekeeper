@@ -878,6 +878,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               {' '}streamRequests: <code>{String(metrics.streamRequests ?? 0)}</code>
               {' '}totalToolCalls: <code>{String(metrics.totalToolCalls ?? 0)}</code>
               {' '}rateLimited: <code>{String(metrics.rateLimited ?? 0)}</code>
+              {metrics.continuations && (
+                <>
+                  <br />continuations.total: <code>{String(metrics.continuations?.total ?? 0)}</code>
+                  {' '}short: <code>{String(metrics.continuations?.short ?? 0)}</code>
+                  {' '}punct: <code>{String(metrics.continuations?.punct ?? 0)}</code>
+                  {' '}fence: <code>{String(metrics.continuations?.fence ?? 0)}</code>
+                </>
+              )}
             </div>
           </div>
         )}
