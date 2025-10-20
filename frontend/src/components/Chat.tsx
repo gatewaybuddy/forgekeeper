@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chatClient';
+import { tailContextLog, type CtxEvent } from '../lib/ctxClient';
+import StatusBar from './StatusBar';
+import DiagnosticsDrawer from './DiagnosticsDrawer';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
 interface Message {
@@ -175,6 +178,13 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   toolStorage?: { path: string; bindMounted: boolean };
   repoWrite?: { enabled: boolean; root: string; allowed: string[]; maxBytes: number } | undefined;
 }) {
+  // Conversation identity
+  const [convId, setConvId] = useState<string>(() => {
+    try { const saved = localStorage.getItem('fk_conv_id'); if (saved) return saved; } catch {}
+    const gen = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+    return `c_${gen}`;
+  });
+  useEffect(() => { try { localStorage.setItem('fk_conv_id', convId); } catch {} }, [convId]);
   const [messages, setMessages] = useState<Message[]>(() => [
     { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable, toolMetadata) }
   ]);
@@ -195,6 +205,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [metrics, setMetrics] = useState<any>(null);
   const [diag, setDiag] = useState<any>(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [ctxEvents, setCtxEvents] = useState<CtxEvent[]>([]);
+  const [pollingOn, setPollingOn] = useState(true);
+  const lastEventTsRef = useRef<string>('');
   const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
   // System prompt (auto from tools vs user override)
@@ -355,6 +369,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         autoTokens: !!genAuto,
         temperature: genTemp,
         topP: genTopP,
+        convId,
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -435,7 +450,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setStreaming(false);
       abortRef.current = null;
     }
-  }, [input, messages, model, refreshMetrics]);
+  }, [input, messages, model, refreshMetrics, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId]);
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
@@ -468,7 +483,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setToolDebug(null);
       setMessages(prev => [...prev, userMessage]);
       try {
-        const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP });
+        const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP, convId });
         const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
         setMessages(conv);
         if (res.debug) setToolDebug(res.debug);
@@ -481,7 +496,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     }
     // Default to streaming
     await onSend();
-  }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics]);
+  }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics, genTemp, genTopP, convId]);
 
   const onSendOnce = useCallback(async () => {
     const text = input.trim();
@@ -495,7 +510,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     setToolDebug(null);
     setStreaming(true);
     try {
-      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP });
+      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP, convId });
       try { setCompaction((res as any)?.debug?.compaction ?? null); } catch {}
       const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
       setMessages(conv);
@@ -508,7 +523,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     } finally {
       setStreaming(false);
     }
-  }, [input, messages, model, refreshMetrics]);
+  }, [input, messages, model, refreshMetrics, genMaxTokens, genAuto, genTemp, genTopP, convId]);
 
   // tools orchestration is built into both send modes now
 
@@ -536,8 +551,50 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     refreshMetrics();
   }, [refreshMetrics]);
 
+  // Diagnostics drawer helpers
+  const refreshCtx = useCallback(async () => {
+    try {
+      const rows = await tailContextLog(100, convId);
+      setCtxEvents(rows);
+      if (rows && rows[0]?.ts) lastEventTsRef.current = rows[0].ts;
+    } catch {}
+  }, [convId]);
+
+  // Lightweight polling of ContextLog
+  useEffect(() => {
+    let alive = true;
+    const active = () => pollingOn && !streaming && document.visibilityState === 'visible';
+    const tick = async () => {
+      if (!active()) return;
+      const rows = await tailContextLog(20, convId);
+      if (!alive || !rows.length) return;
+      const latest = rows.find(r => r.act === 'message' && r.actor === 'assistant');
+      if (latest && latest.ts && latest.ts !== lastEventTsRef.current) {
+        lastEventTsRef.current = latest.ts;
+        setCtxEvents(rows);
+      }
+    };
+    const id = setInterval(tick, 5000);
+    const vis = () => {};
+    document.addEventListener('visibilitychange', vis);
+    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', vis); };
+  }, [convId, pollingOn, streaming]);
+
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
+      <div style={{display:'flex', gap:10, alignItems:'center', marginBottom:10}}>
+        <StatusBar />
+        <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:8}}>
+          <button onClick={() => {
+            setMessages([{ role: 'system', content: systemPrompt }]);
+            const gen = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+            setConvId(`c_${gen}`);
+            setCtxEvents([]);
+            lastEventTsRef.current = '';
+          }}>New Conversation</button>
+          <span style={{fontSize:12, color:'#64748b'}}>ID: <code>{convId.slice(0,12)}…</code></span>
+        </div>
+      </div>
       <div
         ref={scrollRef}
         style={{
@@ -644,6 +701,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />
             <span style={{fontSize:12}}>Tools diagnostics</span>
           </label>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
+            <input type="checkbox" checked={drawerOpen} onChange={async e=>{ setDrawerOpen(e.target.checked); if (e.target.checked) await refreshCtx(); }} />
+            <span style={{fontSize:12}}>ContextLog drawer</span>
+          </label>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
+            <input type="checkbox" checked={pollingOn} onChange={e=>setPollingOn(e.target.checked)} />
+            <span style={{fontSize:12}}>Polling</span>
+          </label>
 
           {/* Hamburger menu (top-right of controls row) */}
           <div style={{marginLeft:'auto'}}>
@@ -666,6 +731,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         </small>
         <div style={{marginTop:6}}>
           <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
+          <button style={{marginLeft:8}} onClick={refreshCtx}>Refresh Events</button>
         </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
@@ -977,6 +1043,7 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
           </div>
         )}
       </div>
+      {drawerOpen && <DiagnosticsDrawer events={ctxEvents} onClose={()=>setDrawerOpen(false)} />}
     </div>
   );
 }

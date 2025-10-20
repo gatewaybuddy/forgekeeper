@@ -209,6 +209,12 @@ app.post('/api/chat', async (req, res) => {
         }
       }
     } catch {}
+    try {
+      const content = (typeof out?.assistant?.content === 'string') ? out.assistant.content : '';
+      if (content) {
+        appendEvent({ actor: 'assistant', act: 'message', conv_id: convId, trace_id: traceId, content_preview: truncatePreview(content), status: 'ok' });
+      }
+    } catch {}
     res.json(out);
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
@@ -687,6 +693,8 @@ app.post('/api/chat/stream', async (req, res) => {
       // Emit a final normalized event as a safety net for clients
       res.write('event: fk-final\n');
       res.write('data: ' + JSON.stringify({ content: finalContent || null, reasoning: finalReasoning || null }) + '\n\n');
+      const final = (finalContent || '').trim();
+      if (final) appendEvent({ actor: 'assistant', act: 'message', conv_id: convId, trace_id: traceId, content_preview: truncatePreview(final), status: 'ok' });
     } catch {}
     res.write('data: [DONE]\n\n');
     res.end();
