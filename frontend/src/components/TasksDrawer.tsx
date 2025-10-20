@@ -58,7 +58,10 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       setPrPreview(null);
       const files = prFiles.split(',').map(s=>s.trim()).filter(Boolean);
       const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
-      const r = await fetch('/api/auto_pr/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits }) });
+      const labels = ['docs'];
+      const m = prTitle.match(/\b(T\d{2,6})\b/i);
+      if (m) labels.push(`task:${m[1].toUpperCase()}`);
+      const r = await fetch('/api/auto_pr/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits, labels }) });
       const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
       if (!r.ok || j.ok === false) {
         setPrError(j?.error || `HTTP ${r.status}`);
@@ -139,12 +142,18 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 {prPreview && (
                   <div style={{fontSize:12, background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:8}}>
                     <div><b>Allowed files:</b> {(prPreview.preview?.files || []).join(', ') || '(none)'}</div>
+                    <div style={{marginTop:4}}><b>Labels:</b> {(prPreview.preview?.labels || ['docs']).join(', ')}</div>
                     {Array.isArray(prPreview.preview?.appendPreviews) && prPreview.preview.appendPreviews.length > 0 && (
                       <div style={{marginTop:6}}>
                         <div><b>Append previews:</b></div>
                         <ul style={{marginTop:4}}>
                           {prPreview.preview.appendPreviews.map((a:any,i:number)=> (
-                            <li key={i}><code>{a.path}</code> — {a.bytes} bytes<br/><pre style={{whiteSpace:'pre-wrap'}}>{a.preview}</pre></li>
+                            <li key={i}><code>{a.path}</code> — {a.bytes} bytes<br/>
+                              <details>
+                                <summary>Unified diff</summary>
+                                <pre style={{whiteSpace:'pre-wrap'}}>{a.diff || a.preview}</pre>
+                              </details>
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -158,7 +167,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                           setPrLoading(true); setPrError(null);
                           const files = (prPreview.preview?.files || []) as string[];
                           const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
-                          const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits }) });
+                          const labels = (prPreview.preview?.labels || ['docs']);
+                          const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits, labels }) });
                           const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
                           if (!r.ok || j.ok === false) setPrError(j?.error || `HTTP ${r.status}`);
                           else {
