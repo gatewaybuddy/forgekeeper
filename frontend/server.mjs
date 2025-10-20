@@ -176,10 +176,25 @@ app.post('/api/chat', async (req, res) => {
     const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
     const allowed = await resolveAllowedTools();
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens };
+    // Optionally inject a short quality hint as a developer note based on recent telemetry
+    let preMessages = messages;
+    try {
+      if (String(process.env.PROMPTING_HINTS_ENABLED || '0') === '1') {
+        const stats = getWindowStats(Number(process.env.PROMPTING_HINTS_MINUTES || '10'));
+        const hint = buildPromptHints(stats);
+        if (hint) {
+          preMessages = [...messages];
+          // Insert before the last user message
+          let lastUser = -1; for (let i = preMessages.length - 1; i >= 0; i--) { if (preMessages[i]?.role === 'user') { lastUser = i; break; } }
+          const dev = { role: 'developer', content: hint };
+          if (lastUser >= 0) preMessages.splice(lastUser, 0, dev); else preMessages.splice(1, 0, dev);
+        }
+      }
+    } catch {}
     const out = await orchestrateWithTools({
       baseUrl: upstreamBase,
       model: mdl,
-      messages,
+      messages: preMessages,
       tools: allowed,
       maxIterations: 4,
       maxTokens: plan.maxOut,
@@ -405,6 +420,17 @@ app.get('/metrics', (_req, res) => {
   res.json(metrics);
 });
 
+// Task suggestions — Telemetry‑Driven Task Generator (flag-gated but harmless)
+app.get('/api/tasks/suggest', async (req, res) => {
+  try {
+    const win = Math.max(5, Math.min(480, parseInt(String(req.query.window_min || process.env.TASKGEN_WINDOW_MIN || '60'), 10) || 60));
+    const out = suggestTasks(win);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
 // Self-diagnostics endpoint: checks env, mounts, upstream health, tools
 app.get('/api/diagnose', async (_req, res) => {
   const results = { ok: true, warnings: [], errors: [], env: {}, mounts: {}, upstream: {}, tools: {}, metrics };
@@ -563,7 +589,7 @@ app.post('/api/chat/stream', async (req, res) => {
       presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
       frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
     });
-    const convo = Array.isArray(out?.messages) ? out.messages : messages;
+    const convo = Array.isArray(out?.messages) ? out.messages : preMessages;
 
     // Now: stream the final turn from upstream (or fallback to Harmony non-stream)
     const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || /gpt[-_]?oss|oss-|harmony/i.test(mdl);
