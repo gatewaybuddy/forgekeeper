@@ -3,6 +3,7 @@ import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chat
 import { tailContextLog, type CtxEvent } from '../lib/ctxClient';
 import StatusBar from './StatusBar';
 import DiagnosticsDrawer from './DiagnosticsDrawer';
+import { injectDeveloperNoteBeforeLastUser } from '../lib/convoUtils';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
 interface Message {
@@ -567,10 +568,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     const note = (reviseText || '').trim();
     setReviseOpen(false);
     if (!note) return;
+<<<<<<< HEAD
+    const base = injectDeveloperNoteBeforeLastUser(messages as any, note) as any;
+=======
     const lastUserIdx = [...messages].map((m, i) => ({ i, m })).reverse().find(x => x.m.role === 'user')?.i ?? -1;
     const base = [...messages];
     if (lastUserIdx >= 0) base.splice(lastUserIdx, 0, { role: 'developer' as any, content: note } as any);
     else base.splice(1, 0, { role: 'developer' as any, content: note } as any);
+>>>>>>> origin/main
     const req = toChatRequestMessages(base);
     setToolDebug(null);
     setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
@@ -588,7 +593,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         autoTokens: !!genAuto,
         temperature: genTemp,
         topP: genTopP,
+<<<<<<< HEAD
+=======
         convId,
+>>>>>>> origin/main
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -627,6 +635,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       abortRef.current = null;
       setReviseText('');
     }
+<<<<<<< HEAD
+  }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP]);
+=======
   }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId, refreshMetrics]);
 
   // Diagnostics drawer helpers
@@ -657,6 +668,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     document.addEventListener('visibilitychange', vis);
     return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', vis); };
   }, [convId, pollingOn, streaming]);
+>>>>>>> origin/main
 
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
@@ -809,7 +821,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         </small>
         <div style={{marginTop:6}}>
           <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
+<<<<<<< HEAD
+=======
           <button style={{marginLeft:8}} onClick={refreshCtx}>Refresh Events</button>
+>>>>>>> origin/main
           <button style={{marginLeft:8}} onClick={()=>{ if (streaming) onStop(); setReviseOpen(true); }} disabled={reviseOpen}>Stop & Revise…</button>
         </div>
         {contNotice && (
@@ -1122,7 +1137,10 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
           </div>
         )}
       </div>
+<<<<<<< HEAD
+=======
       {drawerOpen && <DiagnosticsDrawer events={ctxEvents} onClose={()=>setDrawerOpen(false)} />}
+>>>>>>> origin/main
       {reviseOpen && (
         <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:110}} onClick={()=>setReviseOpen(false)}>
           <div style={{width:'min(720px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
@@ -1131,6 +1149,19 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
               <button onClick={()=>setReviseOpen(false)} aria-label="Close" title="Close">✕</button>
             </div>
             <div style={{fontSize:12, color:'#475569', marginBottom:8}}>Add a short developer note. It will be injected before the last user message to steer the next attempt.</div>
+<<<<<<< HEAD
+            <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:8}}>
+              {[
+                'Use run_bash to verify repo state; summarize outputs briefly.',
+                'Prefer concise, actionable steps; avoid long prose.',
+                'If a shell step fails, show the exact command and stderr.',
+                'Verify file changes with read_dir/read_file before claiming success.'
+              ].map((t,i)=> (
+                <button key={i} onClick={()=>setReviseText(t)} style={{fontSize:12, padding:'4px 6px', border:'1px solid #cbd5e1', borderRadius:6, background:'#f8fafc', cursor:'pointer'}}>{t}</button>
+              ))}
+            </div>
+=======
+>>>>>>> origin/main
             <textarea rows={6} value={reviseText} onChange={e=>setReviseText(e.target.value)} style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}} placeholder="Example: Use run_bash to verify repo state; prefer concise CLI." />
             <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:10}}>
               <button onClick={()=>setReviseOpen(false)}>Cancel</button>
