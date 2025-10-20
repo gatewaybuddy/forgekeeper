@@ -14,6 +14,13 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [win, setWin] = useState<number>(60);
+  const [showPr, setShowPr] = useState(false);
+  const [prTitle, setPrTitle] = useState('Update docs from Task Generator');
+  const [prBody, setPrBody] = useState('');
+  const [prFiles, setPrFiles] = useState('README.md');
+  const [prPreview, setPrPreview] = useState<any>(null);
+  const [prError, setPrError] = useState<string | null>(null);
+  const [prLoading, setPrLoading] = useState(false);
 
   const load = async (windowMin: number) => {
     try {
@@ -41,6 +48,26 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       await navigator.clipboard.writeText(md);
       alert('Copied tasks to clipboard.');
     } catch {}
+  };
+
+  const previewPR = async () => {
+    try {
+      setPrLoading(true);
+      setPrError(null);
+      setPrPreview(null);
+      const files = prFiles.split(',').map(s=>s.trim()).filter(Boolean);
+      const r = await fetch('/api/auto_pr/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files }) });
+      const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
+      if (!r.ok || j.ok === false) {
+        setPrError(j?.error || `HTTP ${r.status}`);
+      } else {
+        setPrPreview(j);
+      }
+    } catch (e:any) {
+      setPrError(e?.message || String(e));
+    } finally {
+      setPrLoading(false);
+    }
   };
 
   return (
@@ -75,8 +102,37 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
             )}
           </ul>
         )}
+        <div style={{marginTop:12, padding:10, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div style={{fontWeight:700, color:'#334155'}}>Propose PR (allowlist & dry‑run)</div>
+            <button onClick={()=>setShowPr(v=>!v)}>{showPr ? 'Hide' : 'Show'}</button>
+          </div>
+          {showPr && (
+            <div style={{marginTop:8}}>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                <input placeholder="PR title" value={prTitle} onChange={e=>setPrTitle(e.target.value)} />
+                <textarea placeholder="PR body" rows={4} value={prBody} onChange={e=>setPrBody(e.target.value)} />
+                <input placeholder="Files (comma‑separated)" value={prFiles} onChange={e=>setPrFiles(e.target.value)} />
+                <div style={{display:'flex', gap:8}}>
+                  <button onClick={previewPR} disabled={prLoading}>Preview</button>
+                </div>
+                {prError && <div style={{color:'#b91c1c'}}>Error: {prError}</div>}
+                {prPreview && (
+                  <div style={{fontSize:12, background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:8}}>
+                    <div><b>Allowed files:</b> {(prPreview.preview?.files || []).join(', ') || '(none)'}</div>
+                    {Array.isArray(prPreview.blocked) && prPreview.blocked.length > 0 && (
+                      <div style={{marginTop:4, color:'#b45309'}}>Blocked: {prPreview.blocked.join(', ')}</div>
+                    )}
+                    <div style={{marginTop:4}}>
+                      <button disabled title="Enable AUTO_PR_ENABLED=1 to allow creation (not implemented here)">Create PR (requires flag)</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
