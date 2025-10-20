@@ -717,6 +717,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
     // Heuristic continuation loop: try additional turns if incomplete
     let attempts = 0;
+    const contInfo = [];
     while (isIncomplete(finalContent) && attempts < contMax) {
       try {
         const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue and finish the last sentence (and close any unfinished code block).' }], temperature: 0.0, stream: false, max_tokens: contOut };
@@ -735,6 +736,7 @@ app.post('/api/chat/stream', async (req, res) => {
         res.write('data: ' + JSON.stringify(out) + '\n\n');
         finalContent += appended;
         attempts += 1;
+        contInfo.push({ attempt: attempts, reason: rsn });
         try { appendEvent({ actor: 'assistant', act: 'auto_continue', conv_id: convId, trace_id: traceId, attempt: attempts, reason: rsn }); } catch {}
       } catch {
         break;
@@ -744,7 +746,7 @@ app.post('/api/chat/stream', async (req, res) => {
       // Emit a final normalized event as a safety net for clients
       const debug = orchestrationPayload?.debug || {};
       if (attempts > 0) {
-        try { debug.continuedTotal = attempts; } catch {}
+        try { debug.continuedTotal = attempts; debug.continuations = contInfo; } catch {}
       }
       res.write('event: fk-final\n');
       res.write('data: ' + JSON.stringify({ content: finalContent || null, reasoning: finalReasoning || null, debug }) + '\n\n');
