@@ -49,10 +49,8 @@ COPY --from=build /app/prod/node_modules ./node_modules
 
 COPY --from=build /app/dist ./dist
 # Copy server runtime files (tool orchestrator + registry + modular tools)
-COPY --from=build /app/server.mjs ./server.mjs
-COPY --from=build /app/server.orchestrator.mjs ./server.orchestrator.mjs
-COPY --from=build /app/server.harmony.mjs ./server.harmony.mjs
-COPY --from=build /app/server.tools.mjs ./server.tools.mjs
+# Copy all server-side .mjs modules to keep imports in sync
+COPY --from=build /app/server*.mjs ./
 COPY --from=build /app/tools ./tools
 
 ENV PORT=3000
