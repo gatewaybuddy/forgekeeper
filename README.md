@@ -122,6 +122,13 @@ See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how conti
 - When `PROMPTING_HINTS_ENABLED=1`, the server may inject a short developer note into the final turn based on recent continuation reasons (e.g., close code fences, finish sentences).
 - Tuning envs: `PROMPTING_HINTS_MINUTES` (default 10), `PROMPTING_HINTS_THRESHOLD` (default 0.15).
 
+### Safe Auto‑PR Loop (SAPL)
+- Preview: `POST /api/auto_pr/preview` validates an allowlist for docs/config/tests; disabled unless `AUTO_PR_ENABLED=1`.
+- Create: `POST /api/auto_pr/create` creates a branch, commits allowlisted files, pushes, and opens a PR via `gh` when `AUTO_PR_ENABLED=1` and `AUTO_PR_DRYRUN=0`.
+- Flags: `AUTO_PR_ENABLED`, `AUTO_PR_DRYRUN`, `AUTO_PR_ALLOW`, `AUTO_PR_AUTOMERGE`.
+- UI: open Tasks… → Propose PR → Preview → Create PR (enabled by flags).
+- See docs/ui/sapl.md for details and the UI flow.
+
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).
