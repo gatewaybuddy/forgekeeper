@@ -101,6 +101,14 @@ Environment controls (server.mjs process):
 - The Vite dev client can still stream directly from `/v1/chat/completions`; use the “Send (tools)” button to route via `/api/chat` or integrate your own SSE consumer for `/api/chat/stream`.
 - See: `docs/api/chat_stream.md` for curl examples and client helper notes.
 
+### Finishers & Continuations
+- When the model output looks incomplete (short text without terminal punctuation or a dangling code fence), the server auto-requests short continuations to complete the response.
+- Defaults:
+  - Env: `FRONTEND_CONT_ATTEMPTS` defaults to `2` when unset. Set to `0` to disable.
+  - Env: `FRONTEND_CONT_TOKENS` controls the size of each continuation chunk.
+  - UI: “Continue attempts” defaults to `2` and persists to localStorage; can be set per-conversation.
+- Telemetry: continuation attempts are recorded to ContextLog with `act=auto_continue` including `attempt`, `reason` (`short|punct|fence`), and `elapsed_ms`.
+
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).

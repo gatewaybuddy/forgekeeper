@@ -7,6 +7,7 @@ import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { getToolDefs, reloadTools, writeToolFile } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
+import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -153,21 +154,7 @@ function estimateTokenPlan(messages, fallback) {
   }
 }
 
-// Safer completion heuristic for streamed responses
-function isProbablyIncomplete(text) {
-  try {
-    if (!text) return true;
-    const t = String(text).trim();
-    if (t.length < 32) return true;
-    const terminals = ".!?\\\"'”’)]}`»";
-    const last = t.slice(-1);
-    if (!terminals.includes(last)) return true;
-    const ticks = (t.match(/```/g) || []).length;
-    return (ticks % 2 === 1);
-  } catch {
-    return false;
-  }
-}
+// Use shared finisher heuristics for both paths
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -180,7 +167,7 @@ app.post('/api/chat', async (req, res) => {
       res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
       return;
     }
-    const { messages, model, max_tokens, auto_tokens, temperature, top_p, presence_penalty, frequency_penalty } = req.body || {};
+    const { messages, model, max_tokens, cont_tokens, cont_attempts, auto_tokens, temperature, top_p, presence_penalty, frequency_penalty } = req.body || {};
     if (!Array.isArray(messages)) {
       res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
       return;
@@ -225,9 +212,58 @@ app.post('/api/chat', async (req, res) => {
       }
     } catch {}
     try {
+      if (!out.debug) out.debug = {};
       const content = (typeof out?.assistant?.content === 'string') ? out.assistant.content : '';
       if (content) {
         appendEvent({ actor: 'assistant', act: 'message', conv_id: convId, trace_id: traceId, content_preview: truncatePreview(content), status: 'ok' });
+      }
+      // Unified incomplete detection + auto continuation (non-stream path)
+      let continued = 0;
+      const contInfo = [];
+      let reason = incompleteReason(content);
+      const maxOut = (typeof plan.maxOut === 'number' && plan.maxOut > 0) ? plan.maxOut : Number(process.env.FRONTEND_MAX_TOKENS || '1536');
+      const contOut = (typeof cont_tokens === 'number' && cont_tokens > 0)
+        ? cont_tokens
+        : Number(process.env.FRONTEND_CONT_TOKENS || Math.floor(maxOut * 0.5));
+      const envRaw = process.env.FRONTEND_CONT_ATTEMPTS;
+      const envDefault = (envRaw == null || String(envRaw).trim() === '') ? 2 : Math.max(0, Math.min(6, Number(envRaw) || 0));
+      const reqCont = (typeof cont_attempts === 'number' && cont_attempts >= 0) ? cont_attempts : undefined;
+      const contMax = Math.max(0, Math.min(6, (reqCont ?? envDefault)));
+      const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || /gpt[-_]?oss|oss-|harmony/i.test(mdl);
+      const url = useHarmony ? (targetOrigin.replace(/\/$/, '') + '/v1/completions') : (upstreamBase.replace(/\/$/, '') + '/chat/completions');
+      let finalContent = content || '';
+      while (isIncompleteHeuristic(finalContent) && continued < contMax) {
+        const started = Date.now();
+        try {
+          const contBody = useHarmony
+            ? { model: mdl, prompt: renderHarmonyMinimal([...Array.isArray(out?.messages) ? out.messages : messages, { role: 'user', content: 'Continue and finish the last sentence. If a code block is open, close it with ```.' }]), max_tokens: contOut, temperature: 0.0, stream: false }
+            : { model: mdl, messages: [...(Array.isArray(out?.messages) ? out.messages : messages), { role: 'user', content: 'Continue and finish the last sentence (and close any unfinished code block).' }], max_tokens: contOut, temperature: 0.0, stream: false };
+          const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
+          if (!r.ok) break;
+          const j = await r.json();
+          const choice = j?.choices?.[0];
+          let appended = '';
+          if (useHarmony) appended = String(choice?.text || '');
+          else {
+            const msg = choice?.message || choice;
+            appended = typeof msg?.content === 'string' ? msg.content : (Array.isArray(msg?.content) ? msg.content.map(p => (typeof p === 'string' ? p : (p?.text || p?.content || p?.value || ''))).join('') : '');
+          }
+          if (!appended) break;
+          finalContent += appended;
+          out.assistant = out.assistant || {};
+          out.assistant.content = finalContent;
+          continued += 1;
+          const elapsed_ms = Date.now() - started;
+          const rsn = reason || incompleteReason(finalContent) || 'incomplete';
+          contInfo.push({ attempt: continued, reason: rsn, elapsed_ms, bytes: Buffer.byteLength(appended, 'utf8') });
+          appendEvent({ actor: 'assistant', act: 'auto_continue', conv_id: convId, trace_id: traceId, attempt: continued, reason: rsn, elapsed_ms });
+        } catch {
+          break;
+        }
+      }
+      if (continued > 0) {
+        out.debug.continuedTotal = continued;
+        out.debug.continuations = contInfo;
       }
     } catch {}
     res.json(out);
@@ -532,20 +568,15 @@ app.post('/api/chat/stream', async (req, res) => {
     // Now: stream the final turn from upstream (or fallback to Harmony non-stream)
     const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || /gpt[-_]?oss|oss-|harmony/i.test(mdl);
     const url = useHarmony ? (targetOrigin.replace(/\/$/, '') + '/v1/completions') : (upstreamBase.replace(/\/$/, '') + '/chat/completions');
-    const isIncomplete = (text) => {
-      if (!text) return true;
-      const t = String(text).trim();
-      if (t.length < 32) return true;
-      const terminals = '.!?"”’›»}]`';
-      const last = t.slice(-1);
-      if (!terminals.includes(last)) return true;
-      const ticks = (t.match(/```/g) || []).length;
-      return (ticks % 2 === 1);
-    };
+    const isIncomplete = (text) => isIncompleteHeuristic(text);
     const maxOut = (typeof plan.maxOut === 'number' && plan.maxOut > 0) ? plan.maxOut : 1536;
-    const contOut = (typeof plan.contOut === 'number' && plan.contOut > 0) ? plan.contOut : 1024;
-    const envContMax = Number(process.env.FRONTEND_CONT_ATTEMPTS || '0');
-    const contMax = (typeof envContMax === 'number' && envContMax >= 0) ? Math.min(envContMax, 6) : 0;
+    const contOut = (typeof plan.contOut === 'number' && plan.contOut > 0)
+      ? plan.contOut
+      : Number(process.env.FRONTEND_CONT_TOKENS || '1024');
+    const envRaw = process.env.FRONTEND_CONT_ATTEMPTS;
+    const envDefault = (envRaw == null || String(envRaw).trim() === '') ? 2 : Math.max(0, Math.min(6, Number(envRaw) || 0));
+    const reqCont = (typeof plan.contMax === 'number' && plan.contMax >= 0) ? plan.contMax : undefined;
+    const contMax = Math.max(0, Math.min(6, (reqCont ?? envDefault)));
     if (useHarmony) {
       // Render via orchestrator non-stream and emit fk-final
       const nonStream = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages: convo, tools: [], maxIterations: 1, maxTokens: maxOut });
@@ -686,9 +717,9 @@ app.post('/api/chat/stream', async (req, res) => {
     }
     // Heuristic continuation loop: try additional turns if incomplete
     let attempts = 0;
-    while (isProbablyIncomplete(finalContent) && attempts < contMax) {
+    while (isIncomplete(finalContent) && attempts < contMax) {
       try {
-        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue.' }], temperature: 0.0, stream: false, max_tokens: contOut };
+        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue and finish the last sentence (and close any unfinished code block).' }], temperature: 0.0, stream: false, max_tokens: contOut };
         const cont = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
         if (!cont.ok) break;
         const j = await cont.json();
@@ -697,20 +728,26 @@ app.post('/api/chat/stream', async (req, res) => {
         const appended = (typeof msg?.content === 'string') ? msg.content : (Array.isArray(msg?.content) ? msg.content.map(p => (typeof p === 'string' ? p : (p?.text || p?.content || p?.value || ''))).join('') : '');
         if (!appended) break;
         // announce continuation and stream the appended chunk
+        const rsn = incompleteReason(finalContent) || 'incomplete';
         res.write('event: fk-debug\n');
-        res.write('data: ' + JSON.stringify({ continued: true }) + '\n\n');
+        res.write('data: ' + JSON.stringify({ continued: true, reason: rsn, attempt: attempts + 1 }) + '\n\n');
         const out = { choices: [{ index: 0, delta: { content: appended } }] };
         res.write('data: ' + JSON.stringify(out) + '\n\n');
         finalContent += appended;
         attempts += 1;
+        try { appendEvent({ actor: 'assistant', act: 'auto_continue', conv_id: convId, trace_id: traceId, attempt: attempts, reason: rsn }); } catch {}
       } catch {
         break;
       }
     }
     try {
       // Emit a final normalized event as a safety net for clients
+      const debug = orchestrationPayload?.debug || {};
+      if (attempts > 0) {
+        try { debug.continuedTotal = attempts; } catch {}
+      }
       res.write('event: fk-final\n');
-      res.write('data: ' + JSON.stringify({ content: finalContent || null, reasoning: finalReasoning || null }) + '\n\n');
+      res.write('data: ' + JSON.stringify({ content: finalContent || null, reasoning: finalReasoning || null, debug }) + '\n\n');
       const final = (finalContent || '').trim();
       if (final) appendEvent({ actor: 'assistant', act: 'message', conv_id: convId, trace_id: traceId, content_preview: truncatePreview(final), status: 'ok' });
     } catch {}
