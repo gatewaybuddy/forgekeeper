@@ -109,6 +109,8 @@ Environment controls (server.mjs process):
   - UI: “Continue attempts” defaults to `2` and persists to localStorage; can be set per-conversation.
 - Telemetry: continuation attempts are recorded to ContextLog with `act=auto_continue` including `attempt`, `reason` (`short|punct|fence`), and `elapsed_ms`.
 
+See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how continuation attempts are summarized in the UI.
+
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).
