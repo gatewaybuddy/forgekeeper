@@ -454,6 +454,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
+    try { setReviseOpen(true); } catch {}
   }, []);
 
   const chooseSendMode = useCallback((text: string, history: Message[]): SendStrategy => {
@@ -524,6 +525,75 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setStreaming(false);
     }
   }, [input, messages, model, refreshMetrics, genMaxTokens, genAuto, genTemp, genTopP, convId]);
+
+  // Stop & Revise: inject developer note and relaunch
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseText, setReviseText] = useState('');
+  const onReviseSubmit = useCallback(async () => {
+    const note = (reviseText || '').trim();
+    setReviseOpen(false);
+    if (!note) return;
+    const lastUserIdx = [...messages].map((m, i) => ({ i, m })).reverse().find(x => x.m.role === 'user')?.i ?? -1;
+    const base = [...messages];
+    if (lastUserIdx >= 0) base.splice(lastUserIdx, 0, { role: 'developer' as any, content: note } as any);
+    else base.splice(1, 0, { role: 'developer' as any, content: note } as any);
+    const req = toChatRequestMessages(base);
+    setToolDebug(null);
+    setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
+    setStreaming(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      await streamViaServer({
+        model,
+        messages: req,
+        signal: controller.signal,
+        maxTokens: genMaxTokens,
+        contTokens: genContTokens,
+        contAttempts: genContAttempts,
+        autoTokens: !!genAuto,
+        temperature: genTemp,
+        topP: genTopP,
+        convId,
+        onOrchestration: (payload) => {
+          if (payload?.messages) {
+            const conv = normalizeTranscript(payload.messages);
+            setMessages(() => [...conv, { role: 'assistant', content: '', reasoning: '' }]);
+          }
+          if (payload?.debug) setToolDebug(payload.debug);
+        },
+        onDelta: (delta) => {
+          setMessages(prev => {
+            const out = [...prev];
+            const idx = out.length - 1;
+            const curr = out[idx];
+            if (!curr || curr.role !== 'assistant') return out;
+            out[idx] = { ...curr, reasoning: (curr.reasoning || '') + (delta.reasoningDelta || ''), content: curr.content + (delta.contentDelta || '') };
+            return out;
+          });
+        },
+        onDone: async (final) => {
+          setMessages(prev => {
+            const out = [...prev];
+            const idx = out.length - 1;
+            const curr = out[idx];
+            if (!curr || curr.role !== 'assistant') return out;
+            out[idx] = { ...curr, reasoning: final.reasoning ?? curr.reasoning ?? '', content: final.content ?? curr.content };
+            return out;
+          });
+          if (final.debug) setToolDebug(final.debug);
+          await refreshMetrics();
+        },
+        onError: (err) => {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err?.message || err}` }]);
+        }
+      });
+    } finally {
+      setStreaming(false);
+      abortRef.current = null;
+      setReviseText('');
+    }
+  }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId, refreshMetrics]);
 
   // tools orchestration is built into both send modes now
 
@@ -732,6 +802,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         <div style={{marginTop:6}}>
           <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
           <button style={{marginLeft:8}} onClick={refreshCtx}>Refresh Events</button>
+          <button style={{marginLeft:8}} onClick={()=>{ if (streaming) onStop(); setReviseOpen(true); }} disabled={reviseOpen}>Stop & Revise…</button>
         </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
@@ -1044,6 +1115,22 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
         )}
       </div>
       {drawerOpen && <DiagnosticsDrawer events={ctxEvents} onClose={()=>setDrawerOpen(false)} />}
+      {reviseOpen && (
+        <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:110}} onClick={()=>setReviseOpen(false)}>
+          <div style={{width:'min(720px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+              <div style={{fontWeight:700, color:'#334155'}}>Stop & Revise</div>
+              <button onClick={()=>setReviseOpen(false)} aria-label="Close" title="Close">✕</button>
+            </div>
+            <div style={{fontSize:12, color:'#475569', marginBottom:8}}>Add a short developer note. It will be injected before the last user message to steer the next attempt.</div>
+            <textarea rows={6} value={reviseText} onChange={e=>setReviseText(e.target.value)} style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}} placeholder="Example: Use run_bash to verify repo state; prefer concise CLI." />
+            <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:10}}>
+              <button onClick={()=>setReviseOpen(false)}>Cancel</button>
+              <button onClick={onReviseSubmit} disabled={!reviseText.trim()}>Relaunch with note</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
