@@ -111,6 +111,17 @@ Environment controls (server.mjs process):
 
 See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how continuation attempts are summarized in the UI.
 
+### Task Suggestions (TGT)
+- Endpoint: `GET /api/tasks/suggest?window_min=60` analyzes recent ContextLog events and continuation ratios to propose Task Cards.
+- UI: open the menu in Chat and choose “Tasks…” to view and copy suggestions.
+- Flags:
+  - `TASKGEN_CONT_MIN` (default 5), `TASKGEN_CONT_RATIO_THRESHOLD` (default 0.15)
+  - `TASKGEN_WINDOW_MIN` (default 60)
+
+### Metrics‑Informed Prompting (MIP)
+- When `PROMPTING_HINTS_ENABLED=1`, the server may inject a short developer note into the final turn based on recent continuation reasons (e.g., close code fences, finish sentences).
+- Tuning envs: `PROMPTING_HINTS_MINUTES` (default 10), `PROMPTING_HINTS_THRESHOLD` (default 0.15).
+
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).
