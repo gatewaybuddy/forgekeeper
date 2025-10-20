@@ -57,7 +57,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       setPrError(null);
       setPrPreview(null);
       const files = prFiles.split(',').map(s=>s.trim()).filter(Boolean);
-      const r = await fetch('/api/auto_pr/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files }) });
+      const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
+      const r = await fetch('/api/auto_pr/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits }) });
       const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
       if (!r.ok || j.ok === false) {
         setPrError(j?.error || `HTTP ${r.status}`);
@@ -96,14 +97,18 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 {Array.isArray(it.suggested) && it.suggested.length > 0 && (
                   <div style={{marginTop:6, fontSize:12}}>Suggested: {it.suggested.join('; ')}</div>
                 )}
-                <div style={{marginTop:6}}>
+                <div style={{marginTop:6, display:'flex', gap:8}}>
                   <button onClick={()=>{
                     const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
                     setPrTitle(`[docs] ${it.title} (${it.id})`);
                     setPrBody(body);
                     setPrFiles('README.md');
+                    if ((it as any).append?.text) setPrAppendText((it as any).append.text);
                     setShowPr(true);
                   }}>Open PR preview from this task</button>
+                  { (it as any).append?.text && (
+                    <button onClick={()=> setPrAppendText((it as any).append.text) }>Use README snippet</button>
+                  )}
                 </div>
               </li>
             ))}
@@ -131,6 +136,16 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 {prPreview && (
                   <div style={{fontSize:12, background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:8}}>
                     <div><b>Allowed files:</b> {(prPreview.preview?.files || []).join(', ') || '(none)'}</div>
+                    {Array.isArray(prPreview.preview?.appendPreviews) && prPreview.preview.appendPreviews.length > 0 && (
+                      <div style={{marginTop:6}}>
+                        <div><b>Append previews:</b></div>
+                        <ul style={{marginTop:4}}>
+                          {prPreview.preview.appendPreviews.map((a:any,i:number)=> (
+                            <li key={i}><code>{a.path}</code> — {a.bytes} bytes<br/><pre style={{whiteSpace:'pre-wrap'}}>{a.preview}</pre></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {Array.isArray(prPreview.blocked) && prPreview.blocked.length > 0 && (
                       <div style={{marginTop:4, color:'#b45309'}}>Blocked: {prPreview.blocked.join(', ')}</div>
                     )}

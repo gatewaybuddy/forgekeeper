@@ -52,6 +52,23 @@ export function suggestTasksFromStats(stats, opts = {}) {
         'Refine incomplete detection for dominant reasons (' + reasons + ').',
         'Enable Metrics‑Informed Prompting hints to close code fences and finish sentences.',
       ],
+      append: {
+        file: 'README.md',
+        text: [
+          '',
+          '### Operational Flags — Finishers & Prompting',
+          '',
+          '`# Continuations`',
+          'FRONTEND_CONT_ATTEMPTS=2',
+          'FRONTEND_CONT_TOKENS=1024',
+          '',
+          '`# Metrics‑Informed Prompting`',
+          'PROMPTING_HINTS_ENABLED=1',
+          'PROMPTING_HINTS_MINUTES=10',
+          'PROMPTING_HINTS_THRESHOLD=0.15',
+          ''
+        ].join('\n')
+      },
       acceptance: [
         'Continuation ratio over last hour below threshold',
         'Fence/punct continuations reduced by 30% week‑over‑week',
@@ -67,6 +84,7 @@ export function suggestTasksFromStats(stats, opts = {}) {
           'Strengthen fence heuristic and add test cases for dangling ```.',
           'Enable prompting hint: "Close any open code fence (```) before returning."',
         ],
+        append: { file: 'README.md', text: '\n### Hint — Close code fences\nEnsure code blocks are closed with ``` before returning.\n' },
         acceptance: ['Fence‑reason continuations reduced by 30%']
       });
     }
@@ -106,4 +124,3 @@ export function suggestTasks(windowMin = 60) {
   const items = suggestTasksFromStats(stats);
   return { windowMin: stats.windowMin, ratio: stats.ratio, assistantMsgs: stats.assistantMsgs, cont: stats.cont, items };
 }
-
