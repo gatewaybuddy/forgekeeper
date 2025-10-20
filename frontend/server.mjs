@@ -108,12 +108,19 @@ const metrics = { totalRequests: 0, totalToolCalls: 0, rateLimited: 0, streamReq
 // JSONL audit for tools
 import fs from 'node:fs';
 import { mkdirSync } from 'node:fs';
+import crypto from 'node:crypto';
 const auditDir = path.join(process.cwd(), '.forgekeeper');
 const auditFile = path.join(auditDir, 'tools_audit.jsonl');
+import { redactPreview, truncatePreview } from './server.guardrails.mjs';
+import { appendEvent, tailEvents } from './server.contextlog.mjs';
 function auditTool(rec) {
   try {
     mkdirSync(auditDir, { recursive: true });
-    fs.appendFile(auditFile, JSON.stringify({ ts: new Date().toISOString(), ...rec }) + '\n', () => {});
+    const safe = { ...rec };
+    if (typeof safe.args === 'object' && safe.args) safe.args = undefined;
+    if (safe.args_preview == null && rec.args != null) safe.args_preview = redactPreview(rec.args);
+    if (safe.result_preview == null && typeof rec.preview === 'string') safe.result_preview = truncatePreview(rec.preview);
+    fs.appendFile(auditFile, JSON.stringify({ ts: new Date().toISOString(), ...safe }) + '\n', () => {});
   } catch {}
 }
 
@@ -165,6 +172,8 @@ function isProbablyIncomplete(text) {
 app.post('/api/chat', async (req, res) => {
   try {
     metrics.totalRequests += 1;
+    const traceId = crypto.randomUUID();
+    const convId = (typeof req.body?.conv_id === 'string' && req.body.conv_id.trim()) ? req.body.conv_id.trim() : null;
     const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket.remoteAddress || '';
     if (!rateCheck(ip)) {
       metrics.rateLimited += 1;
@@ -187,6 +196,7 @@ app.post('/api/chat', async (req, res) => {
       tools: allowed,
       maxIterations: 4,
       maxTokens: plan.maxOut,
+      traceId,
       temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
       topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
       presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
@@ -201,11 +211,16 @@ app.post('/api/chat', async (req, res) => {
         if (Array.isArray(step.tools)) {
           metrics.totalToolCalls += step.tools.length;
           for (const t of step.tools) {
-            auditTool({ name: t?.name || null, args: t?.args || null, iter: step.iter || 0, ip, ms: t?.ms || null, preview: t?.preview || null, error: t?.error || null });
+            const argsPrev = redactPreview(t?.args || {});
+            const resPrev = truncatePreview(t?.preview || '');
+            const rec = { name: t?.name || null, iter: step.iter || 0, ip, ms: t?.ms || null, args_preview: argsPrev, result_preview: resPrev, error: t?.error || null };
+            auditTool({ ...rec });
+            appendEvent({ actor: 'assistant', act: 'tool_call', conv_id: convId, trace_id: traceId, iter: step.iter || 0, name: t?.name || null, status: t?.error ? 'error' : 'ok', elapsed_ms: t?.ms || null, args_preview: argsPrev, result_preview: resPrev });
           }
         }
         if (step?.autoExecuted) {
-          auditTool({ name: step.autoExecuted, args: {}, iter: step.iter || 0, ip, autoExecuted: true });
+          auditTool({ name: step.autoExecuted, iter: step.iter || 0, ip, autoExecuted: true });
+          appendEvent({ actor: 'assistant', act: 'tool_call', conv_id: convId, trace_id: traceId, iter: step.iter || 0, name: step.autoExecuted, status: 'ok', auto: true });
         }
       }
     } catch {}
@@ -475,6 +490,8 @@ app.post('/api/repo/write', async (req, res) => {
 app.post('/api/chat/stream', async (req, res) => {
   try {
     metrics.streamRequests += 1;
+    const traceId = crypto.randomUUID();
+    const convId = (typeof req.body?.conv_id === 'string' && req.body.conv_id.trim()) ? req.body.conv_id.trim() : null;
     const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket.remoteAddress || '';
     if (!rateCheck(ip)) {
       metrics.rateLimited += 1;
@@ -498,6 +515,7 @@ app.post('/api/chat/stream', async (req, res) => {
       tools: allowed,
       maxIterations: 4,
       maxTokens: plan.maxOut,
+      traceId,
       temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
       topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
       presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
@@ -692,6 +710,18 @@ app.post('/api/chat/stream', async (req, res) => {
     res.end();
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// Tail ContextLog (dev only)
+app.get('/api/ctx/tail', async (req, res) => {
+  try {
+    const n = Math.max(1, Math.min(500, parseInt(String(req.query.n || '50'), 10) || 50));
+    const conv = String(req.query.conv_id || '').trim() || null;
+    const rows = tailEvents(n, conv);
+    res.json({ ok: true, rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error', message: e?.message || String(e) });
   }
 });
 

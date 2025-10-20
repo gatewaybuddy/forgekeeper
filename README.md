@@ -86,17 +86,20 @@ Environment controls (server.mjs process):
 
 ### Debugging tools
 - In the UI, enable "Tools diagnostics" to see recent tool calls (name + args) per step of the server-side orchestration.
+- New: `GET /api/ctx/tail?n=50&conv_id=...` returns recent ContextLog events (JSONL-backed).
 
 ### Server Policies & Limits
 - Tool allowlist: set `TOOL_ALLOW` to a comma‑separated list of tool names to permit (e.g., `get_time,echo,read_file`). If unset, all registered tools are allowed.
 - Rate limiting: set `API_RATE_PER_MIN` to an integer to limit requests per minute per IP for `/api/chat` and `/api/chat/stream` (0 disables limiting).
 - Metrics: GET `/metrics` returns counters `{ totalRequests, streamRequests, totalToolCalls, rateLimited }`.
 - Auditing: tool executions append JSON lines to `.forgekeeper/tools_audit.jsonl` (fields: `ts`, `name`, `args`, `iter`, `ip`).
+- ContextLog: structured JSONL under `.forgekeeper/context_log/` with correlation fields (`conv_id`, `trace_id`, `iter`). See `docs/observability.md` and `docs/contextlog/adr-0001-contextlog.md`.
 
 ### Streaming Final Turn
 - Non‑streaming tools loop: `POST /api/chat` runs tool orchestration and returns `{ assistant, messages, debug }`.
 - Streaming final turn: `POST /api/chat/stream` runs the tool loop server‑side, then streams the final assistant turn from the upstream OpenAI‑compatible server via SSE (`text/event-stream`).
 - The Vite dev client can still stream directly from `/v1/chat/completions`; use the “Send (tools)” button to route via `/api/chat` or integrate your own SSE consumer for `/api/chat/stream`.
+- See: `docs/api/chat_stream.md` for curl examples and client helper notes.
 
 - Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
