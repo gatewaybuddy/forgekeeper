@@ -125,7 +125,10 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
           {showPr && (
             <div style={{marginTop:8}}>
               <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                <input placeholder="PR title" value={prTitle} onChange={e=>setPrTitle(e.target.value)} />
+                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                  <input placeholder="PR title" value={prTitle} onChange={e=>setPrTitle(e.target.value)} style={{flex:'1 1 auto'}} />
+                  <button onClick={()=>{ if (!prTitle.startsWith('[docs]')) setPrTitle(`[docs] ${prTitle}`); }}>Mark as [docs]</button>
+                </div>
                 <textarea placeholder="PR body" rows={4} value={prBody} onChange={e=>setPrBody(e.target.value)} />
                 <input placeholder="Files (comma‑separated)" value={prFiles} onChange={e=>setPrFiles(e.target.value)} />
                 <textarea placeholder="Append text (optional; appended to first allowed file)" rows={3} value={prAppendText} onChange={e=>setPrAppendText(e.target.value)} />
