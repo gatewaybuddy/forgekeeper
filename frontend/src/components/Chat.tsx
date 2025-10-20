@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chatClient';
+import { injectDeveloperNoteBeforeLastUser } from '../lib/convoUtils';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
 interface Message {
@@ -195,6 +196,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [metrics, setMetrics] = useState<any>(null);
   const [diag, setDiag] = useState<any>(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  // Stop & Revise
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseText, setReviseText] = useState('');
   const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
   // System prompt (auto from tools vs user override)
@@ -439,6 +443,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
+    setReviseOpen(true);
   }, []);
 
   const chooseSendMode = useCallback((text: string, history: Message[]): SendStrategy => {
@@ -535,6 +540,69 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   useEffect(() => {
     refreshMetrics();
   }, [refreshMetrics]);
+
+  // Stop & Revise: inject developer note and relaunch
+  const onReviseSubmit = useCallback(async () => {
+    const note = (reviseText || '').trim();
+    setReviseOpen(false);
+    if (!note) return;
+    const base = injectDeveloperNoteBeforeLastUser(messages as any, note) as any;
+    const req = toChatRequestMessages(base);
+    setToolDebug(null);
+    setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
+    setStreaming(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      await streamViaServer({
+        model,
+        messages: req,
+        signal: controller.signal,
+        maxTokens: genMaxTokens,
+        contTokens: genContTokens,
+        contAttempts: genContAttempts,
+        autoTokens: !!genAuto,
+        temperature: genTemp,
+        topP: genTopP,
+        onOrchestration: (payload) => {
+          if (payload?.messages) {
+            const conv = normalizeTranscript(payload.messages);
+            setMessages(() => [...conv, { role: 'assistant', content: '', reasoning: '' }]);
+          }
+          if (payload?.debug) setToolDebug(payload.debug);
+        },
+        onDelta: (delta) => {
+          setMessages(prev => {
+            const out = [...prev];
+            const idx = out.length - 1;
+            const curr = out[idx];
+            if (!curr || curr.role !== 'assistant') return out;
+            out[idx] = { ...curr, reasoning: (curr.reasoning || '') + (delta.reasoningDelta || ''), content: curr.content + (delta.contentDelta || '') };
+            return out;
+          });
+        },
+        onDone: async (final) => {
+          setMessages(prev => {
+            const out = [...prev];
+            const idx = out.length - 1;
+            const curr = out[idx];
+            if (!curr || curr.role !== 'assistant') return out;
+            out[idx] = { ...curr, reasoning: final.reasoning ?? curr.reasoning ?? '', content: final.content ?? curr.content };
+            return out;
+          });
+          if (final.debug) setToolDebug(final.debug);
+          await refreshMetrics();
+        },
+        onError: (err) => {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err?.message || err}` }]);
+        }
+      });
+    } finally {
+      setStreaming(false);
+      abortRef.current = null;
+      setReviseText('');
+    }
+  }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP]);
 
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
@@ -666,6 +734,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         </small>
         <div style={{marginTop:6}}>
           <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
+          <button style={{marginLeft:8}} onClick={()=>{ if (streaming) onStop(); setReviseOpen(true); }} disabled={reviseOpen}>Stop & Revise…</button>
         </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
@@ -977,6 +1046,32 @@ docker compose -f forgekeeper/docker-compose.yml up -d --build frontend
           </div>
         )}
       </div>
+      {reviseOpen && (
+        <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:110}} onClick={()=>setReviseOpen(false)}>
+          <div style={{width:'min(720px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+              <div style={{fontWeight:700, color:'#334155'}}>Stop & Revise</div>
+              <button onClick={()=>setReviseOpen(false)} aria-label="Close" title="Close">✕</button>
+            </div>
+            <div style={{fontSize:12, color:'#475569', marginBottom:8}}>Add a short developer note. It will be injected before the last user message to steer the next attempt.</div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:8}}>
+              {[
+                'Use run_bash to verify repo state; summarize outputs briefly.',
+                'Prefer concise, actionable steps; avoid long prose.',
+                'If a shell step fails, show the exact command and stderr.',
+                'Verify file changes with read_dir/read_file before claiming success.'
+              ].map((t,i)=> (
+                <button key={i} onClick={()=>setReviseText(t)} style={{fontSize:12, padding:'4px 6px', border:'1px solid #cbd5e1', borderRadius:6, background:'#f8fafc', cursor:'pointer'}}>{t}</button>
+              ))}
+            </div>
+            <textarea rows={6} value={reviseText} onChange={e=>setReviseText(e.target.value)} style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}} placeholder="Example: Use run_bash to verify repo state; prefer concise CLI." />
+            <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:10}}>
+              <button onClick={()=>setReviseOpen(false)}>Cancel</button>
+              <button onClick={onReviseSubmit} disabled={!reviseText.trim()}>Relaunch with note</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
