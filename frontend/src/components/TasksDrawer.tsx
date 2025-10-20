@@ -18,6 +18,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   const [prTitle, setPrTitle] = useState('Update docs from Task Generator');
   const [prBody, setPrBody] = useState('');
   const [prFiles, setPrFiles] = useState('README.md');
+  const [prAppendText, setPrAppendText] = useState('');
   const [prPreview, setPrPreview] = useState<any>(null);
   const [prError, setPrError] = useState<string | null>(null);
   const [prLoading, setPrLoading] = useState(false);
@@ -95,6 +96,15 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 {Array.isArray(it.suggested) && it.suggested.length > 0 && (
                   <div style={{marginTop:6, fontSize:12}}>Suggested: {it.suggested.join('; ')}</div>
                 )}
+                <div style={{marginTop:6}}>
+                  <button onClick={()=>{
+                    const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
+                    setPrTitle(`[docs] ${it.title} (${it.id})`);
+                    setPrBody(body);
+                    setPrFiles('README.md');
+                    setShowPr(true);
+                  }}>Open PR preview from this task</button>
+                </div>
               </li>
             ))}
             {items.length === 0 && (
@@ -113,6 +123,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 <input placeholder="PR title" value={prTitle} onChange={e=>setPrTitle(e.target.value)} />
                 <textarea placeholder="PR body" rows={4} value={prBody} onChange={e=>setPrBody(e.target.value)} />
                 <input placeholder="Files (comma‑separated)" value={prFiles} onChange={e=>setPrFiles(e.target.value)} />
+                <textarea placeholder="Append text (optional; appended to first allowed file)" rows={3} value={prAppendText} onChange={e=>setPrAppendText(e.target.value)} />
                 <div style={{display:'flex', gap:8}}>
                   <button onClick={previewPR} disabled={prLoading}>Preview</button>
                 </div>
@@ -128,7 +139,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                         try {
                           setPrLoading(true); setPrError(null);
                           const files = (prPreview.preview?.files || []) as string[];
-                          const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files }) });
+                          const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
+                          const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits }) });
                           const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
                           if (!r.ok || j.ok === false) setPrError(j?.error || `HTTP ${r.status}`);
                           else {
