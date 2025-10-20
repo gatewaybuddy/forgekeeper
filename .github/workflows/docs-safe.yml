@@ -1,0 +1,37 @@
+name: docs-safe
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  docs_only_check:
+    if: startsWith(github.event.pull_request.title, '[docs]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check allowed files
+        run: |
+          base_ref="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$base_ref" --depth=1
+          CHANGED=$(git diff --name-only "origin/$base_ref"...HEAD)
+          echo "$CHANGED" | sed 's/^/ - /'
+          BAD=$(echo "$CHANGED" | grep -Ev '^(README.md|docs/|forgekeeper/\.env\.example|frontend/test/)' || true)
+          if [ -n "$BAD" ]; then
+            echo "Disallowed files changed:" >&2
+            echo "$BAD" | sed 's/^/ - /' >&2
+            exit 1
+          fi
+      - name: Frontend unit tests (if tests touched)
+        if: contains(github.event.pull_request.title, '[docs]')
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run frontend tests (docs-safe)
+        if: contains(github.event.pull_request.title, '[docs]')
+        run: |
+          npm --prefix forgekeeper/frontend ci || npm --prefix forgekeeper/frontend install
+          npm --prefix forgekeeper/frontend run test -s
+
