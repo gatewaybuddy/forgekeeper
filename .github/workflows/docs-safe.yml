@@ -24,6 +24,16 @@ jobs:
             echo "$BAD" | sed 's/^/ - /' >&2
             exit 1
           fi
+      - name: Require Task ID in title or body
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          BODY="${{ github.event.pull_request.body }}"
+          if echo "$TITLE\n$BODY" | grep -Eiq '(Task ID:\s*T\d+|\bT[0-9]{2,5}\b)'; then
+            echo "Task ID found"
+          else
+            echo "Missing Task ID (e.g., 'Task ID: T123')." >&2
+            exit 1
+          fi
       - name: Frontend unit tests (if tests touched)
         if: contains(github.event.pull_request.title, '[docs]')
         uses: actions/setup-node@v4
@@ -34,4 +44,3 @@ jobs:
         run: |
           npm --prefix forgekeeper/frontend ci || npm --prefix forgekeeper/frontend install
           npm --prefix forgekeeper/frontend run test -s
-

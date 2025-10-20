@@ -99,6 +99,21 @@ export function suggestTasksFromStats(stats, opts = {}) {
       });
     }
   }
+  // Tool error signals
+  try {
+    const ev = getWindowEvents(stats?.windowMin || 60);
+    const toolErrors = ev.filter(e => e?.act === 'tool_call' && String(e?.status||'').toLowerCase() === 'error');
+    if (toolErrors.length >= 3) {
+      items.push({
+        id: 'TGT-TOOLS-ERR-1',
+        title: 'Investigate frequent tool errors',
+        severity: 'medium',
+        evidence: { count: toolErrors.length },
+        suggested: [ 'Check tool allowlist and sandbox paths', 'Add retries/timeouts where appropriate' ],
+        acceptance: [ 'Tool error rate reduced by 50% in next 24h' ]
+      });
+    }
+  } catch {}
   return items;
 }
 

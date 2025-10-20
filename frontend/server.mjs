@@ -467,7 +467,18 @@ app.post('/api/auto_pr/preview', async (req, res) => {
           const text = String(ed?.appendText || '');
           if (!p || !text) continue;
           if (!allow.some(rule => p === rule || p.startsWith(rule))) continue;
-          appendPreviews.push({ path: p, bytes: Buffer.byteLength(text, 'utf8'), preview: text.slice(0, 400) });
+          // Build a tiny diff preview using last 200 chars of current file (if exists)
+          let beforeTail = '';
+          try {
+            const full = path.resolve(process.env.REPO_ROOT || '/workspace', p);
+            if (fs.existsSync(full)) {
+              const data = fs.readFileSync(full, 'utf8');
+              beforeTail = data.slice(-200);
+            }
+          } catch {}
+          const preview = text.slice(0, 400);
+          const diff = `--- a/${p}\n+++ b/${p}\n@@ (tail)\n-${beforeTail.replace(/\n/g,'\n-')}\n+${preview.replace(/\n/g,'\n+')}`;
+          appendPreviews.push({ path: p, bytes: Buffer.byteLength(text, 'utf8'), preview, diff });
         }
       }
     } catch {}
