@@ -6,6 +6,10 @@ import path from 'node:path';
 const BASE_DIR = path.resolve(process.cwd(), '.forgekeeper', 'context_log');
 const MAX_BYTES = Number(process.env.FRONEND_CTXLOG_MAX_BYTES || process.env.CTXLOG_MAX_BYTES || 10 * 1024 * 1024);
 
+// Simple in-memory tail cache for most-recent file to avoid repeated disk reads
+// Cache invalidates when file size or mtime changes.
+const tailCache = new Map(); // fp -> { size, mtimeMs, lines }
+
 function hourKey(d = new Date()) {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -57,9 +61,19 @@ export function tailEvents(n = 50, conv_id = null) {
       .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
     const out = [];
     for (const fp of files) {
-      let text = '';
-      try { text = readFileSync(fp, 'utf8'); } catch { continue; }
-      const lines = text.split(/\r?\n/).filter(Boolean);
+      let lines = null;
+      try {
+        const st = statSync(fp);
+        const key = fp;
+        const cached = tailCache.get(key);
+        if (cached && cached.size === st.size && cached.mtimeMs === st.mtimeMs) {
+          lines = cached.lines;
+        } else {
+          const text = readFileSync(fp, 'utf8');
+          lines = text.split(/\r?\n/).filter(Boolean);
+          tailCache.set(key, { size: st.size, mtimeMs: st.mtimeMs, lines });
+        }
+      } catch { continue; }
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
           const obj = JSON.parse(lines[i]);
@@ -75,4 +89,3 @@ export function tailEvents(n = 50, conv_id = null) {
     return [];
   }
 }
-
