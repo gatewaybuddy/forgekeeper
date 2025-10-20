@@ -2,7 +2,7 @@ export type CtxEvent = {
   id?: string;
   ts: string;
   actor: 'user' | 'assistant' | 'tool' | 'system';
-  act: 'message' | 'tool_call' | 'tool_result' | 'error' | 'metric';
+  act: 'message' | 'tool_call' | 'tool_result' | 'error' | 'metric' | 'auto_continue';
   conv_id?: string;
   trace_id?: string;
   iter?: number;
@@ -12,6 +12,8 @@ export type CtxEvent = {
   args_preview?: string;
   result_preview?: string;
   content_preview?: string;
+  attempt?: number;
+  reason?: string;
   [k: string]: any;
 };
 
@@ -25,4 +27,3 @@ export async function tailContextLog(n: number, convId?: string | null): Promise
   const rows = Array.isArray(j?.rows) ? j.rows as CtxEvent[] : [];
   return rows;
 }
-
