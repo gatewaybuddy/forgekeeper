@@ -245,7 +245,7 @@ async function ensureContextBudget({ baseUrl, model, messages, desiredMaxTokens 
 /**
  * Orchestrate tool calls until a final assistant message without tool_calls.
  */
-export async function orchestrateWithTools({ baseUrl, model, messages, tools, maxIterations = 4, maxTokens, temperature, topP, presencePenalty, frequencyPenalty }) {
+export async function orchestrateWithTools({ baseUrl, model, messages, tools, maxIterations = 4, maxTokens, temperature, topP, presencePenalty, frequencyPenalty, traceId = null }) {
   const convo = Array.isArray(messages) ? [...messages] : [];
   const diagnostics = [];
   let compactionInfo = null;
@@ -312,7 +312,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
     const choice = json?.choices?.[0] ?? {};
     const msg = choice?.message || choice;
     const toolCalls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
-    const step = { iter, finish_reason: choice?.finish_reason, tool_calls_count: toolCalls.length, tools: [] };
+    const step = { iter, finish_reason: choice?.finish_reason, tool_calls_count: toolCalls.length, tools: [], trace_id: traceId };
 
     if (useHarmony) {
       // Harmony path: parse custom tool calls from text
@@ -472,4 +472,3 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
   }
   return { error: 'max_iterations_reached', messages: convo, debug: { diagnostics: 'max iters' } };
 }
-

@@ -1,10 +1,16 @@
 # Roadmap (Fresh Start)
 
-Status Snapshot - 2025-09-29
+Status Snapshot - 2025-10-20
 - Tool-ready chat path available end-to-end: server orchestrator (`frontend/server.tools.mjs`, `frontend/server.orchestrator.mjs`), `/api/chat`, and the UI tool send path.
 - vLLM Core bring-up scripts and health checks exist (`scripts/test_vllm_health.*`, `scripts/test_harmony_basic.*`).
 - Python CLI wrappers online: `compose`, `up-core`, `chat`, `ensure-stack`.
 - Frontend Node server serves static UI and proxies `/v1`, `/health`, `/healthz`.
+
+Recent Enhancements (since 2025-10-19)
+- Persisted tool filesystem writes to the mounted sandbox via `TOOLS_FS_ROOT` (compose default `/workspace/sandbox`).
+- Enabled `run_bash` tool (gated) and updated system prompt guidance to call bash for shell workflows and verify results via `read_dir`/`read_file`.
+- Added JSONL audit for tool calls and basic rate limiting on `/api/chat` and `/api/chat/stream`.
+- Introduced SSE for the final turn behind the tool loop at `/api/chat/stream`.
 
 Phase 1 — Tool-Ready Chat (Server Orchestration)
 - Bring up vLLM Core only with the local model path mounted (`/models/gpt-oss-20b`).

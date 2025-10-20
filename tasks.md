@@ -39,6 +39,155 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 
 ## Detailed Scope and Guardrails
 
+### T120 — ContextLog design spec (JSONL MVP + future DB)
+- Goal: Define event schema, retention, correlation, and backends.
+- Scope:
+  - Write ADR covering JSONL MVP with rotate-on-size policy; outline SQLite/Mongo future.
+  - Include examples for tool_call, tool_result, message, error, metric.
+- Out of Scope:
+  - Implementing DB backends.
+- Allowed Touches: `forgekeeper/docs/contextlog/adr-0001-contextlog.md`.
+- Done When:
+  - ADR merged; sample events validate via `python -m json.tool`.
+- Test Level: documentation.
+
+### T121 — ContextLog file adapter (JSONL) and write API
+- Goal: Implement `append()` and `tail()` with rotation.
+- Scope:
+  - Module at `forgekeeper/services/context_log/jsonl.py` with rotate at 10MB and hourly index.
+  - Write minimal unit tests.
+- Out of Scope:
+  - DB adapters.
+- Allowed Touches: `forgekeeper/services/context_log/*`, `forgekeeper/tests/test_context_log.py`.
+- Done When:
+  - `pytest -q` passes; `tail(n)` returns newest-first; rotation preserves JSONL integrity.
+- Test Level: unit.
+
+### T122 — Instrument server to ContextLog
+- Goal: Replace/augment tool audit writes with ContextLog appends and correlation IDs.
+- Scope:
+  - Call ContextLog from `frontend/server.mjs` where tool audits occur; preserve existing JSONL audit as fallback.
+- Out of Scope:
+  - Removing legacy audit file.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/services/context_log/*`.
+- Done When:
+  - `/api/chat` tool calls emit ContextLog entries with `trace_id`, `iter`, `name`, `status`.
+- Test Level: smoke + unit (if feasible).
+
+### T123 — Orchestrator diagnostics: correlation plumbed
+- Goal: Thread `trace_id` and `iter` through orchestrator diagnostics.
+- Scope:
+  - Update `frontend/server.orchestrator.mjs` to include correlation in `debug.diagnostics[*]`.
+- Out of Scope:
+  - API changes to upstream model calls.
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`.
+- Done When:
+  - Diagnostics objects consistently include `trace_id` and `iter`.
+- Test Level: unit (shape check) + smoke.
+
+### T124 — UI Diagnostics Drawer (read-only)
+- Goal: Show last N tool events for current conversation.
+- Scope:
+  - Add a diagnostics drawer in Chat; copy-to-clipboard for event JSON.
+- Out of Scope:
+  - Server-side search or pagination.
+- Allowed Touches: `forgekeeper/frontend/src/components/*`, `forgekeeper/frontend/src/lib/*`.
+- Done When:
+  - Drawer lists timestamp, tool, status; toggled from the UI.
+- Test Level: UI smoke.
+
+### T125 — Metrics and docs refresh
+- Goal: Ensure counters and docs reflect ContextLog instrumentation.
+- Scope:
+  - Add/verify `totalToolCalls` on `/metrics`; document tailing and rotation.
+- Out of Scope:
+  - Persistent dashboards.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/README.md`, `forgekeeper/docs/observability.md`.
+- Done When:
+  - `GET /metrics` shows counters; docs published.
+- Test Level: smoke.
+
+### T130 — New Conversation design note
+- Goal: Define conversation identity and reset behavior.
+- Scope: Doc covering ID generation, state reset, ContextLog tagging.
+- Allowed Touches: `forgekeeper/docs/ui/new_conversation.md`.
+- Done When: Doc merged with examples.
+- Test Level: documentation.
+
+### T131 — New Conversation button + state reset
+- Goal: Implement UI affordance and reset transcript/ID.
+- Scope: Update `Chat.tsx` and state; set fresh `conv_id`.
+- Out of Scope: Server-side thread persistence.
+- Allowed Touches: `forgekeeper/frontend/src/components/Chat.tsx`, `forgekeeper/frontend/src/state/*`.
+- Done When: Clicking button shows empty thread and fresh ID; ContextLog tags events with new `conv_id`.
+- Test Level: UI smoke.
+
+### T132 — New Conversation docs + telemetry note
+- Goal: Update README and design doc with telemetry.
+- Allowed Touches: `forgekeeper/README.md`, `forgekeeper/docs/ui/new_conversation.md`.
+- Done When: README includes instructions; ContextLog example updated.
+
+### T140 — Status Bar probe plan
+- Goal: Define probe sources and semantics.
+- Scope: Doc mapping Inference/Agent/GraphQL/Queue to endpoints.
+- Allowed Touches: `forgekeeper/docs/ui/status_bar.md`.
+- Done When: Plan doc merged.
+- Test Level: documentation.
+
+### T141 — Status Bar component + probes
+- Goal: Implement read-only indicators.
+- Scope: `StatusBar.tsx` and lightweight fetch probes.
+- Out of Scope: Auto-retry/backoff.
+- Allowed Touches: `forgekeeper/frontend/src/components/StatusBar.tsx`, `forgekeeper/frontend/src/lib/*`.
+- Done When: Indicators reflect probe results in dev.
+- Test Level: UI smoke.
+
+### T142 — Status Bar docs/toggles
+- Goal: Update README with instructions and env toggles.
+- Allowed Touches: `forgekeeper/README.md`, `forgekeeper/docs/ui/status_bar.md`.
+- Done When: Docs merged; basic toggle documented.
+
+### T150 — Polling spec
+- Goal: Define interval, focus pause, and backoff.
+- Allowed Touches: `forgekeeper/docs/ui/polling.md`.
+- Done When: Spec merged.
+
+### T151 — Lightweight message polling
+- Goal: Client-side polling with focus pause.
+- Scope: `chatClient.ts` helper and Chat wiring.
+- Out of Scope: SSE/WebSocket streaming (already available for final turn).
+- Allowed Touches: `forgekeeper/frontend/src/lib/chatClient.ts`, `forgekeeper/frontend/src/components/Chat.tsx`.
+- Done When: Messages appear within N seconds; pauses on focus.
+- Test Level: UI smoke.
+
+### T170 — Redaction policy
+- Goal: Define redaction patterns and principles.
+- Allowed Touches: `forgekeeper/docs/security/redaction_policy.md`.
+- Done When: Doc merged; patterns listed with examples.
+
+### T171 — Redact args/results before logging
+- Goal: Redact sensitive values before ContextLog/audit writes.
+- Scope: Guardrail helpers + unit tests.
+- Allowed Touches: `forgekeeper/frontend/server.guardrails.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`, `tests/frontend/test_tool_guardrails.ts`.
+- Done When: Logs show redacted payloads; tests pass.
+- Test Level: unit + smoke.
+
+### T172 — Payload size caps for audits
+- Goal: Enforce truncation with clear markers.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/README.md`.
+- Done When: Oversized payloads truncated with `[TRUNCATED] (n bytes)`.
+- Test Level: unit (helper) + smoke.
+
+### T173 — Guardrail docs and tests
+- Goal: Consolidate tests and doc pointers.
+- Allowed Touches: `forgekeeper/README.md`, `forgekeeper/docs/security/redaction_policy.md`, `tests/frontend/test_tool_guardrails.ts`.
+- Done When: Tests pass; docs reference helpers.
+
+### T180 — `/api/chat/stream` usage docs
+- Goal: Publish endpoint usage and examples.
+- Allowed Touches: `forgekeeper/docs/api/chat_stream.md`, `forgekeeper/frontend/README.md`, `forgekeeper/frontend/src/lib/chatClient.ts`.
+- Done When: curl example included; ESLint passes.
+
 ### T101 - Reasoning Modes (off | brief | two_phase)
 - Goal: Introduce selectable reasoning modes with safe defaults and small analysis budgets.
 - Scope:
@@ -321,6 +470,7 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 - Out of Scope:
   - Implementation changes to services, tooling, or UI beyond documentation updates.
 - Allowed Touches: `ROADMAP.md`
+- Status: Done (2025-10-20); roadmap already reflects Tool‑Ready Chat as Phase 1.
 - Done When:
   - `python -m markdown ROADMAP.md` renders without errors.
 - Test Level: smoke.
@@ -389,3 +539,4 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 - [x] Chat UI with streaming deltas and reasoning toggle  (Phase 2: Minimal Backend & Agent Wiring)
 - [x] Harmony protocol summary doc (`forgekeeper/docs/harmony_protocol_summary.md`)  (Docs)
 
+- [x] T27 — Reorder roadmap phases around tool-ready chat (Docs) (Completed 2025-10-20)
