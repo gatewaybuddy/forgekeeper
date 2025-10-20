@@ -224,6 +224,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
   const [contDetails, setContDetails] = useState<Array<{attempt?: number; reason?: string}>>([]);
+  const [hideInlineWhenPinned, setHideInlineWhenPinned] = useState<boolean>(() => { try { return localStorage.getItem('fk_hide_inline_reasoning_when_pinned') === '1'; } catch { return false; } });
   // System prompt (auto from tools vs user override)
   const [sysMode, setSysMode] = useState<'auto' | 'custom'>('auto');
   const [sysCustom, setSysCustom] = useState<string>('');
@@ -751,7 +752,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <span style={{fontSize:11, color:'#0f766e', background:'#ccfbf1', border:'1px solid #99f6e4', padding:'2px 6px', borderRadius:999}}>Used tools: {toolDebug.toolsUsed.join(', ')}</span>
                 </div>
               )}
-              {m.role === 'assistant' && showReasoning && (
+              {m.role === 'assistant' && showReasoning && (!pinReasoning || !hideInlineWhenPinned) && (
                 <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
                   <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
                   <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word', color:'#555'}}>
@@ -817,6 +818,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={pinReasoning} onChange={e=>{ setPinReasoning(e.target.checked); try { localStorage.setItem('fk_pin_reasoning', e.target.checked ? '1' : '0'); } catch {} }} />
             <span style={{fontSize:12}}>Pin reasoning panel</span>
+          </label>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}} title="When pinned, hide the inline reasoning blocks inside messages">
+            <input type="checkbox" checked={hideInlineWhenPinned} onChange={e=>{ setHideInlineWhenPinned(e.target.checked); try { localStorage.setItem('fk_hide_inline_reasoning_when_pinned', e.target.checked ? '1' : '0'); } catch {} }} />
+            <span style={{fontSize:12}}>Hide inline when pinned</span>
           </label>
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />

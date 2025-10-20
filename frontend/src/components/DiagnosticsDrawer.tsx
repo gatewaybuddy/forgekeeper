@@ -3,6 +3,23 @@ import type { CtxEvent } from '../lib/ctxClient';
 
 export default function DiagnosticsDrawer({ events, onClose }: { events: CtxEvent[]; onClose: () => void }) {
   const hasContinuations = Array.isArray(events) && events.some(e => e.act === 'auto_continue');
+  const contCounts = (() => {
+    const c = { total: 0, short: 0, punct: 0, fence: 0 } as Record<string, number>;
+    for (const e of (events || [])) {
+      if (e.act === 'auto_continue') {
+        c.total += 1;
+        if (typeof e.reason === 'string' && c[e.reason] != null) c[e.reason] += 1;
+      }
+    }
+    return c;
+  })();
+  const copyLast = async () => {
+    try {
+      const payload = JSON.stringify(events.slice(0, 50), null, 2);
+      await navigator.clipboard.writeText(payload);
+      alert('Copied last 50 events to clipboard.');
+    } catch {}
+  };
   return (
     <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={onClose}>
       <div style={{width:'min(900px, 94vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16, maxHeight:'80vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
@@ -18,6 +35,10 @@ export default function DiagnosticsDrawer({ events, onClose }: { events: CtxEven
                 <li key={`cont-${i}`}>attempt {String(e.attempt || '?')}: {String(e.reason || 'incomplete')} {typeof e.elapsed_ms === 'number' ? `(${e.elapsed_ms} ms)` : ''}</li>
               ))}
             </ul>
+            <div style={{marginTop:6, fontSize:12}}>Counts — total: <b>{contCounts.total}</b> short: <b>{contCounts.short}</b> punct: <b>{contCounts.punct}</b> fence: <b>{contCounts.fence}</b></div>
+            <div style={{marginTop:6}}>
+              <button onClick={copyLast}>Copy last 50 events</button>
+            </div>
           </div>
         )}
 
