@@ -124,7 +124,19 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                       <div style={{marginTop:4, color:'#b45309'}}>Blocked: {prPreview.blocked.join(', ')}</div>
                     )}
                     <div style={{marginTop:4}}>
-                      <button disabled title="Enable AUTO_PR_ENABLED=1 to allow creation (not implemented here)">Create PR (requires flag)</button>
+                      <button onClick={async()=>{
+                        try {
+                          setPrLoading(true); setPrError(null);
+                          const files = (prPreview.preview?.files || []) as string[];
+                          const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files }) });
+                          const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
+                          if (!r.ok || j.ok === false) setPrError(j?.error || `HTTP ${r.status}`);
+                          else {
+                            alert(`PR created: ${j.pr_url || '(no URL)'}`);
+                          }
+                        } catch (e:any) { setPrError(e?.message || String(e)); }
+                        finally { setPrLoading(false); }
+                      }} disabled={prLoading || !prPreview?.enabled || prPreview?.dryrun} title={!prPreview?.enabled ? 'AUTO_PR_ENABLED=1 required' : (prPreview?.dryrun ? 'AUTO_PR_DRYRUN=0 required' : '')}>Create PR</button>
                     </div>
                   </div>
                 )}
