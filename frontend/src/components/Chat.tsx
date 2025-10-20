@@ -204,6 +204,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [streaming, setStreaming] = useState(false);
   const [fkFinal, setFkFinal] = useState('');
   const [showReasoning, setShowReasoning] = useState(true);
+  const [pinReasoning, setPinReasoning] = useState<boolean>(() => { try { return localStorage.getItem('fk_pin_reasoning') === '1'; } catch { return false; } });
   const [toolDebug, setToolDebug] = useState<any>(null);
   const [showToolDiag, setShowToolDiag] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -693,24 +694,24 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           <span style={{fontSize:12, color:'#64748b'}}>ID: <code>{convId.slice(0,12)}…</code></span>
         </div>
       </div>
-      <div
-        ref={scrollRef}
-        style={{
-          border:'1px solid #eee',
-          borderRadius:8,
-          padding:12,
-          marginBottom:12,
-          // Use flex sizing so this box takes the remaining space without forcing the page to scroll
-          height: fill ? undefined : '55vh',
-          overflowY: 'auto',
-          overscrollBehavior: 'contain',
-          background: '#fff',
-          scrollBehavior: 'smooth',
-          minHeight: 0,
-          flex: fill ? '1 1 auto' : undefined
-        }}
-        onScroll={onScroll}
-      >
+      <div style={{display:'flex', gap:12, alignItems:'stretch', minHeight:0}}>
+        <div
+          ref={scrollRef}
+          style={{
+            border:'1px solid #eee',
+            borderRadius:8,
+            padding:12,
+            marginBottom:12,
+            height: fill ? undefined : '55vh',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            background: '#fff',
+            scrollBehavior: 'smooth',
+            minHeight: 0,
+            flex: '1 1 auto'
+          }}
+          onScroll={onScroll}
+        >
         {messages.map((m, i) => {
           if (m.role === 'tool') {
             const preview = toolPreview(m.content || '');
@@ -762,6 +763,24 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           );
         })}
         <div ref={endRef} />
+        </div>
+        {pinReasoning && (
+          <div style={{flex:'0 0 30%', border:'1px solid #e2e8f0', borderRadius:8, padding:10, background:'#fafafa', display:'flex', flexDirection:'column', maxHeight: fill ? undefined : '55vh'}}>
+            <div style={{fontWeight:600, fontSize:12, color:'#475569', marginBottom:6, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+              <span>Reasoning (live)</span>
+              <span style={{display:'inline-block', width:8, height:8, borderRadius:9999, background: streaming ? '#16a34a' : '#94a3b8'}} />
+            </div>
+            <div style={{flex:'1 1 auto', overflowY:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:6, padding:8}}>
+              <pre style={{whiteSpace:'pre-wrap', wordBreak:'break-word', margin:0, fontSize:12}}>
+                {(() => {
+                  const last = messages.length ? messages[messages.length - 1] : null;
+                  const r = last && last.role === 'assistant' ? (last.reasoning || '') : '';
+                  return r || '(no reasoning)';
+                })()}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
       {!nearBottom && (
         <div style={{display:'flex', justifyContent:'center', marginTop: -8, marginBottom: 8}}>
@@ -794,6 +813,10 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
             <span style={{fontSize:12}}>Show reasoning</span>
+          </label>
+          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
+            <input type="checkbox" checked={pinReasoning} onChange={e=>{ setPinReasoning(e.target.checked); try { localStorage.setItem('fk_pin_reasoning', e.target.checked ? '1' : '0'); } catch {} }} />
+            <span style={{fontSize:12}}>Pin reasoning panel</span>
           </label>
           <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
             <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />
