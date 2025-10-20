@@ -94,6 +94,12 @@ services:
       FRONTEND_ENABLE_BASH: ${FRONTEND_ENABLE_BASH:-1}
       PWSH_PATH: ${PWSH_PATH:-/usr/bin/pwsh}
       BASH_PATH: ${BASH_PATH:-/bin/bash}
+      # Default working directories for shell tools
+      PWSH_CWD: ${PWSH_CWD:-/workspace/sandbox}
+      BASH_CWD: ${BASH_CWD:-/workspace/sandbox}
+      # Persist tool sandbox writes to the bind-mounted repo directory
+      # Default to a dedicated folder under the mounted workspace
+      TOOLS_FS_ROOT: ${TOOLS_FS_ROOT:-/workspace/sandbox}
       # Optional working directory for PowerShell tool
       # PWSH_CWD: /workspace
       # Optional working directory for Bash tool

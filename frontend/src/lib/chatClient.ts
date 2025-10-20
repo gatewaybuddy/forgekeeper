@@ -40,13 +40,14 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
 }
 
 // Call server-side tool orchestrator (non-streaming). Useful when tools are required.
-export async function chatViaServer({ model, messages, maxTokens, autoTokens, temperature, topP }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; temperature?: number; topP?: number; }): Promise<ChatOnceResult> {
+export async function chatViaServer({ model, messages, maxTokens, autoTokens, temperature, topP, convId }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; temperature?: number; topP?: number; convId?: string; }): Promise<ChatOnceResult> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
       messages,
+      conv_id: convId,
       max_tokens: typeof maxTokens === 'number' ? maxTokens : undefined,
       auto_tokens: !!autoTokens,
       temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
@@ -181,6 +182,7 @@ export async function streamViaServer({
   autoTokens,
   temperature,
   topP,
+  convId,
 }: {
   model: string;
   messages: ChatMessageReq[];
@@ -195,6 +197,7 @@ export async function streamViaServer({
   autoTokens?: boolean;
   temperature?: number;
   topP?: number;
+  convId?: string;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
@@ -203,6 +206,7 @@ export async function streamViaServer({
     body: JSON.stringify({
       model,
       messages,
+      conv_id: convId,
       max_tokens: maxTokens,
       cont_tokens: contTokens,
       cont_attempts: contAttempts,
