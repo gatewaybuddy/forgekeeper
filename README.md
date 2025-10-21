@@ -112,11 +112,47 @@ Environment controls (server.mjs process):
 See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how continuation attempts are summarized in the UI.
 
 ### Task Suggestions (TGT)
+- Enable: set `TASKGEN_ENABLED=1` for the server process.
 - Endpoint: `GET /api/tasks/suggest?window_min=60` analyzes recent ContextLog events and continuation ratios to propose Task Cards.
 - UI: open the menu in Chat and choose “Tasks…” to view and copy suggestions.
 - Flags:
   - `TASKGEN_CONT_MIN` (default 5), `TASKGEN_CONT_RATIO_THRESHOLD` (default 0.15)
   - `TASKGEN_WINDOW_MIN` (default 60)
+  - `TASKGEN_UPSTREAM_MIN` (default 3) — minimum upstream 5xx errors to suggest resilience tasks
+  - `TASKGEN_ENABLED` (default `0` → disabled)
+- Smoke test: with the server running, `bash forgekeeper/scripts/test_taskgen.sh 60`
+
+### Safe Auto‑PR Loop (SAPL) — Demo
+- Preview (dry‑run): `AUTO_PR_ENABLED=1 FRONTEND_PORT=3000 bash forgekeeper/scripts/sapl_demo.sh README.md docs`
+  - Calls `POST /api/auto_pr/preview` to validate the allowlist and show unified diff append previews.
+  - No PR is created; enable `AUTO_PR_DRYRUN=0` and use the UI’s “Create PR” to open a PR.
+- Flags: `AUTO_PR_ENABLED`, `AUTO_PR_DRYRUN`, `AUTO_PR_ALLOW`, `AUTO_PR_LABELS`, `AUTO_PR_AUTOMERGE`.
+- PR creation prerequisites:
+  - `gh` is installed in the container image (we install it automatically).
+  - Provide a GitHub token as `GH_TOKEN` or `GITHUB_TOKEN` (PAT with `repo` scope is sufficient). In Docker Compose, the frontend service forwards these env vars.
+  - Ensure `origin` points to your GitHub repo and that Git is configured to use HTTPS (the server route runs `gh auth setup-git` when a token is present).
+
+### GitHub Auth Options (local dev)
+- Host env pass‑through (recommended):
+  - Windows PowerShell: `$env:GH_TOKEN='ghp_…'; docker compose up -d frontend`
+  - Linux/macOS: `export GH_TOKEN='ghp_…'; docker compose up -d frontend`
+- Paste token via API (no host env):
+  - Enable: `FRONTEND_ENABLE_AUTH_LOCAL=1`
+  - `curl -H 'Content-Type: application/json' -d '{"token":"ghp_…"}' http://localhost:${FRONTEND_PORT}/api/auth/github/token`
+  - Stored at `.forgekeeper/secrets/gh_token` (gitignored). The server attempts `gh auth login` + `gh auth setup-git` automatically.
+- Notes:
+  - Tokens are never logged; secrets live under `.forgekeeper/secrets/` which is gitignored by `forgekeeper/.gitignore`.
+  - For OAuth/web login (device flow), register an OAuth app and wire its client ID to a future auth handler (tracked as a follow‑up task).
+
+### Upstream Resilience (stub)
+- Optional circuit‑breaker/backoff stub for upstream 5xx spikes.
+- Flags:
+  - `UPSTREAM_CB_ENABLED=1` to enable
+  - `UPSTREAM_CB_THRESHOLD` (default 3 failures within window)
+  - `UPSTREAM_CB_WINDOW_MS` (default 30000)
+  - `UPSTREAM_CB_OPEN_MS` (default 20000)
+- Behavior: when open, `/api/chat` and `/api/chat/stream` return `503 { error: "circuit_open", retry_after_ms }` and set `Retry-After`.
+- Diagnostics: `GET /api/diagnose` includes `circuit` status.
 
 ### Metrics‑Informed Prompting (MIP)
 - When `PROMPTING_HINTS_ENABLED=1`, the server may inject a short developer note into the final turn based on recent continuation reasons (e.g., close code fences, finish sentences).

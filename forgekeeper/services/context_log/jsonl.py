@@ -29,7 +29,7 @@ def _hour_key(dt: Optional[datetime] = None) -> str:
     return t.strftime("%Y%m%d-%H")
 
 
-def _current_file(dir: Path, dt: Optional[datetime] = None) -> Path:
+def _current_file(dir: Path, dt: Optional[datetime] = None, *, limit: int = DEFAULT_MAX_BYTES) -> Path:
     key = _hour_key(dt)
     # Base filename for current hour; add numeric suffix when rotating for size
     base = dir / f"ctx-{key}.jsonl"
@@ -40,7 +40,7 @@ def _current_file(dir: Path, dt: Optional[datetime] = None) -> Path:
     while True:
         candidate = dir / f"ctx-{key}-{i}.jsonl"
         if not candidate.exists():
-            return candidate if base.stat().st_size >= DEFAULT_MAX_BYTES else base
+            return candidate if base.stat().st_size >= limit else base
         i += 1
 
 
@@ -51,12 +51,9 @@ def append(event: dict[str, Any], *, max_bytes: int | None = None, dir: Path | N
     """
     d = dir or _base_dir()
     _ensure_dir(d)
-    fp = _current_file(d)
-    # Rotate if size exceeds limit
     limit = int(max_bytes or os.getenv("FGK_CONTEXTLOG_MAX_BYTES", DEFAULT_MAX_BYTES))
-    if fp.exists() and fp.stat().st_size >= limit:
-        # Force next suffix
-        fp = _current_file(d, datetime.utcnow())
+    # Choose appropriate current file considering rotation threshold
+    fp = _current_file(d, None, limit=limit)
     # Ensure required fields minimally exist
     if "ts" not in event:
         event = {**event, "ts": datetime.utcnow().isoformat()}
@@ -98,4 +95,3 @@ def tail(n: int = 50, *, conv_id: str | None = None, dir: Path | None = None) ->
             if len(out) >= n:
                 return out
     return out
-

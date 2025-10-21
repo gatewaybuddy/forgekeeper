@@ -16,5 +16,16 @@ describe('taskgen: suggestTasksFromStats', () => {
     const out = suggestTasksFromStats(stats, { ratioThreshold: 0.15, minCount: 5 });
     expect(out.length).toBe(0);
   });
-});
 
+  it('suggests upstream 5xx task when repeated 5xx errors occur', () => {
+    const stats = { windowMin: 60, assistantMsgs: 10, cont: { total: 0, fence: 0, punct: 0, short: 0 }, ratio: 0 };
+    const events = [
+      { act: 'upstream_error', where: 'chat_stream', status: 502, message: 'Bad Gateway' },
+      { act: 'upstream_error', where: 'proxy_v1', status: 503, message: 'Service Unavailable' },
+      { act: 'upstream_error', where: 'chat_nonstream', message: 'gateway timeout' },
+    ];
+    const out = suggestTasksFromStats(stats, { events, upMin: 3 });
+    const ids = out.map(x => x.id);
+    expect(ids).toContain('TGT-UPSTREAM-5XX-1');
+  });
+});

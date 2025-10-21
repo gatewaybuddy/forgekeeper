@@ -187,6 +187,76 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 - Goal: Publish endpoint usage and examples.
 - Allowed Touches: `forgekeeper/docs/api/chat_stream.md`, `forgekeeper/frontend/README.md`, `forgekeeper/frontend/src/lib/chatClient.ts`.
 - Done When: curl example included; ESLint passes.
+- Test Level: documentation.
+
+### T183 — `docs-safe` CI workflow and enforcement
+- Goal: Add a lightweight CI workflow for `[docs]` PRs that enforces an allowlist, requires a Task ID, and runs frontend unit tests.
+- Scope:
+  - Create `.github/workflows/docs-safe.yml` with allowlisted paths and a Task ID check.
+  - Run `npm --prefix forgekeeper/frontend ci && npm --prefix forgekeeper/frontend test` on PRs with `[docs]` in the title or a `docs` label.
+  - Document making `docs-safe` a required status check in branch protection.
+- Out of Scope:
+  - Full CI for all code paths or Docker builds.
+- Allowed Touches: `.github/workflows/docs-safe.yml`, `forgekeeper/README.md`.
+- Done When:
+  - Workflow triggers on `[docs]` PRs or `docs` label and fails for non-allowlisted paths or missing Task ID.
+  - Branch protection in GitHub requires the `docs-safe` check (manual step).
+- Test Level: CI-only (smoke).
+
+### T184 — Install `gh` and enable non-interactive auth for SAPL
+- Goal: Allow the SAPL create route to open PRs from the frontend container when enabled.
+- Scope:
+  - Extend the frontend Dockerfile to install GitHub CLI (`gh`).
+  - Support non-interactive auth via `GH_TOKEN`/`GITHUB_TOKEN` environment variables.
+  - Document how to mount or forward Git config/SSH if needed, and recommend PAT scope (`repo` minimal).
+- Out of Scope:
+  - Complex multi-remote setups or SSH agent forwarding.
+- Allowed Touches: `forgekeeper/frontend/Dockerfile`, `forgekeeper/README.md`.
+- Done When:
+  - With `AUTO_PR_ENABLED=1` and `AUTO_PR_DRYRUN=0`, `/api/auto_pr/create` opens a PR against `origin` using `GH_TOKEN`.
+  - Failure modes (no token, blocked files) return clear errors.
+- Test Level: smoke (manual).
+
+### T185 — Container Git credential flow for SAPL
+- Goal: Ensure the container can push branches to `origin` when creating PRs.
+- Scope:
+  - Document options: `git config user.*` inside container, HTTPS with token, or mounting host git config and known hosts.
+  - Provide a tiny self-check route or script that prints `git remote -v` and push capability without exposing secrets.
+- Out of Scope:
+  - Managing SSH keys; users supply their own.
+- Allowed Touches: `forgekeeper/README.md`, `forgekeeper/frontend/server.mjs` (optional self-check route).
+- Done When:
+  - A documented, repeatable recipe exists; self-check route reports readiness (`remote: OK`, `gh: OK`).
+- Test Level: documentation + smoke.
+
+### T186 — GitHub OAuth Device Flow (UI login)
+- Goal: Allow users to sign in to GitHub from the UI and persist a repo‑scoped token for SAPL without manual env setup.
+- Scope:
+  - Register a GitHub OAuth app; add `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET` envs (dev only).
+  - Add endpoints: `POST /api/auth/github/device/start` (returns `user_code`, `verification_uri`), `POST /api/auth/github/device/poll` (exchanges for token), store under `.forgekeeper/secrets/gh_token`.
+  - UI: minimal modal to show code + link; poll and confirm; “Sign out” clears token file.
+- Out of Scope:
+  - Multi‑tenant or production secret storage; SSO org enforcement.
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/frontend/src/components/*`, `forgekeeper/README.md`.
+- Done When:
+  - User can complete device flow from UI and `/api/auto_pr/create` opens a PR without host env.
+- Test Level: smoke (manual + mocked unit for token store).
+### T182 — Upstream circuit‑breaker (stub) and backoff hooks
+- Goal: Provide a minimal, flag‑gated circuit‑breaker for upstream 5xx spikes and timeouts so the UI degrades gracefully and SAPL can surface tasks without overwhelming the core.
+- Scope:
+  - Add in‑memory failure tracking with thresholds and open/close windows (env‑configurable).
+  - Return `503 { error: "circuit_open", retry_after_ms }` and set `Retry-After` on `/api/chat` and `/api/chat/stream` while open.
+  - Expose breaker status on `/api/diagnose` and ContextLog `act=circuit` entries on open events.
+  - Document flags and behavior in README; link to SAPL allowlist and labels for resilience tasks.
+- Out of Scope:
+  - Persistent counters, per‑endpoint buckets, or distributed breakers.
+  - Automatic backoff/jitter tuning and exponential strategy (future task).
+- Allowed Touches: `forgekeeper/frontend/server.mjs`, `forgekeeper/README.md`, `forgekeeper/frontend/test/*.mjs` (optional unit), `.github/workflows/docs-safe.yml` (if docs flags change).
+- Done When:
+  - With `UPSTREAM_CB_ENABLED=1`, three quick upstream failures cause subsequent `/api/chat` and `/api/chat/stream` to return 503 with `Retry-After` for the open window.
+  - `/api/diagnose` shows `circuit.open=true`; ContextLog records a `circuit` event.
+  - README documents flags: `UPSTREAM_CB_ENABLED`, `UPSTREAM_CB_THRESHOLD`, `UPSTREAM_CB_WINDOW_MS`, `UPSTREAM_CB_OPEN_MS`.
+- Test Level: smoke (manual + tiny unit if feasible).
 
 ### T101 - Reasoning Modes (off | brief | two_phase)
 - Goal: Introduce selectable reasoning modes with safe defaults and small analysis budgets.

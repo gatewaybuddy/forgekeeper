@@ -110,6 +110,9 @@ services:
       REPO_ROOT: ${REPO_ROOT:-/workspace}
       REPO_WRITE_MAX_BYTES: ${REPO_WRITE_MAX_BYTES:-131072}
       REPO_WRITE_ALLOW: ${REPO_WRITE_ALLOW:-frontend/Dockerfile,docker-compose.yml}
+      # GitHub auth for SAPL (optional; supply a PAT with repo scope)
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
       # TOOL_ALLOW: "get_time,echo,read_dir"
       PORT: 3000

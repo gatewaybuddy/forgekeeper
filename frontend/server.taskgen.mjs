@@ -101,7 +101,7 @@ export function suggestTasksFromStats(stats, opts = {}) {
   }
   // Tool error signals
   try {
-    const ev = getWindowEvents(stats?.windowMin || 60);
+    const ev = Array.isArray(opts?.events) ? opts.events : getWindowEvents(stats?.windowMin || 60);
     const toolErrors = ev.filter(e => e?.act === 'tool_call' && String(e?.status||'').toLowerCase() === 'error');
     if (toolErrors.length >= 3) {
       items.push({
@@ -111,6 +111,41 @@ export function suggestTasksFromStats(stats, opts = {}) {
         evidence: { count: toolErrors.length },
         suggested: [ 'Check tool allowlist and sandbox paths', 'Add retries/timeouts where appropriate' ],
         acceptance: [ 'Tool error rate reduced by 50% in next 24h' ]
+      });
+    }
+  } catch {}
+
+  // Upstream 5xx pattern analysis → actionable tasks (timeouts/backoff/health checks)
+  try {
+    const ev = Array.isArray(opts?.events) ? opts.events : getWindowEvents(stats?.windowMin || 60);
+    const upstream = ev.filter(e => e?.act === 'upstream_error');
+    const is5xx = (e) => {
+      const s = Number(e?.status);
+      if (Number.isFinite(s) && s >= 500) return true;
+      const msg = String(e?.message || '').toLowerCase();
+      return /(\b5\d{2}\b|gateway|unavailable|bad\s+gateway|timeout|timed\s*out|econnreset)/.test(msg);
+    };
+    const hard = upstream.filter(is5xx);
+    const upMin = Number(process.env.TASKGEN_UPSTREAM_MIN || opts.upMin || 3);
+    if (hard.length >= upMin) {
+      const sev = hard.length >= 10 ? 'high' : 'medium';
+      // Break down by where= to help triage
+      const byWhere = {};
+      for (const e of hard) {
+        const w = String(e?.where || 'unknown');
+        byWhere[w] = (byWhere[w] || 0) + 1;
+      }
+      items.push({
+        id: 'TGT-UPSTREAM-5XX-1',
+        title: 'Upstream instability: add timeouts, retries, and health checks',
+        severity: sev,
+        evidence: { windowMin: stats?.windowMin || 60, count: hard.length, byWhere },
+        suggested: [
+          'Set reasonable request timeouts and retry with backoff for upstream calls.',
+          'Harden /health and /healthz checks; fail fast on persistent 5xx.',
+          'Add circuit-breaker or temporary rate reduction when 5xx spikes.',
+        ],
+        acceptance: [ '5xx error count reduced by 50% over 24h', 'Health endpoints remain OK under load' ],
       });
     }
   } catch {}

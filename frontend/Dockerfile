@@ -35,12 +35,15 @@ WORKDIR /app
 
 # Install PowerShell (pwsh) for run_powershell tool support
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends wget gpg ca-certificates \
+    && apt-get install -y --no-install-recommends wget gpg ca-certificates curl \
     && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
     && dpkg -i packages-microsoft-prod.deb \
     && rm -f packages-microsoft-prod.deb \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends powershell git bash \
+    && apt-get install -y --no-install-recommends powershell git bash gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy runtime server and production deps from build stage
