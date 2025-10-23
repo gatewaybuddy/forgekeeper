@@ -86,6 +86,7 @@ Environment controls (server.mjs process):
 
 ### Debugging tools
 - In the UI, enable "Tools diagnostics" to see recent tool calls (name + args) per step of the server-side orchestration.
+- Diagnostics Drawer: toggle in Chat to view recent ContextLog events for the current `conv_id` (uses `/api/ctx/tail`).
 - New: `GET /api/ctx/tail?n=50&conv_id=...` returns recent ContextLog events (JSONL-backed).
 
 ### Server Policies & Limits
@@ -165,7 +166,17 @@ See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how conti
 - UI: open Tasks… → Propose PR → Preview → Create PR (enabled by flags).
 - See docs/ui/sapl.md for details and the UI flow.
 
-- Dockerized UI (Node.js server):
+- See: `docs/api/chat_stream.md` for curl examples and client helper notes.
+
+### Conversation Controls
+- New Conversation: resets transcript and issues a new `conv_id` (see `docs/ui/new_conversation.md`).
+- Stop & Revise: aborts current stream and injects a developer note before the last user turn to relaunch (see `docs/ui/stop_and_revise.md`).
+- Diagnostics Drawer: shows recent ContextLog events (enable polling to refresh every 5s).
+
+### Status Bar
+- Displays Inference (/health|/healthz), Agent (/metrics), GraphQL (stubbed), Queue (N/A). See `docs/ui/status_bar.md`.
+
+### Dockerized UI (Node.js server):
   - Included in default compose via `python -m forgekeeper`.
   - Serve URL: `http://localhost:${FRONTEND_PORT}` (default `http://localhost:5173`).
   - Container serves static UI with an Express server and runtime config at `/config.json`.
