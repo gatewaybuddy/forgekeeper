@@ -11,8 +11,8 @@ FRONTEND_VLLM_API_BASE=http://llama-core:8080/v1 → http://vllm-core:8000/v1
 FK_CORE_API_BASE=http://llama-core:8080 → http://vllm-core:8000
 
 # Model configuration
-FRONTEND_VLLM_MODEL=gpt-oss-20b-F16.gguf → gpt-oss-20b (safetensors)
-VLLM_MODEL_CORE=/models/gpt-oss-20b (already correct)
+FRONTEND_VLLM_MODEL=gpt-oss-20b-F16.gguf → core (IMPORTANT: must match vLLM served-model-name!)
+VLLM_MODEL_CORE=/models/gpt-oss-20b (already correct - this is the path)
 
 # Generation limits
 FRONTEND_MAX_TOKENS=384 → 2048 (fixes context cutoff)
@@ -21,6 +21,8 @@ VLLM_MAX_MODEL_LEN=32768 → 8192 (conservative for 20B model)
 # Harmony protocol
 FRONTEND_USE_HARMONY=1 (kept enabled - full model should support it)
 ```
+
+**IMPORTANT**: The frontend must use `FRONTEND_VLLM_MODEL=core` because vLLM is configured with `--served-model-name "core"` in docker-compose.yml. This is the name clients use, not the filesystem path.
 
 ## Model Details
 
@@ -152,13 +154,35 @@ ls -lh models/gpt-oss-20b/
 # - chat_template.jinja
 ```
 
+### Error: "The model `gpt-oss-20b` does not exist"
+This means `FRONTEND_VLLM_MODEL` doesn't match vLLM's `--served-model-name`.
+
+**Fix**:
+```bash
+# In .env, change:
+FRONTEND_VLLM_MODEL=gpt-oss-20b
+# To:
+FRONTEND_VLLM_MODEL=core
+
+# Then restart:
+docker compose restart frontend
+```
+
+**Why**: vLLM serves the model with name "core" (see docker-compose.yml line 73). Frontend must request "core", not the filesystem path.
+
+**Verify** what vLLM is serving:
+```bash
+curl http://localhost:8001/v1/models | jq '.data[].id'
+# Output should be: "core"
+```
+
 ### Still no reasoning:
 ```bash
-# Check raw vLLM output:
+# Check raw vLLM output (use "core" not "gpt-oss-20b"):
 curl -X POST http://localhost:8001/v1/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-oss-20b",
+    "model": "core",
     "prompt": "<|start|>user<|message|>What is 2+2?<|end|><|start|>assistant",
     "max_tokens": 100,
     "temperature": 0.0
