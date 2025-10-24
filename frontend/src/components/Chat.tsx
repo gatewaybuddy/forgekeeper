@@ -562,15 +562,15 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     }
   }, [input, messages, model, refreshMetrics, genMaxTokens, genAuto, genTemp, genTopP, convId]);
 
-  // Auto-scroll to bottom as messages update, but only when user is near bottom
+  // Auto-scroll to bottom as messages update
   useEffect(() => {
     const sc = scrollRef.current;
     const end = endRef.current;
     if (!sc || !end) return;
-    // If user has scrolled far up, don't force-scroll unless streaming
     const nb = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
     setNearBottom(nb);
-    if (nb) {
+    // Always autoscroll during streaming, or when user is near bottom
+    if (streaming || nb) {
       end.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' });
     }
   }, [messages, streaming]);
@@ -752,31 +752,23 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   <span style={{fontSize:11, color:'#0f766e', background:'#ccfbf1', border:'1px solid #99f6e4', padding:'2px 6px', borderRadius:999}}>Used tools: {toolDebug.toolsUsed.join(', ')}</span>
                 </div>
               )}
-              {m.role === 'assistant' && showReasoning && (!pinReasoning || !hideInlineWhenPinned) && (
-                <div style={{marginTop:6, padding:8, background:'#f8f9fa', border:'1px dashed #ddd', borderRadius:6}}>
-                  <div style={{fontSize:12, color:'#666', marginBottom:4}}>[reasoning]</div>
-                  <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word', color:'#555'}}>
-                    {m.reasoning ? m.reasoning : <span style={{color:'#bbb'}}>(none)</span>}
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
         <div ref={endRef} />
         </div>
-        {pinReasoning && (
-          <div style={{flex:'0 0 30%', border:'1px solid #e2e8f0', borderRadius:8, padding:10, background:'#fafafa', display:'flex', flexDirection:'column', maxHeight: fill ? undefined : '55vh'}}>
+        {showReasoning && (
+          <div style={{flex:'0 0 35%', border:'1px solid #e2e8f0', borderRadius:8, padding:10, background:'#fafafa', display:'flex', flexDirection:'column', maxHeight: fill ? undefined : '55vh'}}>
             <div style={{fontWeight:600, fontSize:12, color:'#475569', marginBottom:6, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-              <span>Reasoning (live)</span>
-              <span style={{display:'inline-block', width:8, height:8, borderRadius:9999, background: streaming ? '#16a34a' : '#94a3b8'}} />
+              <span>Reasoning</span>
+              <span style={{display:'inline-block', width:8, height:8, borderRadius:9999, background: streaming ? '#16a34a' : '#94a3b8'}} title={streaming ? 'Streaming' : 'Idle'} />
             </div>
             <div style={{flex:'1 1 auto', overflowY:'auto', background:'#fff', border:'1px solid #e2e8f0', borderRadius:6, padding:8}}>
-              <pre style={{whiteSpace:'pre-wrap', wordBreak:'break-word', margin:0, fontSize:12}}>
+              <pre style={{whiteSpace:'pre-wrap', wordBreak:'break-word', margin:0, fontSize:12, color:'#374151'}}>
                 {(() => {
                   const last = messages.length ? messages[messages.length - 1] : null;
                   const r = last && last.role === 'assistant' ? (last.reasoning || '') : '';
-                  return r || '(no reasoning)';
+                  return r || '(no reasoning yet)';
                 })()}
               </pre>
             </div>
@@ -815,52 +807,31 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
             <span style={{fontSize:12}}>Show reasoning</span>
           </label>
-          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
-            <input type="checkbox" checked={pinReasoning} onChange={e=>{ setPinReasoning(e.target.checked); try { localStorage.setItem('fk_pin_reasoning', e.target.checked ? '1' : '0'); } catch {} }} />
-            <span style={{fontSize:12}}>Pin reasoning panel</span>
-          </label>
-          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}} title="When pinned, hide the inline reasoning blocks inside messages">
-            <input type="checkbox" checked={hideInlineWhenPinned} onChange={e=>{ setHideInlineWhenPinned(e.target.checked); try { localStorage.setItem('fk_hide_inline_reasoning_when_pinned', e.target.checked ? '1' : '0'); } catch {} }} />
-            <span style={{fontSize:12}}>Hide inline when pinned</span>
-          </label>
-          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
-            <input type="checkbox" checked={showToolDiag} onChange={e=>setShowToolDiag(e.target.checked)} />
-            <span style={{fontSize:12}}>Tools diagnostics</span>
-          </label>
-          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
-            <input type="checkbox" checked={drawerOpen} onChange={async e=>{ setDrawerOpen(e.target.checked); if (e.target.checked) await refreshCtx(); }} />
-            <span style={{fontSize:12}}>ContextLog drawer</span>
-          </label>
-          <label style={{display:'flex', alignItems:'center', gap:6, marginLeft: 8}}>
-            <input type="checkbox" checked={pollingOn} onChange={e=>setPollingOn(e.target.checked)} />
-            <span style={{fontSize:12}}>Polling</span>
-          </label>
 
           {/* Hamburger menu (top-right of controls row) */}
           <div style={{marginLeft:'auto'}}>
             <button aria-label="Menu" title="Menu" onClick={()=>setShowMenu(v=>!v)} style={{padding:'8px 10px'}}>☰</button>
             {showMenu && (
               <div style={{position:'absolute', right:8, top:'100%', background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 20px rgba(0,0,0,0.08)', zIndex:50, minWidth:200}} onMouseLeave={()=>setShowMenu(false)}>
-                <button onClick={()=>{ setShowSysModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Assistant System Prompt…</button>
-                <button onClick={()=>{ setShowToolsModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tools Settings…</button>
+                <button onClick={()=>{ setShowSysModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Settings…</button>
+                <button onClick={()=>{ setShowToolsModal(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tools…</button>
                 <button onClick={()=>{ setShowTasks(true); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Tasks…</button>
+                <hr style={{margin:'4px 0', border:'none', borderTop:'1px solid #e5e7eb'}} />
+                <button onClick={()=>{ setDrawerOpen(v=>!v); if (!drawerOpen) refreshCtx(); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>
+                  {drawerOpen ? '✓ ' : ''}Diagnostics Drawer
+                </button>
+                <button onClick={()=>{ setShowToolDiag(v=>!v); setShowMenu(false); }} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>
+                  {showToolDiag ? '✓ ' : ''}Tool Diagnostics
+                </button>
+                <hr style={{margin:'4px 0', border:'none', borderTop:'1px solid #e5e7eb'}} />
+                <button onClick={()=>{ if (streaming) onStop(); setReviseOpen(true); setShowMenu(false); }} disabled={reviseOpen} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', background:'transparent', cursor:'pointer'}}>Stop & Revise…</button>
               </div>
             )}
           </div>
         </div>
         <small style={{color:'#666'}}>
-          Using model "{model}" at base "{apiBase}" {toolsLabel ? `- Tools: ${toolsLabel}` : ''}
-          {toolStorage && (
-            <>
-              {' '}• Tools dir: <code>{toolStorage.path}</code> {toolStorage.bindMounted ? '(mounted)' : '(internal)'}
-            </>
-          )}
+          Using model "{model}" at base "{apiBase}" {toolsLabel ? `• Tools: ${toolsLabel}` : ''}
         </small>
-        <div style={{marginTop:6}}>
-          <button onClick={runDiagnostics} disabled={diagLoading}>{diagLoading ? 'Diagnosing…' : 'Run Diagnostics'}</button>
-          <button style={{marginLeft:8}} onClick={refreshCtx}>Refresh Events</button>
-          <button style={{marginLeft:8}} onClick={()=>{ if (streaming) onStop(); setReviseOpen(true); }} disabled={reviseOpen}>Stop & Revise…</button>
-        </div>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
             <div style={{fontWeight:600}}>Auto-continued to complete the response.</div>
@@ -945,7 +916,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={()=>setShowSysModal(false)}>
             <div style={{width:'min(800px, 92vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16}} onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-              <div style={{fontWeight:700, color:'#155e75'}}>Assistant System Prompt</div>
+              <div style={{fontWeight:700, color:'#155e75'}}>Settings</div>
               <button onClick={()=>setShowSysModal(false)} aria-label="Close" title="Close">✕</button>
             </div>
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
@@ -969,6 +940,15 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               style={{width:'100%', fontFamily:'monospace', fontSize:12, padding:8, border:'1px solid #94a3b8', borderRadius:6}}
               disabled={sysMode !== 'custom'}
             />
+            <div style={{marginTop:10, padding:10, background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:8}}>
+              <div style={{fontWeight:600, color:'#075985', marginBottom:6}}>UI Preferences</div>
+              <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <input type="checkbox" checked={pollingOn} onChange={e=>setPollingOn(e.target.checked)} />
+                  <span style={{fontSize:12}}>Enable ContextLog polling</span>
+                </label>
+              </div>
+            </div>
             <div style={{marginTop:10, padding:10, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8}}>
               <div style={{fontWeight:600, color:'#334155', marginBottom:6}}>Generation</div>
               <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
