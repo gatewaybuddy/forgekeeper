@@ -12,6 +12,26 @@ import json
 from pathlib import Path
 
 
+def _load_dotenv(env_path: Path) -> None:
+    """Load .env file into os.environ if it exists."""
+    if not env_path.exists():
+        return
+    try:
+        for line in env_path.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' in line:
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                # Only set if not already in environment (env vars take precedence)
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        pass
+
+
 def _compose_down(compose_file: str | None, stop_only: bool = False) -> int:
     root = Path(__file__).resolve().parents[1]
     cf = compose_file or "docker-compose.yml"
@@ -29,6 +49,9 @@ def _run_compose() -> int:
     root = Path(__file__).resolve().parents[1]
     cf_path = root / compose_file
     env_path = root / ".env"
+
+    # Load .env into environment so FK_CORE_KIND and other vars are available
+    _load_dotenv(env_path)
     def _hash(path: Path) -> str:
         try:
             data = path.read_bytes()
@@ -193,6 +216,8 @@ def _run_compose() -> int:
 
 def _run_up_core() -> int:
     root = Path(__file__).resolve().parents[1]
+    # Load .env to get FK_CORE_KIND
+    _load_dotenv(root / ".env")
     # Prefer idempotent ensure script: starts if missing, recreates only if config changed
     core_kind = os.getenv("FK_CORE_KIND", "llama").strip().lower()
     gpu_pref = os.getenv("FK_CORE_GPU", "1").strip()
