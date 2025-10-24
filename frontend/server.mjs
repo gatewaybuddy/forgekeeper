@@ -961,7 +961,7 @@ app.post('/api/chat/stream', async (req, res) => {
     const contInfo = [];
     while (isIncomplete(finalContent) && attempts < contMax) {
       try {
-        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue and finish the last sentence (and close any unfinished code block).' }], temperature: 0.0, stream: false, max_tokens: contOut };
+        const contBody = { model: mdl, messages: [...convo, { role: 'user', content: 'Continue from where you left off. Complete any unfinished thoughts, code blocks, or sentences. Do not restart or summarize - just continue naturally.' }], temperature: 0.0, stream: false, max_tokens: contOut };
         const cont = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contBody) });
         if (!cont.ok) break;
         const j = await cont.json();
@@ -980,9 +980,6 @@ app.post('/api/chat/stream', async (req, res) => {
         contInfo.push({ attempt: attempts, reason: rsn });
         try { appendEvent({ actor: 'assistant', act: 'auto_continue', conv_id: convId, trace_id: traceId, attempt: attempts, reason: rsn }); } catch {}
         try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; metrics.contHistory.push({ t: Date.now(), reason: rsn }); if (metrics.contHistory.length > 300) metrics.contHistory.splice(0, metrics.contHistory.length - 300); } catch {}
-        try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; metrics.contHistory.push({ t: Date.now(), reason: rsn }); if (metrics.contHistory.length > 300) metrics.contHistory.splice(0, metrics.contHistory.length - 300); } catch {}
-        try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; } catch {}
-        try { metrics.continuations.total += 1; if (metrics.continuations[rsn] != null) metrics.continuations[rsn] += 1; } catch {}
       } catch {
         break;
       }

@@ -133,7 +133,7 @@ function toolPreview(text: string): string {
   return compact.length > 80 ? `${compact.slice(0, 80)}…` : compact;
 }
 
-const DEFAULT_SYSTEM_PROMPT = 'You are a helpful assistant.';
+const DEFAULT_SYSTEM_PROMPT = 'You are a helpful, action-oriented assistant. When users ask for information you don\'t have, use available tools to gather it. When users ask you to perform actions, use tools to execute them step-by-step.';
 
 type ToolInstruction = { name: string; description?: string };
 
@@ -162,18 +162,28 @@ function buildSystemPrompt(
     })
     .join('\n');
   const hasBash = entries.some(e => e.name === 'run_bash');
+  const hasFileOps = entries.some(e => e.name === 'read_file' || e.name === 'read_dir');
   const extras: string[] = [];
-  extras.push('You may call JSON function tools when they will help solve the task.');
+  extras.push('\nIMPORTANT: You have access to tools. Use them proactively:');
+  extras.push('- Before answering questions about files/directories, check current state with tools');
+  extras.push('- When asked to perform actions, execute them step-by-step using tools');
+  extras.push('- Call tools with proper JSON function syntax');
   if (hasBash) {
-    extras.push('When the user asks you to run shell commands (e.g., git/npm/bash), call run_bash with a single script string. Chain commands with &&.');
-    extras.push('After executing shell commands, summarize stdout/stderr briefly and verify results with read_dir or read_file in the sandbox.');
+    extras.push('\nFor shell commands:');
+    extras.push('- Call run_bash with a single script string, chaining commands with &&');
+    extras.push('- After execution, summarize stdout/stderr and verify results');
+  }
+  if (hasFileOps) {
+    extras.push('\nFor file operations:');
+    extras.push('- Check before modifying: (1) read_dir to see structure, (2) read_file to review content');
+    extras.push('- After changes, verify with tools rather than assuming success');
   }
   return [
     DEFAULT_SYSTEM_PROMPT,
     ...extras,
-    'Available tools:',
+    '\nAvailable tools:',
     formatted,
-    'Call a tool only when necessary and otherwise respond normally.'
+    '\nThink step-by-step and use tools when they help accomplish the task.'
   ].join('\n');
 }
 
@@ -768,7 +778,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                 {(() => {
                   const last = messages.length ? messages[messages.length - 1] : null;
                   const r = last && last.role === 'assistant' ? (last.reasoning || '') : '';
-                  return r || '(no reasoning yet)';
+                  if (r) return r;
+                  if (streaming) return '(waiting for reasoning...)';
+                  return '(No reasoning output from this model.\n\nReasoning requires:\n• A model with native reasoning support (e.g., o1-mini)\n• Or FRONTEND_USE_HARMONY=1 with a Harmony-compatible model\n\nTo disable this panel, uncheck "Show reasoning" above.)';
                 })()}
               </pre>
             </div>
