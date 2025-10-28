@@ -1,4 +1,0 @@
-{"t_utc_iso":"2025-09-15T18:57:58.923225+00:00","seq":1,"wm_event_time_ms":1757962678923,"role":"user","stream":"system","act":"INPUT","text":"orchestrator:start","meta":{}}
-{"t_utc_iso":"2025-09-15T18:57:59.126743+00:00","seq":2,"wm_event_time_ms":1757962679126,"role":"botA","stream":"llm-botA","act":"THINK","text":"[A] considering… ","meta":{}}
-{"t_utc_iso":"2025-09-15T18:57:59.343380+00:00","seq":3,"wm_event_time_ms":1757962679343,"role":"botA","stream":"llm-botA","act":"PROPOSE(action)","text":"[A] propose noop","meta":{}}
-{"t_utc_iso":"2025-09-15T18:57:59.546078+00:00","seq":4,"wm_event_time_ms":1757962679546,"role":"botA","stream":"llm-botA","act":"REPORT","text":"[A] report done.","meta":{}}
