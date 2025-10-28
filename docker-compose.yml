@@ -84,11 +84,13 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
+        # Default to llama.cpp server's container port 8080 for llama-core
+        VITE_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8080/v1}
         VITE_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
     env_file: ./.env
     environment:
-      FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8000/v1}
+      # Match default to llama-core container port 8080 (host port still mapped via LLAMA_PORT_CORE)
+      FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8080/v1}
       FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
       FRONTEND_ENABLE_POWERSHELL: ${FRONTEND_ENABLE_POWERSHELL:-1}
       FRONTEND_ENABLE_BASH: ${FRONTEND_ENABLE_BASH:-1}

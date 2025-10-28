@@ -55,6 +55,10 @@ COPY --from=build /app/dist ./dist
 # Copy all server-side .mjs modules to keep imports in sync
 COPY --from=build /app/server*.mjs ./
 COPY --from=build /app/tools ./tools
+# Copy shared server-side core modules used by server.* imports
+COPY --from=build /app/core ./core
+# Copy config directory (M2: review prompts and future configs)
+COPY --from=build /app/config ./config
 
 ENV PORT=3000
 EXPOSE 3000

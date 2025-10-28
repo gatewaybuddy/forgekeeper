@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Chat } from './components/Chat';
+import AutonomousPanel from './components/AutonomousPanel';
 import { checkHealth } from './lib/health';
 
 type ToolMetadata = { name: string; description?: string };
@@ -110,6 +111,11 @@ export default function App() {
           <button onClick={()=>setShowSettings(s=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
         </div>
       </header>
+
+      {/* Autonomous Panel [codex] */}
+      <section id="autonomous-panel" style={{ marginBottom: 12 }}>
+        <AutonomousPanel model={model} />
+      </section>
 
       {showSettings && (
         <section style={{

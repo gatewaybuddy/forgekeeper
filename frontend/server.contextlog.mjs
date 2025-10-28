@@ -109,3 +109,102 @@ export function tailEvents(n = 50, conv_id = null) {
     return [];
   }
 }
+
+// --- Review event helpers (M2: Self-Review Iteration) ---
+
+function generateId() {
+  return crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
+function truncateText(text, maxLength = 500, suffix = '...') {
+  if (!text || typeof text !== 'string') return '';
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - suffix.length) + suffix;
+}
+
+export function createReviewCycleEvent({
+  conv_id,
+  trace_id,
+  iteration,
+  review_pass,
+  quality_score,
+  threshold,
+  critique,
+  accepted,
+  elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'review_cycle',
+    conv_id,
+    trace_id,
+    iter: iteration,
+    name: 'self_review',
+    status,
+    review_pass,
+    quality_score: Math.round(quality_score * 1000) / 1000,
+    threshold: Math.round(threshold * 1000) / 1000,
+    critique: truncateText(critique, 500),
+    accepted,
+    elapsed_ms,
+  };
+}
+
+export function createRegenerationEvent({
+  conv_id,
+  trace_id,
+  iteration,
+  attempt,
+  reason,
+  previous_score,
+  elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'assistant',
+    act: 'regeneration',
+    conv_id,
+    trace_id,
+    iter: iteration,
+    name: 'regenerate_with_critique',
+    status,
+    attempt,
+    reason: truncateText(reason, 500),
+    previous_score: Math.round(previous_score * 1000) / 1000,
+    elapsed_ms,
+  };
+}
+
+export function createReviewSummaryEvent({
+  conv_id,
+  trace_id,
+  iteration,
+  total_passes,
+  final_score,
+  regeneration_count,
+  accepted,
+  total_elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'review_summary',
+    conv_id,
+    trace_id,
+    iter: iteration,
+    name: 'review_complete',
+    status,
+    total_passes,
+    final_score: Math.round(final_score * 1000) / 1000,
+    regeneration_count,
+    accepted,
+    total_elapsed_ms,
+  };
+}

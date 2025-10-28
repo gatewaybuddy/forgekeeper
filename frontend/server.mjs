@@ -5,9 +5,17 @@ import { fileURLToPath } from 'node:url';
 // Lightweight manual proxy; http-proxy-middleware removed to reduce ambiguity
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
+import { orchestrateWithReview } from './server.review.mjs';
 import { getToolDefs, reloadTools, writeToolFile } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
+import { getReviewConfig } from './config/review_prompts.mjs';
+// Enhanced Features Integration (Phase 1-3)
+import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server.enhanced-integration.mjs';
+import { createAutonomousAgent } from './core/agent/autonomous.mjs';
+import { createExecutor } from './core/tools/executor.mjs';
+import { createSessionMemory } from './core/agent/session-memory.mjs'; // [Day 10]
+import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +28,16 @@ if (!process.env.FRONTEND_USE_HARMONY) process.env.FRONTEND_USE_HARMONY = '1';
 if (!process.env.FRONTEND_HARMONY_TOOLS) process.env.FRONTEND_HARMONY_TOOLS = '1';
 
 app.use(compression());
+
+// Setup enhanced features (Phase 1-3) - async initialization
+(async () => {
+  try {
+    await setupEnhancedFeatures(app);
+  } catch (error) {
+    console.error('[Enhanced Features] Failed to initialize:', error);
+  }
+})();
+
 // JSON parser only for API routes to avoid interfering with SSE proxying
 app.use('/api', express.json({ limit: '1mb' }));
 const distDir = path.join(__dirname, 'dist');
@@ -70,7 +88,11 @@ app.get('/config.json', async (_req, res) => {
     maxBytes: Number(process.env.HTTP_FETCH_MAX_BYTES || 64 * 1024),
     timeoutMs: Number(process.env.HTTP_FETCH_TIMEOUT_MS || 8000),
   };
-  res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
+  // M2: Self-review and chunked reasoning feature flags
+  const reviewConfig = getReviewConfig();
+  const reviewEnabled = reviewConfig.enabled;
+  const chunkedEnabled = (process.env.FRONTEND_ENABLE_CHUNKED || '0') === '1';
+  res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, reviewEnabled, chunkedEnabled, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
 });
 
 // Resolve tool allowlist from env
@@ -229,19 +251,72 @@ app.post('/api/chat', async (req, res) => {
         }
       }
     } catch {}
-    const out = await orchestrateWithTools({
-      baseUrl: upstreamBase,
-      model: mdl,
-      messages: preMessages,
-      tools: allowed,
-      maxIterations: 4,
-      maxTokens: plan.maxOut,
-      traceId,
-      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
-      topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
-      presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
-      frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
-    });
+    // Determine which orchestrator to use
+    const useEnhanced = process.env.FRONTEND_ENABLE_ENHANCED_ORCHESTRATOR === '1';
+    const enhancedOrchestrator = useEnhanced ? await getEnhancedOrchestrator() : null;
+
+    // M2: Use review orchestrator if enabled
+    const reviewConfig = getReviewConfig();
+    const lastUserMsg = [...preMessages].reverse().find(m => m?.role === 'user');
+    const lastContent = String(lastUserMsg?.content || '');
+    const reviewContext = {
+      question: lastContent,
+      response: null, // Will be filled after initial generation
+      error: false,
+      hasError: false,
+    };
+
+    // Choose orchestrator: Enhanced > Review > Standard
+    let out;
+    if (enhancedOrchestrator && useEnhanced) {
+      out = await enhancedOrchestrator({
+        baseUrl: upstreamBase,
+        model: mdl,
+        messages: preMessages,
+        tools: allowed,
+        maxIterations: 4,
+        maxTokens: plan.maxOut,
+        temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+        topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+        presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+        frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+        traceId,
+        convId,
+        enablePhase1: true,
+        enablePhase3: process.env.FRONTEND_ENABLE_AUTO_COMPACT === '1',
+      });
+    } else if (reviewConfig.enabled) {
+      out = await orchestrateWithReview({
+        orchestrator: orchestrateWithTools,
+        baseUrl: upstreamBase,
+        model: mdl,
+        messages: preMessages,
+        tools: allowed,
+        maxIterations: 4,
+        maxTokens: plan.maxOut,
+        traceId,
+        convId,
+        temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+        topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+        presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+        frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+        context: reviewContext,
+      });
+    } else {
+      out = await orchestrateWithTools({
+        baseUrl: upstreamBase,
+        model: mdl,
+        messages: preMessages,
+        tools: allowed,
+        maxIterations: 4,
+        maxTokens: plan.maxOut,
+        traceId,
+        temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+        topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+        presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+        frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+      });
+    }
     if (!out.debug) out.debug = {};
     out.debug.tokenPlan = plan;
     try {
@@ -789,19 +864,41 @@ app.post('/api/chat/stream', async (req, res) => {
     const allowed = await resolveAllowedTools();
     // First: run tool loop non-streaming to produce convo with tool results
     const plan = (auto_tokens === true || typeof max_tokens !== 'number') ? estimateTokenPlan(messages) : { maxOut: max_tokens, contOut: cont_tokens, contMax: cont_attempts };
-    const out = await orchestrateWithTools({
-      baseUrl: upstreamBase,
-      model: mdl,
-      messages,
-      tools: allowed,
-      maxIterations: 4,
-      maxTokens: plan.maxOut,
-      traceId,
-      temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
-      topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
-      presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
-      frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
-    });
+
+    // Use enhanced orchestrator if enabled
+    const useEnhanced = process.env.FRONTEND_ENABLE_ENHANCED_ORCHESTRATOR === '1';
+    const enhancedOrchestrator = useEnhanced ? await getEnhancedOrchestrator() : null;
+
+    const out = (enhancedOrchestrator && useEnhanced)
+      ? await enhancedOrchestrator({
+          baseUrl: upstreamBase,
+          model: mdl,
+          messages,
+          tools: allowed,
+          maxIterations: 4,
+          maxTokens: plan.maxOut,
+          temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+          topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+          presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+          frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+          traceId,
+          convId,
+          enablePhase1: true,
+          enablePhase3: process.env.FRONTEND_ENABLE_AUTO_COMPACT === '1',
+        })
+      : await orchestrateWithTools({
+          baseUrl: upstreamBase,
+          model: mdl,
+          messages,
+          tools: allowed,
+          maxIterations: 4,
+          maxTokens: plan.maxOut,
+          traceId,
+          temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
+          topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
+          presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
+          frequencyPenalty: (typeof frequency_penalty === 'number' && !Number.isNaN(frequency_penalty)) ? frequency_penalty : undefined,
+        });
     const convo = Array.isArray(out?.messages) ? out.messages : preMessages;
 
     // Now: stream the final turn from upstream (or fallback to Harmony non-stream)
@@ -1002,6 +1099,424 @@ app.post('/api/chat/stream', async (req, res) => {
   }
 });
 
+// Autonomous Agent Mode (Phase 4)
+// Manages active autonomous sessions
+const activeSessions = new Map();
+
+// POST /api/chat/autonomous - Start autonomous agent session
+app.post('/api/chat/autonomous', async (req, res) => {
+  try {
+    const { task, model, max_iterations, conv_id, async: runAsync } = req.body || {};
+
+    if (!task || typeof task !== 'string') {
+      return res.status(400).json({ error: 'invalid_request', message: 'task string is required' });
+    }
+
+    const convId = conv_id || `c-${crypto.randomUUID()}`;
+    const turnId = Date.now();
+    const mdl = typeof model === 'string' && model ? model : (process.env.FRONTEND_VLLM_MODEL || 'core');
+    const upstreamBase = targetOrigin + '/v1';
+
+    console.log(`[Autonomous] Starting session for task: "${task.slice(0, 100)}..."`);
+
+    // Create autonomous agent
+    const agent = createAutonomousAgent({
+      llmClient: {
+        chat: async (params) => {
+          const url = upstreamBase.replace(/\/$/, '') + '/chat/completions';
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...params,
+              model: mdl,
+            }),
+          });
+
+          if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            throw new Error(`LLM request failed: HTTP ${resp.status}: ${txt}`);
+          }
+
+          return await resp.json();
+        },
+      },
+      model: mdl,
+      maxIterations: max_iterations || 15,
+      checkpointInterval: 5,
+      errorThreshold: 3,
+      playgroundRoot: process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground',
+    });
+
+    // Note: sessionId is assigned inside agent.run(); we add to activeSessions when available
+
+    // Create tool registry
+    const toolDefs = await getToolDefs();
+    const toolRegistry = new Map();
+    for (const toolDef of toolDefs) {
+      const name = toolDef?.function?.name;
+      if (name) {
+        const { runTool } = await import('./server.tools.mjs');
+        toolRegistry.set(name, {
+          name,
+          description: toolDef.function.description,
+          parameters: toolDef.function.parameters,
+          execute: async (args) => await runTool(name, args),
+        });
+      }
+    }
+
+    // Create executor
+    const executor = createExecutor({
+      toolRegistry,
+      truncatorConfig: {
+        maxBytes: parseInt(process.env.TOOLS_MAX_OUTPUT_BYTES) || 10240,
+        maxLines: parseInt(process.env.TOOLS_MAX_OUTPUT_LINES) || 256,
+        strategy: process.env.TOOLS_TRUNCATION_STRATEGY || 'head-tail',
+      },
+      sandboxLevel: 'workspace',
+    });
+
+    // Async mode: start and return session_id immediately
+    if (runAsync) {
+      const sessionRecord = { agent, promise: null, result: null, done: false, error: null };
+      sessionRecord.promise = (async () => {
+        try {
+          const result = await agent.run(task, executor, { convId, turnId });
+          sessionRecord.result = result;
+          sessionRecord.done = true;
+          return result;
+        } catch (e) {
+          sessionRecord.error = e;
+          throw e;
+        } finally {
+          const sid = agent.sessionId;
+          setTimeout(() => { try { activeSessions.delete(sid); } catch {} }, Number(process.env.AUTONOMOUS_SESSION_TTL_MS || 10 * 60 * 1000));
+        }
+      })();
+
+      // Wait briefly for run() to assign a session id
+      let tries = 0;
+      while (!agent.sessionId && tries < 100) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise(r => setTimeout(r, 10));
+        tries += 1;
+      }
+      const sid = agent.sessionId || `c-${crypto.randomUUID()}`;
+      activeSessions.set(sid, sessionRecord);
+      return res.status(202).json({ ok: true, session_id: sid, running: true });
+    }
+
+    // Sync mode: run to completion
+    const result = await agent.run(task, executor, { convId, turnId });
+    return res.json({ ok: true, session_id: agent.sessionId, result });
+
+  } catch (error) {
+    console.error('[Autonomous] Session error:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'autonomous_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// POST /api/chat/autonomous/stop - Stop autonomous session
+app.post('/api/chat/autonomous/stop', async (req, res) => {
+  try {
+    const { session_id } = req.body || {};
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'invalid_request', message: 'session_id is required' });
+    }
+
+    const session = activeSessions.get(session_id);
+    if (!session || !session.agent) {
+      return res.status(404).json({ error: 'not_found', message: 'Session not found or already completed' });
+    }
+
+    // Request agent to stop
+    session.agent.requestStop();
+
+    res.json({ ok: true, message: 'Stop requested' });
+
+  } catch (error) {
+    console.error('[Autonomous] Stop error:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'stop_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/chat/autonomous/status?session_id=... - Poll session status
+app.get('/api/chat/autonomous/status', async (req, res) => {
+  try {
+    const sessionId = String(req.query.session_id || '').trim();
+    if (!sessionId) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'session_id is required' });
+    }
+
+    const session = activeSessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({ ok: false, error: 'not_found', message: 'Session not found or expired' });
+    }
+
+    const agent = session.agent;
+    const running = !session.done;
+    const state = agent?.getProgressSummary ? agent.getProgressSummary() : null;
+    const payload = { ok: true, session_id: sessionId, running, state };
+    if (session.done && session.result) payload.result = session.result;
+    if (session.error) payload.error = String(session.error?.message || session.error);
+    return res.json(payload);
+  } catch (error) {
+    console.error('[Autonomous] Status error:', error);
+    return res.status(500).json({ ok: false, error: 'status_error', message: error?.message || String(error) });
+  }
+});
+
+// [Day 10] GET /api/chat/autonomous/checkpoints - List saved checkpoints
+app.get('/api/chat/autonomous/checkpoints', async (req, res) => {
+  try {
+    const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
+
+    // Read checkpoint files from playground directory
+    const files = await fs2.readdir(playgroundRoot).catch(() => []);
+    const checkpointFiles = files.filter(f => f.startsWith('.checkpoint_') && f.endsWith('.json'));
+
+    const checkpoints = await Promise.all(
+      checkpointFiles.map(async (file) => {
+        try {
+          const filePath = path.join(playgroundRoot, file);
+          const content = await fs2.readFile(filePath, 'utf8');
+          const checkpoint = JSON.parse(content);
+
+          return {
+            checkpoint_id: checkpoint.sessionId,
+            session_id: checkpoint.sessionId,
+            task: checkpoint.task,
+            timestamp: checkpoint.timestamp,
+            iteration: checkpoint.state.iteration,
+            progress_percent: checkpoint.state.lastProgressPercent,
+            artifacts_count: checkpoint.state.artifacts.length,
+          };
+        } catch (err) {
+          console.error(`[Autonomous] Failed to parse checkpoint ${file}:`, err);
+          return null;
+        }
+      })
+    );
+
+    // Filter out nulls and sort by timestamp (newest first)
+    const validCheckpoints = checkpoints
+      .filter(cp => cp !== null)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    return res.json({ ok: true, checkpoints: validCheckpoints });
+  } catch (error) {
+    console.error('[Autonomous] Checkpoints error:', error);
+    return res.status(500).json({ ok: false, error: 'checkpoints_error', message: error?.message || String(error) });
+  }
+});
+
+// [Day 10] POST /api/chat/autonomous/resume - Resume from checkpoint
+app.post('/api/chat/autonomous/resume', async (req, res) => {
+  try {
+    const { checkpoint_id } = req.body || {};
+
+    if (!checkpoint_id) {
+      return res.status(400).json({ error: 'invalid_request', message: 'checkpoint_id is required' });
+    }
+
+    const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
+    const modelName = process.env.FRONTEND_VLLM_MODEL || 'core';
+
+    // Create agent and executor
+    const agent = createAutonomousAgent({
+      llmClient: { chat: async (opts) => {
+        const resp = await fetch(`${apiBase}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: modelName, ...opts }),
+        });
+        if (!resp.ok) throw new Error(`LLM request failed: ${resp.status}`);
+        return await resp.json();
+      }},
+      model: modelName,
+      maxIterations: 15,
+      checkpointInterval: 5,
+      errorThreshold: 3,
+      playgroundRoot,
+    });
+
+    const executor = createExecutor({
+      playgroundRoot,
+      toolRegistry: await getToolDefs(),
+    });
+
+    // Store in active sessions
+    const sessionData = { agent, done: false, result: null, error: null };
+    activeSessions.set(checkpoint_id, sessionData);
+
+    // Resume in background
+    agent.resumeFromCheckpoint(checkpoint_id, executor, {
+      convId: `resumed-${checkpoint_id}`,
+      turnId: Date.now(),
+    })
+      .then(result => {
+        sessionData.done = true;
+        sessionData.result = result;
+        console.log(`[Autonomous] Session ${checkpoint_id} resumed and completed`);
+      })
+      .catch(err => {
+        sessionData.done = true;
+        sessionData.error = err;
+        console.error(`[Autonomous] Session ${checkpoint_id} resume failed:`, err);
+      });
+
+    return res.json({ ok: true, session_id: checkpoint_id, running: true });
+  } catch (error) {
+    console.error('[Autonomous] Resume error:', error);
+    return res.status(500).json({ ok: false, error: 'resume_error', message: error?.message || String(error) });
+  }
+});
+
+// [Day 10] POST /api/chat/autonomous/clarify - Provide clarification to waiting agent
+app.post('/api/chat/autonomous/clarify', async (req, res) => {
+  try {
+    const { session_id, response } = req.body || {};
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'invalid_request', message: 'session_id is required' });
+    }
+
+    if (!response || typeof response !== 'string') {
+      return res.status(400).json({ error: 'invalid_request', message: 'response string is required' });
+    }
+
+    const session = activeSessions.get(session_id);
+    if (!session) {
+      return res.status(404).json({ ok: false, error: 'not_found', message: 'Session not found or expired' });
+    }
+
+    const agent = session.agent;
+    if (!agent) {
+      return res.status(400).json({ ok: false, error: 'invalid_state', message: 'Agent not available' });
+    }
+
+    // Provide clarification to agent
+    await agent.resumeWithClarification(response);
+
+    return res.json({ ok: true, session_id, running: !session.done });
+  } catch (error) {
+    console.error('[Autonomous] Clarify error:', error);
+    return res.status(500).json({ ok: false, error: 'clarify_error', message: error?.message || String(error) });
+  }
+});
+
+// [Day 10] GET /api/chat/autonomous/stats - Get learning statistics
+app.get('/api/chat/autonomous/stats', async (req, res) => {
+  try {
+    const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
+    const sessionMemory = createSessionMemory(playgroundRoot);
+
+    // Get basic statistics
+    const stats = await sessionMemory.getStatistics();
+
+    // Read all sessions to aggregate patterns
+    const memoryFilePath = path.join(playgroundRoot, '.session_memory.jsonl');
+    let allSessions = [];
+
+    try {
+      const content = await fs2.readFile(memoryFilePath, 'utf8');
+      allSessions = content
+        .trim()
+        .split('\n')
+        .map(line => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(s => s !== null);
+    } catch (err) {
+      // File doesn't exist yet, return empty stats
+      console.log('[Autonomous] No session memory file yet');
+    }
+
+    // Aggregate patterns
+    const successfulTools = {};
+    const failedTools = {};
+    const failureReasons = {};
+
+    allSessions.forEach(session => {
+      if (session.success && session.tools_used) {
+        session.tools_used.forEach(tool => {
+          successfulTools[tool] = (successfulTools[tool] || 0) + 1;
+        });
+      } else {
+        if (session.failed_tools) {
+          session.failed_tools.forEach(tool => {
+            failedTools[tool] = (failedTools[tool] || 0) + 1;
+          });
+        }
+        if (session.failure_reason) {
+          failureReasons[session.failure_reason] = (failureReasons[session.failure_reason] || 0) + 1;
+        }
+      }
+    });
+
+    // Get top successful tools
+    const topSuccessfulTools = Object.entries(successfulTools)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tool]) => tool);
+
+    // Get failed tools (any that failed at least once)
+    const topFailedTools = Object.keys(failedTools);
+
+    // Get common failure reasons
+    const commonFailureReasons = Object.entries(failureReasons)
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, count]) => `${reason} (${count}x)`);
+
+    // Calculate avg iterations per task type
+    const byTaskTypeWithAvg = {};
+    for (const [taskType, taskStats] of Object.entries(stats.by_type)) {
+      const sessionsOfType = allSessions.filter(s => s.task_type === taskType);
+      const avgIterations = sessionsOfType.length > 0
+        ? Math.round(sessionsOfType.reduce((sum, s) => sum + (s.iterations || 0), 0) / sessionsOfType.length)
+        : 0;
+
+      byTaskTypeWithAvg[taskType] = {
+        total: taskStats.total,
+        success: taskStats.success,
+        avg_iterations: avgIterations,
+      };
+    }
+
+    return res.json({
+      ok: true,
+      stats: {
+        total_sessions: stats.total,
+        successful_sessions: stats.success,
+        failed_sessions: stats.failure,
+        by_task_type: byTaskTypeWithAvg,
+        recent_patterns: {
+          successful_tools: topSuccessfulTools,
+          failed_tools: topFailedTools,
+          common_failure_reasons: commonFailureReasons,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[Autonomous] Stats error:', error);
+    return res.status(500).json({ ok: false, error: 'stats_error', message: error?.message || String(error) });
+  }
+});
+
 // Tail ContextLog (dev only)
 app.get('/api/ctx/tail', async (req, res) => {
   try {
@@ -1027,9 +1542,9 @@ app.listen(port, () => {
 
 
 // Tools metadata endpoint for UI discovery/debug
-app.get('/api/tools', (_req, res) => {
+app.get('/api/tools', async (_req, res) => {
   try {
-    const tools = Array.isArray(TOOL_DEFS) ? TOOL_DEFS : [];
+    const tools = await getToolDefs();
     const names = tools.map(t => t?.function?.name).filter(Boolean);
     res.json({ enabled: tools.length > 0, count: tools.length, names, defs: tools });
   } catch (e) {
@@ -1049,4 +1564,3 @@ app.get('/api/tools/audit', async (req, res) => {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
   }
 });
-

@@ -29,6 +29,22 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
 - [ ] T29 - Improve UI feedback for tool success, errors, and follow-up actions  (Phase 1: Tool Execution Core)
 - [ ] T30 - Document tool usage patterns, limits, and troubleshooting steps  (Phase 0: Chat Foundations)
 
+## M2 - Self-Review and Chunked Reasoning (Owner: TBD; Target: TBD; Priority: HIGH)
+Enable iterative self-review for quality improvement and chunked response generation to overcome context limits and produce comprehensive outputs.
+- [x] T200 - Self-Review and Chunked Reasoning design spec (ADR)  (Phase 0: Design) [Complete: 2025-10-25]
+- [x] T201 - Review orchestration module implementation  (Phase 1: Review Mode MVP) [Complete: 2025-10-25]
+- [x] T202 - Review prompt templates and configuration  (Phase 1: Review Mode MVP) [Complete: 2025-10-25]
+- [ ] T203 - Chunked orchestration module implementation  (Phase 2: Chunked Mode MVP)
+- [ ] T204 - Chunked prompt templates and configuration  (Phase 2: Chunked Mode MVP)
+- [x] T205 - Orchestrator routing and integration  (Phase 1-2: Integration) [Complete: 2025-10-25]
+- [x] T206 - ContextLog schema extensions for review and chunked events  (Phase 1-2: Observability) [Complete: 2025-10-25]
+- [ ] T207 - UI controls for review and chunked modes  (Phase 3: UI Integration)
+- [ ] T208 - DiagnosticsDrawer enhancements for review/chunk events  (Phase 3: UI Integration)
+- [ ] T209 - Combined mode implementation (review + chunked)  (Phase 4: Combined Mode)
+- [ ] T210 - Auto-detection heuristics and smart triggers  (Phase 4: Optimization)
+- [ ] T211 - Documentation, examples, and configuration guide  (Phase 5: Documentation)
+- [ ] T212 - Testing suite and validation  (Phase 5: Testing)
+
 ## Task Guidelines (Guardrails)
 - Keep tasks discrete and shippable within 4 hours of focused work.
 - No opportunistic refactors. If a change exceeds ~20 lines or crosses modules, split into a new task.
@@ -586,6 +602,242 @@ Harden the end-to-end tool pathway so chat users get reliable feedback, logged e
   - Updated docs include a "Tool Guardrails" section listing limits and escalation steps.
   - `python -m compileall docs` completes without errors, ensuring code samples are syntax-valid.
 - Test Level: documentation (smoke).
+
+### T200 — Self-Review and Chunked Reasoning design spec (ADR)
+- Goal: Define architecture, event schema, configuration flags, and rollout plan for self-review iteration and chunked reasoning features to improve response quality and overcome context limits.
+- Scope:
+  - Write ADR-0002 covering review cycle protocol, chunked response flow, ContextLog schema extensions, and combined mode strategies.
+  - Include configuration examples, execution flows, tradeoffs, and success metrics.
+  - Define phased rollout plan with feature flags.
+- Out of Scope:
+  - Implementation of orchestrators or UI components.
+  - Performance testing or load analysis.
+- Allowed Touches: `forgekeeper/docs/adr-0002-self-review-and-chunked-reasoning.md`.
+- Done When:
+  - ADR merged with complete architecture, protocol examples, and configuration guide.
+  - Sample event schemas validate via `python -m json.tool`.
+  - Phased rollout plan approved by stakeholders.
+- Test Level: documentation.
+
+### T201 — Review orchestration module implementation
+- Goal: Implement core review loop that evaluates generated responses and triggers regeneration based on quality scores.
+- Scope:
+  - Create `frontend/server.review.mjs` with `orchestrateWithReview()`, `evaluateResponse()`, and `regenerateWithCritique()`.
+  - Implement review question templating and score extraction from model responses.
+  - Support configurable quality threshold and max iteration limits.
+  - Emit ContextLog events for each review cycle with scores and critiques.
+- Out of Scope:
+  - UI components or user-facing controls.
+  - Custom review questions per request (use default set only).
+- Allowed Touches: `forgekeeper/frontend/server.review.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/services/context_log/*`, `forgekeeper/tests/frontend/test_review.mjs`.
+- Done When:
+  - `npm --prefix forgekeeper/frontend run test` passes with new review tests.
+  - Manual test with `FRONTEND_ENABLE_REVIEW=1` shows multiple review passes in ContextLog.
+  - Response quality score extracted correctly; regeneration triggered when score < threshold.
+- Test Level: unit + smoke.
+
+### T202 — Review prompt templates and configuration
+- Goal: Define default review questions and provide configuration for review behavior.
+- Scope:
+  - Create `frontend/config/review_prompts.mjs` with default question templates.
+  - Add environment variables: `FRONTEND_ENABLE_REVIEW`, `FRONTEND_REVIEW_ITERATIONS`, `FRONTEND_REVIEW_THRESHOLD`, `FRONTEND_REVIEW_MAX_REGENERATIONS`, `FRONTEND_REVIEW_EVAL_TOKENS`, `FRONTEND_REVIEW_MODE`.
+  - Ensure prompts work with both Harmony and OpenAI protocols.
+  - Document configuration in README.
+- Out of Scope:
+  - Per-user or per-conversation custom review questions.
+  - Advanced NLP-based quality scoring.
+- Allowed Touches: `forgekeeper/frontend/config/review_prompts.mjs`, `forgekeeper/README.md`, `forgekeeper/.env.example`.
+- Done When:
+  - Default prompts render correctly for both Harmony and OpenAI models.
+  - All configuration flags documented with defaults and examples.
+  - `npm --prefix forgekeeper/frontend run lint` passes.
+- Test Level: unit (template rendering) + documentation.
+
+### T203 — Chunked orchestration module implementation
+- Goal: Implement chunked response generation with outline phase and per-chunk think-write loops.
+- Scope:
+  - Create `frontend/server.chunked.mjs` with `orchestrateChunked()`, `generateOutline()`, `generateChunk()`, and `assembleChunks()`.
+  - Implement outline generation that breaks user requests into N logical chunks.
+  - For each chunk: generate reasoning (analysis channel) then content (final channel).
+  - Accumulate chunks into final assembled response.
+  - Emit ContextLog events for outline and each chunk with token counts and labels.
+- Out of Scope:
+  - Review of individual chunks (T209 combined mode handles this).
+  - Streaming chunk progress to UI (buffer all chunks first).
+- Allowed Touches: `forgekeeper/frontend/server.chunked.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/services/context_log/*`, `forgekeeper/tests/frontend/test_chunked.mjs`.
+- Done When:
+  - `npm --prefix forgekeeper/frontend run test` passes with chunked tests.
+  - Manual test with `FRONTEND_ENABLE_CHUNKED=1` generates outline + multiple chunks visible in ContextLog.
+  - Final response correctly assembled from all chunks.
+- Test Level: unit + smoke.
+
+### T204 — Chunked prompt templates and configuration
+- Goal: Define templates for outline generation and chunk think-write phases with full configuration support.
+- Scope:
+  - Create `frontend/config/chunked_prompts.mjs` with outline and chunk templates.
+  - Add environment variables: `FRONTEND_ENABLE_CHUNKED`, `FRONTEND_CHUNKED_MAX_CHUNKS`, `FRONTEND_CHUNKED_TOKENS_PER_CHUNK`, `FRONTEND_CHUNKED_AUTO_THRESHOLD`, `FRONTEND_CHUNKED_AUTO_OUTLINE`, `FRONTEND_CHUNKED_OUTLINE_RETRIES`, `FRONTEND_CHUNKED_OUTLINE_TOKENS`, `FRONTEND_CHUNKED_REVIEW_PER_CHUNK`.
+  - Ensure templates work with both Harmony and OpenAI protocols.
+  - Document configuration in README.
+- Out of Scope:
+  - Machine learning-based chunk boundary detection.
+  - Custom chunk labels per domain.
+- Allowed Touches: `forgekeeper/frontend/config/chunked_prompts.mjs`, `forgekeeper/README.md`, `forgekeeper/.env.example`.
+- Done When:
+  - Templates render correctly for both protocols.
+  - All configuration flags documented with defaults and examples.
+  - `npm --prefix forgekeeper/frontend run lint` passes.
+- Test Level: unit (template rendering) + documentation.
+
+### T205 — Orchestrator routing and integration
+- Goal: Wire review and chunked orchestrators into main server orchestration flow with feature detection.
+- Scope:
+  - Update `frontend/server.orchestrator.mjs` to detect review/chunked feature flags.
+  - Route requests to appropriate orchestrator: standard, review-only, chunked-only, or combined.
+  - Maintain backward compatibility when features disabled.
+  - Update `frontend/server.mjs` to expose feature flags via `/config.json`.
+- Out of Scope:
+  - Auto-detection logic (handled in T210).
+  - UI routing changes (handled in T207).
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.mjs`, `forgekeeper/tests/frontend/test_orchestrator_routing.mjs`.
+- Done When:
+  - With `FRONTEND_ENABLE_REVIEW=0` and `FRONTEND_ENABLE_CHUNKED=0`, behavior unchanged from baseline.
+  - With `FRONTEND_ENABLE_REVIEW=1`, requests route to review orchestrator.
+  - With `FRONTEND_ENABLE_CHUNKED=1`, requests route to chunked orchestrator.
+  - `/config.json` exposes `reviewEnabled` and `chunkedEnabled` flags.
+  - `npm --prefix forgekeeper/frontend run test` passes.
+- Test Level: integration + smoke.
+
+### T206 — ContextLog schema extensions for review and chunked events
+- Goal: Extend ContextLog event schema to capture review cycles, quality scores, chunk outlines, and chunk generation events.
+- Scope:
+  - Add event types: `review_cycle`, `chunk_outline`, `chunk_write`.
+  - Extend Python and Node ContextLog helpers to support new event types.
+  - Update tail queries to filter by new event types.
+  - Add unit tests for new event schemas.
+- Out of Scope:
+  - Database backend support (JSONL only for MVP).
+  - Historical analytics or aggregation queries.
+- Allowed Touches: `forgekeeper/services/context_log/jsonl.py`, `forgekeeper/services/context_log/review.py`, `forgekeeper/services/context_log/chunked.py`, `forgekeeper/frontend/server.contextlog.mjs`, `forgekeeper/tests/test_context_log.py`.
+- Done When:
+  - Review events include `quality_score`, `threshold`, `critique`, `accepted` fields.
+  - Chunk events include `chunk_index`, `chunk_label`, `reasoning_tokens`, `content_tokens` fields.
+  - `pytest -q` passes with new schema tests.
+  - Tail queries successfully filter by new event types.
+- Test Level: unit.
+
+### T207 — UI controls for review and chunked modes
+- Goal: Add user-facing toggles and progress indicators for review and chunked modes.
+- Scope:
+  - Add optional toggles in Chat UI for enabling review/chunked modes (when flags allow).
+  - Display progress indicators: "Reviewing response (pass 2 of 3)..." or "Writing section 3 of 5...".
+  - Store user preferences in `localStorage`.
+  - Disable unavailable features based on `/config.json`.
+- Out of Scope:
+  - Custom review question UI or chunk label editing.
+  - Real-time streaming of chunk content (buffer first).
+- Allowed Touches: `forgekeeper/frontend/src/components/Chat.tsx`, `forgekeeper/frontend/src/components/ProgressIndicator.tsx`, `forgekeeper/frontend/src/lib/chatClient.ts`, `forgekeeper/frontend/src/state/*`.
+- Done When:
+  - Toggles appear when features enabled in `/config.json`.
+  - Progress indicators show current review pass or chunk index during generation.
+  - User preferences persist across sessions.
+  - `npm --prefix forgekeeper/frontend run lint` passes.
+- Test Level: UI smoke.
+
+### T208 — DiagnosticsDrawer enhancements for review/chunk events
+- Goal: Display review cycles and chunk breakdowns in the diagnostics drawer for transparency.
+- Scope:
+  - Update `DiagnosticsDrawer.tsx` to render review events with quality scores and critiques.
+  - Display chunk outline and per-chunk reasoning/content summaries.
+  - Add collapsible sections for review history and chunk breakdown.
+  - Support copy-to-clipboard for review/chunk event JSON.
+- Out of Scope:
+  - Chart visualizations or historical trends.
+  - Server-side filtering or pagination (client-side only).
+- Allowed Touches: `forgekeeper/frontend/src/components/DiagnosticsDrawer.tsx`, `forgekeeper/frontend/src/lib/ctxClient.ts`.
+- Done When:
+  - Drawer lists review passes with scores, thresholds, and accepted status.
+  - Drawer shows chunk outline with labels and per-chunk token counts.
+  - Collapsible sections work correctly; copy function works.
+  - `npm --prefix forgekeeper/frontend run lint` passes.
+- Test Level: UI smoke.
+
+### T209 — Combined mode implementation (review + chunked)
+- Goal: Implement strategies for using review and chunked modes together.
+- Scope:
+  - Add `FRONTEND_COMBINED_REVIEW_STRATEGY` env (values: `per_chunk`, `final_only`, `both`).
+  - Implement `per_chunk`: review each chunk before moving to next.
+  - Implement `final_only`: generate all chunks, then review assembled response.
+  - Implement `both`: review each chunk AND final assembly.
+  - Log combined mode execution to ContextLog.
+- Out of Scope:
+  - ML-based strategy selection.
+  - User-selectable strategy per request (use env default only).
+- Allowed Touches: `forgekeeper/frontend/server.review.mjs`, `forgekeeper/frontend/server.chunked.mjs`, `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/README.md`, `forgekeeper/tests/frontend/test_combined_mode.mjs`.
+- Done When:
+  - With both features enabled and strategy set, appropriate review cycles occur.
+  - `per_chunk` strategy shows review events after each chunk in ContextLog.
+  - `final_only` strategy shows single review after assembly.
+  - `both` strategy shows all review events.
+  - `npm --prefix forgekeeper/frontend run test` passes.
+- Test Level: integration + smoke.
+
+### T210 — Auto-detection heuristics and smart triggers
+- Goal: Automatically enable review or chunked modes based on question complexity and expected response length.
+- Scope:
+  - Implement heuristics to detect when to use chunked mode (e.g., question asks for comprehensive analysis, multi-part answer, or step-by-step guide).
+  - Implement heuristics to detect when to use review mode (e.g., high-stakes question, technical accuracy required, or previous response was incomplete).
+  - Add `FRONTEND_AUTO_REVIEW` and `FRONTEND_AUTO_CHUNKED` env flags to enable auto-detection.
+  - Log auto-detection decisions to ContextLog.
+  - Document heuristics and override behavior.
+- Out of Scope:
+  - Machine learning models for intent classification.
+  - User training or feedback loops.
+- Allowed Touches: `forgekeeper/frontend/server.orchestrator.mjs`, `forgekeeper/frontend/server.heuristics.mjs`, `forgekeeper/README.md`, `forgekeeper/tests/frontend/test_heuristics.mjs`.
+- Done When:
+  - Questions like "Explain X in detail with examples" automatically trigger chunked mode when `FRONTEND_AUTO_CHUNKED=1`.
+  - Questions about technical specifications or code correctness trigger review mode when `FRONTEND_AUTO_REVIEW=1`.
+  - Heuristics documented with examples; override instructions clear.
+  - `npm --prefix forgekeeper/frontend run test` passes.
+- Test Level: unit + smoke.
+
+### T211 — Documentation, examples, and configuration guide
+- Goal: Publish comprehensive documentation for self-review and chunked reasoning features.
+- Scope:
+  - Create `docs/features/self_review.md` with overview, configuration, examples, and troubleshooting.
+  - Create `docs/features/chunked_reasoning.md` with overview, configuration, examples, and use cases.
+  - Update `CLAUDE.md` with new orchestration modes and architecture overview.
+  - Update `README.md` with feature flags and quick start examples.
+  - Add examples to `docs/examples/review_example.md` and `docs/examples/chunked_example.md`.
+- Out of Scope:
+  - Video tutorials or interactive demos.
+  - API reference auto-generation.
+- Allowed Touches: `forgekeeper/docs/features/*`, `forgekeeper/docs/examples/*`, `forgekeeper/CLAUDE.md`, `forgekeeper/README.md`.
+- Done When:
+  - All configuration flags documented with defaults and examples.
+  - Use cases and examples included for both features.
+  - Troubleshooting sections cover common issues.
+  - `CLAUDE.md` reflects new architecture.
+  - Documentation renders correctly via markdown viewer.
+- Test Level: documentation.
+
+### T212 — Testing suite and validation
+- Goal: Comprehensive testing coverage for review and chunked features.
+- Scope:
+  - Unit tests: review score extraction, chunk assembly, template rendering.
+  - Integration tests: end-to-end review cycle, end-to-end chunked generation.
+  - Smoke tests: `scripts/test_review_basic.py` and `scripts/test_chunked_basic.py`.
+  - Performance tests: measure latency increase and token usage.
+  - Add CI validation for review/chunked tests.
+- Out of Scope:
+  - Load testing or production stress tests.
+  - A/B testing infrastructure.
+- Allowed Touches: `forgekeeper/tests/frontend/test_review.mjs`, `forgekeeper/tests/frontend/test_chunked.mjs`, `forgekeeper/tests/frontend/test_combined_mode.mjs`, `forgekeeper/scripts/test_review_basic.py`, `forgekeeper/scripts/test_chunked_basic.py`, `.github/workflows/*`.
+- Done When:
+  - All unit tests pass: `npm --prefix forgekeeper/frontend run test` and `pytest -q`.
+  - Smoke tests successfully complete: `python forgekeeper/scripts/test_review_basic.py` and `python forgekeeper/scripts/test_chunked_basic.py`.
+  - CI includes review/chunked test runs.
+  - Test coverage report shows > 80% coverage for new modules.
+- Test Level: unit + integration + smoke + performance.
 
 ### Observability
 - [x] Add a minimal tools diagnostics panel in the UI (toggle under input)  (Phase 7: Observability & Guardrails)

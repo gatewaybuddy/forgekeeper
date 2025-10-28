@@ -9,6 +9,13 @@ import * as t_run_bash from './run_bash.mjs';
 import * as t_refresh_tools from './refresh_tools.mjs';
 import * as t_write_repo_file from './write_repo_file.mjs';
 import * as t_http_fetch from './http_fetch.mjs';
+import * as t_git_status from './git_status.mjs';
+import * as t_git_diff from './git_diff.mjs';
+import * as t_git_add from './git_add.mjs';
+import * as t_git_commit from './git_commit.mjs';
+import * as t_git_push from './git_push.mjs';
+import * as t_git_pull from './git_pull.mjs';
+import * as t_restart_frontend from './restart_frontend.mjs';
 
 export const TOOL_DEFS = [
   t_get_time.def,
@@ -21,6 +28,13 @@ export const TOOL_DEFS = [
   t_refresh_tools.def,
   t_write_repo_file.def,
   t_http_fetch.def,
+  t_git_status.def,
+  t_git_diff.def,
+  t_git_add.def,
+  t_git_commit.def,
+  t_git_push.def,
+  t_git_pull.def,
+  t_restart_frontend.def,
 ];
 
 const REGISTRY = new Map([
@@ -34,6 +48,13 @@ const REGISTRY = new Map([
   ['refresh_tools', t_refresh_tools],
   ['write_repo_file', t_write_repo_file],
   ['http_fetch', t_http_fetch],
+  ['git_status', t_git_status],
+  ['git_diff', t_git_diff],
+  ['git_add', t_git_add],
+  ['git_commit', t_git_commit],
+  ['git_push', t_git_push],
+  ['git_pull', t_git_pull],
+  ['restart_frontend', t_restart_frontend],
 ]);
 
 export async function runTool(name, args) {
