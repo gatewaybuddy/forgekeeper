@@ -16,6 +16,8 @@ import fs from 'fs/promises'; // [Day 10] For checkpoint save/load
 import path from 'path';
 import { contextLogEvents } from '../services/contextlog-events.mjs';
 import { createSessionMemory } from './session-memory.mjs';
+import { createEpisodicMemory } from './episodic-memory.mjs'; // [Phase 5 Option A]
+import { createDiagnosticReflection } from './diagnostic-reflection.mjs'; // [T302] Root cause analysis
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -60,6 +62,7 @@ export class AutonomousAgent {
     this.errorThreshold = config.errorThreshold || 3;
     this.playgroundRoot = config.playgroundRoot || '.forgekeeper/playground';
     this.interactiveMode = config.interactiveMode || false; // [Day 10] Ask for clarification when stuck
+    this.preferenceSystem = config.preferenceSystem || null; // [Phase 5 Option D] User preferences
 
     this.state = null;
     this.sessionId = null;
@@ -70,6 +73,18 @@ export class AutonomousAgent {
     // Session memory for learning
     this.sessionMemory = createSessionMemory(this.playgroundRoot);
     this.pastLearnings = null;
+    this.userPreferenceGuidance = null; // [Phase 5 Option D]
+
+    // Episodic memory for semantic search [Phase 5 Option A]
+    this.episodicMemory = createEpisodicMemory(this.playgroundRoot);
+    this.relevantEpisodes = null;
+
+    // Diagnostic reflection for root cause analysis [T302]
+    this.diagnosticReflection = createDiagnosticReflection(this.llmClient, this.model, {
+      whyDepth: 5,
+      temperature: 0.2,
+      maxTokens: 1024,
+    });
   }
 
   /**
@@ -112,6 +127,34 @@ export class AutonomousAgent {
     }
     if (this.pastFailures.length > 0) {
       console.log(`[AutonomousAgent] Loaded ${this.pastFailures.length} failure patterns to avoid`);
+    }
+
+    // Load user preferences [Phase 5 Option D]
+    if (this.preferenceSystem) {
+      try {
+        this.userPreferenceGuidance = await this.preferenceSystem.generatePreferenceGuidance();
+        if (this.userPreferenceGuidance && this.userPreferenceGuidance.trim().length > 0) {
+          console.log('[AutonomousAgent] Loaded user preferences');
+        }
+      } catch (err) {
+        console.warn('[AutonomousAgent] Failed to load user preferences:', err);
+      }
+    }
+
+    // Search for relevant episodes using semantic similarity [Phase 5 Option A]
+    try {
+      const similarEpisodes = await this.episodicMemory.searchSimilar(task, {
+        limit: 3,
+        minScore: 0.4,
+        successOnly: true, // Only show successful examples
+      });
+
+      if (similarEpisodes.length > 0) {
+        this.relevantEpisodes = similarEpisodes;
+        console.log(`[AutonomousAgent] Found ${similarEpisodes.length} relevant episodes (scores: ${similarEpisodes.map(e => e.score.toFixed(2)).join(', ')})`);
+      }
+    } catch (err) {
+      console.warn('[AutonomousAgent] Failed to search episodes:', err);
     }
 
     // Emit session start
@@ -412,6 +455,49 @@ export class AutonomousAgent {
           }
         );
 
+        // [T302] Check if tool execution failed
+        if (result.error) {
+          console.error(`[AutonomousAgent] Tool execution failed:`, result.error);
+          summary += `${step.tool}: ERROR - ${result.error.message}\n`;
+
+          // [T302] Run diagnostic reflection for root cause analysis
+          const diagnosis = await this.runDiagnosticReflection(
+            {
+              function: {
+                name: step.tool,
+                arguments: step.args,
+              },
+            },
+            result.error,
+            executor,
+            context
+          );
+
+          // Track failure with diagnostic context
+          const failure = {
+            tool: step.tool,
+            args: step.args,
+            error: result.error.message,
+            iteration: this.state.iteration,
+            diagnosis, // Include full diagnostic analysis
+          };
+
+          this.state.recentFailures.push(failure);
+          if (this.state.recentFailures.length > 5) {
+            this.state.recentFailures.shift(); // Keep only last 5
+          }
+
+          // Add diagnosis summary to iteration summary
+          if (diagnosis && diagnosis.rootCause) {
+            summary += `\n🔍 DIAGNOSIS: ${diagnosis.rootCause.description}\n`;
+            if (diagnosis.alternatives && diagnosis.alternatives.length > 0) {
+              summary += `💡 SUGGESTED: ${diagnosis.alternatives[0].description}\n`;
+            }
+          }
+
+          continue; // Skip to next step
+        }
+
         toolsUsed.push(step.tool);
 
         // Track artifacts
@@ -427,10 +513,10 @@ export class AutonomousAgent {
         summary += `${step.tool}: ${resultPreview}\n`;
 
       } catch (error) {
-        console.error(`[AutonomousAgent] Tool execution failed:`, error);
+        console.error(`[AutonomousAgent] Tool execution failed (unexpected):`, error);
         summary += `${step.tool}: ERROR - ${error.message}\n`;
 
-        // [Day 8] Track failure with context
+        // Track unexpected failure (shouldn't normally happen)
         const failure = {
           tool: step.tool,
           args: step.args,
@@ -853,6 +939,70 @@ export class AutonomousAgent {
   }
 
   /**
+   * Run diagnostic reflection on a tool failure
+   * [T302] Analyzes failures using "5 Whys" root cause analysis
+   *
+   * @param {Object} toolCall - The failed tool call
+   * @param {Error} error - The error object
+   * @param {Object} executor - Tool executor (for getting available tools)
+   * @param {Object} context - Execution context
+   * @returns {Promise<Object>} Diagnosis object
+   */
+  async runDiagnosticReflection(toolCall, error, executor, context) {
+    try {
+      // Get list of available tools
+      const availableTools = executor.toolRegistry
+        ? Array.from(executor.toolRegistry.keys())
+        : [];
+
+      // Get last 3 actions for context
+      const previousActions = this.state.history.slice(-3).map(h => ({
+        tool: h.tools_used?.[0] || 'unknown',
+        args: {},
+        result: h.result || '',
+        success: !h.result.includes('ERROR'),
+      }));
+
+      // Build failure context
+      const failureContext = {
+        toolCall,
+        error: {
+          message: error.message,
+          code: error.code,
+          stdout: error.stdout,
+          stderr: error.stderr,
+          signal: error.signal,
+        },
+        iteration: this.state.iteration,
+        previousActions,
+        availableTools,
+        workspaceState: {
+          files: [], // TODO: Could read actual workspace state if needed
+          directories: [],
+        },
+        taskGoal: this.state.task,
+      };
+
+      // Run diagnostic reflection
+      const diagnosis = await this.diagnosticReflection.runDiagnosticReflection(failureContext);
+
+      // Emit diagnostic event to ContextLog
+      await contextLogEvents.emitDiagnosticReflection(
+        context.convId,
+        context.turnId,
+        this.state.iteration,
+        toolCall.function.name,
+        diagnosis
+      );
+
+      return diagnosis;
+    } catch (diagError) {
+      console.error('[AutonomousAgent] Diagnostic reflection failed:', diagError);
+      return null; // Graceful fallback - continue without diagnosis
+    }
+  }
+
+  /**
    * Build reflection prompt from current state
    *
    * @returns {string}
@@ -878,6 +1028,14 @@ export class AutonomousAgent {
       ? `\n## Past Session Learnings\n${this.learningGuidance}\n`
       : '';
 
+    // [Phase 5 Option D] Add user preferences guidance
+    const preferencesText = this.userPreferenceGuidance && this.userPreferenceGuidance.trim().length > 0
+      ? `\n${this.userPreferenceGuidance}\n`
+      : '';
+
+    // [Phase 5 Option A] Add relevant episodes from semantic search
+    const episodesText = this.buildEpisodesGuidance();
+
     return `# Autonomous Task - Self-Assessment
 
 ## Original Task
@@ -886,7 +1044,7 @@ ${this.state.task}
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
 
-${learningsText}
+${learningsText}${preferencesText}${episodesText}
 ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
@@ -956,22 +1114,48 @@ Respond with JSON only:
     this.state.recentFailures.forEach((failure, idx) => {
       warnings += `${idx + 1}. **${failure.tool}** with args \`${JSON.stringify(failure.args).slice(0, 60)}...\`\n`;
       warnings += `   Error: ${failure.error}\n`;
-      warnings += `   → **Try alternative**: `;
 
-      // Suggest alternatives based on tool type
-      if (failure.tool === 'read_file') {
-        warnings += `Use 'find' or 'grep' to search instead, or 'read_dir' to list files first\n`;
-      } else if (failure.tool === 'run_bash' && failure.error.includes('not found')) {
-        warnings += `Check if path exists with 'read_dir', or use different search pattern\n`;
-      } else if (failure.tool === 'run_bash') {
-        warnings += `Verify command syntax, check for typos, or try a simpler command\n`;
+      // [T302] Include diagnostic analysis if available
+      if (failure.diagnosis && failure.diagnosis.rootCause) {
+        warnings += `\n   🔍 **Root Cause Analysis**:\n`;
+        warnings += `   - Category: ${failure.diagnosis.rootCause.category}\n`;
+        warnings += `   - Issue: ${failure.diagnosis.rootCause.description}\n`;
+
+        // Show why-chain (condensed)
+        if (failure.diagnosis.whyChain) {
+          warnings += `   - Why it failed: ${failure.diagnosis.whyChain.why1}\n`;
+          warnings += `   - Underlying cause: ${failure.diagnosis.whyChain.why5}\n`;
+        }
+
+        // Show recovery strategies
+        if (failure.diagnosis.alternatives && failure.diagnosis.alternatives.length > 0) {
+          warnings += `\n   💡 **Recommended Recovery Strategies** (in priority order):\n`;
+          failure.diagnosis.alternatives.slice(0, 3).forEach((alt, altIdx) => {
+            warnings += `   ${altIdx + 1}. ${alt.strategy}: ${alt.description}\n`;
+            if (alt.tools && alt.tools.length > 0) {
+              warnings += `      Tools to use: ${alt.tools.join(', ')}\n`;
+            }
+          });
+        }
       } else {
-        warnings += `Try a broader approach or use a different tool\n`;
+        // Fallback to heuristic suggestions if no diagnosis
+        warnings += `   → **Try alternative**: `;
+
+        if (failure.tool === 'read_file') {
+          warnings += `Use 'find' or 'grep' to search instead, or 'read_dir' to list files first\n`;
+        } else if (failure.tool === 'run_bash' && failure.error.includes('not found')) {
+          warnings += `Check if path exists with 'read_dir', or use different search pattern\n`;
+        } else if (failure.tool === 'run_bash') {
+          warnings += `Verify command syntax, check for typos, or try a simpler command\n`;
+        } else {
+          warnings += `Try a broader approach or use a different tool\n`;
+        }
       }
       warnings += `\n`;
     });
 
     warnings += `**IMPORTANT**: If you see yourself about to repeat any of the above, STOP and choose a completely different strategy.\n`;
+    warnings += `**SUCCESS PATTERN**: When one approach fails, the ROOT CAUSE analysis above shows WHY it failed and WHAT to try instead.\n`;
 
     return warnings;
   }
@@ -991,6 +1175,38 @@ Respond with JSON only:
       `Choose ONE:\n` +
       `1. Try a COMPLETELY DIFFERENT approach (recommended)\n` +
       `2. Assess as "stuck" if you cannot think of alternatives\n\n`;
+  }
+
+  /**
+   * Build relevant episodes guidance for reflection prompt
+   * [Phase 5 Option A]
+   *
+   * @returns {string}
+   */
+  buildEpisodesGuidance() {
+    if (!this.relevantEpisodes || this.relevantEpisodes.length === 0) return '';
+
+    let guidance = `\n## 📚 Relevant Past Episodes (Semantic Search)\n\n`;
+    guidance += `Found ${this.relevantEpisodes.length} similar successful session(s):\n\n`;
+
+    for (const { episode, score } of this.relevantEpisodes) {
+      guidance += `### Episode (similarity: ${(score * 100).toFixed(0)}%)\n`;
+      guidance += `**Task**: ${episode.task.slice(0, 100)}${episode.task.length > 100 ? '...' : ''}\n`;
+      guidance += `**Strategy**: ${episode.strategy || 'N/A'}\n`;
+      guidance += `**Tools Used**: ${episode.tools_used.join(', ')}\n`;
+      guidance += `**Iterations**: ${episode.iterations}\n`;
+
+      if (episode.summary) {
+        guidance += `**Summary**: ${episode.summary.slice(0, 150)}${episode.summary.length > 150 ? '...' : ''}\n`;
+      }
+
+      guidance += `\n`;
+    }
+
+    guidance += `**How to use**: These episodes show what worked for similar tasks. ` +
+      `Consider using similar strategies, tools, or approaches.\n\n`;
+
+    return guidance;
   }
 
   /**
@@ -1183,7 +1399,9 @@ Use these learnings to inform your approach.
 
     // [Day 10] Stuck detection (no progress) - with interactive mode option
     if (this.state.noProgressCount >= 3) {
+      console.log(`[AutonomousAgent] No progress detected. InteractiveMode: ${this.interactiveMode}, Waiting: ${this.waitingForClarification}`);
       if (this.interactiveMode && !this.waitingForClarification) {
+        console.log(`[AutonomousAgent] Requesting clarification for no_progress`);
         return { stop: false, needsClarification: true, reason: 'no_progress' };
       }
       return { stop: true, reason: 'no_progress' };
@@ -1242,6 +1460,22 @@ Use these learnings to inform your approach.
       error_count: this.state.errors,
     });
 
+    // [Phase 5 Option A] Record episode to episodic memory for semantic search
+    await this.episodicMemory.recordEpisode({
+      task: this.state.task,
+      task_type: taskType,
+      completed: reason === 'task_complete',
+      iterations: this.state.iteration,
+      tools_used: toolsUsed,
+      strategy: this.generateStrategyDescription(),
+      history: this.state.history,
+      artifacts: this.state.artifacts,
+      summary,
+      confidence: this.state.confidence,
+      failure_reason: reason !== 'task_complete' ? reason : null,
+      error_count: this.state.errors,
+    });
+
     await contextLogEvents.emit({
       id: ulid(),
       type: 'autonomous_session_complete',
@@ -1288,6 +1522,8 @@ Use these learnings to inform your approach.
       artifacts_created: this.state.artifacts.length,
       errors: this.state.errors,
       stuck_count: this.state.noProgressCount,
+      action_history: this.state.history, // Include iteration-by-iteration actions
+      artifacts: this.state.artifacts, // Include created artifacts
     };
   }
 
@@ -1652,13 +1888,23 @@ Your job is to:
 **Be specific**: Name exact files, commands, or tools in your next_action.
 **Be decisive**: Choose COMPLETE only when truly confident (>90%).
 
+**ITERATIVE REASONING PHILOSOPHY** (Critical):
+With local inference, we optimize for MANY SMALL ITERATIONS rather than large responses:
+- **Small steps**: Each iteration should do ONE focused thing
+- **Unlimited turns**: Token limits per response, but NO limit on total iterations
+- **Build up reasoning**: Many small thoughts → well-reasoned result
+- **Memory is key**: Each iteration adds to our understanding
+- **Favor clarity**: Short, clear responses over verbose ones
+- **Think, then act**: Reflect → plan → execute → assess → repeat
+
 **Multi-Step Workflow Strategy**:
 When facing complex tasks requiring multiple steps:
 1. **Break down** the task into clear phases (e.g., explore → design → implement → test → verify)
 2. **Complete one phase** fully before moving to the next
-3. **Don't skip verification** - always test that each phase works before proceeding
-4. **Track dependencies** - understand what each step requires
-5. **Progress incrementally** - 10-20% progress per major phase
+3. **ONE action per iteration** - don't try to do multiple things at once
+4. **Don't skip verification** - always test that each phase works before proceeding
+5. **Track dependencies** - understand what each step requires
+6. **Progress incrementally** - 10-20% progress per major phase
 
 **Research Task Strategy**:
 When analyzing codebases or gathering information:

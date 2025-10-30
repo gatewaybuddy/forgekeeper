@@ -15,6 +15,8 @@ export interface AutoStatusState {
     artifacts_created: number;
     errors: number;
     stuck_count: number;
+    action_history?: any[];
+    artifacts?: any[];
   };
   result?: any;
   error?: string;

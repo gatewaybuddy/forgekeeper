@@ -572,6 +572,43 @@ export class ContextLogEventEmitter {
     return event;
   }
 
+  /**
+   * Emit diagnostic_reflection event
+   * [T302] Root cause analysis for tool failures
+   *
+   * @param {string} convId
+   * @param {number} turnId
+   * @param {number} iteration
+   * @param {string} failedTool
+   * @param {Object} diagnosis
+   * @returns {Promise<Object>}
+   */
+  async emitDiagnosticReflection(convId, turnId, iteration, failedTool, diagnosis) {
+    const event = {
+      id: ulid(),
+      type: 'diagnostic_reflection',
+      ts: new Date().toISOString(),
+      conv_id: convId,
+      turn_id: turnId,
+      actor: 'system',
+      iteration,
+      failed_tool: failedTool,
+      root_cause_category: diagnosis?.rootCause?.category || 'unknown',
+      root_cause_description: this.redactAndTruncate(diagnosis?.rootCause?.description || '', 200),
+      confidence: diagnosis?.rootCause?.confidence || 0,
+      alternatives_count: diagnosis?.alternatives?.length || 0,
+      can_recover: diagnosis?.errorClassification?.canRecover !== false,
+      why_chain: {
+        why1: this.redactAndTruncate(diagnosis?.whyChain?.why1 || '', 150),
+        why5: this.redactAndTruncate(diagnosis?.whyChain?.why5 || '', 150),
+      },
+      recovery_strategy: diagnosis?.recoveryPlan?.strategy || null,
+    };
+
+    await this.emit(event);
+    return event;
+  }
+
   // ========================================
   // Utilities
   // ========================================
