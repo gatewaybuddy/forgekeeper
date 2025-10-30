@@ -18,6 +18,7 @@ import { contextLogEvents } from '../services/contextlog-events.mjs';
 import { createSessionMemory } from './session-memory.mjs';
 import { createEpisodicMemory } from './episodic-memory.mjs'; // [Phase 5 Option A]
 import { createDiagnosticReflection } from './diagnostic-reflection.mjs'; // [T302] Root cause analysis
+import { createRecoveryPlanner } from './recovery-planner.mjs'; // [T306] Recovery strategies
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -85,6 +86,9 @@ export class AutonomousAgent {
       temperature: 0.2,
       maxTokens: 1024,
     });
+
+    // Recovery planner for error recovery [T306]
+    this.recoveryPlanner = createRecoveryPlanner();
   }
 
   /**
@@ -473,13 +477,57 @@ export class AutonomousAgent {
             context
           );
 
-          // Track failure with diagnostic context
+          // [T306-T307] Generate and execute recovery plan
+          let recoverySucceeded = false;
+
+          if (diagnosis) {
+            // Generate recovery plan
+            const recoveryPlan = await this.recoveryPlanner.generateRecoveryPlan(diagnosis, {
+              toolCall: {
+                function: {
+                  name: step.tool,
+                  arguments: step.args,
+                },
+              },
+              error: result.error,
+              availableTools: executor.toolRegistry ? Array.from(executor.toolRegistry.keys()) : [],
+              taskGoal: this.state.task,
+            });
+
+            // Try to execute recovery plan
+            if (recoveryPlan.hasRecoveryPlan && recoveryPlan.primaryStrategy) {
+              console.log(`[AutonomousAgent] Attempting recovery: ${recoveryPlan.primaryStrategy.name}`);
+              summary += `\n🔧 RECOVERY ATTEMPT: ${recoveryPlan.primaryStrategy.description}\n`;
+
+              // Execute recovery steps
+              const recoveryResult = await this.executeRecoverySteps(
+                recoveryPlan.primaryStrategy.steps,
+                executor,
+                context
+              );
+
+              if (recoveryResult.success) {
+                recoverySucceeded = true;
+                summary += `✅ RECOVERY SUCCESS: ${recoveryResult.summary}\n`;
+                console.log('[AutonomousAgent] Recovery succeeded!');
+              } else {
+                summary += `❌ RECOVERY FAILED: ${recoveryResult.summary}\n`;
+                console.warn('[AutonomousAgent] Recovery failed');
+              }
+            } else {
+              summary += `⚠️  NO RECOVERY PLAN AVAILABLE\n`;
+            }
+          }
+
+          // Track failure with diagnostic context and recovery outcome
           const failure = {
             tool: step.tool,
             args: step.args,
             error: result.error.message,
             iteration: this.state.iteration,
             diagnosis, // Include full diagnostic analysis
+            recoveryAttempted: diagnosis ? true : false,
+            recoverySucceeded,
           };
 
           this.state.recentFailures.push(failure);
@@ -490,12 +538,16 @@ export class AutonomousAgent {
           // Add diagnosis summary to iteration summary
           if (diagnosis && diagnosis.rootCause) {
             summary += `\n🔍 DIAGNOSIS: ${diagnosis.rootCause.description}\n`;
-            if (diagnosis.alternatives && diagnosis.alternatives.length > 0) {
+            if (diagnosis.alternatives && diagnosis.alternatives.length > 0 && !recoverySucceeded) {
               summary += `💡 SUGGESTED: ${diagnosis.alternatives[0].description}\n`;
             }
           }
 
-          continue; // Skip to next step
+          // If recovery succeeded, we can continue to next step
+          // If it failed, skip to next planned step
+          if (!recoverySucceeded) {
+            continue; // Skip to next step
+          }
         }
 
         toolsUsed.push(step.tool);
@@ -537,6 +589,78 @@ export class AutonomousAgent {
       summary: summary.trim(),
       tools_used: toolsUsed,
       artifacts,
+    };
+  }
+
+  /**
+   * Execute recovery plan steps
+   * [T307] Attempts to recover from tool failure by executing recovery steps
+   *
+   * @param {Array} steps - Recovery steps from planner
+   * @param {Object} executor - Tool executor
+   * @param {Object} context - Execution context
+   * @returns {Promise<Object>} Recovery result
+   */
+  async executeRecoverySteps(steps, executor, context) {
+    let summary = '';
+    let success = false;
+
+    console.log(`[AutonomousAgent] Executing ${steps.length} recovery steps`);
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+
+      // Skip null tool steps (e.g., ask_user)
+      if (!step.tool) {
+        summary += `Step ${i + 1}: ${step.action} (requires user interaction)\n`;
+        continue;
+      }
+
+      try {
+        console.log(`[AutonomousAgent] Recovery step ${i + 1}: ${step.tool}(${JSON.stringify(step.args).slice(0, 100)}...)`);
+
+        // Execute recovery step
+        const result = await executor.execute(
+          {
+            id: ulid(),
+            type: 'function',
+            function: {
+              name: step.tool,
+              arguments: typeof step.args === 'string' ? step.args : JSON.stringify(step.args),
+            },
+          },
+          {
+            ...context,
+            cwd: this.playgroundRoot,
+            sandboxRoot: this.playgroundRoot,
+          }
+        );
+
+        // Check if recovery step succeeded
+        if (result.error) {
+          summary += `Step ${i + 1} FAILED: ${result.error.message}\n`;
+          console.error(`[AutonomousAgent] Recovery step ${i + 1} failed:`, result.error);
+          success = false;
+          break; // Stop trying recovery if any step fails
+        } else {
+          const resultPreview = result.content.length > 100
+            ? result.content.slice(0, 100) + '...'
+            : result.content;
+          summary += `Step ${i + 1} OK: ${resultPreview}\n`;
+          success = true; // Mark as success if at least steps complete
+        }
+      } catch (error) {
+        summary += `Step ${i + 1} ERROR: ${error.message}\n`;
+        console.error(`[AutonomousAgent] Recovery step ${i + 1} threw:`, error);
+        success = false;
+        break;
+      }
+    }
+
+    return {
+      success,
+      summary: summary.trim(),
+      stepsCompleted: success ? steps.length : 0,
     };
   }
 
