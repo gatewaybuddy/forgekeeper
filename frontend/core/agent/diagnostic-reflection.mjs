@@ -13,6 +13,7 @@
  */
 
 import { ulid } from 'ulid';
+import { createErrorClassifier, ERROR_CATEGORIES, ERROR_SEVERITY } from './error-classifier.mjs';
 
 /**
  * @typedef {Object} FailureContext
@@ -43,31 +44,7 @@ import { ulid } from 'ulid';
  * @property {Object} learningOpportunity - Pattern to store for future
  */
 
-/**
- * Error classification taxonomy
- */
-const ERROR_CATEGORIES = {
-  TOOL_NOT_FOUND: 'tool_not_found',
-  COMMAND_NOT_FOUND: 'command_not_found',
-  PERMISSION_DENIED: 'permission_denied',
-  INVALID_ARGUMENTS: 'invalid_arguments',
-  TIMEOUT: 'timeout',
-  OUTPUT_TOO_LARGE: 'output_too_large',
-  RATE_LIMITED: 'rate_limited',
-  NETWORK_ERROR: 'network_error',
-  SYNTAX_ERROR: 'syntax_error',
-  ENVIRONMENT_MISSING: 'environment_missing',
-  UNKNOWN: 'unknown',
-};
-
-/**
- * Error severity levels
- */
-const ERROR_SEVERITY = {
-  RECOVERABLE: 'recoverable',
-  USER_ACTION_REQUIRED: 'user_action_required',
-  FATAL: 'fatal',
-};
+// Error categories and severity imported from error-classifier.mjs
 
 /**
  * Create diagnostic reflection system
@@ -82,6 +59,9 @@ export function createDiagnosticReflection(llmClient, model, config = {}) {
   const temperature = config.temperature || 0.2; // More deterministic
   const maxTokens = config.maxTokens || 1024;
 
+  // Create error classifier instance [T304]
+  const classifier = createErrorClassifier();
+
   /**
    * Run diagnostic reflection on a tool failure
    *
@@ -91,8 +71,9 @@ export function createDiagnosticReflection(llmClient, model, config = {}) {
   async function runDiagnosticReflection(context) {
     console.log(`[DiagnosticReflection] Analyzing failure: ${context.toolCall?.function?.name || 'unknown'}`);
 
-    // Quick classification first (heuristic-based, fast)
-    const quickClassification = classifyErrorQuick(context);
+    // Enhanced classification [T304]
+    const quickClassification = classifier.classify(context);
+    const errorDetails = classifier.getDetails(context);
 
     // Build comprehensive diagnostic prompt
     const prompt = buildDiagnosticPrompt(context, quickClassification);
@@ -152,70 +133,7 @@ export function createDiagnosticReflection(llmClient, model, config = {}) {
     }
   }
 
-  /**
-   * Classify error quickly using heuristics (no LLM call)
-   *
-   * @param {FailureContext} context
-   * @returns {Object} Quick classification
-   */
-  function classifyErrorQuick(context) {
-    const errorMsg = context.error?.message || '';
-    const stderr = context.error?.stderr || '';
-    const exitCode = context.error?.code;
-    const toolName = context.toolCall?.function?.name || 'unknown';
-
-    // Command not found (exit code 127)
-    if (exitCode === 127 || stderr.includes('command not found') || stderr.includes('not found')) {
-      return {
-        type: ERROR_CATEGORIES.COMMAND_NOT_FOUND,
-        severity: ERROR_SEVERITY.RECOVERABLE,
-        reason: 'Binary or command not available in environment',
-      };
-    }
-
-    // Permission denied
-    if (errorMsg.includes('permission denied') || stderr.includes('Permission denied')) {
-      return {
-        type: ERROR_CATEGORIES.PERMISSION_DENIED,
-        severity: ERROR_SEVERITY.RECOVERABLE,
-        reason: 'Insufficient permissions for operation',
-      };
-    }
-
-    // Tool not found
-    if (errorMsg.includes('Unknown tool') || errorMsg.includes('Tool not found')) {
-      return {
-        type: ERROR_CATEGORIES.TOOL_NOT_FOUND,
-        severity: ERROR_SEVERITY.RECOVERABLE,
-        reason: 'Requested tool not in allowlist',
-      };
-    }
-
-    // Timeout
-    if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
-      return {
-        type: ERROR_CATEGORIES.TIMEOUT,
-        severity: ERROR_SEVERITY.RECOVERABLE,
-        reason: 'Operation exceeded time limit',
-      };
-    }
-
-    // Invalid arguments
-    if (errorMsg.includes('Missing required parameter') || errorMsg.includes('should be')) {
-      return {
-        type: ERROR_CATEGORIES.INVALID_ARGUMENTS,
-        severity: ERROR_SEVERITY.RECOVERABLE,
-        reason: 'Tool parameters incorrect or malformed',
-      };
-    }
-
-    // Generic fallback
-    return {
-      type: ERROR_CATEGORIES.UNKNOWN,
-      severity: ERROR_SEVERITY.RECOVERABLE,
-      reason: 'Unclassified error',
-    };
-  }
+  // [T304] Error classification now handled by enhanced error-classifier module
 
   /**
    * Build diagnostic reflection prompt
@@ -257,10 +175,12 @@ ${exitCode !== null ? `**Exit Code**: ${exitCode}` : ''}
 ${stdout ? `**Stdout**:\n${stdout.substring(0, 500)}` : ''}
 ${stderr ? `**Stderr**:\n${stderr.substring(0, 500)}` : ''}
 
-## Quick Classification (Heuristic)
-**Type**: ${quickClassification.type}
+## Quick Classification (Enhanced) [T304]
+**Type**: ${quickClassification.category}
 **Severity**: ${quickClassification.severity}
-**Reason**: ${quickClassification.reason}
+**Confidence**: ${quickClassification.confidence}
+**Description**: ${quickClassification.description}
+**Recovery Hint**: ${quickClassification.recoveryHint}
 
 ## Context
 
@@ -357,18 +277,18 @@ Respond with ONLY the JSON object, no additional text.`;
       iteration: context.iteration,
       whyChain: {
         why1: `Tool '${toolName}' execution failed`,
-        why2: quickClassification.reason,
+        why2: quickClassification.description, // [T304] Updated from .reason
         why3: 'Error details limited',
         why4: 'No automated fallback prepared',
         why5: 'Insufficient error handling',
       },
       rootCause: {
-        category: quickClassification.type,
-        description: quickClassification.reason,
-        confidence: 0.5,
+        category: quickClassification.category, // [T304] Updated from .type
+        description: quickClassification.description, // [T304] Updated from .reason
+        confidence: quickClassification.confidence || 0.5, // [T304] Use classifier confidence
       },
       errorClassification: {
-        type: quickClassification.type,
+        type: quickClassification.category, // [T304] Updated from .type
         severity: quickClassification.severity,
         canRecover: true,
       },
@@ -380,8 +300,8 @@ Respond with ONLY the JSON object, no additional text.`;
         fallbackChain: alternatives.slice(1).map(a => a.strategy).concat(['ask_user']),
       } : null,
       learningOpportunity: {
-        pattern: `${quickClassification.type}_recovery`,
-        rule: `When ${quickClassification.type} occurs, try alternative tools or ask user`,
+        pattern: `${quickClassification.category}_recovery`, // [T304] Updated from .type
+        rule: `When ${quickClassification.category} occurs, try alternative tools or ask user`,
         applicableTaskTypes: ['general'],
         generalizability: 0.3,
       },
@@ -399,7 +319,7 @@ Respond with ONLY the JSON object, no additional text.`;
   function generateFallbackAlternatives(classification, toolName, availableTools = []) {
     const alternatives = [];
 
-    switch (classification.type) {
+    switch (classification.category) { // [T304] Updated from .type
       case ERROR_CATEGORIES.COMMAND_NOT_FOUND:
         // Suggest alternative tools
         if (availableTools.includes('run_bash')) {
@@ -486,7 +406,7 @@ Respond with ONLY the JSON object, no additional text.`;
 
   return {
     runDiagnosticReflection,
-    classifyErrorQuick,
+    classifier, // [T304] Expose enhanced classifier
     ERROR_CATEGORIES,
     ERROR_SEVERITY,
   };

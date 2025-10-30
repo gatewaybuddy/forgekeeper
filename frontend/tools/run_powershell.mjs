@@ -36,14 +36,36 @@ export async function run({ command, timeout_ms = 10000, cwd } = {}) {
     windowsHide: true,
     cwd: typeof cwd === 'string' && cwd.trim() ? cwd : (process.env.PWSH_CWD || undefined),
   };
-  const { stdout, stderr } = await execFileAsync(exe, args, execOpts).catch(err => {
-    const code = err?.code || '';
-    const msg = err?.stderr || err?.message || String(err);
+  try {
+    const { stdout, stderr } = await execFileAsync(exe, args, execOpts);
+    return { stdout, stderr };
+  } catch (err) {
+    // [T303] Enhanced error with full context (stdout, stderr, exit code, signal)
+    const code = err?.code;
+    const exitCode = typeof code === 'number' ? code : null;
+    const signal = err?.signal || null;
+    const stdout = err?.stdout || '';
+    const stderr = err?.stderr || '';
+
+    // Check for ENOENT (executable not found)
     if (String(code).toUpperCase() === 'ENOENT') {
-      throw new Error(`pwsh not found (path: ${exe}). Install PowerShell in the container or set PWSH_PATH.`);
+      const enhancedError = new Error(`pwsh not found (path: ${exe}). Install PowerShell in the container or set PWSH_PATH.`);
+      enhancedError.code = 'ENOENT';
+      enhancedError.stdout = stdout;
+      enhancedError.stderr = stderr;
+      throw enhancedError;
     }
-    throw new Error(`pwsh error: ${msg}`);
-  });
-  return { stdout, stderr };
+
+    // Create enhanced error with full context
+    const msg = stderr || err?.message || String(err);
+    const enhancedError = new Error(`pwsh error (exit ${exitCode || 'unknown'}): ${msg}`);
+    enhancedError.code = exitCode;
+    enhancedError.stdout = stdout;
+    enhancedError.stderr = stderr;
+    enhancedError.signal = signal;
+    enhancedError.command = command;
+
+    throw enhancedError;
+  }
 }
 

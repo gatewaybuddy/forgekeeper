@@ -43,12 +43,32 @@ export async function run({ script, timeout_ms = 15000, cwd } = {}) {
     const { stdout, stderr } = await execFileAsync(exe, args, opts);
     return { shell: exe, stdout, stderr };
   } catch (err) {
-    const code = err?.code || '';
-    const msg = err?.stderr || err?.message || String(err);
+    // [T303] Enhanced error with full context (stdout, stderr, exit code, signal)
+    const code = err?.code;
+    const exitCode = typeof code === 'number' ? code : null;
+    const signal = err?.signal || null;
+    const stdout = err?.stdout || '';
+    const stderr = err?.stderr || '';
+
+    // Check for ENOENT (executable not found)
     if (String(code).toUpperCase() === 'ENOENT') {
-      throw new Error(`${exe} not found. Install bash or set BASH_PATH.`);
+      const enhancedError = new Error(`${exe} not found. Install bash or set BASH_PATH.`);
+      enhancedError.code = 'ENOENT';
+      enhancedError.stdout = stdout;
+      enhancedError.stderr = stderr;
+      throw enhancedError;
     }
-    throw new Error(`bash error: ${msg}`);
+
+    // Create enhanced error with full context
+    const msg = stderr || err?.message || String(err);
+    const enhancedError = new Error(`bash error (exit ${exitCode || 'unknown'}): ${msg}`);
+    enhancedError.code = exitCode;
+    enhancedError.stdout = stdout;
+    enhancedError.stderr = stderr;
+    enhancedError.signal = signal;
+    enhancedError.command = script;
+
+    throw enhancedError;
   }
 }
 
