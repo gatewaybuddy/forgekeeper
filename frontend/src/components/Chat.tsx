@@ -793,15 +793,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       <div style={{display:'flex', gap:10, alignItems:'center', marginBottom:10}}>
         <StatusBar />
         <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:8}}>
-          {/* [codex] Compact Autonomous launcher */}
-          <input
-            placeholder="Start autonomous..."
-            value={quickAutoTask}
-            onChange={e=>setQuickAutoTask(e.target.value)}
-            onKeyDown={e=>{ if (e.key === 'Enter') onQuickAutoStart(); }}
-            style={{ padding: '4px 6px', width: 280 }}
-          />
-          <button onClick={onQuickAutoStart} disabled={!quickAutoTask.trim()}>Start</button>
           <button onClick={() => {
             setMessages([{ role: 'system', content: systemPrompt }]);
             const gen = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
