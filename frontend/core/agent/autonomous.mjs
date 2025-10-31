@@ -231,7 +231,7 @@ export class AutonomousAgent {
       try {
         // Step 1: Self-Reflection
         console.log('[AutonomousAgent] Reflecting...');
-        const reflection = await this.reflect(context);
+        const reflection = await this.reflect(context, executor);
 
         this.state.reflections.push(reflection);
 
@@ -319,10 +319,11 @@ export class AutonomousAgent {
    * Self-reflection: Assess state and decide next action
    *
    * @param {Object} context
+   * @param {Object} executor - Tool executor with registry
    * @returns {Promise<ReflectionResult>}
    */
-  async reflect(context) {
-    const reflectionPrompt = this.buildReflectionPrompt();
+  async reflect(context, executor) {
+    const reflectionPrompt = this.buildReflectionPrompt(executor);
 
     try {
       const response = await this.llmClient.chat({
@@ -1180,9 +1181,10 @@ export class AutonomousAgent {
   /**
    * Build reflection prompt from current state
    *
+   * @param {Object} executor - Tool executor with registry
    * @returns {string}
    */
-  buildReflectionPrompt() {
+  buildReflectionPrompt(executor) {
     const historyText = this.state.history.length > 0
       ? this.state.history.slice(-5).map((h, i) => {
           const iter = h.iteration;
@@ -1193,6 +1195,13 @@ export class AutonomousAgent {
     const artifactsText = this.state.artifacts.length > 0
       ? this.state.artifacts.map(a => `- ${a.type}: ${a.path}`).join('\n')
       : '(No artifacts created yet)';
+
+    // Build available tools list from executor's registry
+    const availableToolsText = executor && executor.toolRegistry
+      ? Array.from(executor.toolRegistry.entries())
+          .map(([name, tool]) => `- **${name}**: ${tool.description || 'No description'}`)
+          .join('\n')
+      : '(Tools list not available)';
 
     // Detect task type for specialized guidance
     const taskType = this.detectTaskType(this.state.task);
@@ -1234,6 +1243,15 @@ ${historyText}
 
 ## Artifacts Created
 ${artifactsText}
+
+## Available Tools
+
+You have access to the following tools. Use the exact tool names below in your tool_plan:
+
+${availableToolsText}
+
+**IMPORTANT**: When specifying a tool in your tool_plan, you MUST use one of the exact tool names listed above.
+For example, use "run_bash" for shell commands, NOT "bash" or "shell".
 
 ## Reflection Questions
 
@@ -1928,7 +1946,7 @@ Use these learnings to inform your approach.
 
       // Reflection and execution (same as run() method)
       try {
-        const reflection = await this.reflect(context);
+        const reflection = await this.reflect(context, executor);
         this.state.reflections.push(reflection);
 
         if (reflection.assessment === 'complete') {
