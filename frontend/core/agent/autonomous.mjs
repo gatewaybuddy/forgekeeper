@@ -20,6 +20,7 @@ import { createEpisodicMemory } from './episodic-memory.mjs'; // [Phase 5 Option
 import { createDiagnosticReflection } from './diagnostic-reflection.mjs'; // [T302] Root cause analysis
 import { createRecoveryPlanner } from './recovery-planner.mjs'; // [T306] Recovery strategies
 import { createPatternLearner } from './pattern-learner.mjs'; // [T310] Pattern learning
+import { createTaskPlanner } from './task-planner.mjs'; // [T400] Intelligent task planning
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -93,6 +94,12 @@ export class AutonomousAgent {
 
     // Pattern learner for applying historical recovery patterns [T310]
     this.patternLearner = createPatternLearner(this.sessionMemory, this.episodicMemory);
+
+    // Task planner for intelligent instruction generation [T400]
+    this.taskPlanner = createTaskPlanner(this.llmClient, this.model, {
+      enableFallback: true,
+      timeout: 3000, // 3 second timeout for planning
+    });
   }
 
   /**
@@ -420,8 +427,73 @@ export class AutonomousAgent {
    * @returns {Promise<Object>}
    */
   async executeIteration(reflection, executor, context) {
-    // Build execution plan from reflection
-    const plan = this.planExecution(reflection);
+    // [T400] Planning Phase: Generate detailed instructions before execution
+    let plan = null;
+    let instructionPlan = null;
+    let planningUsed = false;
+
+    try {
+      const planningStartTime = Date.now();
+
+      // Build context for planner
+      const planningContext = {
+        taskGoal: this.state.task,
+        availableTools: this.buildToolsList(executor),
+        cwd: this.playgroundRoot,
+        iteration: this.state.iteration,
+        previousActions: this.state.history.slice(-3).map(h => ({
+          action: h.action,
+          result: h.result,
+          tools_used: h.tools_used || [],
+        })),
+        recentFailures: this.state.recentFailures.slice(-3).map(f => ({
+          tool: f.tool,
+          args: f.args,
+          error: f.error,
+          diagnosis: f.diagnosis,
+        })),
+      };
+
+      // Generate instruction plan
+      instructionPlan = await this.taskPlanner.generateInstructions(
+        reflection.next_action,
+        planningContext
+      );
+
+      const planningElapsedMs = Date.now() - planningStartTime;
+
+      // Log planning phase to ContextLog
+      await contextLogEvents.emitPlanningPhase(
+        context.convId,
+        context.turnId,
+        this.state.iteration,
+        {
+          action: reflection.next_action,
+          planningTimeMs: planningElapsedMs,
+          stepsGenerated: instructionPlan.steps.length,
+          overallConfidence: instructionPlan.overallConfidence,
+          fallbackUsed: instructionPlan.fallbackUsed,
+          hasPreconditions: !!instructionPlan.prerequisites && instructionPlan.prerequisites.length > 0,
+          hasVerification: !!instructionPlan.verification,
+        }
+      );
+
+      // Use instruction plan if confidence is reasonable
+      if (instructionPlan.overallConfidence >= 0.5) {
+        plan = this.convertInstructionsToPlan(instructionPlan);
+        planningUsed = true;
+        console.log(`[AutonomousAgent] Using task planner (confidence: ${(instructionPlan.overallConfidence * 100).toFixed(0)}%, ${instructionPlan.steps.length} steps)`);
+      } else {
+        console.log(`[AutonomousAgent] Task planner confidence too low (${(instructionPlan.overallConfidence * 100).toFixed(0)}%), falling back to heuristics`);
+      }
+    } catch (error) {
+      console.warn('[AutonomousAgent] Task planning failed, using heuristics:', error.message);
+    }
+
+    // Fallback to heuristic-based planning if task planner not used
+    if (!plan) {
+      plan = this.planExecution(reflection);
+    }
 
     const toolsUsed = [];
     const artifacts = [];
@@ -740,6 +812,48 @@ export class AutonomousAgent {
     const steps = this.inferToolsFromAction(reflection.next_action);
 
     return { steps };
+  }
+
+  /**
+   * Build available tools list for task planner
+   * [T401]
+   *
+   * @param {Object} executor - Tool executor with registry
+   * @returns {Array} Available tools with descriptions
+   */
+  buildToolsList(executor) {
+    if (!executor || !executor.toolRegistry) {
+      return [];
+    }
+
+    return Array.from(executor.toolRegistry.entries()).map(([name, tool]) => ({
+      name,
+      description: tool.description || 'No description',
+      parameters: tool.parameters || {},
+    }));
+  }
+
+  /**
+   * Convert instruction plan from task planner to executable format
+   * [T401]
+   *
+   * @param {Object} instructionPlan - Plan from task planner
+   * @returns {Object} Executable plan with steps
+   */
+  convertInstructionsToPlan(instructionPlan) {
+    return {
+      steps: instructionPlan.steps.map(step => ({
+        tool: step.tool,
+        args: step.args || {},
+        purpose: step.description,
+        expectedOutcome: step.expected_outcome,
+        errorHandling: step.error_handling,
+        confidence: step.confidence,
+      })),
+      verification: instructionPlan.verification,
+      prerequisites: instructionPlan.prerequisites,
+      alternatives: instructionPlan.alternatives,
+    };
   }
 
   /**

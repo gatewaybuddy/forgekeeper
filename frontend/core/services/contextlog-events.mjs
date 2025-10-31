@@ -706,6 +706,38 @@ export class ContextLogEventEmitter {
     return event;
   }
 
+  /**
+   * Emit planning_phase event
+   * [T401] Track intelligent task planning phase
+   *
+   * @param {string} convId
+   * @param {number} turnId
+   * @param {number} iteration
+   * @param {Object} planningData
+   * @returns {Promise<Object>}
+   */
+  async emitPlanningPhase(convId, turnId, iteration, planningData) {
+    const event = {
+      id: ulid(),
+      type: 'planning_phase',
+      ts: new Date().toISOString(),
+      conv_id: convId,
+      turn_id: turnId,
+      actor: 'system',
+      iteration,
+      action: this.redactAndTruncate(planningData.action || '', 150),
+      planning_time_ms: planningData.planningTimeMs || 0,
+      steps_generated: planningData.stepsGenerated || 0,
+      overall_confidence: planningData.overallConfidence || 0,
+      fallback_used: planningData.fallbackUsed || false,
+      has_preconditions: planningData.hasPreconditions || false,
+      has_verification: planningData.hasVerification || false,
+    };
+
+    await this.emit(event);
+    return event;
+  }
+
   // ========================================
   // Utilities
   // ========================================
