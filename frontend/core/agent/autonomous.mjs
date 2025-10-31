@@ -246,7 +246,7 @@ export class AutonomousAgent {
         console.log(`[AutonomousAgent] Progress: ${reflection.progress_percent}%`);
         console.log(`[AutonomousAgent] Confidence: ${reflection.confidence}`);
 
-        // Emit reflection event
+        // Emit reflection event with reasoning
         await contextLogEvents.emit({
           id: ulid(),
           type: 'autonomous_iteration',
@@ -261,6 +261,11 @@ export class AutonomousAgent {
           progress: reflection.progress_percent,
           confidence: reflection.confidence,
           next_action: reflection.next_action,
+          reasoning: reflection.reasoning || '', // Include reasoning text
+          tool_plan: reflection.tool_plan || null, // Include planned tool
+          repetition_detected: this.state.repetitiveActionDetected || false,
+          tool_diversity_needed: this.state.toolDiversityNeeded || false,
+          overused_tool: this.state.overusedTool || null,
         });
 
         // Step 2: Handle assessment
@@ -427,6 +432,10 @@ export class AutonomousAgent {
    * @returns {Promise<Object>}
    */
   async executeIteration(reflection, executor, context) {
+    // Clear diversity flags at start of iteration (they get set during execution if needed)
+    this.state.toolDiversityNeeded = false;
+    this.state.overusedTool = null;
+
     // [T400] Planning Phase: Generate detailed instructions before execution
     let plan = null;
     let instructionPlan = null;
@@ -506,6 +515,9 @@ export class AutonomousAgent {
         const actionSignature = `${step.tool}:${JSON.stringify(step.args)}`;
         const recentCount = this.state.actionHistory.filter(sig => sig === actionSignature).length;
 
+        // Also check for tool diversity - same tool with different args multiple times
+        const toolOnlyCount = this.state.actionHistory.filter(sig => sig.startsWith(`${step.tool}:`)).length;
+
         if (recentCount >= 2) {
           console.warn(`[AutonomousAgent] Detected repetitive action: ${actionSignature} (attempted ${recentCount} times already)`);
           this.state.repetitiveActionDetected = true;
@@ -514,32 +526,94 @@ export class AutonomousAgent {
           continue; // Skip this tool execution
         }
 
+        // NEW: Check if using same tool too many times (even with different args)
+        if (toolOnlyCount >= 3) {
+          console.warn(`[AutonomousAgent] Tool ${step.tool} used ${toolOnlyCount} times - forcing tool diversity`);
+          this.state.repetitiveActionDetected = true;
+
+          summary += `⚠️  SKIPPED ${step.tool} - used ${toolOnlyCount} times. Need to try DIFFERENT tool!\n`;
+
+          // Add helpful suggestion to reflection
+          this.state.toolDiversityNeeded = true;
+          this.state.overusedTool = step.tool;
+
+          continue; // Skip and force reflection to choose different tool
+        }
+
         console.log(`[AutonomousAgent] Tool: ${step.tool}(${JSON.stringify(step.args).slice(0, 100)}...)`);
 
         // Track action before execution
         this.state.actionHistory.push(actionSignature);
 
-        // Execute tool
-        const result = await executor.execute(
-          {
-            id: ulid(),
-            type: 'function',
-            function: {
-              name: step.tool,
-              arguments: typeof step.args === 'string' ? step.args : JSON.stringify(step.args),
-            },
+        const toolCallId = ulid();
+        const toolCall = {
+          id: toolCallId,
+          type: 'function',
+          function: {
+            name: step.tool,
+            arguments: typeof step.args === 'string' ? step.args : JSON.stringify(step.args),
           },
+        };
+
+        // Log tool call begin to ContextLog
+        await contextLogEvents.emitToolCallBegin(
+          context.convId,
+          context.turnId,
+          toolCall,
+          'workspace'
+        );
+
+        // Add session_id to event manually (emitToolCallBegin doesn't have session_id param)
+        await contextLogEvents.emit({
+          id: ulid(),
+          type: 'tool_call_begin_autonomous',
+          ts: new Date().toISOString(),
+          conv_id: context.convId,
+          turn_id: context.turnId,
+          session_id: this.sessionId,
+          iteration: this.state.iteration,
+          actor: 'tool',
+          name: step.tool,
+          call_id: toolCallId,
+          args_preview: JSON.stringify(step.args).slice(0, 200),
+        });
+
+        const toolStartTime = Date.now();
+
+        // Execute tool (ensure session_id is included for ContextLog filtering)
+        const result = await executor.execute(
+          toolCall,
           {
             ...context,
+            session_id: this.sessionId, // Add session_id for ContextLog filtering
             cwd: this.playgroundRoot,
             sandboxRoot: this.playgroundRoot,
           }
         );
 
+        const toolElapsedMs = Date.now() - toolStartTime;
+
         // [T302] Check if tool execution failed
         if (result.error) {
           console.error(`[AutonomousAgent] Tool execution failed:`, result.error);
           summary += `${step.tool}: ERROR - ${result.error.message}\n`;
+
+          // Log tool call error to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'tool_call_error_autonomous',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'tool',
+            name: step.tool,
+            call_id: toolCallId,
+            error_message: result.error.message,
+            error_code: result.error.code,
+            elapsed_ms: toolElapsedMs,
+          });
 
           // [T302] Run diagnostic reflection for root cause analysis
           const diagnosis = await this.runDiagnosticReflection(
@@ -675,6 +749,23 @@ export class AutonomousAgent {
         }
 
         toolsUsed.push(step.tool);
+
+        // Log successful tool execution to ContextLog
+        await contextLogEvents.emit({
+          id: ulid(),
+          type: 'tool_call_end_autonomous',
+          ts: new Date().toISOString(),
+          conv_id: context.convId,
+          turn_id: context.turnId,
+          session_id: this.sessionId,
+          iteration: this.state.iteration,
+          actor: 'tool',
+          name: step.tool,
+          call_id: toolCallId,
+          result_preview: result.content.slice(0, 500),
+          result_bytes: result.content.length,
+          elapsed_ms: toolElapsedMs,
+        });
 
         // Track artifacts
         if (step.tool === 'write_file') {
@@ -1474,14 +1565,30 @@ Respond with JSON only:
    * @returns {string}
    */
   buildRepetitionWarning() {
-    if (!this.state.repetitiveActionDetected) return '';
+    if (!this.state.repetitiveActionDetected && !this.state.toolDiversityNeeded) return '';
 
-    return `\n## 🔁 REPETITION DETECTED\n\n` +
-      `You have been trying the same action multiple times without success.\n` +
-      `This is a clear sign you are STUCK.\n\n` +
-      `Choose ONE:\n` +
-      `1. Try a COMPLETELY DIFFERENT approach (recommended)\n` +
-      `2. Assess as "stuck" if you cannot think of alternatives\n\n`;
+    let warning = `\n## 🔁 REPETITION DETECTED\n\n`;
+
+    if (this.state.toolDiversityNeeded && this.state.overusedTool) {
+      warning += `⚠️  **TOOL DIVERSITY ISSUE**: You have used the tool "${this.state.overusedTool}" 3+ times.\n\n`;
+      warning += `This suggests your approach is FUNDAMENTALLY WRONG.\n\n`;
+      warning += `**You MUST try a DIFFERENT tool now:**\n`;
+      warning += `- If you were using http_fetch → try run_bash with git/gh clone\n`;
+      warning += `- If you were using read_file → try run_bash with cat/grep\n`;
+      warning += `- If you were using one API → try a different approach entirely\n\n`;
+      warning += `**DO NOT** use "${this.state.overusedTool}" again this iteration!\n\n`;
+    }
+
+    if (this.state.repetitiveActionDetected) {
+      warning += `You have been trying the same action multiple times without success.\n`;
+      warning += `This is a clear sign you are STUCK.\n\n`;
+    }
+
+    warning += `Choose ONE:\n`;
+    warning += `1. Try a COMPLETELY DIFFERENT approach with DIFFERENT tools (recommended)\n`;
+    warning += `2. Assess as "stuck" if you cannot think of alternatives\n\n`;
+
+    return warning;
   }
 
   /**
