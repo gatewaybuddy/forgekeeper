@@ -86,7 +86,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
   }, [sessionId, running, data?.result, currentTask, task]);
 
   const onStart = useCallback(async () => {
-    try { await start(task.trim(), 15); }
+    try { await start(task.trim(), 50); } // Increased from 15 to match agent default
     catch (e: any) { setToast({ msg: `Failed to start: ${e?.message || e}`, level: 'error' }); }
   }, [task, start]);
 
@@ -414,7 +414,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
                 </div>
                 {sessionId && (
                   <a
-                    href={`/api/ctx/tail?n=1000&session_id=${sessionId}`}
+                    href={`/api/ctx/tail.json?n=1000&session_id=${sessionId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

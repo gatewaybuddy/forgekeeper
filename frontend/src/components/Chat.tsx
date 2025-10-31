@@ -558,7 +558,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     const t = quickAutoTask.trim();
     if (!t) return;
     try {
-      const res = await startAutonomousSession({ task: t, model, max_iterations: 15, async: true, conv_id: convId });
+      const res = await startAutonomousSession({ task: t, model, max_iterations: 50, async: true, conv_id: convId });
       try {
         localStorage.setItem('fk_auto_adopt_session', res.session_id);
         localStorage.setItem('fk_auto_adopt_task', t);
@@ -726,7 +726,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       const response = await startAutonomousSession({
         task: task.trim(),
         model,
-        max_iterations: 15,
+        max_iterations: 50,
         conv_id: convId,
       });
 

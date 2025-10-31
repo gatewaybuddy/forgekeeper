@@ -1952,6 +1952,31 @@ app.get('/api/ctx/tail', async (req, res) => {
   }
 });
 
+// Pretty-formatted JSON endpoint for browser viewing
+app.get('/api/ctx/tail.json', async (req, res) => {
+  try {
+    const n = Math.max(1, Math.min(10000, parseInt(String(req.query.n || '50'), 10) || 50));
+    const conv = String(req.query.conv_id || '').trim() || null;
+    const sessionId = String(req.query.session_id || '').trim() || null;
+
+    // Filter by conv_id or session_id
+    const rows = tailEvents(n, conv);
+    const filtered = sessionId
+      ? rows.filter(r => r.session_id === sessionId)
+      : rows;
+
+    // Return pretty-printed JSON for browser viewing
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.send(JSON.stringify(filtered, null, 2));
+  } catch (e) {
+    res.status(500).setHeader('Content-Type', 'application/json').send(JSON.stringify({
+      ok: false,
+      error: 'server_error',
+      message: e?.message || String(e)
+    }, null, 2));
+  }
+});
+
 // SPA fallback
 app.use((req, res, next) => {
   if (req.method !== 'GET') return next();
