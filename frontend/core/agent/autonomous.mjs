@@ -129,6 +129,11 @@ export class AutonomousAgent {
       actionHistory: [], // Track action signatures to detect loops [Day 8]
       recentFailures: [], // Last 5 failures with context [Day 8]
       repetitiveActionDetected: false, // Flag for stuck detection [Day 8]
+      // [Phase 2] Meta-reflection: track prediction accuracy
+      reflectionAccuracy: [], // Tracks how accurate previous reflections were
+      lastReflection: null, // Previous reflection for comparison
+      // [Phase 2] Planning feedback: track planner predictions vs reality
+      planningFeedback: [], // Tracks planner accuracy over time
     };
 
     // Load past learnings for this task type (successes + failures) [Day 10]
@@ -313,6 +318,99 @@ export class AutonomousAgent {
         });
 
         console.log(`[AutonomousAgent] Iteration complete. Tools used: ${executionResult.tools_used.join(', ')}`);
+
+        // [Phase 2] Meta-Reflection: Score accuracy of previous reflection
+        if (this.state.lastReflection) {
+          const actualOutcome = {
+            progress_percent: reflection.progress_percent,
+            result: executionResult.summary,
+            assessment: reflection.assessment,
+          };
+
+          const accuracyScores = this.scoreReflectionAccuracy(this.state.lastReflection, actualOutcome);
+
+          // Generate meta-reflection critique
+          const metaCritique = this.metaReflect(this.state.lastReflection, actualOutcome, accuracyScores);
+
+          // Store accuracy for tracking
+          this.state.reflectionAccuracy.push({
+            iteration: this.state.iteration - 1, // Previous iteration
+            overall_accuracy: accuracyScores.overall_accuracy,
+            progress_error: accuracyScores.progress_error,
+            confidence_error: accuracyScores.confidence_error,
+            assessment_correct: accuracyScores.assessment_correct,
+            wasOverconfident: this.state.lastReflection.confidence > 0.7 && !actualOutcome.result.includes('ERROR') === false,
+            metaCritique: metaCritique,
+          });
+
+          // Keep last 5 accuracy scores
+          if (this.state.reflectionAccuracy.length > 5) {
+            this.state.reflectionAccuracy.shift();
+          }
+
+          // Log to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'meta_reflection',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration - 1,
+            actor: 'system',
+            act: 'meta_reflection',
+            overall_accuracy: accuracyScores.overall_accuracy,
+            progress_error: accuracyScores.progress_error,
+            confidence_error: accuracyScores.confidence_error,
+            assessment_correct: accuracyScores.assessment_correct,
+            critique_preview: metaCritique.slice(0, 200),
+          });
+
+          console.log(`[AutonomousAgent] Meta-reflection: ${accuracyScores.overall_accuracy}% accuracy`);
+        }
+
+        // Store current reflection for next iteration's comparison
+        this.state.lastReflection = reflection;
+
+        // [Phase 2] Planning Feedback: Score planner accuracy if instruction plan was used
+        if (executionResult.instructionPlan) {
+          const planningFeedback = this.scorePlanningAccuracy(
+            executionResult.instructionPlan,
+            executionResult
+          );
+
+          // Store planning feedback
+          this.state.planningFeedback.push({
+            iteration: this.state.iteration,
+            ...planningFeedback,
+          });
+
+          // Keep last 5 planning feedback entries
+          if (this.state.planningFeedback.length > 5) {
+            this.state.planningFeedback.shift();
+          }
+
+          // Log to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'planning_feedback',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'system',
+            act: 'planning_feedback',
+            plan_succeeded: planningFeedback.planSucceeded,
+            plan_confidence: planningFeedback.planConfidence,
+            tools_matched: planningFeedback.toolsMatchedPlan,
+            steps_planned: planningFeedback.stepsPlanned,
+            confidence_calibration: planningFeedback.confidenceCalibration,
+            analysis: planningFeedback.analysis,
+          });
+
+          console.log(`[AutonomousAgent] Planning feedback: ${planningFeedback.analysis}`);
+        }
 
         // [Phase 1] Mine success patterns if we made significant progress or recovered from failure
         if (executionResult.tools_used.length > 0) {
@@ -825,6 +923,8 @@ export class AutonomousAgent {
       summary: summary.trim(),
       tools_used: toolsUsed,
       artifacts,
+      // [Phase 2] Include instruction plan for planning feedback
+      instructionPlan: planningUsed ? instructionPlan : null,
     };
   }
 
@@ -1420,7 +1520,7 @@ export class AutonomousAgent {
 
           // [Phase 1] Include reasoning from previous reflection
           if (h.reasoning) {
-            text += `**My Reasoning**: "${h.reasoning.slice(0, 300)}${h.reasoning.length > 300 ? '...' : '"}"\n`;
+            text += `**My Reasoning**: "${h.reasoning.slice(0, 300)}${h.reasoning.length > 300 ? '...' : ''}"\n`;
           }
 
           // [Phase 1] Show assessment and confidence
@@ -1470,6 +1570,17 @@ export class AutonomousAgent {
     // [Phase 1] Add success patterns from current session
     const successPatternsText = this.buildSuccessPatternsGuidance();
 
+    // [Phase 2] Add meta-reflection guidance
+    const metaReflectionText = this.buildMetaReflectionGuidance();
+
+    // [Phase 2] Add planning feedback guidance
+    const planningFeedbackText = this.buildPlanningFeedbackGuidance();
+
+    // [Phase 2] Add last iteration's critique if available
+    const lastCritique = this.state.reflectionAccuracy.length > 0
+      ? this.state.reflectionAccuracy[this.state.reflectionAccuracy.length - 1].metaCritique
+      : '';
+
     return `# Autonomous Task - Self-Assessment
 
 ## Original Task
@@ -1478,7 +1589,7 @@ ${this.state.task}
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
 
-${learningsText}${preferencesText}${episodesText}${successPatternsText}
+${learningsText}${preferencesText}${episodesText}${successPatternsText}${lastCritique}${metaReflectionText}${planningFeedbackText}
 ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
@@ -1739,6 +1850,314 @@ Respond with JSON only:
     });
 
     guidance += `\n**LEARN FROM SUCCESS**: When facing similar situations, use these proven approaches.\n`;
+
+    return guidance;
+  }
+
+  /**
+   * Score reflection accuracy by comparing prediction to actual outcome
+   * [Phase 2] Meta-Cognition
+   *
+   * @param {Object} previousReflection - The reflection from last iteration
+   * @param {Object} actualOutcome - What actually happened
+   * @returns {Object} Accuracy scores
+   */
+  scoreReflectionAccuracy(previousReflection, actualOutcome) {
+    const scores = {
+      progress_error: 0,
+      confidence_error: 0,
+      assessment_correct: false,
+      overall_accuracy: 0,
+    };
+
+    if (!previousReflection || !actualOutcome) {
+      return scores;
+    }
+
+    // 1. Progress estimate accuracy
+    const progressPredicted = previousReflection.progress_percent || 0;
+    const progressActual = actualOutcome.progress_percent || 0;
+    const progressError = Math.abs(progressPredicted - progressActual);
+    scores.progress_error = progressError;
+
+    // 2. Confidence calibration
+    // If confident (>0.7) but action failed, that's poor calibration
+    // If not confident (<0.5) but action succeeded, also poor calibration
+    const wasConfident = previousReflection.confidence > 0.7;
+    const actionSucceeded = !actualOutcome.result.includes('ERROR');
+
+    if (wasConfident && !actionSucceeded) {
+      scores.confidence_error = 0.8; // Overconfident
+    } else if (!wasConfident && actionSucceeded) {
+      scores.confidence_error = 0.3; // Underconfident
+    } else {
+      scores.confidence_error = 0.1; // Well calibrated
+    }
+
+    // 3. Assessment accuracy
+    // Did we predict 'continue' correctly?
+    scores.assessment_correct = previousReflection.assessment === actualOutcome.assessment;
+
+    // 4. Overall accuracy (0-100 scale)
+    const progressAccuracy = Math.max(0, 100 - progressError);
+    const confidenceAccuracy = (1 - scores.confidence_error) * 100;
+    const assessmentAccuracy = scores.assessment_correct ? 100 : 0;
+
+    scores.overall_accuracy = Math.round(
+      (progressAccuracy * 0.4) +
+      (confidenceAccuracy * 0.3) +
+      (assessmentAccuracy * 0.3)
+    );
+
+    return scores;
+  }
+
+  /**
+   * Meta-reflection: Critique own previous reasoning
+   * [Phase 2] Meta-Cognition
+   *
+   * @param {Object} previousReflection - The reflection from last iteration
+   * @param {Object} actualOutcome - What actually happened
+   * @param {Object} accuracyScores - Scores from scoreReflectionAccuracy()
+   * @returns {string} Critique text
+   */
+  metaReflect(previousReflection, actualOutcome, accuracyScores) {
+    if (!previousReflection || !actualOutcome) {
+      return '';
+    }
+
+    let critique = `\n## 🔍 Meta-Reflection: Critiquing My Previous Reasoning\n\n`;
+    critique += `### Last Iteration's Prediction vs Reality\n\n`;
+
+    // Progress prediction
+    critique += `**Progress Estimate**:\n`;
+    critique += `- I predicted: ${previousReflection.progress_percent}%\n`;
+    critique += `- Actual progress: ${actualOutcome.progress_percent}%\n`;
+    critique += `- Error: ${accuracyScores.progress_error}%`;
+
+    if (accuracyScores.progress_error > 20) {
+      critique += ` ⚠️ SIGNIFICANT ERROR - I was too ${previousReflection.progress_percent > actualOutcome.progress_percent ? 'optimistic' : 'pessimistic'}`;
+    } else if (accuracyScores.progress_error < 10) {
+      critique += ` ✓ Good estimate`;
+    }
+    critique += `\n\n`;
+
+    // Confidence calibration
+    critique += `**Confidence Calibration**:\n`;
+    critique += `- I was ${(previousReflection.confidence * 100).toFixed(0)}% confident\n`;
+
+    const actionSucceeded = !actualOutcome.result.includes('ERROR');
+    critique += `- Action ${actionSucceeded ? 'SUCCEEDED' : 'FAILED'}\n`;
+
+    if (previousReflection.confidence > 0.7 && !actionSucceeded) {
+      critique += `- ⚠️ OVERCONFIDENT - I was ${(previousReflection.confidence * 100).toFixed(0)}% sure but failed. Reduce confidence for similar actions.\n`;
+    } else if (previousReflection.confidence < 0.5 && actionSucceeded) {
+      critique += `- ℹ️ UNDERCONFIDENT - I was uncertain but succeeded. Can be more confident.\n`;
+    } else {
+      critique += `- ✓ Well calibrated\n`;
+    }
+    critique += `\n`;
+
+    // Reasoning critique
+    if (previousReflection.reasoning) {
+      critique += `**My Previous Reasoning**:\n`;
+      critique += `"${previousReflection.reasoning.slice(0, 200)}${previousReflection.reasoning.length > 200 ? '...' : ''}"\n\n`;
+
+      critique += `**What I Should Learn**:\n`;
+
+      if (!actionSucceeded) {
+        critique += `- My reasoning led to failure. `;
+        if (previousReflection.reasoning.includes('http_fetch') || previousReflection.reasoning.includes('HTTP')) {
+          critique += `HTTP/fetch approach was wrong for this task. Use shell commands instead.\n`;
+        } else {
+          critique += `This approach didn't work. Try a fundamentally different strategy.\n`;
+        }
+      } else if (accuracyScores.progress_error > 20) {
+        critique += `- My reasoning was partially correct but I misjudged the complexity.\n`;
+        if (previousReflection.progress_percent > actualOutcome.progress_percent) {
+          critique += `- Task was harder than expected. Be more conservative with progress estimates.\n`;
+        } else {
+          critique += `- Task was easier than expected. Can be more optimistic.\n`;
+        }
+      } else {
+        critique += `- ✓ My reasoning was sound and led to good results.\n`;
+      }
+    }
+
+    critique += `\n**Overall Reflection Accuracy**: ${accuracyScores.overall_accuracy}%\n`;
+
+    return critique;
+  }
+
+  /**
+   * Build meta-reflection guidance for reflection prompt
+   * [Phase 2] Meta-Cognition
+   *
+   * @returns {string}
+   */
+  buildMetaReflectionGuidance() {
+    if (!this.state.reflectionAccuracy || this.state.reflectionAccuracy.length === 0) {
+      return '';
+    }
+
+    // Get last 3 accuracy scores
+    const recentScores = this.state.reflectionAccuracy.slice(-3);
+
+    let guidance = `\n## 📊 My Prediction Accuracy Track Record\n\n`;
+    guidance += `Recent reflection accuracy:\n`;
+
+    recentScores.forEach((score, idx) => {
+      const iter = score.iteration;
+      guidance += `- Iteration ${iter}: ${score.overall_accuracy}% accuracy`;
+
+      if (score.progress_error > 20) {
+        guidance += ` (progress estimate off by ${score.progress_error}%)`;
+      }
+      if (score.confidence_error > 0.5) {
+        guidance += ` (${score.wasOverconfident ? 'overconfident' : 'underconfident'})`;
+      }
+
+      guidance += `\n`;
+    });
+
+    // Calculate average accuracy
+    const avgAccuracy = Math.round(
+      recentScores.reduce((sum, s) => sum + s.overall_accuracy, 0) / recentScores.length
+    );
+
+    guidance += `\n**Average Accuracy**: ${avgAccuracy}%\n\n`;
+
+    if (avgAccuracy < 50) {
+      guidance += `⚠️ **LOW ACCURACY** - My predictions have been poor. I need to:\n`;
+      guidance += `- Be more careful with progress estimates\n`;
+      guidance += `- Reduce confidence when trying new approaches\n`;
+      guidance += `- Think more critically about what can go wrong\n\n`;
+    } else if (avgAccuracy < 70) {
+      guidance += `ℹ️ **MODERATE ACCURACY** - Room for improvement. Focus on:\n`;
+      guidance += `- Better calibration of confidence levels\n`;
+      guidance += `- More realistic progress estimates\n\n`;
+    } else {
+      guidance += `✓ **GOOD ACCURACY** - My predictions are reliable. Keep it up!\n\n`;
+    }
+
+    return guidance;
+  }
+
+  /**
+   * Score planning accuracy by comparing plan to actual execution
+   * [Phase 2] Planning Feedback
+   *
+   * @param {Object} instructionPlan - The plan from task planner
+   * @param {Object} executionResult - What actually happened
+   * @returns {Object} Planning feedback
+   */
+  scorePlanningAccuracy(instructionPlan, executionResult) {
+    const feedback = {
+      planConfidence: instructionPlan.overallConfidence,
+      planSucceeded: false,
+      stepsPlanned: instructionPlan.steps.length,
+      stepsExecuted: executionResult.tools_used.length,
+      toolsMatchedPlan: 0,
+      confidenceCalibration: 0,
+      analysis: '',
+    };
+
+    // Check if planned tools were actually used
+    const plannedTools = instructionPlan.steps.map(s => s.tool);
+    const actualTools = executionResult.tools_used;
+
+    // Count how many tools matched
+    plannedTools.forEach((plannedTool, idx) => {
+      if (actualTools[idx] === plannedTool) {
+        feedback.toolsMatchedPlan++;
+      }
+    });
+
+    // Determine if plan succeeded
+    feedback.planSucceeded = !executionResult.summary.includes('ERROR');
+
+    // Confidence calibration
+    // High confidence + success = good
+    // High confidence + failure = overconfident
+    // Low confidence + success = underconfident
+    // Low confidence + failure = good
+    if (instructionPlan.overallConfidence > 0.7) {
+      if (feedback.planSucceeded) {
+        feedback.confidenceCalibration = 1.0; // Well calibrated (confident and succeeded)
+      } else {
+        feedback.confidenceCalibration = 0.2; // Overconfident (confident but failed)
+      }
+    } else {
+      if (feedback.planSucceeded) {
+        feedback.confidenceCalibration = 0.5; // Underconfident (succeeded despite low confidence)
+      } else {
+        feedback.confidenceCalibration = 0.8; // Appropriately cautious (low confidence, did fail)
+      }
+    }
+
+    // Generate analysis
+    let analysis = '';
+    if (feedback.planSucceeded && feedback.toolsMatchedPlan === plannedTools.length) {
+      analysis = 'Plan was accurate - all tools used as planned and succeeded.';
+    } else if (feedback.planSucceeded && feedback.toolsMatchedPlan > 0) {
+      analysis = `Plan partially accurate - ${feedback.toolsMatchedPlan}/${plannedTools.length} tools matched, but succeeded.`;
+    } else if (!feedback.planSucceeded && instructionPlan.overallConfidence > 0.7) {
+      analysis = 'Planner was overconfident - high confidence but execution failed.';
+    } else if (!feedback.planSucceeded) {
+      const wrongTools = plannedTools.filter((tool, idx) => actualTools[idx] !== tool);
+      analysis = `Plan failed. Wrong tools: ${wrongTools.join(', ')}. Actual tools used: ${actualTools.join(', ')}.`;
+    } else {
+      analysis = 'Plan succeeded but with different approach than predicted.';
+    }
+
+    feedback.analysis = analysis;
+
+    return feedback;
+  }
+
+  /**
+   * Build planning feedback guidance for reflection prompt
+   * [Phase 2] Planning Feedback
+   *
+   * @returns {string}
+   */
+  buildPlanningFeedbackGuidance() {
+    if (!this.state.planningFeedback || this.state.planningFeedback.length === 0) {
+      return '';
+    }
+
+    const recentFeedback = this.state.planningFeedback.slice(-3);
+
+    let guidance = `\n## 🎯 Task Planner Track Record\n\n`;
+    guidance += `Recent planning accuracy:\n`;
+
+    recentFeedback.forEach(fb => {
+      guidance += `- Iteration ${fb.iteration}: ${fb.planSucceeded ? '✓ SUCCESS' : '✗ FAILED'}`;
+      guidance += ` (confidence: ${(fb.planConfidence * 100).toFixed(0)}%)`;
+
+      if (fb.toolsMatchedPlan > 0 && fb.stepsPlanned > 0) {
+        guidance += ` - ${fb.toolsMatchedPlan}/${fb.stepsPlanned} tools matched plan`;
+      }
+
+      guidance += `\n  ${fb.analysis}\n`;
+    });
+
+    // Calculate success rate
+    const successCount = recentFeedback.filter(fb => fb.planSucceeded).length;
+    const successRate = Math.round((successCount / recentFeedback.length) * 100);
+
+    guidance += `\n**Success Rate**: ${successRate}% (${successCount}/${recentFeedback.length})\n\n`;
+
+    // Calculate average confidence calibration
+    const avgCalibration = recentFeedback.reduce((sum, fb) => sum + fb.confidenceCalibration, 0) / recentFeedback.length;
+
+    if (avgCalibration < 0.5) {
+      guidance += `⚠️ **POOR CALIBRATION** - Planner is overconfident. Reduce reliance on high-confidence plans.\n\n`;
+    } else if (avgCalibration < 0.8) {
+      guidance += `ℹ️ **MODERATE CALIBRATION** - Planner sometimes misjudges difficulty. Double-check high-confidence plans.\n\n`;
+    } else {
+      guidance += `✓ **GOOD CALIBRATION** - Planner's confidence levels are reliable.\n\n`;
+    }
 
     return guidance;
   }
