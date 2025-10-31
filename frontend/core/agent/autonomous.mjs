@@ -21,6 +21,7 @@ import { createDiagnosticReflection } from './diagnostic-reflection.mjs'; // [T3
 import { createRecoveryPlanner } from './recovery-planner.mjs'; // [T306] Recovery strategies
 import { createPatternLearner } from './pattern-learner.mjs'; // [T310] Pattern learning
 import { createTaskPlanner } from './task-planner.mjs'; // [T400] Intelligent task planning
+import { createToolEffectivenessTracker } from './tool-effectiveness.mjs'; // [Phase 3] Cross-session learning
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -100,6 +101,10 @@ export class AutonomousAgent {
       enableFallback: true,
       timeout: 3000, // 3 second timeout for planning
     });
+
+    // Tool effectiveness tracker for cross-session learning [Phase 3]
+    this.toolEffectiveness = createToolEffectivenessTracker(this.playgroundRoot);
+    this.toolRecommendations = null; // Populated on task start
   }
 
   /**
@@ -175,6 +180,21 @@ export class AutonomousAgent {
       }
     } catch (err) {
       console.warn('[AutonomousAgent] Failed to search episodes:', err);
+    }
+
+    // Load tool recommendations from historical data [Phase 3]
+    try {
+      this.toolRecommendations = await this.toolEffectiveness.getRecommendations(taskType, {
+        minSampleSize: 3,
+        maxRecommendations: 5,
+      });
+
+      if (this.toolRecommendations.length > 0) {
+        console.log(`[AutonomousAgent] Found ${this.toolRecommendations.length} tool recommendations for ${taskType} tasks`);
+        console.log(`[AutonomousAgent] Top recommendation: ${this.toolRecommendations[0].tool} (${(this.toolRecommendations[0].successRate * 100).toFixed(0)}% success rate)`);
+      }
+    } catch (err) {
+      console.warn('[AutonomousAgent] Failed to load tool recommendations:', err);
     }
 
     // Emit session start
@@ -426,6 +446,27 @@ export class AutonomousAgent {
               previousFailures: this.state.recentFailures.slice(-3),
               progress_gain: reflection.progress_percent - this.state.lastProgressPercent,
             }, context);
+          }
+        }
+
+        // [Phase 3] Record tool effectiveness for cross-session learning
+        if (executionResult.tools_used.length > 0) {
+          const taskType = this.detectTaskType(this.state.task);
+          const success = !executionResult.summary.includes('ERROR') && reflection.progress_percent > this.state.lastProgressPercent;
+
+          // Record each tool used in this iteration
+          for (const tool of executionResult.tools_used) {
+            try {
+              await this.toolEffectiveness.recordUsage({
+                taskType,
+                tool,
+                success,
+                iterations: this.state.iteration,
+                sessionId: this.sessionId,
+              });
+            } catch (err) {
+              console.warn(`[AutonomousAgent] Failed to record tool effectiveness for ${tool}:`, err);
+            }
           }
         }
 
@@ -1576,6 +1617,9 @@ export class AutonomousAgent {
     // [Phase 2] Add planning feedback guidance
     const planningFeedbackText = this.buildPlanningFeedbackGuidance();
 
+    // [Phase 3] Add tool recommendations from historical data
+    const toolRecommendationsText = this.buildToolRecommendationsGuidance();
+
     // [Phase 2] Add last iteration's critique if available
     const lastCritique = this.state.reflectionAccuracy.length > 0
       ? this.state.reflectionAccuracy[this.state.reflectionAccuracy.length - 1].metaCritique
@@ -1589,7 +1633,7 @@ ${this.state.task}
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
 
-${learningsText}${preferencesText}${episodesText}${successPatternsText}${lastCritique}${metaReflectionText}${planningFeedbackText}
+${toolRecommendationsText}${learningsText}${preferencesText}${episodesText}${successPatternsText}${lastCritique}${metaReflectionText}${planningFeedbackText}
 ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
@@ -2158,6 +2202,60 @@ Respond with JSON only:
     } else {
       guidance += `✓ **GOOD CALIBRATION** - Planner's confidence levels are reliable.\n\n`;
     }
+
+    return guidance;
+  }
+
+  /**
+   * Build tool recommendations guidance from historical data
+   * [Phase 3] Cross-Session Learning
+   *
+   * @returns {string}
+   */
+  buildToolRecommendationsGuidance() {
+    if (!this.toolRecommendations || this.toolRecommendations.length === 0) {
+      return '';
+    }
+
+    const taskType = this.detectTaskType(this.state.task);
+
+    let guidance = `\n## 🔧 Tool Recommendations (Historical Data)\n\n`;
+    guidance += `Based on ${this.toolRecommendations.reduce((sum, r) => sum + r.sampleSize, 0)} historical attempts for "${taskType}" tasks:\n\n`;
+
+    this.toolRecommendations.forEach((rec, idx) => {
+      const rank = idx + 1;
+      const emoji = rec.successRate >= 0.8 ? '✅' : rec.successRate >= 0.5 ? '⚠️' : '❌';
+
+      guidance += `${rank}. ${emoji} **${rec.tool}** - ${(rec.successRate * 100).toFixed(0)}% success rate\n`;
+      guidance += `   ${rec.reason}\n`;
+
+      if (rec.successRate >= 0.8 && rec.sampleSize >= 5) {
+        guidance += `   **STRONG RECOMMENDATION**: Proven approach with high success rate\n`;
+      } else if (rec.successRate < 0.3 && rec.sampleSize >= 3) {
+        guidance += `   **AVOID**: Low success rate, try alternatives first\n`;
+      }
+
+      guidance += `\n`;
+    });
+
+    // Add strategic advice
+    const bestTool = this.toolRecommendations[0];
+    const worstTool = this.toolRecommendations[this.toolRecommendations.length - 1];
+
+    guidance += `**Strategic Advice**:\n`;
+
+    if (bestTool.successRate >= 0.8) {
+      guidance += `- Start with **${bestTool.tool}** - proven to work ${bestTool.sampleSize} times\n`;
+    } else if (bestTool.successRate >= 0.5) {
+      guidance += `- **${bestTool.tool}** has moderate success - use but have backup plan\n`;
+    }
+
+    if (worstTool.successRate < 0.3 && worstTool.sampleSize >= 3) {
+      guidance += `- Avoid **${worstTool.tool}** - failed ${worstTool.sampleSize - Math.round(worstTool.sampleSize * worstTool.successRate)} times out of ${worstTool.sampleSize}\n`;
+    }
+
+    guidance += `\n**Important**: These recommendations are based on historical success rates. `;
+    guidance += `Trust the data - don't repeat failed approaches.\n\n`;
 
     return guidance;
   }
