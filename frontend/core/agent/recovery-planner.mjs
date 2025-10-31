@@ -55,10 +55,19 @@ export function createRecoveryPlanner() {
       };
     }
 
-    // Sort by priority (confidence * simplicity)
+    // Sort by priority (confidence * simplicity, with bonus for automated solutions)
     viableStrategies.sort((a, b) => {
-      const scoreA = a.confidence * (1 / a.estimatedIterations);
-      const scoreB = b.confidence * (1 / b.estimatedIterations);
+      // Strong preference for automated strategies (2.5x bonus)
+      // Penalty for user interaction strategies (0.6x)
+      const automatedBonusA = a.requiredTools && a.requiredTools.length > 0 ? 2.5 : 0.6;
+      const automatedBonusB = b.requiredTools && b.requiredTools.length > 0 ? 2.5 : 0.6;
+
+      // Use square root to reduce harsh penalty on multi-step strategies
+      const iterationPenaltyA = 1 / Math.sqrt(a.estimatedIterations);
+      const iterationPenaltyB = 1 / Math.sqrt(b.estimatedIterations);
+
+      const scoreA = a.confidence * iterationPenaltyA * automatedBonusA;
+      const scoreB = b.confidence * iterationPenaltyB * automatedBonusB;
       return scoreB - scoreA; // Higher score first
     });
 
@@ -133,13 +142,16 @@ export function createRecoveryPlanner() {
   // ==========================================
 
   function getCommandNotFoundStrategies(context) {
-    const { error, failedArgs } = context;
+    const { error, toolCall } = context;
+    const failedArgs = toolCall?.function?.arguments || {};
     const command = error?.command || failedArgs?.script || '';
+
+    console.log(`[RecoveryPlanner] DEBUG: command="${command}", error.command="${error?.command}", failedArgs.script="${failedArgs?.script}"`);
 
     const strategies = [];
 
     // Strategy 1: curl + tar for git clone
-    if (command.includes('git clone')) {
+    if (command && command.includes('git clone')) {
       const urlMatch = command.match(/https?:\/\/[^\s]+/);
       if (urlMatch) {
         const repoUrl = urlMatch[0].replace(/\.git$/, '');
