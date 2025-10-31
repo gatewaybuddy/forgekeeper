@@ -297,7 +297,7 @@ export class AutonomousAgent {
           context
         );
 
-        // Record history
+        // Record history with full reasoning for recursive feedback
         this.state.history.push({
           iteration: this.state.iteration,
           action: reflection.next_action,
@@ -306,9 +306,30 @@ export class AutonomousAgent {
           confidence: reflection.confidence,
           tools_used: executionResult.tools_used,
           artifacts: executionResult.artifacts,
+          // [Phase 1] Add reasoning and assessment for meta-reflection
+          reasoning: reflection.reasoning || '',
+          assessment: reflection.assessment,
+          tool_plan: reflection.tool_plan,
         });
 
         console.log(`[AutonomousAgent] Iteration complete. Tools used: ${executionResult.tools_used.join(', ')}`);
+
+        // [Phase 1] Mine success patterns if we made significant progress or recovered from failure
+        if (executionResult.tools_used.length > 0) {
+          const madeProgress = reflection.progress_percent > this.state.lastProgressPercent;
+          const recoveredFromFailure = this.state.recentFailures.length > 0 && !executionResult.summary.includes('ERROR');
+
+          if (madeProgress || recoveredFromFailure) {
+            await this.mineSuccessPattern({
+              iteration: this.state.iteration,
+              tools_used: executionResult.tools_used,
+              action: reflection.next_action,
+              reasoning: reflection.reasoning,
+              previousFailures: this.state.recentFailures.slice(-3),
+              progress_gain: reflection.progress_percent - this.state.lastProgressPercent,
+            }, context);
+          }
+        }
 
       } catch (error) {
         console.error('[AutonomousAgent] Iteration error:', error);
@@ -1390,10 +1411,31 @@ export class AutonomousAgent {
    * @returns {string}
    */
   buildReflectionPrompt(executor) {
+    // [Phase 1] Increase history depth to 10 iterations with full reasoning
     const historyText = this.state.history.length > 0
-      ? this.state.history.slice(-5).map((h, i) => {
+      ? this.state.history.slice(-10).map((h, i) => {
           const iter = h.iteration;
-          return `Iteration ${iter}: ${h.action}\n  Result: ${h.result.slice(0, 200)}${h.result.length > 200 ? '...' : ''}`;
+          let text = `### Iteration ${iter}\n`;
+          text += `**Action**: ${h.action}\n`;
+
+          // [Phase 1] Include reasoning from previous reflection
+          if (h.reasoning) {
+            text += `**My Reasoning**: "${h.reasoning.slice(0, 300)}${h.reasoning.length > 300 ? '...' : '"}"\n`;
+          }
+
+          // [Phase 1] Show assessment and confidence
+          if (h.assessment) {
+            text += `**Assessment**: ${h.assessment} | **Confidence**: ${h.confidence} | **Progress**: ${h.progress}%\n`;
+          }
+
+          text += `**Result**: ${h.result.slice(0, 300)}${h.result.length > 300 ? '...' : ''}`;
+
+          // [Phase 1] Show tools used
+          if (h.tools_used && h.tools_used.length > 0) {
+            text += `\n**Tools Used**: ${h.tools_used.join(', ')}`;
+          }
+
+          return text;
         }).join('\n\n')
       : '(No iterations yet)';
 
@@ -1425,6 +1467,9 @@ export class AutonomousAgent {
     // [Phase 5 Option A] Add relevant episodes from semantic search
     const episodesText = this.buildEpisodesGuidance();
 
+    // [Phase 1] Add success patterns from current session
+    const successPatternsText = this.buildSuccessPatternsGuidance();
+
     return `# Autonomous Task - Self-Assessment
 
 ## Original Task
@@ -1433,7 +1478,7 @@ ${this.state.task}
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
 
-${learningsText}${preferencesText}${episodesText}
+${learningsText}${preferencesText}${episodesText}${successPatternsText}
 ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
@@ -1589,6 +1634,113 @@ Respond with JSON only:
     warning += `2. Assess as "stuck" if you cannot think of alternatives\n\n`;
 
     return warning;
+  }
+
+  /**
+   * Mine success patterns from successful iterations
+   * [Phase 1] Extracts key insights from what worked
+   *
+   * @param {Object} successData - Data about successful iteration
+   * @param {Object} context - Execution context
+   */
+  async mineSuccessPattern(successData, context) {
+    try {
+      // Build success insight
+      let insight = `\n## ✅ Success Pattern (Iteration ${successData.iteration})\n\n`;
+
+      // What worked
+      insight += `**What Worked**: ${successData.tools_used.join(', ')}\n`;
+      insight += `**Action**: ${successData.action}\n`;
+
+      // If recovered from failure, explain the switch
+      if (successData.previousFailures && successData.previousFailures.length > 0) {
+        const failedTools = successData.previousFailures.map(f => f.tool);
+        const successfulTool = successData.tools_used[0];
+
+        insight += `\n**Key Insight**: Switched from ${failedTools.join(', ')} to ${successfulTool}\n`;
+        insight += `**Why It Worked**: `;
+
+        // Heuristic analysis of tool switch
+        if (failedTools.includes('http_fetch') && successfulTool === 'run_bash') {
+          insight += `Repository operations require shell commands (git/gh clone), not HTTP requests.\n`;
+        } else if (failedTools.includes('read_file') && successfulTool === 'run_bash') {
+          insight += `File operations needed shell commands for searching/processing.\n`;
+        } else {
+          insight += `${successfulTool} was the appropriate tool for this operation.\n`;
+        }
+
+        // Show reasoning if available
+        if (successData.reasoning) {
+          insight += `**Agent's Reasoning**: "${successData.reasoning.slice(0, 200)}"\n`;
+        }
+
+        insight += `**Progress Gain**: +${successData.progress_gain}%\n`;
+      }
+
+      // Store in learning guidance
+      if (!this.successPatterns) {
+        this.successPatterns = [];
+      }
+
+      this.successPatterns.push({
+        iteration: successData.iteration,
+        tools: successData.tools_used,
+        insight: insight,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Keep last 5 success patterns
+      if (this.successPatterns.length > 5) {
+        this.successPatterns.shift();
+      }
+
+      // Log to ContextLog
+      await contextLogEvents.emit({
+        id: ulid(),
+        type: 'success_pattern_mined',
+        ts: new Date().toISOString(),
+        conv_id: context.convId,
+        turn_id: context.turnId,
+        session_id: this.sessionId,
+        iteration: successData.iteration,
+        actor: 'system',
+        tools_used: successData.tools_used,
+        switched_from: successData.previousFailures?.map(f => f.tool) || [],
+        progress_gain: successData.progress_gain,
+        insight_preview: insight.slice(0, 200),
+      });
+
+      console.log(`[AutonomousAgent] Mined success pattern from iteration ${successData.iteration}`);
+    } catch (error) {
+      console.error('[AutonomousAgent] Failed to mine success pattern:', error);
+      // Non-critical, continue
+    }
+  }
+
+  /**
+   * Build success patterns guidance for reflection
+   * [Phase 1]
+   *
+   * @returns {string}
+   */
+  buildSuccessPatternsGuidance() {
+    if (!this.successPatterns || this.successPatterns.length === 0) {
+      return '';
+    }
+
+    let guidance = `\n## ✅ What Has Worked in This Session\n\n`;
+    guidance += `The following approaches succeeded:\n\n`;
+
+    this.successPatterns.forEach((pattern, idx) => {
+      guidance += pattern.insight;
+      if (idx < this.successPatterns.length - 1) {
+        guidance += `\n`;
+      }
+    });
+
+    guidance += `\n**LEARN FROM SUCCESS**: When facing similar situations, use these proven approaches.\n`;
+
+    return guidance;
   }
 
   /**
