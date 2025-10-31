@@ -17,6 +17,9 @@ import path from 'path';
  * @property {string} strategy - What approach worked/failed
  * @property {number} confidence - Final confidence score
  * @property {string} timestamp - When this session happened
+ * @property {Array<Object>} diagnostic_reflections - Diagnostic analyses performed
+ * @property {Array<Object>} recovery_attempts - Recovery strategies tried
+ * @property {Object} error_patterns - Categorized error patterns encountered
  */
 
 export class SessionMemoryStore {
@@ -66,6 +69,10 @@ export class SessionMemoryStore {
         failed_tools: session.failed_tools || [],
         repetitive_actions: session.repetitive_actions || false,
         error_count: session.error_count || 0,
+        // [Phase 4] Diagnostic reflection and recovery tracking
+        diagnostic_reflections: session.diagnostic_reflections || [],
+        recovery_attempts: session.recovery_attempts || [],
+        error_patterns: session.error_patterns || {},
       };
 
       const line = JSON.stringify(memory) + '\n';
@@ -228,6 +235,141 @@ export class SessionMemoryStore {
     }
 
     return guidance;
+  }
+
+  /**
+   * Get successful recovery strategies for a specific error category
+   *
+   * @param {string} errorCategory - Error category from error-classifier
+   * @returns {Promise<Array<Object>>} - Successful recovery strategies
+   */
+  async getSuccessfulRecoveries(errorCategory) {
+    try {
+      await this.initialize();
+
+      const content = await fs.readFile(this.memoryFile, 'utf8');
+      if (!content.trim()) return [];
+
+      const lines = content.trim().split('\n');
+      const memories = lines
+        .map(line => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(m => m !== null);
+
+      // Find sessions with successful recoveries for this error category
+      const successfulRecoveries = [];
+
+      for (const memory of memories) {
+        if (!memory.recovery_attempts || memory.recovery_attempts.length === 0) continue;
+
+        for (const attempt of memory.recovery_attempts) {
+          if (
+            attempt.error_category === errorCategory &&
+            attempt.recovery_succeeded === true
+          ) {
+            successfulRecoveries.push({
+              strategy_name: attempt.strategy_name,
+              confidence: attempt.confidence || 0,
+              iterations_to_success: attempt.iterations_to_success || 1,
+              tools_used: attempt.tools_used || [],
+              timestamp: memory.timestamp,
+              task_context: memory.task_summary || '',
+            });
+          }
+        }
+      }
+
+      // Sort by most recent and highest confidence
+      successfulRecoveries.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timeB - timeA; // Most recent first
+      });
+
+      return successfulRecoveries;
+    } catch (error) {
+      console.error('[SessionMemory] Failed to get successful recoveries:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get error pattern statistics
+   *
+   * @returns {Promise<Object>} - Error category frequencies and success rates
+   */
+  async getErrorPatternStats() {
+    try {
+      await this.initialize();
+
+      const content = await fs.readFile(this.memoryFile, 'utf8');
+      if (!content.trim()) return {};
+
+      const lines = content.trim().split('\n');
+      const memories = lines
+        .map(line => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(m => m !== null);
+
+      const stats = {};
+
+      for (const memory of memories) {
+        if (!memory.error_patterns) continue;
+
+        for (const [category, count] of Object.entries(memory.error_patterns)) {
+          if (!stats[category]) {
+            stats[category] = {
+              total_occurrences: 0,
+              sessions_affected: 0,
+              recovery_attempts: 0,
+              recovery_successes: 0,
+              common_tools_failed: {},
+            };
+          }
+
+          stats[category].total_occurrences += count;
+          stats[category].sessions_affected++;
+        }
+
+        // Track recovery success rates
+        if (memory.recovery_attempts) {
+          for (const attempt of memory.recovery_attempts) {
+            const cat = attempt.error_category;
+            if (stats[cat]) {
+              stats[cat].recovery_attempts++;
+              if (attempt.recovery_succeeded) {
+                stats[cat].recovery_successes++;
+              }
+            }
+          }
+        }
+      }
+
+      // Calculate success rates
+      for (const category in stats) {
+        if (stats[category].recovery_attempts > 0) {
+          stats[category].success_rate =
+            stats[category].recovery_successes / stats[category].recovery_attempts;
+        } else {
+          stats[category].success_rate = 0;
+        }
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('[SessionMemory] Failed to get error pattern stats:', error);
+      return {};
+    }
   }
 
   /**

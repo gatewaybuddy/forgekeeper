@@ -19,6 +19,7 @@ import { createSessionMemory } from './session-memory.mjs';
 import { createEpisodicMemory } from './episodic-memory.mjs'; // [Phase 5 Option A]
 import { createDiagnosticReflection } from './diagnostic-reflection.mjs'; // [T302] Root cause analysis
 import { createRecoveryPlanner } from './recovery-planner.mjs'; // [T306] Recovery strategies
+import { createPatternLearner } from './pattern-learner.mjs'; // [T310] Pattern learning
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -89,6 +90,9 @@ export class AutonomousAgent {
 
     // Recovery planner for error recovery [T306]
     this.recoveryPlanner = createRecoveryPlanner();
+
+    // Pattern learner for applying historical recovery patterns [T310]
+    this.patternLearner = createPatternLearner(this.sessionMemory, this.episodicMemory);
   }
 
   /**
@@ -482,7 +486,7 @@ export class AutonomousAgent {
 
           if (diagnosis) {
             // Generate recovery plan
-            const recoveryPlan = await this.recoveryPlanner.generateRecoveryPlan(diagnosis, {
+            let recoveryPlan = await this.recoveryPlanner.generateRecoveryPlan(diagnosis, {
               toolCall: {
                 function: {
                   name: step.tool,
@@ -493,6 +497,19 @@ export class AutonomousAgent {
               availableTools: executor.toolRegistry ? Array.from(executor.toolRegistry.keys()) : [],
               taskGoal: this.state.task,
             });
+
+            // [T310] Apply learned patterns to boost confidence of historically successful strategies
+            if (recoveryPlan.hasRecoveryPlan) {
+              recoveryPlan = await this.patternLearner.applyLearnedPatterns(
+                recoveryPlan,
+                diagnosis.rootCause?.category || 'unknown',
+                {
+                  toolCall: { function: { name: step.tool, arguments: step.args } },
+                  error: result.error,
+                  taskGoal: this.state.task,
+                }
+              );
+            }
 
             // Try to execute recovery plan
             if (recoveryPlan.hasRecoveryPlan && recoveryPlan.primaryStrategy) {
@@ -514,6 +531,16 @@ export class AutonomousAgent {
                 summary += `❌ RECOVERY FAILED: ${recoveryResult.summary}\n`;
                 console.warn('[AutonomousAgent] Recovery failed');
               }
+
+              // [T310] Record recovery outcome for pattern learning
+              await this.patternLearner.recordRecoveryOutcome({
+                error_category: diagnosis.rootCause?.category || 'unknown',
+                strategy_name: recoveryPlan.primaryStrategy.name,
+                recovery_succeeded: recoverySucceeded,
+                iterations_to_success: recoverySucceeded ? recoveryPlan.primaryStrategy.estimatedIterations : null,
+                tools_used: recoveryPlan.primaryStrategy.steps.map(s => s.tool).filter(Boolean),
+                confidence: recoveryPlan.primaryStrategy.confidence,
+              });
             } else {
               summary += `⚠️  NO RECOVERY PLAN AVAILABLE\n`;
             }
@@ -1569,6 +1596,26 @@ Use these learnings to inform your approach.
     const taskType = this.detectTaskType(this.state.task);
     const toolsUsed = [...new Set(this.state.history.flatMap(h => h.tools_used || []))];
 
+    // [T310] Extract recovery attempts and error patterns from recent failures
+    const recoveryAttempts = this.state.recentFailures
+      .filter(f => f.recoveryAttempted && f.diagnosis)
+      .map(f => ({
+        error_category: f.diagnosis.rootCause?.category || 'unknown',
+        strategy_name: 'unknown', // This is set during recovery execution
+        recovery_succeeded: f.recoverySucceeded || false,
+        iterations_to_success: f.recoverySucceeded ? 1 : null,
+        tools_used: [],
+        confidence: f.diagnosis.rootCause?.confidence || 0,
+      }));
+
+    const errorPatterns = {};
+    for (const failure of this.state.recentFailures) {
+      if (failure.diagnosis?.rootCause?.category) {
+        const category = failure.diagnosis.rootCause.category;
+        errorPatterns[category] = (errorPatterns[category] || 0) + 1;
+      }
+    }
+
     // [Day 10] Enhanced session recording with failure details
     await this.sessionMemory.recordSession({
       task_type: taskType,
@@ -1582,6 +1629,9 @@ Use these learnings to inform your approach.
       failed_tools: this.state.recentFailures.map(f => f.tool),
       repetitive_actions: this.state.repetitiveActionDetected,
       error_count: this.state.errors,
+      // [T310] Phase 4: Recovery tracking
+      recovery_attempts: recoveryAttempts,
+      error_patterns: errorPatterns,
     });
 
     // [Phase 5 Option A] Record episode to episodic memory for semantic search
@@ -1598,6 +1648,9 @@ Use these learnings to inform your approach.
       confidence: this.state.confidence,
       failure_reason: reason !== 'task_complete' ? reason : null,
       error_count: this.state.errors,
+      // [T310] Phase 4: Error recovery patterns
+      error_recoveries: recoveryAttempts,
+      error_categories_encountered: errorPatterns,
     });
 
     await contextLogEvents.emit({
