@@ -407,9 +407,35 @@ export default function AutonomousPanel({ model }: { model: string }) {
           {/* Recent Activity Display */}
           {actionHistory.length > 0 && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📋 Recent Activity</span>
-                {running && <span style={{ fontSize: 11, color: '#10b981', fontWeight: 400 }}>● Active</span>}
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>📋 Recent Activity</span>
+                  {running && <span style={{ fontSize: 11, color: '#10b981', fontWeight: 400 }}>● Active</span>}
+                </div>
+                {sessionId && (
+                  <a
+                    href={`/api/ctx/tail?n=1000&session_id=${sessionId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 11,
+                      color: '#3b82f6',
+                      textDecoration: 'none',
+                      padding: '4px 8px',
+                      borderRadius: 4,
+                      background: '#eff6ff',
+                      border: '1px solid #bae6fd',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+                  >
+                    📄 View Full Logs
+                  </a>
+                )}
               </div>
 
               {/* Show most recent action prominently */}

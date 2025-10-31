@@ -211,10 +211,29 @@ Always respond with valid JSON matching the schema provided.`;
    * @returns {string} Detailed planning prompt
    */
   function buildPlanningPrompt(taskAction, context) {
-    // Format available tools
+    // Format available tools with parameters
     const toolsList = context.availableTools
-      .map((tool) => `- **${tool.name}**: ${tool.description}`)
-      .join('\n');
+      .map((tool) => {
+        let entry = `- **${tool.name}**: ${tool.description}`;
+
+        // Add parameter information if available
+        if (tool.parameters && tool.parameters.properties) {
+          const params = Object.entries(tool.parameters.properties)
+            .map(([key, schema]) => {
+              const required = tool.parameters.required?.includes(key) ? ' (required)' : '';
+              const desc = schema.description || '';
+              return `    - \`${key}\`${required}: ${desc}`;
+            })
+            .join('\n');
+
+          if (params) {
+            entry += '\n' + params;
+          }
+        }
+
+        return entry;
+      })
+      .join('\n\n');
 
     // Format previous actions (if any)
     const previousActionsText =

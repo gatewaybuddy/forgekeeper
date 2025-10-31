@@ -26,9 +26,9 @@ import { createTaskPlanner } from './task-planner.mjs'; // [T400] Intelligent ta
  * @typedef {Object} AutonomousConfig
  * @property {Object} llmClient - LLM client for chat
  * @property {string} model - Model to use
- * @property {number} maxIterations - Max autonomous iterations (default: 15)
+ * @property {number} maxIterations - Max autonomous iterations (default: 50)
  * @property {number} checkpointInterval - Iterations between user checkpoints (default: 5)
- * @property {number} errorThreshold - Max errors before stopping (default: 3)
+ * @property {number} errorThreshold - Max errors before stopping (default: 5)
  * @property {string} playgroundRoot - Sandbox directory for agent work
  */
 
@@ -60,9 +60,9 @@ export class AutonomousAgent {
   constructor(config) {
     this.llmClient = config.llmClient;
     this.model = config.model || 'core';
-    this.maxIterations = config.maxIterations || 15;
+    this.maxIterations = config.maxIterations || 50; // Increased from 15 to allow more complex tasks
     this.checkpointInterval = config.checkpointInterval || 5;
-    this.errorThreshold = config.errorThreshold || 3;
+    this.errorThreshold = config.errorThreshold || 5; // Increased from 3 to be less restrictive
     this.playgroundRoot = config.playgroundRoot || '.forgekeeper/playground';
     this.interactiveMode = config.interactiveMode || false; // [Day 10] Ask for clarification when stuck
     this.preferenceSystem = config.preferenceSystem || null; // [Phase 5 Option D] User preferences
