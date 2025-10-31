@@ -609,6 +609,103 @@ export class ContextLogEventEmitter {
     return event;
   }
 
+  /**
+   * Emit recovery_attempt event
+   * [T311] Track recovery strategy execution
+   *
+   * @param {string} convId
+   * @param {number} turnId
+   * @param {number} iteration
+   * @param {Object} recoveryPlan
+   * @returns {Promise<Object>}
+   */
+  async emitRecoveryAttempt(convId, turnId, iteration, recoveryPlan) {
+    const event = {
+      id: ulid(),
+      type: 'recovery_attempt',
+      ts: new Date().toISOString(),
+      conv_id: convId,
+      turn_id: turnId,
+      actor: 'system',
+      iteration,
+      error_category: recoveryPlan.error_category || 'unknown',
+      strategy_name: recoveryPlan.primaryStrategy?.name || 'unknown',
+      strategy_description: this.redactAndTruncate(recoveryPlan.primaryStrategy?.description || '', 200),
+      confidence: recoveryPlan.primaryStrategy?.confidence || 0,
+      confidence_boosted: recoveryPlan.primaryStrategy?.confidence_boosted || false,
+      estimated_iterations: recoveryPlan.primaryStrategy?.estimatedIterations || 0,
+      steps_count: recoveryPlan.primaryStrategy?.steps?.length || 0,
+      fallback_count: recoveryPlan.fallbackStrategies?.length || 0,
+      has_learned_patterns: (recoveryPlan.learned_patterns?.length || 0) > 0,
+      historical_success_rate: recoveryPlan.historical_success_rate || 0,
+    };
+
+    await this.emit(event);
+    return event;
+  }
+
+  /**
+   * Emit recovery_complete event
+   * [T311] Track recovery outcome
+   *
+   * @param {string} convId
+   * @param {number} turnId
+   * @param {number} iteration
+   * @param {string} strategyName
+   * @param {boolean} success
+   * @param {number} actualIterations
+   * @param {number} elapsedMs
+   * @returns {Promise<Object>}
+   */
+  async emitRecoveryComplete(convId, turnId, iteration, strategyName, success, actualIterations, elapsedMs) {
+    const event = {
+      id: ulid(),
+      type: 'recovery_complete',
+      ts: new Date().toISOString(),
+      conv_id: convId,
+      turn_id: turnId,
+      actor: 'system',
+      iteration,
+      strategy_name: strategyName,
+      success,
+      actual_iterations: actualIterations,
+      elapsed_ms: elapsedMs,
+    };
+
+    await this.emit(event);
+    return event;
+  }
+
+  /**
+   * Emit pattern_learned event
+   * [T311] Track when new pattern is learned from successful recovery
+   *
+   * @param {string} convId
+   * @param {number} turnId
+   * @param {string} errorCategory
+   * @param {string} strategyName
+   * @param {number} successCount
+   * @param {number} confidenceBoost
+   * @returns {Promise<Object>}
+   */
+  async emitPatternLearned(convId, turnId, errorCategory, strategyName, successCount, confidenceBoost) {
+    const event = {
+      id: ulid(),
+      type: 'pattern_learned',
+      ts: new Date().toISOString(),
+      conv_id: convId,
+      turn_id: turnId,
+      actor: 'system',
+      error_category: errorCategory,
+      strategy_name: strategyName,
+      success_count: successCount,
+      confidence_boost: confidenceBoost,
+    };
+
+    await this.emit(event);
+    return event;
+  }
+
   // ========================================
   // Utilities
   // ========================================

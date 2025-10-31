@@ -15,10 +15,17 @@ import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server.enhance
 import { createAutonomousAgent } from './core/agent/autonomous.mjs';
 import { createExecutor } from './core/tools/executor.mjs';
 import { createSessionMemory } from './core/agent/session-memory.mjs'; // [Day 10]
+import { UserPreferenceSystem } from './core/agent/user-preferences.mjs'; // [Phase 5 Option D]
+import { createEpisodicMemory } from './core/agent/episodic-memory.mjs'; // [Phase 5 Option A]
+import { createPatternLearner } from './core/agent/pattern-learner.mjs'; // [T310]
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Tool approval storage (codex.plan Phase 1, T203)
+// Maps tool_name -> { code, timestamp, approved: false }
+const pendingTools = new Map();
 
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -753,6 +760,109 @@ app.post('/api/tools/write', async (req, res) => {
   }
 });
 
+// Tool Approval System (codex.plan Phase 1, T203)
+// POST /api/tools/propose - Preview tool before writing (requires approval)
+app.post('/api/tools/propose', async (req, res) => {
+  try {
+    const { tool_name, code } = req.body || {};
+
+    if (!tool_name || typeof tool_name !== 'string') {
+      return res.status(400).json({ error: 'tool_name is required and must be a string' });
+    }
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'code is required and must be a string' });
+    }
+
+    // Validate tool name format (must end with .mjs)
+    if (!/^[a-z0-9_\-]+\.mjs$/.test(tool_name)) {
+      return res.status(400).json({
+        error: 'Invalid tool name format',
+        message: 'Tool name must match pattern: [a-z0-9_-]+.mjs (e.g., my_tool.mjs)'
+      });
+    }
+
+    // Store pending tool
+    pendingTools.set(tool_name, {
+      code,
+      timestamp: Date.now(),
+      approved: false
+    });
+
+    res.json({
+      ok: true,
+      message: `Tool ${tool_name} proposed. Awaiting approval.`,
+      tool_name,
+      preview: code.slice(0, 500) + (code.length > 500 ? '\n... (truncated)' : ''),
+      approval_endpoint: `/api/tools/approve/${tool_name}`,
+      pending_count: pendingTools.size
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// POST /api/tools/approve/:tool_name - Approve and write tool
+app.post('/api/tools/approve/:tool_name', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+    const pending = pendingTools.get(tool_name);
+
+    if (!pending) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: `No pending tool with name: ${tool_name}`,
+        pending_tools: Array.from(pendingTools.keys())
+      });
+    }
+
+    // Mark approved
+    pending.approved = true;
+
+    // Write tool file
+    const info = await writeToolFile(tool_name, pending.code);
+
+    // Reload tools
+    const out = await reloadTools();
+
+    // Remove from pending
+    pendingTools.delete(tool_name);
+
+    res.json({
+      ok: true,
+      message: `Tool ${tool_name} approved and written`,
+      tool_name,
+      path: info.path,
+      loaded: out.count,
+      remaining_pending: pendingTools.size
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/pending - List pending tool approvals
+app.get('/api/tools/pending', async (_req, res) => {
+  try {
+    const pending = Array.from(pendingTools.entries()).map(([name, data]) => ({
+      name,
+      timestamp: data.timestamp,
+      age_ms: Date.now() - data.timestamp,
+      preview: data.code.slice(0, 200) + (data.code.length > 200 ? '\n... (truncated)' : ''),
+      approved: data.approved,
+      approval_endpoint: `/api/tools/approve/${name}`
+    }));
+
+    res.json({
+      ok: true,
+      pending,
+      count: pending.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
 // Local token store for GitHub (dev only). Allows pasting a PAT via API and storing it under .forgekeeper/secrets/gh_token.
 app.post('/api/auth/github/token', async (req, res) => {
   try {
@@ -1146,6 +1256,8 @@ app.post('/api/chat/autonomous', async (req, res) => {
       checkpointInterval: 5,
       errorThreshold: 3,
       playgroundRoot: process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground',
+      interactiveMode: process.env.AUTONOMOUS_INTERACTIVE_MODE === '1' || true, // [Day 10] Ask for clarification when stuck
+      preferenceSystem, // [Phase 5 Option D] User preferences
     });
 
     // Note: sessionId is assigned inside agent.run(); we add to activeSessions when available
@@ -1348,6 +1460,8 @@ app.post('/api/chat/autonomous/resume', async (req, res) => {
       checkpointInterval: 5,
       errorThreshold: 3,
       playgroundRoot,
+      interactiveMode: process.env.AUTONOMOUS_INTERACTIVE_MODE === '1' || true, // [Day 10] Ask for clarification when stuck
+      preferenceSystem, // [Phase 5 Option D] User preferences
     });
 
     const executor = createExecutor({
@@ -1514,6 +1628,315 @@ app.get('/api/chat/autonomous/stats', async (req, res) => {
   } catch (error) {
     console.error('[Autonomous] Stats error:', error);
     return res.status(500).json({ ok: false, error: 'stats_error', message: error?.message || String(error) });
+  }
+});
+
+// [T313] GET /api/chat/autonomous/recovery-stats - Get recovery pattern statistics
+app.get('/api/chat/autonomous/recovery-stats', async (req, res) => {
+  try {
+    const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
+    const sessionMemory = createSessionMemory(playgroundRoot);
+
+    // Get error pattern statistics
+    const errorPatternStats = await sessionMemory.getErrorPatternStats();
+
+    // Get episodic memory stats for error recoveries
+    const episodeErrorStats = await episodicMemory.getErrorCategoryStats();
+    const commonPatterns = await episodicMemory.getCommonErrorPatterns(10);
+
+    // Aggregate recovery success rates by error category
+    const recoveryByCategory = {};
+    for (const [category, stats] of Object.entries(errorPatternStats)) {
+      recoveryByCategory[category] = {
+        total_occurrences: stats.total_occurrences,
+        sessions_affected: stats.sessions_affected,
+        recovery_attempts: stats.recovery_attempts,
+        recovery_successes: stats.recovery_successes,
+        success_rate: stats.success_rate,
+      };
+    }
+
+    // Get top successful recovery strategies
+    const topStrategies = commonPatterns.map(pattern => ({
+      error_category: pattern.error_category,
+      occurrences: pattern.occurrences,
+      top_strategy: pattern.top_strategy ? {
+        name: pattern.top_strategy[0],
+        success_count: pattern.top_strategy[1].count,
+        avg_iterations: pattern.top_strategy[1].avg_iterations,
+      } : null,
+    }));
+
+    return res.json({
+      ok: true,
+      stats: {
+        recovery_by_category: recoveryByCategory,
+        top_strategies: topStrategies,
+        episode_error_stats: episodeErrorStats,
+        total_error_categories: Object.keys(errorPatternStats).length,
+        total_recovery_attempts: Object.values(errorPatternStats).reduce((sum, s) => sum + s.recovery_attempts, 0),
+        total_recovery_successes: Object.values(errorPatternStats).reduce((sum, s) => sum + s.recovery_successes, 0),
+        overall_recovery_rate: (() => {
+          const totalAttempts = Object.values(errorPatternStats).reduce((sum, s) => sum + s.recovery_attempts, 0);
+          const totalSuccesses = Object.values(errorPatternStats).reduce((sum, s) => sum + s.recovery_successes, 0);
+          return totalAttempts > 0 ? totalSuccesses / totalAttempts : 0;
+        })(),
+      },
+    });
+  } catch (error) {
+    console.error('[Autonomous] Recovery stats error:', error);
+    return res.status(500).json({ ok: false, error: 'recovery_stats_error', message: error?.message || String(error) });
+  }
+});
+
+// GET /api/chat/autonomous/history - Get full session history from JSONL
+app.get('/api/chat/autonomous/history', async (req, res) => {
+  try {
+    const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
+    const memoryFilePath = path.join(playgroundRoot, '.session_memory.jsonl');
+    const limit = Math.max(1, Math.min(100, parseInt(String(req.query.limit || '50'), 10) || 50));
+
+    let allSessions = [];
+
+    try {
+      const content = await fs2.readFile(memoryFilePath, 'utf8');
+      allSessions = content
+        .trim()
+        .split('\n')
+        .map((line, index) => {
+          try {
+            const session = JSON.parse(line);
+            return {
+              ...session,
+              line_number: index + 1,
+              timestamp: session.timestamp || new Date().toISOString(),
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(s => s !== null);
+    } catch (err) {
+      // File doesn't exist yet
+      return res.json({ ok: true, sessions: [], total: 0 });
+    }
+
+    // Return most recent sessions first
+    const sessions = allSessions.reverse().slice(0, limit);
+
+    return res.json({
+      ok: true,
+      sessions,
+      total: allSessions.length,
+      file_path: memoryFilePath,
+    });
+  } catch (error) {
+    console.error('[Autonomous] History error:', error);
+    return res.status(500).json({ ok: false, error: 'history_error', message: error?.message || String(error) });
+  }
+});
+
+// User Preference Management (Phase 5 Option D)
+// Initialize preference system singleton
+const preferenceSystem = new UserPreferenceSystem(
+  path.join(process.cwd(), '.forgekeeper', 'preferences'),
+  'default_user'
+);
+
+// Episodic Memory (Phase 5 Option A)
+// Initialize episodic memory singleton
+const episodicMemory = createEpisodicMemory(
+  process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground'
+);
+
+// GET /api/preferences - Get all preferences
+app.get('/api/preferences', async (req, res) => {
+  try {
+    const preferences = await preferenceSystem.getAllPreferences();
+    return res.json({ ok: true, preferences });
+  } catch (error) {
+    console.error('[Preferences] Get all error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// GET /api/preferences/:domain - Get preferences by domain
+app.get('/api/preferences/:domain', async (req, res) => {
+  try {
+    const { domain } = req.params;
+    if (!domain) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'domain is required' });
+    }
+
+    const preferences = await preferenceSystem.getPreferencesByDomain(domain);
+    return res.json({ ok: true, domain, preferences });
+  } catch (error) {
+    console.error('[Preferences] Get by domain error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// POST /api/preferences - Record explicit preference
+app.post('/api/preferences', async (req, res) => {
+  try {
+    const { domain, category, preference, value, applies_to } = req.body || {};
+
+    if (!domain || !category || !preference) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'domain, category, and preference are required'
+      });
+    }
+
+    await preferenceSystem.recordPreference(domain, category, preference, value, applies_to);
+
+    return res.json({ ok: true, message: 'Preference recorded' });
+  } catch (error) {
+    console.error('[Preferences] Record error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// POST /api/preferences/infer - Trigger inference on file(s)
+app.post('/api/preferences/infer', async (req, res) => {
+  try {
+    const { files } = req.body || {};
+
+    if (!Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'files array is required'
+      });
+    }
+
+    const repoRoot = process.env.REPO_ROOT || '/workspace';
+    const results = [];
+
+    for (const filePath of files) {
+      try {
+        const fullPath = path.resolve(repoRoot, filePath);
+        const content = await fs2.readFile(fullPath, 'utf8');
+        const observations = await preferenceSystem.inferPreferencesFromCode(filePath, content);
+        results.push({ file: filePath, observations: observations.length, status: 'ok' });
+      } catch (err) {
+        results.push({ file: filePath, error: err?.message || String(err), status: 'error' });
+      }
+    }
+
+    return res.json({ ok: true, results });
+  } catch (error) {
+    console.error('[Preferences] Infer error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// DELETE /api/preferences/:id - Delete preference
+app.delete('/api/preferences/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'preference_id is required' });
+    }
+
+    // For now, we need to manually filter out the preference from the JSONL file
+    // This is a simple implementation - could be optimized with proper deletion support
+    const allPrefs = await preferenceSystem.getAllPreferences();
+    const prefToDelete = allPrefs.find(p => p.preference_id === id);
+
+    if (!prefToDelete) {
+      return res.status(404).json({ ok: false, error: 'not_found', message: 'Preference not found' });
+    }
+
+    // Rewrite the file without the deleted preference
+    const preferencesDir = path.join(process.cwd(), '.forgekeeper', 'preferences');
+    const preferenceFile = path.join(preferencesDir, 'user_preferences.jsonl');
+
+    const content = await fs2.readFile(preferenceFile, 'utf8').catch(() => '');
+    const lines = content.trim().split('\n').filter(Boolean);
+    const updatedLines = lines.filter(line => {
+      try {
+        const pref = JSON.parse(line);
+        return pref.preference_id !== id;
+      } catch {
+        return true;
+      }
+    });
+
+    await fs2.writeFile(preferenceFile, updatedLines.join('\n') + (updatedLines.length > 0 ? '\n' : ''), 'utf8');
+
+    // Clear cache to force reload
+    preferenceSystem.preferenceCache.clear();
+    preferenceSystem.cacheLoaded = false;
+
+    return res.json({ ok: true, message: 'Preference deleted', deleted_id: id });
+  } catch (error) {
+    console.error('[Preferences] Delete error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// GET /api/preferences/guidance - Get formatted preference guidance for prompts
+app.get('/api/preferences/guidance', async (req, res) => {
+  try {
+    const guidance = await preferenceSystem.generatePreferenceGuidance();
+    return res.json({ ok: true, guidance });
+  } catch (error) {
+    console.error('[Preferences] Guidance error:', error);
+    return res.status(500).json({ ok: false, error: 'preferences_error', message: error?.message || String(error) });
+  }
+});
+
+// Episodic Memory API (Phase 5 Option A)
+
+// GET /api/episodes - Get recent episodes
+app.get('/api/episodes', async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(50, parseInt(String(req.query.limit || '10'), 10) || 10));
+    const episodes = await episodicMemory.getRecentEpisodes(limit);
+    return res.json({ ok: true, episodes });
+  } catch (error) {
+    console.error('[EpisodicMemory] Get episodes error:', error);
+    return res.status(500).json({ ok: false, error: 'episodic_memory_error', message: error?.message || String(error) });
+  }
+});
+
+// POST /api/episodes/search - Search for similar episodes
+app.post('/api/episodes/search', async (req, res) => {
+  try {
+    const { query, limit, minScore, successOnly, taskType } = req.body || {};
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'query string is required'
+      });
+    }
+
+    const results = await episodicMemory.searchSimilar(query, {
+      limit: limit !== undefined ? Math.max(1, Math.min(20, limit)) : 5,
+      minScore: minScore !== undefined ? Math.max(0, Math.min(1, minScore)) : 0.3,
+      successOnly: successOnly !== undefined ? Boolean(successOnly) : false,
+      taskType: taskType || null,
+    });
+
+    return res.json({ ok: true, results });
+  } catch (error) {
+    console.error('[EpisodicMemory] Search error:', error);
+    return res.status(500).json({ ok: false, error: 'episodic_memory_error', message: error?.message || String(error) });
+  }
+});
+
+// GET /api/episodes/stats - Get episodic memory statistics
+app.get('/api/episodes/stats', async (req, res) => {
+  try {
+    const stats = await episodicMemory.getStatistics();
+    return res.json({ ok: true, stats });
+  } catch (error) {
+    console.error('[EpisodicMemory] Stats error:', error);
+    return res.status(500).json({ ok: false, error: 'episodic_memory_error', message: error?.message || String(error) });
   }
 });
 

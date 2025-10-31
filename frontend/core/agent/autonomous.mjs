@@ -516,12 +516,25 @@ export class AutonomousAgent {
               console.log(`[AutonomousAgent] Attempting recovery: ${recoveryPlan.primaryStrategy.name}`);
               summary += `\n🔧 RECOVERY ATTEMPT: ${recoveryPlan.primaryStrategy.description}\n`;
 
+              // [T311] Emit recovery_attempt event
+              await contextLogEvents.emitRecoveryAttempt(
+                context.convId,
+                context.turnId,
+                this.state.iteration,
+                {
+                  error_category: diagnosis.rootCause?.category || 'unknown',
+                  ...recoveryPlan,
+                }
+              );
+
               // Execute recovery steps
+              const recoveryStartTime = Date.now();
               const recoveryResult = await this.executeRecoverySteps(
                 recoveryPlan.primaryStrategy.steps,
                 executor,
                 context
               );
+              const recoveryElapsedMs = Date.now() - recoveryStartTime;
 
               if (recoveryResult.success) {
                 recoverySucceeded = true;
@@ -531,6 +544,17 @@ export class AutonomousAgent {
                 summary += `❌ RECOVERY FAILED: ${recoveryResult.summary}\n`;
                 console.warn('[AutonomousAgent] Recovery failed');
               }
+
+              // [T311] Emit recovery_complete event
+              await contextLogEvents.emitRecoveryComplete(
+                context.convId,
+                context.turnId,
+                this.state.iteration,
+                recoveryPlan.primaryStrategy.name,
+                recoverySucceeded,
+                recoveryPlan.primaryStrategy.estimatedIterations,
+                recoveryElapsedMs
+              );
 
               // [T310] Record recovery outcome for pattern learning
               await this.patternLearner.recordRecoveryOutcome({
