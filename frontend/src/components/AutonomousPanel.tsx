@@ -404,6 +404,114 @@ export default function AutonomousPanel({ model }: { model: string }) {
             {reason && !running && <Stat label="Status" value={reason} color="#3b82f6" />}
           </div>
 
+          {/* Recent Activity Display */}
+          {actionHistory.length > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>📋 Recent Activity</span>
+                {running && <span style={{ fontSize: 11, color: '#10b981', fontWeight: 400 }}>● Active</span>}
+              </div>
+
+              {/* Show most recent action prominently */}
+              {(() => {
+                const mostRecent = actionHistory[actionHistory.length - 1];
+                if (!mostRecent) return null;
+
+                return (
+                  <div style={{
+                    background: mostRecent.error ? '#fef2f2' : '#f0f9ff',
+                    border: `1px solid ${mostRecent.error ? '#fecaca' : '#bae6fd'}`,
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 12
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                        {mostRecent.error ? '❌' : running ? '⏳' : '✅'} Iteration {mostRecent.iteration}
+                      </span>
+                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
+                        {mostRecent.progress !== undefined ? `${mostRecent.progress}% complete` : ''}
+                      </span>
+                      {mostRecent.confidence !== undefined && (
+                        <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
+                          | {(mostRecent.confidence * 100).toFixed(0)}% confidence
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: 12, color: '#1f2937', marginBottom: 6, fontWeight: 500 }}>
+                      {mostRecent.action || 'Working...'}
+                    </div>
+
+                    {mostRecent.result && (
+                      <div style={{ fontSize: 11, color: '#64748b' }}>
+                        {mostRecent.result.length > 150 ? mostRecent.result.slice(0, 150) + '...' : mostRecent.result}
+                      </div>
+                    )}
+
+                    {mostRecent.tools_used && mostRecent.tools_used.length > 0 && (
+                      <div style={{ fontSize: 10, color: '#64748b', marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {mostRecent.tools_used.map((tool: string, i: number) => (
+                          <span key={i} style={{
+                            background: '#f1f5f9',
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            fontFamily: 'monospace'
+                          }}>
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Show expandable activity log for older items */}
+              {actionHistory.length > 1 && (
+                <details style={{ fontSize: 12, color: '#64748b', cursor: 'pointer' }}>
+                  <summary style={{ fontWeight: 600, marginBottom: 8, userSelect: 'none' }}>
+                    Show previous {actionHistory.length - 1} iterations
+                  </summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    {actionHistory.slice(0, -1).reverse().map((item: any, idx: number) => (
+                      <div key={idx} style={{
+                        background: item.error ? '#fef2f2' : '#f9fafb',
+                        border: `1px solid ${item.error ? '#fecaca' : '#e5e7eb'}`,
+                        borderRadius: 6,
+                        padding: 10
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
+                            {item.error ? '❌' : '✅'} Iteration {item.iteration}
+                          </span>
+                          {item.progress !== undefined && (
+                            <span style={{ fontSize: 10, color: '#64748b' }}>
+                              {item.progress}%
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#1f2937', marginBottom: 4 }}>
+                          {item.action || 'N/A'}
+                        </div>
+                        {item.result && (
+                          <div style={{ fontSize: 10, color: '#64748b' }}>
+                            {item.result.length > 100 ? item.result.slice(0, 100) + '...' : item.result}
+                          </div>
+                        )}
+                        {item.tools_used && item.tools_used.length > 0 && (
+                          <div style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>
+                            Tools: {item.tools_used.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
           {/* Diagnostic & Recovery Section */}
           {data?.state?.recentFailures && data.state.recentFailures.length > 0 && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>

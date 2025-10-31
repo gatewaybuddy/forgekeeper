@@ -1725,6 +1725,7 @@ Use these learnings to inform your approach.
       stuck_count: this.state.noProgressCount,
       action_history: this.state.history, // Include iteration-by-iteration actions
       artifacts: this.state.artifacts, // Include created artifacts
+      recentFailures: this.state.recentFailures || [], // Include recent failures for diagnostics
     };
   }
 
