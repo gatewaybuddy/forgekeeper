@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { orchestrateWithReview } from './server.review.mjs';
-import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors } from './server.tools.mjs';
+import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors, getToolRegressionStats, getAllToolRegressionStats, clearToolRegressionStats, getToolResourceUsage, getAllToolResourceUsage, clearToolResourceUsage } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
 import { getReviewConfig } from './config/review_prompts.mjs';
@@ -916,6 +916,136 @@ app.post('/api/tools/errors/:tool_name/clear', async (req, res) => {
     res.json({
       ok: true,
       message: `Error statistics cleared for tool: ${tool_name}`
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/regression - Get all tool regression statistics (codex.plan Phase 2, T211)
+app.get('/api/tools/regression', async (_req, res) => {
+  try {
+    const stats = getAllToolRegressionStats();
+    const latency_threshold = parseInt(process.env.REGRESSION_LATENCY_MS || '50', 10);
+    const error_rate_threshold = parseFloat(process.env.REGRESSION_ERROR_RATE || '0.05');
+    const window_size = parseInt(process.env.REGRESSION_WINDOW_SIZE || '10', 10);
+    const baseline_size = parseInt(process.env.REGRESSION_BASELINE_SIZE || '20', 10);
+
+    res.json({
+      ok: true,
+      thresholds: {
+        latency_ms: latency_threshold,
+        error_rate: error_rate_threshold,
+        window_size,
+        baseline_size
+      },
+      tools: stats,
+      count: stats.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/regression/:tool_name - Get regression stats for specific tool (codex.plan Phase 2, T211)
+app.get('/api/tools/regression/:tool_name', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+    const stats = getToolRegressionStats(tool_name);
+
+    if (!stats) {
+      return res.status(404).json({
+        ok: false,
+        error: 'not_found',
+        message: `No regression statistics found for tool: ${tool_name}`
+      });
+    }
+
+    res.json({
+      ok: true,
+      tool: tool_name,
+      ...stats
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// POST /api/tools/regression/:tool_name/clear - Clear regression stats for a tool (codex.plan Phase 2, T211)
+app.post('/api/tools/regression/:tool_name/clear', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+
+    clearToolRegressionStats(tool_name);
+
+    res.json({
+      ok: true,
+      message: `Regression statistics cleared for tool: ${tool_name}`
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/resources - Get all tool resource usage (codex.plan Phase 2, T212)
+app.get('/api/tools/resources', async (_req, res) => {
+  try {
+    const usage = getAllToolResourceUsage();
+    const rate_limit = parseInt(process.env.TOOL_RATE_LIMIT_PER_MIN || '30', 10);
+    const disk_quota = parseInt(process.env.TOOL_DISK_QUOTA_BYTES || String(10 * 1024 * 1024), 10);
+    const memory_limit = parseInt(process.env.TOOL_MEMORY_LIMIT_MB || '512', 10);
+    const cpu_timeout = parseInt(process.env.TOOL_CPU_TIMEOUT_MS || '30000', 10);
+
+    res.json({
+      ok: true,
+      quotas: {
+        rate_limit_per_min: rate_limit,
+        disk_quota_bytes: disk_quota,
+        memory_limit_mb: memory_limit,
+        cpu_timeout_ms: cpu_timeout
+      },
+      tools: usage,
+      count: usage.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/resources/:tool_name - Get resource usage for specific tool (codex.plan Phase 2, T212)
+app.get('/api/tools/resources/:tool_name', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+    const usage = getToolResourceUsage(tool_name);
+
+    if (!usage) {
+      return res.status(404).json({
+        ok: false,
+        error: 'not_found',
+        message: `No resource usage found for tool: ${tool_name}`
+      });
+    }
+
+    res.json({
+      ok: true,
+      tool: tool_name,
+      ...usage
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// POST /api/tools/resources/:tool_name/clear - Clear resource usage for a tool (codex.plan Phase 2, T212)
+app.post('/api/tools/resources/:tool_name/clear', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+
+    clearToolResourceUsage(tool_name);
+
+    res.json({
+      ok: true,
+      message: `Resource usage cleared for tool: ${tool_name}`
     });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
