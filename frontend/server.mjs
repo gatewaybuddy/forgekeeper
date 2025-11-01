@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { orchestrateWithReview } from './server.review.mjs';
-import { getToolDefs, reloadTools, writeToolFile } from './server.tools.mjs';
+import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
 import { getReviewConfig } from './config/review_prompts.mjs';
@@ -857,6 +857,65 @@ app.get('/api/tools/pending', async (_req, res) => {
       ok: true,
       pending,
       count: pending.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/errors - Get tool error statistics (codex.plan Phase 1, T205)
+app.get('/api/tools/errors', async (_req, res) => {
+  try {
+    const stats = getAllToolErrorStats();
+    const threshold = parseInt(process.env.TOOL_ERROR_THRESHOLD || '3', 10);
+    const window_ms = parseInt(process.env.TOOL_ERROR_WINDOW_MS || '300000', 10);
+
+    res.json({
+      ok: true,
+      threshold,
+      window_ms,
+      tools: stats,
+      count: stats.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// GET /api/tools/errors/:tool_name - Get error stats for specific tool (codex.plan Phase 1, T205)
+app.get('/api/tools/errors/:tool_name', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+    const stats = getToolErrorStats(tool_name);
+
+    if (!stats) {
+      return res.status(404).json({
+        ok: false,
+        error: 'not_found',
+        message: `No error statistics found for tool: ${tool_name}`
+      });
+    }
+
+    res.json({
+      ok: true,
+      tool: tool_name,
+      ...stats
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// POST /api/tools/errors/:tool_name/clear - Clear error stats for a tool (codex.plan Phase 1, T205)
+app.post('/api/tools/errors/:tool_name/clear', async (req, res) => {
+  try {
+    const { tool_name } = req.params;
+
+    clearToolErrors(tool_name);
+
+    res.json({
+      ok: true,
+      message: `Error statistics cleared for tool: ${tool_name}`
     });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
