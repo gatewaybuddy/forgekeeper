@@ -118,6 +118,7 @@ export class AutonomousAgent {
   async run(task, executor, context) {
     this.sessionId = ulid();
     this.stopRequested = false;
+    this.terminationReason = null; // Track why session ended (for finally block)
 
     // Initialize state
     this.state = {
@@ -214,18 +215,20 @@ export class AutonomousAgent {
     console.log(`[AutonomousAgent] Starting session ${this.sessionId}`);
     console.log(`[AutonomousAgent] Task: ${task}`);
 
-    // Main autonomous loop
-    while (true) {
-      this.state.iteration++;
+    // Main autonomous loop (wrapped in try-finally for observability)
+    try {
+      while (true) {
+        this.state.iteration++;
 
-      console.log(`\n[AutonomousAgent] Iteration ${this.state.iteration}/${this.maxIterations}`);
+        console.log(`\n[AutonomousAgent] Iteration ${this.state.iteration}/${this.maxIterations}`);
 
-      // Check if user requested stop
-      if (this.stopRequested) {
-        console.log('[AutonomousAgent] Stop requested by user');
-        await this.complete('user_stop', context);
-        return this.buildResult('user_stop');
-      }
+        // Check if user requested stop
+        if (this.stopRequested) {
+          console.log('[AutonomousAgent] Stop requested by user');
+          this.terminationReason = 'user_stop';
+          await this.complete('user_stop', context);
+          return this.buildResult('user_stop');
+        }
 
       // Check stopping criteria
       const stopCheck = this.shouldStop();
@@ -250,6 +253,7 @@ export class AutonomousAgent {
 
       if (stopCheck.stop) {
         console.log(`[AutonomousAgent] Stopping: ${stopCheck.reason}`);
+        this.terminationReason = stopCheck.reason;
         await this.complete(stopCheck.reason, context);
         return this.buildResult(stopCheck.reason);
       }
@@ -316,6 +320,22 @@ export class AutonomousAgent {
 
         // Step 3: Execute next action
         console.log(`[AutonomousAgent] Executing: ${reflection.next_action}`);
+
+        // ✅ Log execution start (helps pinpoint exactly where failures occur)
+        await contextLogEvents.emit({
+          id: ulid(),
+          type: 'iteration_execution_start',
+          ts: new Date().toISOString(),
+          conv_id: context.convId,
+          turn_id: context.turnId,
+          session_id: this.sessionId,
+          iteration: this.state.iteration,
+          actor: 'system',
+          act: 'execution_start',
+          planned_tool: reflection.tool_plan?.tool || null,
+          next_action: reflection.next_action,
+        });
+
         const executionResult = await this.executeIteration(
           reflection,
           executor,
@@ -483,6 +503,52 @@ export class AutonomousAgent {
           result: error.message,
           error: true,
         });
+      }
+      } // end while loop
+    } catch (fatalError) {
+      // Fatal error in main loop (shouldn't normally happen due to iteration-level try-catch)
+      console.error('[AutonomousAgent] Fatal error in autonomous loop:', fatalError);
+      this.terminationReason = 'fatal_error';
+      this.state.errors++;
+
+      // Try to log error before rethrowing
+      try {
+        await contextLogEvents.emitError(context.convId, context.turnId, fatalError, {
+          fatal: true,
+          session_id: this.sessionId,
+          iteration: this.state.iteration,
+        });
+      } catch (logErr) {
+        console.error('[AutonomousAgent] Failed to log fatal error:', logErr);
+      }
+
+      throw fatalError;
+
+    } finally {
+      // ✅ ALWAYS log session end, even on crash/cancellation
+      // This provides 100% observability into session terminations
+      try {
+        await contextLogEvents.emit({
+          id: ulid(),
+          type: 'autonomous_session_end',
+          ts: new Date().toISOString(),
+          conv_id: context.convId,
+          turn_id: context.turnId,
+          session_id: this.sessionId,
+          actor: 'system',
+          act: 'session_end',
+          reason: this.terminationReason || 'unknown',
+          iterations_completed: this.state?.iteration || 0,
+          final_progress: this.state?.lastProgressPercent || 0,
+          task_complete: this.state?.taskComplete || false,
+          errors_encountered: this.state?.errors || 0,
+          tools_used_count: [...new Set(this.state?.history?.flatMap(h => h.tools_used || []) || [])].length,
+          total_actions: this.state?.history?.length || 0,
+        });
+
+        console.log(`[AutonomousAgent] Session ${this.sessionId} ended: ${this.terminationReason || 'unknown'}`);
+      } catch (finallyError) {
+        console.error('[AutonomousAgent] Failed to log session end (this should never happen):', finallyError);
       }
     }
   }

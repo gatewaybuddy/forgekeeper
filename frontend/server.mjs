@@ -1478,6 +1478,17 @@ app.post('/api/chat/autonomous', async (req, res) => {
       sandboxLevel: 'workspace',
     });
 
+    // ✅ Add client disconnect handler for graceful shutdown
+    let clientDisconnected = false;
+    req.on('close', () => {
+      if (!res.headersSent) {
+        clientDisconnected = true;
+        console.log(`[Autonomous] Client disconnected, requesting agent stop for session ${agent.sessionId || 'pending'}`);
+        agent.stopRequested = true;
+        agent.terminationReason = 'client_disconnect';
+      }
+    });
+
     // Async mode: start and return session_id immediately
     if (runAsync) {
       const sessionRecord = { agent, promise: null, result: null, done: false, error: null };
@@ -1510,7 +1521,13 @@ app.post('/api/chat/autonomous', async (req, res) => {
 
     // Sync mode: run to completion
     const result = await agent.run(task, executor, { convId, turnId });
-    return res.json({ ok: true, session_id: agent.sessionId, result });
+
+    // Only send response if client hasn't disconnected
+    if (!clientDisconnected && !res.headersSent) {
+      return res.json({ ok: true, session_id: agent.sessionId, result });
+    } else {
+      console.log(`[Autonomous] Skipping response - client disconnected`);
+    }
 
   } catch (error) {
     console.error('[Autonomous] Session error:', error);
@@ -1922,6 +1939,302 @@ app.get('/api/chat/autonomous/history', async (req, res) => {
   } catch (error) {
     console.error('[Autonomous] History error:', error);
     return res.status(500).json({ ok: false, error: 'history_error', message: error?.message || String(error) });
+  }
+});
+
+// ========================================
+// SELF-DIAGNOSTIC ENDPOINTS (Meta-capability)
+// These endpoints enable the autonomous agent to diagnose and fix itself!
+// ========================================
+
+// GET /api/autonomous/diagnose/:session_id - Analyze a failed session and identify root cause
+app.get('/api/autonomous/diagnose/:session_id', async (req, res) => {
+  try {
+    const { session_id } = req.params;
+
+    // Get all events for this session
+    const events = tailEvents(10000).filter(e => e.session_id === session_id);
+
+    if (events.length === 0) {
+      return res.status(404).json({ ok: false, error: 'session_not_found', message: `No events found for session ${session_id}` });
+    }
+
+    // Analyze event sequence to identify failure patterns
+    const diagnosis = {
+      session_id,
+      total_events: events.length,
+      start_time: events.find(e => e.type === 'autonomous_session_start')?.ts,
+      end_time: events.find(e => e.type === 'autonomous_session_end')?.ts,
+      termination_reason: events.find(e => e.type === 'autonomous_session_end')?.reason || 'unknown',
+      iterations_completed: events.filter(e => e.type === 'autonomous_iteration').length,
+      tools_executed: events.filter(e => e.type === 'tool_call_end_autonomous').length,
+      errors: events.filter(e => e.type === 'error' || e.act === 'error').length,
+
+      // Failure patterns
+      repetitive_actions: events.some(e => e.repetition_detected === true),
+      stuck_loop: events.some(e => e.type === 'autonomous_iteration' && e.assessment === 'stuck'),
+      missing_execution_start: false,
+      client_disconnect: false,
+      fatal_error: false,
+
+      // Detailed analysis
+      last_reflection: null,
+      last_execution_start: null,
+      last_tool_call: null,
+      missing_events: [],
+
+      // Root cause hypothesis
+      root_cause: null,
+      evidence: [],
+      recommended_fixes: [],
+    };
+
+    // Check for missing execution start (indicates premature termination)
+    const reflections = events.filter(e => e.type === 'autonomous_iteration');
+    const executionStarts = events.filter(e => e.type === 'iteration_execution_start');
+
+    if (reflections.length > executionStarts.length) {
+      diagnosis.missing_execution_start = true;
+      diagnosis.last_reflection = reflections[reflections.length - 1];
+      diagnosis.missing_events.push('iteration_execution_start');
+
+      diagnosis.root_cause = 'premature_termination';
+      diagnosis.evidence.push(`Found ${reflections.length} reflections but only ${executionStarts.length} execution starts`);
+      diagnosis.evidence.push(`Last reflection at ${diagnosis.last_reflection.ts} planned to execute ${diagnosis.last_reflection.tool_plan?.tool || 'unknown tool'}`);
+
+      // Check if it's a client disconnect
+      if (diagnosis.termination_reason === 'client_disconnect') {
+        diagnosis.client_disconnect = true;
+        diagnosis.evidence.push('Session end event shows client_disconnect');
+      } else if (diagnosis.termination_reason === 'unknown') {
+        diagnosis.evidence.push('No session end event found - likely client disconnect before finally block was added');
+        diagnosis.recommended_fixes.push('Client disconnected before finally block could log session end');
+      }
+    }
+
+    // Check for repetitive actions
+    const toolCalls = events.filter(e => e.type === 'tool_call_begin_autonomous');
+    const toolSignatures = toolCalls.map(t => `${t.name}:${t.args_preview}`);
+    const duplicates = toolSignatures.filter((sig, i) => toolSignatures.indexOf(sig) !== i);
+
+    if (duplicates.length > 0) {
+      diagnosis.repetitive_actions = true;
+      diagnosis.root_cause = diagnosis.root_cause || 'repetitive_actions';
+      diagnosis.evidence.push(`Found ${duplicates.length} duplicate tool calls`);
+      diagnosis.evidence.push(`Example: ${duplicates[0]}`);
+      diagnosis.recommended_fixes.push('Lower repetition threshold from >=2 to >=1');
+      diagnosis.recommended_fixes.push('Improve argument inference to use context');
+    }
+
+    // Check for hardcoded arguments (read_dir always uses ".")
+    const readDirCalls = toolCalls.filter(t => t.name === 'read_dir');
+    const allUseDot = readDirCalls.every(t => t.args_preview?.includes('"."') || t.args_preview?.includes('dir:.'));
+
+    if (readDirCalls.length > 1 && allUseDot) {
+      diagnosis.root_cause = diagnosis.root_cause || 'hardcoded_arguments';
+      diagnosis.evidence.push(`All ${readDirCalls.length} read_dir calls used "." - likely hardcoded`);
+      diagnosis.recommended_fixes.push('Fix inferToolArgs() to extract directory from context');
+      diagnosis.recommended_fixes.push('Use LLM or regex to parse directory names from reflection.next_action');
+    }
+
+    // Generate fix suggestions
+    if (!diagnosis.recommended_fixes.length) {
+      diagnosis.recommended_fixes.push('No obvious fixes needed - session may have completed successfully');
+    }
+
+    return res.json({ ok: true, diagnosis });
+
+  } catch (error) {
+    console.error('[Autonomous] Diagnose error:', error);
+    return res.status(500).json({ ok: false, error: 'diagnose_error', message: error?.message || String(error) });
+  }
+});
+
+// GET /api/autonomous/failure-patterns - Get common failure patterns across all sessions
+app.get('/api/autonomous/failure-patterns', async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(100, parseInt(String(req.query.limit || '20'), 10) || 20));
+
+    // Get all autonomous session events
+    const allEvents = tailEvents(50000);
+    const sessionStarts = allEvents.filter(e => e.type === 'autonomous_session_start');
+    const sessionEnds = allEvents.filter(e => e.type === 'autonomous_session_end');
+
+    // Group events by session_id
+    const sessionMap = new Map();
+    for (const event of allEvents) {
+      if (!event.session_id) continue;
+      if (!sessionMap.has(event.session_id)) {
+        sessionMap.set(event.session_id, []);
+      }
+      sessionMap.get(event.session_id).push(event);
+    }
+
+    // Analyze each session
+    const patterns = {
+      total_sessions: sessionStarts.length,
+      sessions_with_end_event: sessionEnds.length,
+      missing_end_events: sessionStarts.length - sessionEnds.length,
+
+      termination_reasons: {},
+      failure_patterns: {
+        premature_termination: 0,
+        repetitive_actions: 0,
+        stuck_loop: 0,
+        hardcoded_arguments: 0,
+        client_disconnect: 0,
+        fatal_error: 0,
+      },
+
+      most_common_failures: [],
+      example_failed_sessions: [],
+    };
+
+    // Count termination reasons
+    for (const endEvent of sessionEnds) {
+      const reason = endEvent.reason || 'unknown';
+      patterns.termination_reasons[reason] = (patterns.termination_reasons[reason] || 0) + 1;
+    }
+
+    // Analyze each session for failure patterns
+    for (const [sessionId, events] of sessionMap.entries()) {
+      const hasStart = events.some(e => e.type === 'autonomous_session_start');
+      const hasEnd = events.some(e => e.type === 'autonomous_session_end');
+      const endReason = events.find(e => e.type === 'autonomous_session_end')?.reason;
+
+      // Premature termination
+      if (hasStart && !hasEnd) {
+        patterns.failure_patterns.premature_termination++;
+        patterns.example_failed_sessions.push({
+          session_id: sessionId,
+          pattern: 'premature_termination',
+          evidence: 'No session_end event',
+        });
+      }
+
+      // Client disconnect
+      if (endReason === 'client_disconnect') {
+        patterns.failure_patterns.client_disconnect++;
+      }
+
+      // Repetitive actions
+      if (events.some(e => e.repetition_detected === true)) {
+        patterns.failure_patterns.repetitive_actions++;
+      }
+
+      // Stuck loop
+      if (events.some(e => e.assessment === 'stuck')) {
+        patterns.failure_patterns.stuck_loop++;
+      }
+    }
+
+    // Sort patterns by frequency
+    patterns.most_common_failures = Object.entries(patterns.failure_patterns)
+      .sort((a, b) => b[1] - a[1])
+      .map(([pattern, count]) => ({ pattern, count, percentage: ((count / patterns.total_sessions) * 100).toFixed(1) }));
+
+    return res.json({ ok: true, patterns });
+
+  } catch (error) {
+    console.error('[Autonomous] Failure patterns error:', error);
+    return res.status(500).json({ ok: false, error: 'failure_patterns_error', message: error?.message || String(error) });
+  }
+});
+
+// POST /api/autonomous/propose-fix - Propose code fixes for a given failure pattern
+app.post('/api/autonomous/propose-fix', async (req, res) => {
+  try {
+    const { failure_pattern, session_id, context } = req.body || {};
+
+    if (!failure_pattern) {
+      return res.status(400).json({ ok: false, error: 'missing_failure_pattern' });
+    }
+
+    const fixes = {
+      failure_pattern,
+      session_id: session_id || null,
+      proposed_fixes: [],
+      files_to_modify: [],
+      estimated_effort: 'unknown',
+      confidence: 0,
+    };
+
+    // Map failure patterns to concrete fixes
+    switch (failure_pattern) {
+      case 'premature_termination':
+        fixes.proposed_fixes.push({
+          title: 'Add finally block to run() method',
+          file: 'forgekeeper/frontend/core/agent/autonomous.mjs',
+          description: 'Wrap main loop in try-finally to always log session end',
+          code_change: 'try { while(true) {...} } finally { await contextLogEvents.emit({type: "autonomous_session_end", ...}) }',
+          estimated_lines: 30,
+        });
+        fixes.proposed_fixes.push({
+          title: 'Add client disconnect handler',
+          file: 'forgekeeper/frontend/server.mjs',
+          description: 'Detect when client cancels request and stop agent gracefully',
+          code_change: 'req.on("close", () => { agent.stopRequested = true; agent.terminationReason = "client_disconnect"; })',
+          estimated_lines: 8,
+        });
+        fixes.files_to_modify = ['forgekeeper/frontend/core/agent/autonomous.mjs', 'forgekeeper/frontend/server.mjs'];
+        fixes.estimated_effort = 'low (30 minutes)';
+        fixes.confidence = 0.95;
+        break;
+
+      case 'repetitive_actions':
+        fixes.proposed_fixes.push({
+          title: 'Lower repetition detection threshold',
+          file: 'forgekeeper/frontend/core/agent/autonomous.mjs',
+          description: 'Change threshold from >=2 to >=1 to block on first repetition',
+          code_change: 'if (recentCount >= 1) { // was: >= 2',
+          estimated_lines: 1,
+        });
+        fixes.files_to_modify = ['forgekeeper/frontend/core/agent/autonomous.mjs'];
+        fixes.estimated_effort = 'trivial (5 minutes)';
+        fixes.confidence = 1.0;
+        break;
+
+      case 'hardcoded_arguments':
+        fixes.proposed_fixes.push({
+          title: 'Context-aware argument inference',
+          file: 'forgekeeper/frontend/core/agent/autonomous.mjs',
+          description: 'Extract arguments from reflection context using regex or LLM',
+          code_change: 'const dirMatch = context.match(/\\b([a-z0-9_\\-\\/\\.]+)\\s+(?:directory|folder)/i); if (dirMatch) return { dir: dirMatch[1] };',
+          estimated_lines: 20,
+        });
+        fixes.files_to_modify = ['forgekeeper/frontend/core/agent/autonomous.mjs'];
+        fixes.estimated_effort = 'medium (1-2 hours)';
+        fixes.confidence = 0.8;
+        break;
+
+      case 'client_disconnect':
+        fixes.proposed_fixes.push({
+          title: 'Already fixed if you have client disconnect handler',
+          file: 'forgekeeper/frontend/server.mjs',
+          description: 'Client disconnects are now logged properly with finally block',
+          code_change: 'No code change needed if observability fixes are in place',
+          estimated_lines: 0,
+        });
+        fixes.estimated_effort = 'none (already fixed)';
+        fixes.confidence = 0.9;
+        break;
+
+      default:
+        fixes.proposed_fixes.push({
+          title: 'Unknown failure pattern',
+          description: `No automated fix available for pattern: ${failure_pattern}`,
+          code_change: 'Manual investigation required',
+          estimated_lines: 0,
+        });
+        fixes.estimated_effort = 'unknown';
+        fixes.confidence = 0;
+    }
+
+    return res.json({ ok: true, fixes });
+
+  } catch (error) {
+    console.error('[Autonomous] Propose fix error:', error);
+    return res.status(500).json({ ok: false, error: 'propose_fix_error', message: error?.message || String(error) });
   }
 });
 
