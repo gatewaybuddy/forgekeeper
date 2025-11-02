@@ -827,6 +827,101 @@ Respond with JSON only, matching the schema.`;
           },
         ];
       }
+    } else if (lower.includes('docker')) {
+      // Docker/container operations
+      let dockerCommand = 'docker ps';
+
+      if (lower.includes('build')) {
+        dockerCommand = 'docker build -t app .';
+      } else if (lower.includes('run')) {
+        dockerCommand = 'docker run -d app';
+      } else if (lower.includes('exec')) {
+        dockerCommand = 'docker exec -it $(docker ps -q) /bin/bash';
+      } else if (lower.includes('compose')) {
+        if (lower.includes('up')) {
+          dockerCommand = 'docker compose up -d';
+        } else if (lower.includes('down')) {
+          dockerCommand = 'docker compose down';
+        } else {
+          dockerCommand = 'docker compose ps';
+        }
+      } else if (lower.includes('ps') || lower.includes('list')) {
+        dockerCommand = 'docker ps';
+      } else if (lower.includes('stop')) {
+        dockerCommand = 'docker stop $(docker ps -q)';
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Execute Docker command: ${dockerCommand}`,
+          tool: 'run_bash',
+          args: { script: dockerCommand },
+          expected_outcome: 'Docker command executed',
+          error_handling: 'Check Docker is installed and running',
+          confidence: 0.8,
+        },
+      ];
+    } else if (lower.includes('move') || lower.includes('rename') || lower.includes('copy') || lower.includes('delete') || lower.includes('remove')) {
+      // File manipulation operations
+      let fileCommand = '';
+      let description = '';
+      const fileMatch = taskAction.match(/([a-z0-9_\-\.\/]+\.[a-z0-9]+)/i);
+      const file = fileMatch ? fileMatch[1] : 'file.txt';
+
+      if (lower.includes('move') || lower.includes('rename')) {
+        const destinationMatch = taskAction.match(/to\s+([a-z0-9_\-\.\/]+)/i);
+        const destination = destinationMatch ? destinationMatch[1] : `${file}.moved`;
+        fileCommand = `mv ${file} ${destination}`;
+        description = `Move/rename ${file} to ${destination}`;
+      } else if (lower.includes('copy')) {
+        const destinationMatch = taskAction.match(/to\s+([a-z0-9_\-\.\/]+)/i);
+        const destination = destinationMatch ? destinationMatch[1] : `${file}.copy`;
+        fileCommand = `cp ${file} ${destination}`;
+        description = `Copy ${file} to ${destination}`;
+      } else if (lower.includes('delete') || lower.includes('remove')) {
+        fileCommand = `rm ${file}`;
+        description = `Delete ${file}`;
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: description,
+          tool: 'run_bash',
+          args: { script: fileCommand },
+          expected_outcome: 'File operation completed',
+          error_handling: 'Check file exists and permissions',
+          confidence: 0.75,
+        },
+      ];
+    } else if (lower.includes('count') || lower.includes('how many')) {
+      // Count operations (lines, files, etc.)
+      let countCommand = 'ls -1 | wc -l';
+
+      if (lower.includes('lines')) {
+        const fileMatch = taskAction.match(/(?:in|of)\s+([a-z0-9_\-\.\/]+)/i);
+        const file = fileMatch ? fileMatch[1] : '*.txt';
+        countCommand = `wc -l ${file}`;
+      } else if (lower.includes('files')) {
+        countCommand = 'find . -type f | wc -l';
+      } else if (lower.includes('words')) {
+        const fileMatch = taskAction.match(/(?:in|of)\s+([a-z0-9_\-\.\/]+)/i);
+        const file = fileMatch ? fileMatch[1] : '*.txt';
+        countCommand = `wc -w ${file}`;
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Count using: ${countCommand}`,
+          tool: 'run_bash',
+          args: { script: countCommand },
+          expected_outcome: 'Count result displayed',
+          error_handling: 'Check files exist',
+          confidence: 0.8,
+        },
+      ];
     } else {
       // Generic fallback
       steps = [
