@@ -678,6 +678,155 @@ Respond with JSON only, matching the schema.`;
           confidence: 0.8,
         },
       ];
+    } else if (lower.includes('test') && (lower.includes('run') || lower.includes('execute'))) {
+      // Test execution task
+      let testCommand = 'npm test';
+
+      if (lower.includes('pytest')) {
+        testCommand = 'pytest';
+      } else if (lower.includes('jest')) {
+        testCommand = 'npm run test:jest || jest';
+      } else if (lower.includes('vitest')) {
+        testCommand = 'npm run test:vitest || vitest run';
+      } else if (lower.includes('mocha')) {
+        testCommand = 'npm run test:mocha || mocha';
+      } else if (lower.includes('npm')) {
+        testCommand = 'npm test';
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Run tests using ${testCommand}`,
+          tool: 'run_bash',
+          args: { script: testCommand },
+          expected_outcome: 'Tests executed and results displayed',
+          error_handling: 'Check test framework installed and test files exist',
+          confidence: 0.85,
+        },
+      ];
+    } else if (lower.includes('build') || lower.includes('compile')) {
+      // Build/compile task
+      let buildCommand = 'npm run build';
+
+      if (lower.includes('make')) {
+        buildCommand = 'make';
+      } else if (lower.includes('cargo')) {
+        buildCommand = 'cargo build';
+      } else if (lower.includes('maven') || lower.includes('mvn')) {
+        buildCommand = 'mvn package';
+      } else if (lower.includes('gradle')) {
+        buildCommand = 'gradle build';
+      } else if (lower.includes('tsc') || lower.includes('typescript')) {
+        buildCommand = 'npm run build || tsc';
+      } else if (lower.includes('vite')) {
+        buildCommand = 'npm run build || vite build';
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Build project using ${buildCommand}`,
+          tool: 'run_bash',
+          args: { script: buildCommand },
+          expected_outcome: 'Project built successfully',
+          error_handling: 'Check build configuration and dependencies',
+          confidence: 0.85,
+        },
+      ];
+    } else if (lower.includes('run') && (lower.includes('dev') || lower.includes('start') || lower.includes('serve'))) {
+      // Run/start development server task
+      let runCommand = 'npm run dev';
+
+      if (lower.includes('vite')) {
+        runCommand = 'npm run dev || vite';
+      } else if (lower.includes('next')) {
+        runCommand = 'npm run dev || next dev';
+      } else if (lower.includes('react')) {
+        runCommand = 'npm start || npm run dev';
+      } else if (lower.includes('python')) {
+        const scriptMatch = taskAction.match(/python\s+([a-z0-9_\-\.\/]+\.py)/i);
+        runCommand = scriptMatch ? `python ${scriptMatch[1]}` : 'python app.py';
+      } else if (lower.includes('node')) {
+        const scriptMatch = taskAction.match(/node\s+([a-z0-9_\-\.\/]+\.js)/i);
+        runCommand = scriptMatch ? `node ${scriptMatch[1]}` : 'node server.js';
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Start development server using ${runCommand}`,
+          tool: 'run_bash',
+          args: { script: runCommand },
+          expected_outcome: 'Development server running',
+          error_handling: 'Check port availability and dependencies',
+          confidence: 0.8,
+        },
+      ];
+    } else if (lower.includes('log') || lower.includes('debug') || lower.includes('error')) {
+      // Debug/log viewing task
+      let logCommand = 'tail -100 *.log';
+
+      if (lower.includes('npm')) {
+        logCommand = 'npm run dev 2>&1 | tail -100';
+      } else if (lower.includes('docker')) {
+        logCommand = 'docker logs $(docker ps -q) --tail 100';
+      } else if (lower.includes('tail')) {
+        const fileMatch = taskAction.match(/tail.*?([a-z0-9_\-\.\/]+\.log)/i);
+        logCommand = fileMatch ? `tail -100 ${fileMatch[1]}` : 'tail -100 *.log';
+      }
+
+      steps = [
+        {
+          step_number: 1,
+          description: `View logs using ${logCommand}`,
+          tool: 'run_bash',
+          args: { script: logCommand },
+          expected_outcome: 'Log contents displayed',
+          error_handling: 'Check if log files exist',
+          confidence: 0.75,
+        },
+      ];
+    } else if ((lower.includes('clone') || lower.includes('install')) && lower.includes('then')) {
+      // Multi-step: clone then install (complex workflow)
+      const urlMatch = taskAction.match(/https?:\/\/github\.com\/[\w-]+\/[\w-]+/);
+      const repoUrl = urlMatch ? urlMatch[0] : '';
+
+      if (repoUrl) {
+        steps = [
+          {
+            step_number: 1,
+            description: 'Clone repository',
+            tool: 'run_bash',
+            args: { script: `git clone ${repoUrl}` },
+            expected_outcome: 'Repository cloned',
+            error_handling: 'Check git is installed and URL is correct',
+            confidence: 0.8,
+          },
+          {
+            step_number: 2,
+            description: 'Install dependencies',
+            tool: 'run_bash',
+            args: { script: `cd $(basename ${repoUrl} .git) && npm install` },
+            expected_outcome: 'Dependencies installed',
+            error_handling: 'Check package.json exists',
+            confidence: 0.75,
+          },
+        ];
+      } else {
+        // Fallback to single install step
+        steps = [
+          {
+            step_number: 1,
+            description: 'Install dependencies',
+            tool: 'run_bash',
+            args: { script: 'npm install' },
+            expected_outcome: 'Dependencies installed',
+            error_handling: 'Check package.json exists',
+            confidence: 0.7,
+          },
+        ];
+      }
     } else {
       // Generic fallback
       steps = [
