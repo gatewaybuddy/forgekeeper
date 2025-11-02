@@ -590,6 +590,94 @@ Respond with JSON only, matching the schema.`;
           confidence: 0.8,
         },
       ];
+    } else if (lower.includes('read') && (lower.includes('file') || lower.match(/read\s+[a-z0-9_\-\.]+\.txt|\.md|\.json/i))) {
+      // Read file task
+      const filenameMatch = taskAction.match(/(?:file|read)\s+([a-z0-9_\-\.\/]+)/i);
+      const filename = filenameMatch ? filenameMatch[1] : 'README.md';
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Read file ${filename}`,
+          tool: 'read_file',
+          args: { file: filename },
+          expected_outcome: `File contents displayed`,
+          error_handling: 'Check if file exists and path is correct',
+          confidence: 0.8,
+        },
+      ];
+    } else if (lower.includes('search') || lower.includes('find') || lower.includes('grep')) {
+      // Search/find task
+      const searchTerm = taskAction.match(/(?:search|find|grep)\s+(?:for\s+)?["']?([^"'\s]+)["']?/i);
+      const term = searchTerm ? searchTerm[1] : '';
+
+      if (term) {
+        steps = [
+          {
+            step_number: 1,
+            description: `Search for "${term}" in codebase`,
+            tool: 'run_bash',
+            args: { script: `grep -r "${term}" . || find . -name "*${term}*"` },
+            expected_outcome: `Search results for "${term}"`,
+            error_handling: 'Try different search pattern or tool',
+            confidence: 0.7,
+          },
+        ];
+      } else {
+        steps = [
+          {
+            step_number: 1,
+            description: 'List current directory to help with search',
+            tool: 'read_dir',
+            args: { dir: '.' },
+            expected_outcome: 'Directory listing',
+            error_handling: 'Check permissions',
+            confidence: 0.6,
+          },
+        ];
+      }
+    } else if (lower.includes('git status') || lower.includes('git diff') || lower.includes('check changes')) {
+      // Git operations
+      if (lower.includes('diff')) {
+        steps = [
+          {
+            step_number: 1,
+            description: 'Show git diff',
+            tool: 'run_bash',
+            args: { script: 'git diff' },
+            expected_outcome: 'Git diff output',
+            error_handling: 'Check if in git repository',
+            confidence: 0.9,
+          },
+        ];
+      } else {
+        steps = [
+          {
+            step_number: 1,
+            description: 'Show git status',
+            tool: 'run_bash',
+            args: { script: 'git status' },
+            expected_outcome: 'Git status output',
+            error_handling: 'Check if in git repository',
+            confidence: 0.9,
+          },
+        ];
+      }
+    } else if (lower.includes('install') || lower.includes('npm') && lower.includes('install')) {
+      // Install/setup task
+      const isNpmInstall = lower.includes('npm');
+
+      steps = [
+        {
+          step_number: 1,
+          description: isNpmInstall ? 'Install npm dependencies' : 'Install dependencies',
+          tool: 'run_bash',
+          args: { script: isNpmInstall ? 'npm install' : 'echo "Specify package manager"' },
+          expected_outcome: 'Dependencies installed',
+          error_handling: 'Check package.json exists and permissions',
+          confidence: 0.8,
+        },
+      ];
     } else {
       // Generic fallback
       steps = [
