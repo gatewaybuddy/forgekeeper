@@ -97,8 +97,23 @@ export function createDiagnosticReflection(llmClient, model, config = {}) {
         response_format: { type: 'json_object' },
       });
 
-      // Parse structured diagnosis
-      const diagnosisData = JSON.parse(response.choices[0].message.content);
+      // Parse structured diagnosis (Phase 4 fix: handle malformed JSON)
+      let diagnosisData;
+      try {
+        const content = response.choices[0].message.content;
+
+        // Extract JSON from markdown code blocks if present
+        const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        const jsonStr = jsonMatch ? jsonMatch[1] : content;
+
+        diagnosisData = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error('[DiagnosticReflection] JSON parse error:', parseError.message);
+        console.error('[DiagnosticReflection] Raw content:', response.choices[0].message.content.substring(0, 200));
+
+        // Fall back to quick classification if JSON parsing fails
+        throw new Error(`JSON parse failed: ${parseError.message}`);
+      }
 
       // Build complete diagnosis object
       const diagnosis = {

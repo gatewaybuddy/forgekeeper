@@ -64,7 +64,10 @@ import { ulid } from 'ulid';
 export function createTaskPlanner(llmClient, model, config = {}) {
   const temperature = config.temperature || 0.2; // More deterministic
   const maxTokens = config.maxTokens || 1024;
-  const timeout = config.timeout || 3000; // 3 second timeout
+  // Increased from 3s to 15s for slower LLM backends (Phase 4 fix)
+  // Configurable via TASK_PLANNER_TIMEOUT_MS env var
+  const defaultTimeout = parseInt(process.env.TASK_PLANNER_TIMEOUT_MS || '15000', 10);
+  const timeout = config.timeout || defaultTimeout;
   const enableFallback = config.enableFallback !== false;
 
   /**
@@ -561,10 +564,30 @@ Respond with JSON only, matching the schema.`;
           step_number: 1,
           description: 'List directory contents',
           tool: 'read_dir',
-          args: { path: '.' },
+          args: { dir: '.' },
           expected_outcome: 'Directory listing displayed',
           error_handling: 'Check path and permissions',
           confidence: 0.9,
+        },
+      ];
+    } else if (lower.includes('write') || lower.includes('create') && (lower.includes('file') || lower.includes('.txt') || lower.includes('.md'))) {
+      // Extract filename from task
+      const filenameMatch = taskAction.match(/(?:file|called|named)\s+([a-z0-9_\-\.]+)/i);
+      const filename = filenameMatch ? filenameMatch[1] : 'output.txt';
+
+      // Extract content from task (text in quotes or after "with")
+      const contentMatch = taskAction.match(/(?:text|content)?\s*["']([^"']+)["']|with\s+(.+?)(?:\s+in\s+it)?$/i);
+      const content = contentMatch ? (contentMatch[1] || contentMatch[2] || 'Hello World') : 'Hello World';
+
+      steps = [
+        {
+          step_number: 1,
+          description: `Create file ${filename} with specified content`,
+          tool: 'write_file',
+          args: { file: filename, content: content.trim() },
+          expected_outcome: `File ${filename} created successfully`,
+          error_handling: 'Check permissions and file path',
+          confidence: 0.8,
         },
       ];
     } else {

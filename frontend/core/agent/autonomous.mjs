@@ -1419,15 +1419,16 @@ export class AutonomousAgent {
   inferToolArgs(tool, context) {
     // Simple arg inference
     // In production, this would be more sophisticated
+    // Parameter names MUST match actual tool schemas (Phase 4 fix)
     switch (tool) {
       case 'write_file':
-        return { path: 'output.txt', content: context };
+        return { file: 'output.txt', content: context };
       case 'read_file':
-        return { path: 'input.txt' };
+        return { file: 'input.txt' };
       case 'read_dir':
-        return { path: '.' };
+        return { dir: '.' };
       case 'run_bash':
-        return { command: 'echo "TODO"' };
+        return { script: 'echo "TODO"' };
       default:
         return {};
     }
