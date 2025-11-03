@@ -26,6 +26,7 @@ import { ProgressTracker } from './progress-tracker.mjs'; // [Phase 1] Status-ba
 import { ConcurrentStatusChecker } from './concurrent-status-checker.mjs'; // [Phase 1] Status-based timeout - verify stuck vs slow
 import { SelfEvaluator } from './self-evaluator.mjs'; // Enhanced self-evaluation and meta-cognitive monitoring
 import { createAlternativeGenerator } from './alternative-generator.mjs'; // [Phase 6.1] Multi-alternative planning
+import { createEffortEstimator } from './effort-estimator.mjs'; // [Phase 6.2] Effort estimation
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -123,6 +124,17 @@ export class AutonomousAgent {
         maxTokens: 2000,
       }
     );
+
+    // Effort estimator for complexity/risk/iteration estimation [Phase 6.2]
+    this.effortEstimator = createEffortEstimator(this.episodicMemory, {
+      baseIterationEstimate: 2,
+      maxIterationEstimate: 20,
+      riskThresholds: {
+        low: 3.0,
+        medium: 6.0,
+        high: 10.0,
+      },
+    });
   }
 
   /**
@@ -471,8 +483,70 @@ export class AutonomousAgent {
               confidence: alt.confidence,
             })),
           });
+
+          // [Phase 6.2] Step 2.6: Estimate effort for each alternative
+          console.log('[AutonomousAgent] Estimating effort for alternatives...');
+          const effortEstimates = await this.effortEstimator.estimateAllEfforts(
+            alternatives.alternatives,
+            {
+              taskGoal: task,
+              availableTools: executor.availableTools || [],
+              cwd: this.playgroundRoot,
+              recentFailures: this.state.history
+                .slice(-5)
+                .filter(h => h.error)
+                .map(h => ({
+                  action: h.action,
+                  tool: h.tool,
+                  error: h.error,
+                })),
+            }
+          );
+
+          console.log(`[AutonomousAgent] Estimated effort for ${effortEstimates.length} alternatives`);
+
+          // Log effort estimates for visibility
+          for (let i = 0; i < effortEstimates.length; i++) {
+            const est = effortEstimates[i];
+            console.log(`  ${i + 1}. ${est.alternativeName}`);
+            console.log(`     Complexity: ${est.complexity.complexityLevel} (${est.complexity.complexityScore.toFixed(1)})`);
+            console.log(`     Risk: ${est.risk.riskLevel} (${est.risk.riskScore.toFixed(1)})`);
+            console.log(`     Iterations: ${est.iterations.estimate} (${est.iterations.min}-${est.iterations.max})`);
+          }
+
+          // Emit effort estimates to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'effort_estimates',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'system',
+            act: 'effort_estimation',
+            action: reflection.next_action,
+            num_estimates: effortEstimates.length,
+            estimates: effortEstimates.map(est => ({
+              alternativeId: est.alternativeId,
+              alternativeName: est.alternativeName,
+              complexity: {
+                level: est.complexity.complexityLevel,
+                score: est.complexity.complexityScore,
+              },
+              risk: {
+                level: est.risk.riskLevel,
+                score: est.risk.riskScore,
+              },
+              iterations: {
+                estimate: est.iterations.estimate,
+                min: est.iterations.min,
+                max: est.iterations.max,
+              },
+            })),
+          });
         } catch (err) {
-          console.warn('[AutonomousAgent] Failed to generate alternatives:', err.message);
+          console.warn('[AutonomousAgent] Failed to generate alternatives or estimate effort:', err.message);
           // Continue without alternatives (fallback to existing task planner)
         }
 
