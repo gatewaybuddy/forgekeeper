@@ -24,6 +24,7 @@ import { createTaskPlanner } from './task-planner.mjs'; // [T400] Intelligent ta
 import { createToolEffectivenessTracker } from './tool-effectiveness.mjs'; // [Phase 3] Cross-session learning
 import { ProgressTracker } from './progress-tracker.mjs'; // [Phase 1] Status-based timeout - track progress
 import { ConcurrentStatusChecker } from './concurrent-status-checker.mjs'; // [Phase 1] Status-based timeout - verify stuck vs slow
+import { SelfEvaluator } from './self-evaluator.mjs'; // Enhanced self-evaluation and meta-cognitive monitoring
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -130,6 +131,14 @@ export class AutonomousAgent {
 
     this.statusChecker = new ConcurrentStatusChecker(this.llmClient, this.model, {
       maxConcurrentChecks: 3, // Max 3 concurrent status checks
+    });
+
+    // Enhanced self-evaluation and meta-cognitive monitoring
+    this.selfEvaluator = new SelfEvaluator({
+      minSamplesForCalibration: 3,
+      overconfidenceThreshold: 0.3,
+      underconfidenceThreshold: 0.15,
+      patternMinOccurrences: 2,
     });
 
     // Initialize state
@@ -418,6 +427,57 @@ export class AutonomousAgent {
           next_action: reflection.next_action,
         });
 
+        // Risk assessment before execution
+        if (this.selfEvaluator) {
+          const riskAssessment = this.selfEvaluator.assessRisk(
+            {
+              action: reflection.next_action,
+              tool: reflection.tool_plan?.tool,
+              confidence: reflection.confidence,
+            },
+            {
+              consecutiveFailures: this.state.errors,
+              iteration: this.state.iteration,
+            }
+          );
+
+          if (riskAssessment.riskLevel !== 'low') {
+            console.warn(`[AutonomousAgent] Risk assessment: ${riskAssessment.riskLevel} (score: ${riskAssessment.riskScore})`);
+            for (const factor of riskAssessment.factors) {
+              console.warn(`  - ${factor.description}`);
+            }
+            console.warn(`  Recommendation: ${riskAssessment.recommendation}`);
+
+            // Log high-risk actions to ContextLog
+            if (riskAssessment.riskLevel === 'high') {
+              await contextLogEvents.emit({
+                id: ulid(),
+                type: 'high_risk_action',
+                ts: new Date().toISOString(),
+                conv_id: context.convId,
+                turn_id: context.turnId,
+                session_id: this.sessionId,
+                iteration: this.state.iteration,
+                actor: 'system',
+                act: 'risk_assessment',
+                risk_level: riskAssessment.riskLevel,
+                risk_score: riskAssessment.riskScore,
+                factors: JSON.stringify(riskAssessment.factors),
+                should_proceed: riskAssessment.shouldProceed,
+              });
+            }
+
+            // If risk is too high, consider skipping
+            if (!riskAssessment.shouldProceed) {
+              console.error('[AutonomousAgent] Risk too high - skipping action');
+              return {
+                ...this.buildResult('high_risk_action'),
+                riskAssessment,
+              };
+            }
+          }
+        }
+
         const executionResult = await this.executeIteration(
           reflection,
           executor,
@@ -498,6 +558,49 @@ export class AutonomousAgent {
           });
 
           console.log(`[AutonomousAgent] Meta-reflection: ${accuracyScores.overall_accuracy}% accuracy`);
+
+          // Record accuracy in self-evaluator for calibration
+          if (this.selfEvaluator) {
+            const success = !executionResult.summary.includes('ERROR');
+            this.selfEvaluator.recordAccuracy(
+              {
+                confidence: this.state.lastReflection.confidence,
+                progressEstimate: this.state.lastReflection.progress_percent,
+                action: this.state.lastReflection.next_action,
+                tool: this.state.lastReflection.tool_plan?.tool,
+              },
+              {
+                success,
+                progressActual: reflection.progress_percent,
+                result: executionResult.summary,
+              },
+              {
+                taskType: this.detectTaskType(this.state.task),
+                iteration: this.state.iteration - 1,
+              }
+            );
+
+            // Detect and record success/failure patterns
+            const iterationDetails = {
+              success,
+              toolsUsed: executionResult.tools_used,
+              reasoning: this.state.lastReflection.reasoning,
+              taskType: this.detectTaskType(this.state.task),
+              error: success ? null : { message: executionResult.summary },
+            };
+
+            if (success) {
+              const patterns = this.selfEvaluator.detectSuccessPatterns(iterationDetails);
+              if (patterns.length > 0) {
+                console.log(`[AutonomousAgent] Success pattern detected: ${patterns[0].pattern}`);
+              }
+            } else {
+              const patterns = this.selfEvaluator.detectFailurePatterns(iterationDetails);
+              if (patterns.length > 0) {
+                console.warn(`[AutonomousAgent] Failure pattern detected: ${patterns[0].pattern}`);
+              }
+            }
+          }
         }
 
         // Store current reflection for next iteration's comparison
@@ -717,10 +820,30 @@ export class AutonomousAgent {
       const reflection = JSON.parse(response.choices[0].message.content);
 
       // Validate and sanitize
+      const rawConfidence = Math.max(0, Math.min(1, reflection.confidence || 0));
+
+      // Calibrate confidence using historical accuracy
+      let calibratedConfidence = rawConfidence;
+      let calibrationReason = '';
+      if (this.selfEvaluator) {
+        const calibration = this.selfEvaluator.calibrateConfidence(rawConfidence, {
+          taskType: this.detectTaskType(this.state.task),
+          tool: reflection.tool_plan?.tool,
+        });
+        calibratedConfidence = calibration.calibrated;
+        calibrationReason = calibration.reason;
+
+        if (Math.abs(calibration.adjustment) > 0.05) {
+          console.log(`[AutonomousAgent] Confidence calibrated: ${(rawConfidence * 100).toFixed(0)}% → ${(calibratedConfidence * 100).toFixed(0)}% (${calibrationReason})`);
+        }
+      }
+
       return {
         assessment: reflection.assessment || 'continue',
         progress_percent: Math.max(0, Math.min(100, reflection.progress_percent || 0)),
-        confidence: Math.max(0, Math.min(1, reflection.confidence || 0)),
+        confidence: calibratedConfidence,
+        rawConfidence, // Keep original for debugging
+        calibrationReason,
         next_action: reflection.next_action || 'Continue working on task',
         reasoning: reflection.reasoning || '',
         tool_plan: reflection.tool_plan,
@@ -1921,6 +2044,9 @@ export class AutonomousAgent {
       ? reflectionAccuracyArr[reflectionAccuracyArr.length - 1].metaCritique
       : '';
 
+    // Enhanced self-evaluation guidance (confidence calibration, biases, patterns)
+    const selfEvalGuidance = this.selfEvaluator ? this.selfEvaluator.generateGuidance() : '';
+
     return `# Autonomous Task - Self-Assessment
 
 ## Original Task
@@ -1929,7 +2055,7 @@ ${st.task || ''}
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
 
-${toolRecommendationsText}${learningsText}${preferencesText}${episodesText}${successPatternsText}${lastCritique}${metaReflectionText}${planningFeedbackText}
+${toolRecommendationsText}${learningsText}${preferencesText}${episodesText}${successPatternsText}${lastCritique}${metaReflectionText}${planningFeedbackText}${selfEvalGuidance}
 ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
