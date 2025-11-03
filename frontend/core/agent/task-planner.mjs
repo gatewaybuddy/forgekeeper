@@ -65,9 +65,7 @@ export function createTaskPlanner(llmClient, model, config = {}) {
   const temperature = config.temperature || 0.2; // More deterministic
   const maxTokens = config.maxTokens || 1024;
   // Increased from 3s to 15s for slower LLM backends (Phase 4 fix)
-  // Configurable via TASK_PLANNER_TIMEOUT_MS env var
-  const defaultTimeout = parseInt(process.env.TASK_PLANNER_TIMEOUT_MS || '15000', 10);
-  const timeout = config.timeout || defaultTimeout;
+  // [Phase 3] Status-based timeout: No time limits, only connection error fallback
   const enableFallback = config.enableFallback !== false;
 
   /**
@@ -87,35 +85,30 @@ export function createTaskPlanner(llmClient, model, config = {}) {
     const prompt = buildPlanningPrompt(taskAction, context);
 
     try {
-      // Call LLM with timeout
-      const response = await Promise.race([
-        llmClient.chat({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: buildSystemPrompt(),
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature,
-          max_tokens: maxTokens,
-          response_format: {
-            type: 'json_schema',
-            json_schema: {
-              name: 'instruction_plan',
-              strict: true,
-              schema: getInstructionPlanSchema(),
-            },
+      // [Phase 3] Call LLM without timeout - let it take as long as needed
+      const response = await llmClient.chat({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: buildSystemPrompt(),
           },
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Planning timeout')), timeout)
-        ),
-      ]);
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'instruction_plan',
+            strict: true,
+            schema: getInstructionPlanSchema(),
+          },
+        },
+      });
 
       // Parse and validate response
       const planData = JSON.parse(response.choices[0].message.content);
@@ -157,27 +150,14 @@ export function createTaskPlanner(llmClient, model, config = {}) {
       const elapsedMs = Date.now() - startTime;
       console.error(`[TaskPlanner] ${planId}: Planning failed after ${elapsedMs}ms:`, error.message);
 
-      // Fallback to heuristic-based plan
-      if (enableFallback) {
-        console.log(`[TaskPlanner] ${planId}: Using fallback heuristic plan`);
-        return buildFallbackPlan(planId, taskAction, context, elapsedMs);
+      // [Phase 3] Only use fallback for connection errors, not timeouts
+      if (enableFallback && isConnectionError(error)) {
+        console.log(`[TaskPlanner] ${planId}: Using simplified LLM plan (connection issue)`);
+        return await generateSimplifiedPlan(planId, taskAction, context, elapsedMs);
       }
 
-      // If no fallback, return empty plan
-      return {
-        id: planId,
-        timestamp: new Date().toISOString(),
-        taskAction,
-        approach: 'Planning failed, no fallback available',
-        prerequisites: [],
-        steps: [],
-        verification: null,
-        alternatives: [],
-        overallConfidence: 0,
-        fallbackUsed: false,
-        planningTimeMs: elapsedMs,
-        error: error.message,
-      };
+      // For other errors, re-throw (let caller handle)
+      throw error;
     }
   }
 
@@ -950,6 +930,117 @@ Respond with JSON only, matching the schema.`;
       fallbackUsed: true,
       planningTimeMs: elapsedMs,
     };
+  }
+
+  /**
+   * [Phase 3] Check if error is a connection error (not a timeout)
+   *
+   * @param {Error} error
+   * @returns {boolean}
+   */
+  function isConnectionError(error) {
+    const code = String(error.code || '').toUpperCase();
+    const message = String(error.message || '').toLowerCase();
+
+    return (
+      code === 'ECONNREFUSED' ||
+      code === 'ETIMEDOUT' ||
+      code === 'ECONNRESET' ||
+      message.includes('fetch failed') ||
+      message.includes('network') ||
+      message.includes('connection')
+    );
+  }
+
+  /**
+   * [Phase 3] Generate a simplified plan using LLM (not regex!)
+   *
+   * Uses a minimal prompt to get a simple 1-2 step plan when full planning fails.
+   *
+   * @param {string} planId
+   * @param {string} taskAction
+   * @param {PlanningContext} context
+   * @param {number} elapsedMs
+   * @returns {Promise<InstructionPlan>}
+   */
+  async function generateSimplifiedPlan(planId, taskAction, context, elapsedMs) {
+    console.log(`[TaskPlanner] ${planId}: Attempting simplified LLM plan`);
+
+    const prompt = `Generate a SIMPLE 1-2 step plan for: "${taskAction}"
+
+Available tools: ${context.availableTools.join(', ')}
+
+Respond with JSON matching this structure:
+{
+  "approach": "brief description",
+  "steps": [
+    {
+      "step_number": 1,
+      "description": "what to do",
+      "tool": "tool_name",
+      "args": { "arg1": "value1" },
+      "expected_outcome": "what should happen",
+      "error_handling": "what to do if it fails",
+      "confidence": 0.7
+    }
+  ]
+}
+
+Use ONLY tools from the available tools list. Keep it simple - 1-2 steps maximum.`;
+
+    try {
+      const response = await llmClient.chat({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 400,
+        temperature: 0.1, // Very deterministic
+      });
+
+      const planData = JSON.parse(response.choices[0].message.content);
+
+      // Validate and return
+      return {
+        id: planId,
+        timestamp: new Date().toISOString(),
+        taskAction,
+        approach: planData.approach || 'Simplified plan',
+        prerequisites: [],
+        steps: planData.steps || [],
+        verification: null,
+        alternatives: [],
+        overallConfidence: 0.6, // Lower confidence for simplified plan
+        fallbackUsed: true,
+        planningTimeMs: Date.now() - (elapsedMs ? Date.now() - elapsedMs : Date.now()),
+      };
+    } catch (simplifiedError) {
+      console.error(`[TaskPlanner] ${planId}: Simplified plan also failed:`, simplifiedError.message);
+
+      // Last resort: echo tool (safe default)
+      return {
+        id: planId,
+        timestamp: new Date().toISOString(),
+        taskAction,
+        approach: 'Fallback plan - report planning failure',
+        prerequisites: [],
+        steps: [
+          {
+            step_number: 1,
+            description: `Unable to plan: ${taskAction}`,
+            tool: 'echo',
+            args: { message: `Planning failed for: ${taskAction}` },
+            expected_outcome: 'Error message displayed',
+            error_handling: 'Manual intervention required',
+            confidence: 0.3,
+          },
+        ],
+        verification: null,
+        alternatives: [],
+        overallConfidence: 0.3,
+        fallbackUsed: true,
+        planningTimeMs: Date.now() - (elapsedMs ? Date.now() - elapsedMs : Date.now()),
+        error: simplifiedError.message,
+      };
+    }
   }
 
   return {

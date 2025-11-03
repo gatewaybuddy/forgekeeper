@@ -100,9 +100,9 @@ export class AutonomousAgent {
     this.patternLearner = createPatternLearner(this.sessionMemory, this.episodicMemory);
 
     // Task planner for intelligent instruction generation [T400]
+    // [Phase 3] No timeout - uses status-based completion detection
     this.taskPlanner = createTaskPlanner(this.llmClient, this.model, {
-      enableFallback: true,
-      timeout: 30000, // 30 second timeout for planning (was 3s, too short for slower LLMs)
+      enableFallback: true, // Use simplified LLM plan on connection errors
     });
 
     // Tool effectiveness tracker for cross-session learning [Phase 3]
