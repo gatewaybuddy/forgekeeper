@@ -25,6 +25,7 @@ import { createToolEffectivenessTracker } from './tool-effectiveness.mjs'; // [P
 import { ProgressTracker } from './progress-tracker.mjs'; // [Phase 1] Status-based timeout - track progress
 import { ConcurrentStatusChecker } from './concurrent-status-checker.mjs'; // [Phase 1] Status-based timeout - verify stuck vs slow
 import { SelfEvaluator } from './self-evaluator.mjs'; // Enhanced self-evaluation and meta-cognitive monitoring
+import { createAlternativeGenerator } from './alternative-generator.mjs'; // [Phase 6.1] Multi-alternative planning
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -108,6 +109,20 @@ export class AutonomousAgent {
     // Tool effectiveness tracker for cross-session learning [Phase 3]
     this.toolEffectiveness = createToolEffectivenessTracker(this.playgroundRoot);
     this.toolRecommendations = null; // Populated on task start
+
+    // Alternative generator for proactive multi-alternative planning [Phase 6.1]
+    this.alternativeGenerator = createAlternativeGenerator(
+      this.llmClient,
+      this.model,
+      this.episodicMemory, // Use episodic memory for similar tasks
+      this.toolEffectiveness, // Use tool effectiveness for recommendations
+      {
+        minAlternatives: 3,
+        maxAlternatives: 5,
+        temperature: 0.7,
+        maxTokens: 2000,
+      }
+    );
   }
 
   /**
@@ -401,6 +416,64 @@ export class AutonomousAgent {
             this.state.noProgressCount = 0;
             this.state.lastProgressPercent = reflection.progress_percent;
           }
+        }
+
+        // [Phase 6.1] Step 2.5: Generate multiple alternative approaches
+        console.log('[AutonomousAgent] Generating alternative approaches...');
+        let alternatives = null;
+        try {
+          alternatives = await this.alternativeGenerator.generateAlternatives(
+            reflection.next_action,
+            {
+              taskGoal: task,
+              availableTools: executor.availableTools || [],
+              cwd: this.playgroundRoot,
+              recentFailures: this.state.history
+                .slice(-5)
+                .filter(h => h.error)
+                .map(h => ({
+                  action: h.action,
+                  tool: h.tool,
+                  error: h.error,
+                })),
+            }
+          );
+
+          console.log(`[AutonomousAgent] Generated ${alternatives.alternatives.length} alternatives`);
+
+          // Log alternatives for visibility
+          for (let i = 0; i < alternatives.alternatives.length; i++) {
+            const alt = alternatives.alternatives[i];
+            console.log(`  ${i + 1}. ${alt.name} (confidence: ${(alt.confidence * 100).toFixed(0)}%)`);
+            console.log(`     Steps: ${alt.steps.map(s => s.tool).join(' → ')}`);
+            console.log(`     Prerequisites: ${alt.prerequisites.join(', ') || 'none'}`);
+          }
+
+          // Emit alternatives to ContextLog for observability
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'alternatives_generated',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'system',
+            act: 'alternative_generation',
+            action: reflection.next_action,
+            num_alternatives: alternatives.alternatives.length,
+            generation_method: alternatives.generationMethod,
+            generation_id: alternatives.generationId,
+            alternatives: alternatives.alternatives.map(alt => ({
+              id: alt.id,
+              name: alt.name,
+              tools: alt.steps.map(s => s.tool),
+              confidence: alt.confidence,
+            })),
+          });
+        } catch (err) {
+          console.warn('[AutonomousAgent] Failed to generate alternatives:', err.message);
+          // Continue without alternatives (fallback to existing task planner)
         }
 
         // Step 3: Execute next action
