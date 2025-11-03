@@ -571,13 +571,13 @@ Respond with JSON only, matching the schema.`;
         },
       ];
     } else if (lower.includes('write') || lower.includes('create') && (lower.includes('file') || lower.includes('.txt') || lower.includes('.md'))) {
-      // Extract filename from task
-      const filenameMatch = taskAction.match(/(?:file|called|named)\s+([a-z0-9_\-\.]+)/i);
+      // Extract filename from task - support paths with slashes
+      const filenameMatch = taskAction.match(/(?:file|called|named)\s+([a-z0-9_\-\.\/]+)/i);
       const filename = filenameMatch ? filenameMatch[1] : 'output.txt';
 
-      // Extract content from task (text in quotes or after "with")
-      const contentMatch = taskAction.match(/(?:text|content)?\s*["']([^"']+)["']|with\s+(.+?)(?:\s+in\s+it)?$/i);
-      const content = contentMatch ? (contentMatch[1] || contentMatch[2] || 'Hello World') : 'Hello World';
+      // Extract content from task (text in quotes, or placeholder if pattern-based)
+      const contentMatch = taskAction.match(/(?:text|content)?\s*["']([^"']+)["']/i);
+      const content = contentMatch ? contentMatch[1] : 'TODO: Agent should provide content';
 
       steps = [
         {

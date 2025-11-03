@@ -18,6 +18,7 @@ import { createSessionMemory } from './core/agent/session-memory.mjs'; // [Day 1
 import { UserPreferenceSystem } from './core/agent/user-preferences.mjs'; // [Phase 5 Option D]
 import { createEpisodicMemory } from './core/agent/episodic-memory.mjs'; // [Phase 5 Option A]
 import { createPatternLearner } from './core/agent/pattern-learner.mjs'; // [T310]
+import { createResilientLLMClient } from './core/agent/resilient-llm-client.mjs'; // LLM retry with health checks
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1418,28 +1419,44 @@ app.post('/api/chat/autonomous', async (req, res) => {
 
     console.log(`[Autonomous] Starting session for task: "${task.slice(0, 100)}..."`);
 
+    // Create base LLM client
+    const baseLLMClient = {
+      chat: async (params) => {
+        const url = upstreamBase.replace(/\/$/, '') + '/chat/completions';
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...params,
+            model: mdl,
+          }),
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => '');
+          throw new Error(`LLM request failed: HTTP ${resp.status}: ${txt}`);
+        }
+
+        return await resp.json();
+      },
+    };
+
+    // Wrap with resilient client that handles backend restarts
+    const resilientLLMClient = createResilientLLMClient(
+      baseLLMClient,
+      targetOrigin, // Health check URL (e.g., http://localhost:8001)
+      {
+        maxRetries: 3,
+        enableHealthCheck: true,
+        onRetry: (attempt, error) => {
+          console.log(`[Autonomous] LLM call failed (attempt ${attempt}), backend may be restarting...`);
+        },
+      }
+    );
+
     // Create autonomous agent
     const agent = createAutonomousAgent({
-      llmClient: {
-        chat: async (params) => {
-          const url = upstreamBase.replace(/\/$/, '') + '/chat/completions';
-          const resp = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...params,
-              model: mdl,
-            }),
-          });
-
-          if (!resp.ok) {
-            const txt = await resp.text().catch(() => '');
-            throw new Error(`LLM request failed: HTTP ${resp.status}: ${txt}`);
-          }
-
-          return await resp.json();
-        },
-      },
+      llmClient: resilientLLMClient,
       model: mdl,
       maxIterations: max_iterations || 15,
       checkpointInterval: 5,
@@ -1650,9 +1667,9 @@ app.post('/api/chat/autonomous/resume', async (req, res) => {
     const playgroundRoot = process.env.AUTONOMOUS_PLAYGROUND_ROOT || '.forgekeeper/playground';
     const modelName = process.env.FRONTEND_VLLM_MODEL || 'core';
 
-    // Create agent and executor
-    const agent = createAutonomousAgent({
-      llmClient: { chat: async (opts) => {
+    // Create base LLM client
+    const baseLLMClient = {
+      chat: async (opts) => {
         const resp = await fetch(`${apiBase}/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1660,7 +1677,25 @@ app.post('/api/chat/autonomous/resume', async (req, res) => {
         });
         if (!resp.ok) throw new Error(`LLM request failed: ${resp.status}`);
         return await resp.json();
-      }},
+      }
+    };
+
+    // Wrap with resilient client that handles backend restarts
+    const resilientLLMClient = createResilientLLMClient(
+      baseLLMClient,
+      targetOrigin, // Health check URL (e.g., http://localhost:8001)
+      {
+        maxRetries: 3,
+        enableHealthCheck: true,
+        onRetry: (attempt, error) => {
+          console.log(`[Autonomous Resume] LLM call failed (attempt ${attempt}), backend may be restarting...`);
+        },
+      }
+    );
+
+    // Create agent and executor
+    const agent = createAutonomousAgent({
+      llmClient: resilientLLMClient,
       model: modelName,
       maxIterations: 15,
       checkpointInterval: 5,

@@ -99,7 +99,7 @@ export class AutonomousAgent {
     // Task planner for intelligent instruction generation [T400]
     this.taskPlanner = createTaskPlanner(this.llmClient, this.model, {
       enableFallback: true,
-      timeout: 3000, // 3 second timeout for planning
+      timeout: 30000, // 30 second timeout for planning (was 3s, too short for slower LLMs)
     });
 
     // Tool effectiveness tracker for cross-session learning [Phase 3]
@@ -1483,18 +1483,142 @@ export class AutonomousAgent {
    * @returns {Object}
    */
   inferToolArgs(tool, context) {
-    // Simple arg inference
-    // In production, this would be more sophisticated
-    // Parameter names MUST match actual tool schemas (Phase 4 fix)
+    // Context-aware argument inference using pattern matching
+    const contextStr = String(context || '').trim();
+
     switch (tool) {
-      case 'write_file':
-        return { file: 'output.txt', content: context };
-      case 'read_file':
-        return { file: 'input.txt' };
-      case 'read_dir':
-        return { dir: '.' };
-      case 'run_bash':
-        return { script: 'echo "TODO"' };
+      case 'write_file': {
+        // Extract file path - look for paths with extensions like .txt, .json, etc
+        let file = 'output.txt'; // default
+        let content = contextStr;
+
+        // Pattern 1: Look for any path ending in .ext (with forward slashes)
+        // Matches: frontend/AUTONOMOUS_DEPLOYMENT_TEST_MARKER.txt, src/index.js, etc.
+        const pathPattern = /([a-z0-9_\-]+(?:\/[a-z0-9_\-]+)*\.[a-z]{2,5})/i;
+        const pathMatch = contextStr.match(pathPattern);
+        if (pathMatch) {
+          file = pathMatch[1];
+        }
+
+        // For content, we won't use the whole context since it contains the instruction
+        // Default to a placeholder that indicates the agent needs to provide actual content
+        content = "TODO: Agent should provide content";
+
+        return { file, content };
+      }
+
+      case 'read_file': {
+        // Extract file path
+        let file = 'input.txt'; // default
+
+        const quotedPath = contextStr.match(/["']([^"']+\.[a-z]{2,5})["']/i);
+        if (quotedPath) {
+          file = quotedPath[1];
+        } else {
+          const unquotedPath = contextStr.match(/\b([a-z0-9_\-\/\.]+\.[a-z]{2,5})\b/i);
+          if (unquotedPath) {
+            file = unquotedPath[1];
+          } else {
+            const colonPath = contextStr.match(/file[:\s]+([a-z0-9_\-\/\.]+\.[a-z]{2,5})/i);
+            if (colonPath) {
+              file = colonPath[1];
+            }
+          }
+        }
+
+        return { file };
+      }
+
+      case 'read_dir': {
+        // Extract directory path
+        let dir = '.'; // default to current directory
+
+        // Pattern 1: "directory/path" or 'directory/path'
+        const quotedDir = contextStr.match(/["']([a-z0-9_\-\/\.]+\/?)["']/i);
+        if (quotedDir && !quotedDir[1].includes('.')) { // No extension = likely a directory
+          dir = quotedDir[1];
+        } else {
+          // Pattern 2: dir: path or directory: path
+          const colonDir = contextStr.match(/(?:dir|directory)[:\s]+([a-z0-9_\-\/\.]+)/i);
+          if (colonDir) {
+            dir = colonDir[1];
+          } else {
+            // Pattern 3: "list contents of X" or "list files in X"
+            const listMatch = contextStr.match(/(?:list|check|view|see).+?(?:of|in)\s+([a-z0-9_\-\/\.]+)/i);
+            if (listMatch) {
+              dir = listMatch[1];
+            }
+          }
+        }
+
+        return { dir };
+      }
+
+      case 'run_bash': {
+        // Extract bash command/script
+        let script = 'echo "TODO"'; // default
+
+        // Pattern 1: "command" or 'command'
+        const quotedCmd = contextStr.match(/["']([^"']+)["']/);
+        if (quotedCmd) {
+          script = quotedCmd[1];
+        } else {
+          // Pattern 2: script: command or command: command
+          const colonCmd = contextStr.match(/(?:script|command)[:\s]+(.+?)(?:\n|$)/i);
+          if (colonCmd) {
+            script = colonCmd[1].trim();
+          } else {
+            // Pattern 3: Just use the whole context if it looks like a command
+            if (contextStr.length < 200 && (
+              contextStr.includes('ls ') ||
+              contextStr.includes('cd ') ||
+              contextStr.includes('git ') ||
+              contextStr.includes('npm ') ||
+              contextStr.includes('docker ') ||
+              contextStr.includes('echo ')
+            )) {
+              script = contextStr;
+            }
+          }
+        }
+
+        return { script };
+      }
+
+      case 'git_add': {
+        // Extract files to stage
+        let files = ['.'];
+
+        const quotedFiles = contextStr.match(/["']([^"']+)["']/);
+        if (quotedFiles) {
+          files = [quotedFiles[1]];
+        } else {
+          const pathMatch = contextStr.match(/\b([a-z0-9_\-\/\.]+\.[a-z]{2,5})\b/i);
+          if (pathMatch) {
+            files = [pathMatch[1]];
+          }
+        }
+
+        return { files };
+      }
+
+      case 'git_commit': {
+        // Extract commit message
+        let message = 'Update';
+
+        const quotedMsg = contextStr.match(/["']([^"']+)["']/);
+        if (quotedMsg) {
+          message = quotedMsg[1];
+        } else {
+          const msgMatch = contextStr.match(/message[:\s]+(.+?)(?:\n\n|\n-|$)/is);
+          if (msgMatch) {
+            message = msgMatch[1].trim();
+          }
+        }
+
+        return { message };
+      }
+
       default:
         return {};
     }
