@@ -22,6 +22,8 @@ import { createRecoveryPlanner } from './recovery-planner.mjs'; // [T306] Recove
 import { createPatternLearner } from './pattern-learner.mjs'; // [T310] Pattern learning
 import { createTaskPlanner } from './task-planner.mjs'; // [T400] Intelligent task planning
 import { createToolEffectivenessTracker } from './tool-effectiveness.mjs'; // [Phase 3] Cross-session learning
+import { ProgressTracker } from './progress-tracker.mjs'; // [Phase 1] Status-based timeout - track progress
+import { ConcurrentStatusChecker } from './concurrent-status-checker.mjs'; // [Phase 1] Status-based timeout - verify stuck vs slow
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -119,6 +121,16 @@ export class AutonomousAgent {
     this.sessionId = ulid();
     this.stopRequested = false;
     this.terminationReason = null; // Track why session ended (for finally block)
+
+    // [Phase 1] Initialize progress tracking for status-based timeouts
+    this.progressTracker = new ProgressTracker(this.sessionId, {
+      heartbeatInterval: 10000, // 10s heartbeat interval
+      stuckThreshold: 5, // 5 heartbeats with no progress = stuck
+    });
+
+    this.statusChecker = new ConcurrentStatusChecker(this.llmClient, this.model, {
+      maxConcurrentChecks: 3, // Max 3 concurrent status checks
+    });
 
     // Initialize state
     this.state = {
@@ -222,6 +234,60 @@ export class AutonomousAgent {
 
         console.log(`\n[AutonomousAgent] Iteration ${this.state.iteration}/${this.maxIterations}`);
 
+        // [Phase 2] Heartbeat: Agent is alive and starting iteration
+        this.progressTracker.heartbeat({
+          iteration: this.state.iteration,
+          phase: 'iteration_start',
+        });
+
+        // [Phase 2] Stuck detection: Check every 5 iterations
+        if (this.state.iteration % 5 === 0 && this.progressTracker.isStuck()) {
+          console.warn('[AutonomousAgent] Progress tracker reports stuck condition (heartbeats but no state changes)');
+
+          // Start concurrent LLM status check (non-blocking)
+          const checkId = `stuck-check-${this.state.iteration}`;
+          const checkStarted = this.statusChecker.startCheck(checkId, {
+            sessionId: this.sessionId,
+            iteration: this.state.iteration,
+            recentActions: this.state.history.slice(-3).map(h => ({
+              action: h.action,
+              result: h.result?.slice(0, 100),
+            })),
+          });
+
+          if (checkStarted) {
+            console.log(`[AutonomousAgent] Started concurrent status check: ${checkId}`);
+
+            // Wait up to 5 seconds for LLM verification
+            const statusResult = await this.statusChecker.getLatestResult(checkId, 5000);
+
+            if (statusResult) {
+              console.log(`[AutonomousAgent] Status check result: ${statusResult.status} - ${statusResult.reason}`);
+
+              // If LLM confirms stuck (status 'B'), log to ContextLog
+              if (statusResult.status === 'B') {
+                console.error('[AutonomousAgent] LLM confirms agent is stuck in a loop');
+                await contextLogEvents.emit({
+                  id: ulid(),
+                  type: 'stuck_detected',
+                  ts: new Date().toISOString(),
+                  conv_id: context.convId,
+                  turn_id: context.turnId,
+                  session_id: this.sessionId,
+                  iteration: this.state.iteration,
+                  actor: 'system',
+                  act: 'stuck_detection',
+                  status: statusResult.status,
+                  reason: statusResult.reason,
+                  recent_actions: JSON.stringify(this.state.history.slice(-3)),
+                });
+
+                // Could potentially trigger recovery here, but for now just log
+              }
+            }
+          }
+        }
+
         // Check if user requested stop
         if (this.stopRequested) {
           console.log('[AutonomousAgent] Stop requested by user');
@@ -270,6 +336,16 @@ export class AutonomousAgent {
         const reflection = await this.reflect(context, executor);
 
         this.state.reflections.push(reflection);
+
+        // [Phase 2] State change: Reflection completed
+        this.progressTracker.stateChange({
+          type: 'reflection_complete',
+          data: {
+            assessment: reflection.assessment,
+            progress: reflection.progress_percent,
+            confidence: reflection.confidence,
+          },
+        });
 
         console.log(`[AutonomousAgent] Assessment: ${reflection.assessment}`);
         console.log(`[AutonomousAgent] Progress: ${reflection.progress_percent}%`);
@@ -321,6 +397,12 @@ export class AutonomousAgent {
         // Step 3: Execute next action
         console.log(`[AutonomousAgent] Executing: ${reflection.next_action}`);
 
+        // [Phase 2] Heartbeat: Starting execution phase
+        this.progressTracker.heartbeat({
+          iteration: this.state.iteration,
+          phase: 'execution',
+        });
+
         // ✅ Log execution start (helps pinpoint exactly where failures occur)
         await contextLogEvents.emit({
           id: ulid(),
@@ -358,6 +440,15 @@ export class AutonomousAgent {
         });
 
         console.log(`[AutonomousAgent] Iteration complete. Tools used: ${executionResult.tools_used.join(', ')}`);
+
+        // [Phase 2] State change: Tool execution completed
+        this.progressTracker.stateChange({
+          type: 'tool_execution_complete',
+          data: {
+            tools_used: executionResult.tools_used,
+            summary: executionResult.summary?.slice(0, 100),
+          },
+        });
 
         // [Phase 2] Meta-Reflection: Score accuracy of previous reflection
         if (this.state.lastReflection) {
@@ -1185,15 +1276,19 @@ export class AutonomousAgent {
    * @returns {Array}
    */
   inferToolsFromAction(action) {
-    const lower = action.toLowerCase();
+    const actionStr = String(action || '');
+    const lower = actionStr.toLowerCase();
     const steps = [];
 
     // [Day 9] Exploratory task - multi-tool search plan
-    const taskType = this.detectTaskType(this.state.task);
+    const _state = (this && this.state) ? this.state : {};
+    const taskStr = String(_state.task || actionStr);
+    const iteration = Number(_state.iteration ?? 1);
+    const taskType = this.detectTaskType(taskStr);
 
-    if (taskType === 'exploratory' && this.state.iteration <= 3) {
+    if (taskType === 'exploratory' && iteration <= 3) {
       // First 3 iterations: cast a wide net with multiple tools
-      const keywords = this.extractKeywords(this.state.task);
+      const keywords = this.extractKeywords(taskStr);
 
       // Always start with directory exploration
       steps.push({
@@ -1632,11 +1727,12 @@ export class AutonomousAgent {
    * @returns {Array<string>}
    */
   extractKeywords(task) {
-    const lower = task.toLowerCase();
+    const safe = String(task || '');
+    const lower = safe.toLowerCase();
     const keywords = [];
 
     // Extract quoted terms (highest priority)
-    const quotedMatches = task.match(/"([^"]+)"/g);
+    const quotedMatches = safe.match(/"([^"]+)"/g);
     if (quotedMatches) {
       quotedMatches.forEach(match => {
         keywords.push(match.replace(/"/g, ''));
@@ -1658,7 +1754,7 @@ export class AutonomousAgent {
     });
 
     // Extract words that look like file patterns or specific nouns
-    const words = task.split(/\s+/);
+    const words = safe.split(/\s+/);
     words.forEach(word => {
       const cleaned = word.toLowerCase().replace(/[^a-z0-9_\-\.]/g, '');
       if (cleaned.length >= 4 && !keywords.includes(cleaned)) {
@@ -1743,16 +1839,22 @@ export class AutonomousAgent {
    * @returns {string}
    */
   buildReflectionPrompt(executor) {
+    const st = this.state || {};
+    const historyArr = Array.isArray(st.history) ? st.history : [];
+    const artifactsArr = Array.isArray(st.artifacts) ? st.artifacts : [];
+    const reflectionAccuracyArr = Array.isArray(st.reflectionAccuracy) ? st.reflectionAccuracy : [];
+
     // [Phase 1] Increase history depth to 10 iterations with full reasoning
-    const historyText = this.state.history.length > 0
-      ? this.state.history.slice(-10).map((h, i) => {
+    const historyText = historyArr.length > 0
+      ? historyArr.slice(-10).map((h, i) => {
           const iter = h.iteration;
           let text = `### Iteration ${iter}\n`;
           text += `**Action**: ${h.action}\n`;
 
           // [Phase 1] Include reasoning from previous reflection
           if (h.reasoning) {
-            text += `**My Reasoning**: "${h.reasoning.slice(0, 300)}${h.reasoning.length > 300 ? '...' : ''}"\n`;
+            const r = String(h.reasoning);
+            text += `**My Reasoning**: "${r.slice(0, 300)}${r.length > 300 ? '...' : ''}"\n`;
           }
 
           // [Phase 1] Show assessment and confidence
@@ -1760,7 +1862,10 @@ export class AutonomousAgent {
             text += `**Assessment**: ${h.assessment} | **Confidence**: ${h.confidence} | **Progress**: ${h.progress}%\n`;
           }
 
-          text += `**Result**: ${h.result.slice(0, 300)}${h.result.length > 300 ? '...' : ''}`;
+          if (h.result != null) {
+            const resStr = String(h.result);
+            text += `**Result**: ${resStr.slice(0, 300)}${resStr.length > 300 ? '...' : ''}`;
+          }
 
           // [Phase 1] Show tools used
           if (h.tools_used && h.tools_used.length > 0) {
@@ -1771,8 +1876,8 @@ export class AutonomousAgent {
         }).join('\n\n')
       : '(No iterations yet)';
 
-    const artifactsText = this.state.artifacts.length > 0
-      ? this.state.artifacts.map(a => `- ${a.type}: ${a.path}`).join('\n')
+    const artifactsText = artifactsArr.length > 0
+      ? artifactsArr.map(a => `- ${a.type}: ${a.path}`).join('\n')
       : '(No artifacts created yet)';
 
     // Build available tools list from executor's registry
@@ -1783,7 +1888,7 @@ export class AutonomousAgent {
       : '(Tools list not available)';
 
     // Detect task type for specialized guidance
-    const taskType = this.detectTaskType(this.state.task);
+    const taskType = this.detectTaskType(st.task);
     const taskGuidance = this.getTaskTypeGuidance(taskType);
 
     // [Day 10] Add comprehensive learnings (successes + historical failures)
@@ -1812,14 +1917,14 @@ export class AutonomousAgent {
     const toolRecommendationsText = this.buildToolRecommendationsGuidance();
 
     // [Phase 2] Add last iteration's critique if available
-    const lastCritique = this.state.reflectionAccuracy.length > 0
-      ? this.state.reflectionAccuracy[this.state.reflectionAccuracy.length - 1].metaCritique
+    const lastCritique = reflectionAccuracyArr.length > 0
+      ? reflectionAccuracyArr[reflectionAccuracyArr.length - 1].metaCritique
       : '';
 
     return `# Autonomous Task - Self-Assessment
 
 ## Original Task
-${this.state.task}
+${st.task || ''}
 
 ## Task Type Detected: ${taskType}
 ${taskGuidance}
@@ -1829,10 +1934,10 @@ ${this.buildFailureWarnings()}
 ${this.buildRepetitionWarning()}
 
 ## Current State
-- **Iteration**: ${this.state.iteration} / ${this.maxIterations}
-- **Previous Progress**: ${this.state.lastProgressPercent}%
-- **Artifacts Created**: ${this.state.artifacts.length}
-- **Errors Encountered**: ${this.state.errors}
+- **Iteration**: ${st.iteration ?? 0} / ${this.maxIterations}
+- **Previous Progress**: ${st.lastProgressPercent ?? 0}%
+- **Artifacts Created**: ${artifactsArr.length}
+- **Errors Encountered**: ${st.errors ?? 0}
 
 ## What You've Done So Far
 ${historyText}
@@ -1895,12 +2000,13 @@ Respond with JSON only:
    * @returns {string}
    */
   buildFailureWarnings() {
-    if (this.state.recentFailures.length === 0) return '';
+    const failures = (this && this.state && Array.isArray(this.state.recentFailures)) ? this.state.recentFailures : [];
+    if (failures.length === 0) return '';
 
     let warnings = `\n## ⚠️  Recent Failures - DO NOT REPEAT\n\n`;
     warnings += `The following actions FAILED recently. You MUST try a DIFFERENT approach:\n\n`;
 
-    this.state.recentFailures.forEach((failure, idx) => {
+    failures.forEach((failure, idx) => {
       warnings += `${idx + 1}. **${failure.tool}** with args \`${JSON.stringify(failure.args).slice(0, 60)}...\`\n`;
       warnings += `   Error: ${failure.error}\n`;
 
@@ -2524,7 +2630,9 @@ Use these learnings to inform your approach.
    * @returns {string}
    */
   detectTaskType(task) {
-    const lower = task.toLowerCase();
+    const safe = String(task || '');
+    const lower = safe.toLowerCase();
+    if (!safe.trim()) return 'simple';
 
     // [Day 9] Exploratory/uncertain tasks (check FIRST - highest priority for vague tasks)
     const exploratoryPatterns = [
@@ -2892,6 +3000,48 @@ Use these learnings to inform your approach.
         reflections: this.state.reflections,
       },
     };
+  }
+
+  /**
+   * Get current progress tracking status
+   * [Phase 2] Status-based timeout system
+   *
+   * @returns {Object} Progress status (alive, stuck, uptime, etc.)
+   */
+  getProgress() {
+    if (!this.progressTracker) {
+      return { error: 'Progress tracker not initialized' };
+    }
+    return this.progressTracker.getStatus();
+  }
+
+  /**
+   * Check status of a concurrent status check
+   * [Phase 2] Status-based timeout system
+   *
+   * @param {string} checkId - Check ID
+   * @param {number} waitMs - Optional wait time in milliseconds (default 0)
+   * @returns {Promise<Object|null>} Status check result or null
+   */
+  async checkStatus(checkId, waitMs = 0) {
+    if (!this.statusChecker) {
+      return null;
+    }
+    return await this.statusChecker.getLatestResult(checkId, waitMs);
+  }
+
+  /**
+   * Get progress history (recent heartbeats and state changes)
+   * [Phase 2] Status-based timeout system
+   *
+   * @param {number} count - Number of entries to retrieve (default 10)
+   * @returns {Object} Progress history
+   */
+  getProgressHistory(count = 10) {
+    if (!this.progressTracker) {
+      return { error: 'Progress tracker not initialized' };
+    }
+    return this.progressTracker.getHistory(count);
   }
 
   /**
