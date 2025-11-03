@@ -29,6 +29,10 @@ import { createAlternativeGenerator } from './alternative-generator.mjs'; // [Ph
 import { createEffortEstimator } from './effort-estimator.mjs'; // [Phase 6.2] Effort estimation
 import { createPlanAlignmentChecker } from './plan-alignment-checker.mjs'; // [Phase 6.3] Plan alignment
 import { createAlternativeEvaluator } from './alternative-evaluator.mjs'; // [Phase 6.4] Alternative evaluation
+import { createTaskGraphBuilder } from './task-graph-builder.mjs'; // [Phase 7.1] Multi-step task graphs
+import { createMultiStepEvaluator } from './multi-step-evaluator.mjs'; // [Phase 7.2] Path evaluation
+import { createOutcomeTracker } from './outcome-tracker.mjs'; // [Phase 7.3] Outcome tracking
+import { createWeightLearner } from './weight-learner.mjs'; // [Phase 7.4] Adaptive weight learning
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -159,6 +163,42 @@ export class AutonomousAgent {
         confidence: 0.10,  // 10% weight on confidence (higher is better)
       },
     });
+
+    // [Phase 7] Multi-Step Lookahead & Learning
+    // Enable/disable multi-step planning
+    this.enableMultiStepLookahead = config.enableMultiStepLookahead !== false; // Default: enabled
+
+    // Outcome tracker for recording results [Phase 7.3]
+    this.outcomeTracker = createOutcomeTracker({
+      outcomesDir: path.join(this.playgroundRoot, 'learning'),
+    });
+
+    // Weight learner for adaptive weights [Phase 7.4]
+    this.weightLearner = createWeightLearner(this.outcomeTracker, {
+      learningRate: 0.1,
+      minOutcomes: 10,
+      blendThreshold: 50,
+    });
+
+    // Task graph builder for multi-step planning [Phase 7.1]
+    this.taskGraphBuilder = createTaskGraphBuilder(this.alternativeGenerator, {
+      maxDepth: 2,              // Look ahead 2 steps (3 = too slow)
+      maxBranches: 2,           // Keep top 2 alternatives per level
+      maxPaths: 10,             // Limit total paths to evaluate
+      pruneThreshold: {
+        minConfidence: 0.3,
+      },
+    });
+
+    // Multi-step evaluator for path evaluation [Phase 7.2]
+    this.multiStepEvaluator = createMultiStepEvaluator(
+      this.effortEstimator,
+      this.planAlignmentChecker,
+      {
+        riskAggregation: 'max',    // Use max risk (weakest link)
+        compoundFactor: 1.2,        // 20% complexity increase for multi-step
+      }
+    );
   }
 
   /**
@@ -214,6 +254,8 @@ export class AutonomousAgent {
       planningFeedback: [], // Tracks planner accuracy over time
       // [Phase 6.5] Chosen alternative from proactive planning
       chosenAlternative: null,
+      // [Phase 7.3] Chosen alternative with weights for outcome tracking
+      chosenAlternativeForOutcome: null,
     };
 
     // Load past learnings for this task type (successes + failures) [Day 10]
@@ -614,9 +656,35 @@ export class AutonomousAgent {
             })),
           });
 
+          // [Phase 7.4] Learn optimal weights from historical outcomes
+          let weightsToUse = {
+            effort: 0.35,
+            risk: 0.25,
+            alignment: 0.30,
+            confidence: 0.10,
+          };
+
+          try {
+            const taskCategory = this.outcomeTracker.categorizeTask(task);
+            console.log(`[AutonomousAgent] [Phase 7.4] Task category: "${taskCategory}"`);
+
+            const learnedResult = await this.weightLearner.learnWeights(taskCategory);
+
+            if (learnedResult.method !== 'default') {
+              weightsToUse = learnedResult.weights;
+              console.log(`[AutonomousAgent] [Phase 7.4] Using ${learnedResult.method} weights (${learnedResult.dataPoints} outcomes, ${(learnedResult.confidence * 100).toFixed(0)}% confidence)`);
+              console.log(`[AutonomousAgent] [Phase 7.4] Weights: effort=${weightsToUse.effort.toFixed(2)}, risk=${weightsToUse.risk.toFixed(2)}, alignment=${weightsToUse.alignment.toFixed(2)}, confidence=${weightsToUse.confidence.toFixed(2)}`);
+            }
+          } catch (err) {
+            console.warn(`[AutonomousAgent] Failed to learn weights, using defaults:`, err.message);
+          }
+
+          // Create evaluator with learned weights
+          const evaluator = createAlternativeEvaluator({ weights: weightsToUse });
+
           // [Phase 6.4] Step 2.8: Evaluate and rank alternatives
           console.log('[AutonomousAgent] Evaluating alternatives...');
-          const evaluation = this.alternativeEvaluator.evaluateAlternatives(
+          const evaluation = evaluator.evaluateAlternatives(
             alternatives.alternatives,
             effortEstimates,
             alignmentResults
@@ -627,6 +695,12 @@ export class AutonomousAgent {
 
           // [Phase 6.5] Store chosen alternative for execution
           this.state.chosenAlternative = evaluation.chosen;
+
+          // [Phase 7.3] Store chosen alternative with weights for outcome tracking
+          this.state.chosenAlternativeForOutcome = {
+            ...evaluation.chosen,
+            weights: weightsToUse,
+          };
 
           // Log evaluation results for visibility
           for (let i = 0; i < Math.min(evaluation.rankedAlternatives.length, 3); i++) {
@@ -768,6 +842,38 @@ export class AutonomousAgent {
         });
 
         console.log(`[AutonomousAgent] Iteration complete. Tools used: ${executionResult.tools_used.join(', ')}`);
+
+        // [Phase 7.3] Record outcome for learning
+        if (this.state.chosenAlternativeForOutcome) {
+          try {
+            const outcome = {
+              sessionId: this.sessionId,
+              convId: context.convId,
+              iteration: this.state.iteration,
+              taskGoal: task,
+              taskCategory: this.outcomeTracker.categorizeTask(task),
+              alternativeId: this.state.chosenAlternativeForOutcome.alternativeId,
+              alternativeName: this.state.chosenAlternativeForOutcome.alternativeName,
+              weights: this.state.chosenAlternativeForOutcome.weights || weightsToUse,
+              overallScore: this.state.chosenAlternativeForOutcome.overall_score,
+              effort: this.state.chosenAlternativeForOutcome.raw_metrics?.complexity || 5.0,
+              risk: this.state.chosenAlternativeForOutcome.raw_metrics?.risk || 5.0,
+              alignment: this.state.chosenAlternativeForOutcome.raw_metrics?.alignment || 0.5,
+              confidence: this.state.chosenAlternativeForOutcome.raw_metrics?.confidence || 0.5,
+              outcome: executionResult.error ? 'failure' : 'success',
+              actualIterations: this.state.iteration,
+              elapsedMs: Date.now() - this.startTime,
+              failureReason: executionResult.error || null,
+            };
+
+            await this.outcomeTracker.recordOutcome(outcome);
+
+            // Clear after recording
+            this.state.chosenAlternativeForOutcome = null;
+          } catch (err) {
+            console.warn(`[AutonomousAgent] Failed to record outcome:`, err.message);
+          }
+        }
 
         // [Phase 2] State change: Tool execution completed
         this.progressTracker.stateChange({
