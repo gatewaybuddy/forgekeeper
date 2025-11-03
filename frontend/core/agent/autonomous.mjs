@@ -27,6 +27,7 @@ import { ConcurrentStatusChecker } from './concurrent-status-checker.mjs'; // [P
 import { SelfEvaluator } from './self-evaluator.mjs'; // Enhanced self-evaluation and meta-cognitive monitoring
 import { createAlternativeGenerator } from './alternative-generator.mjs'; // [Phase 6.1] Multi-alternative planning
 import { createEffortEstimator } from './effort-estimator.mjs'; // [Phase 6.2] Effort estimation
+import { createPlanAlignmentChecker } from './plan-alignment-checker.mjs'; // [Phase 6.3] Plan alignment
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -133,6 +134,18 @@ export class AutonomousAgent {
         low: 3.0,
         medium: 6.0,
         high: 10.0,
+      },
+    });
+
+    // Plan alignment checker for goal relevance evaluation [Phase 6.3]
+    this.planAlignmentChecker = createPlanAlignmentChecker(this.llmClient, this.model, {
+      useLLM: false, // Use heuristic-based for speed (can enable LLM later)
+      temperature: 0.2,
+      maxTokens: 500,
+      alignmentThresholds: {
+        low: 0.3,
+        medium: 0.6,
+        high: 1.0,
       },
     });
   }
@@ -545,8 +558,50 @@ export class AutonomousAgent {
               },
             })),
           });
+
+          // [Phase 6.3] Step 2.7: Check plan alignment for each alternative
+          console.log('[AutonomousAgent] Checking plan alignment...');
+          const alignmentResults = await this.planAlignmentChecker.checkAllAlignments(
+            alternatives.alternatives,
+            {
+              taskGoal: task,
+              cwd: this.playgroundRoot,
+            }
+          );
+
+          console.log(`[AutonomousAgent] Checked alignment for ${alignmentResults.length} alternatives`);
+
+          // Log alignment results for visibility
+          for (let i = 0; i < alignmentResults.length; i++) {
+            const align = alignmentResults[i];
+            console.log(`  ${i + 1}. ${align.alternativeName}`);
+            console.log(`     Alignment: ${align.relevance} (${align.alignmentScore.toFixed(2)})`);
+            console.log(`     Contribution: ${align.contribution}`);
+          }
+
+          // Emit alignment results to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'alignment_checks',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'system',
+            act: 'alignment_checking',
+            action: reflection.next_action,
+            num_results: alignmentResults.length,
+            alignments: alignmentResults.map(align => ({
+              alternativeId: align.alternativeId,
+              alternativeName: align.alternativeName,
+              alignmentScore: align.alignmentScore,
+              relevance: align.relevance,
+              contribution: align.contribution,
+            })),
+          });
         } catch (err) {
-          console.warn('[AutonomousAgent] Failed to generate alternatives or estimate effort:', err.message);
+          console.warn('[AutonomousAgent] Failed to generate alternatives, estimate effort, or check alignment:', err.message);
           // Continue without alternatives (fallback to existing task planner)
         }
 
