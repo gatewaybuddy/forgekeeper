@@ -213,6 +213,7 @@ export class AutonomousAgent {
     this.sessionId = ulid();
     this.stopRequested = false;
     this.terminationReason = null; // Track why session ended (for finally block)
+    this.startTime = Date.now(); // [Phase 7.3] Track start time for outcome tracking
 
     // [Phase 1] Initialize progress tracking for status-based timeouts
     this.progressTracker = new ProgressTracker(this.sessionId, {
@@ -854,7 +855,7 @@ export class AutonomousAgent {
               taskCategory: this.outcomeTracker.categorizeTask(task),
               alternativeId: this.state.chosenAlternativeForOutcome.alternativeId,
               alternativeName: this.state.chosenAlternativeForOutcome.alternativeName,
-              weights: this.state.chosenAlternativeForOutcome.weights || weightsToUse,
+              weights: this.state.chosenAlternativeForOutcome.weights || { effort: 0.35, risk: 0.25, alignment: 0.30, confidence: 0.10 },
               overallScore: this.state.chosenAlternativeForOutcome.overall_score,
               effort: this.state.chosenAlternativeForOutcome.raw_metrics?.complexity || 5.0,
               risk: this.state.chosenAlternativeForOutcome.raw_metrics?.risk || 5.0,
