@@ -212,6 +212,8 @@ export class AutonomousAgent {
       lastReflection: null, // Previous reflection for comparison
       // [Phase 2] Planning feedback: track planner predictions vs reality
       planningFeedback: [], // Tracks planner accuracy over time
+      // [Phase 6.5] Chosen alternative from proactive planning
+      chosenAlternative: null,
     };
 
     // Load past learnings for this task type (successes + failures) [Day 10]
@@ -622,6 +624,9 @@ export class AutonomousAgent {
 
           console.log(`[AutonomousAgent] Ranked ${evaluation.rankedAlternatives.length} alternatives`);
           console.log(`[AutonomousAgent] Chosen: "${evaluation.chosen.alternativeName}"`);
+
+          // [Phase 6.5] Store chosen alternative for execution
+          this.state.chosenAlternative = evaluation.chosen;
 
           // Log evaluation results for visibility
           for (let i = 0; i < Math.min(evaluation.rankedAlternatives.length, 3); i++) {
@@ -1139,72 +1144,111 @@ export class AutonomousAgent {
     this.state.toolDiversityNeeded = false;
     this.state.overusedTool = null;
 
-    // [T400] Planning Phase: Generate detailed instructions before execution
+    // [Phase 6.5] Check if we have a chosen alternative from proactive planning
     let plan = null;
     let instructionPlan = null;
     let planningUsed = false;
+    let chosenAlternativeUsed = false;
 
-    try {
-      const planningStartTime = Date.now();
+    if (this.state.chosenAlternative) {
+      // Use the chosen alternative's steps instead of task planner
+      console.log(`[AutonomousAgent] [Phase 6.5] Using chosen alternative: "${this.state.chosenAlternative.alternativeName}"`);
+      console.log(`[AutonomousAgent] [Phase 6.5] Justification: ${this.state.chosenAlternative.justification}`);
 
-      // Build context for planner
-      const planningContext = {
-        taskGoal: this.state.task,
-        availableTools: this.buildToolsList(executor),
-        cwd: this.playgroundRoot,
-        iteration: this.state.iteration,
-        previousActions: this.state.history.slice(-3).map(h => ({
-          action: h.action,
-          result: h.result,
-          tools_used: h.tools_used || [],
-        })),
-        recentFailures: this.state.recentFailures.slice(-3).map(f => ({
-          tool: f.tool,
-          args: f.args,
-          error: f.error,
-          diagnosis: f.diagnosis,
+      plan = {
+        steps: this.state.chosenAlternative.alternative.steps.map(step => ({
+          tool: step.tool,
+          args: step.args,
+          description: step.description,
+          expectedOutcome: step.expectedOutcome,
         })),
       };
 
-      // Generate instruction plan
-      instructionPlan = await this.taskPlanner.generateInstructions(
-        reflection.next_action,
-        planningContext
-      );
+      chosenAlternativeUsed = true;
 
-      const planningElapsedMs = Date.now() - planningStartTime;
+      // Log that we're using the chosen alternative
+      await contextLogEvents.emit({
+        id: ulid(),
+        type: 'chosen_alternative_execution',
+        ts: new Date().toISOString(),
+        conv_id: context.convId,
+        turn_id: context.turnId,
+        session_id: this.sessionId,
+        iteration: this.state.iteration,
+        actor: 'system',
+        act: 'alternative_execution',
+        alternative_id: this.state.chosenAlternative.alternativeId,
+        alternative_name: this.state.chosenAlternative.alternativeName,
+        overall_score: this.state.chosenAlternative.overall_score,
+        num_steps: plan.steps.length,
+      });
 
-      // Log planning phase to ContextLog
-      await contextLogEvents.emitPlanningPhase(
-        context.convId,
-        context.turnId,
-        this.state.iteration,
-        {
-          action: reflection.next_action,
-          planningTimeMs: planningElapsedMs,
-          stepsGenerated: instructionPlan.steps.length,
-          overallConfidence: instructionPlan.overallConfidence,
-          fallbackUsed: instructionPlan.fallbackUsed,
-          hasPreconditions: !!instructionPlan.prerequisites && instructionPlan.prerequisites.length > 0,
-          hasVerification: !!instructionPlan.verification,
+      // Clear the chosen alternative so we don't reuse it
+      this.state.chosenAlternative = null;
+    } else {
+      // [T400] Planning Phase: Generate detailed instructions before execution (fallback)
+      try {
+        const planningStartTime = Date.now();
+
+        // Build context for planner
+        const planningContext = {
+          taskGoal: this.state.task,
+          availableTools: this.buildToolsList(executor),
+          cwd: this.playgroundRoot,
+          iteration: this.state.iteration,
+          previousActions: this.state.history.slice(-3).map(h => ({
+            action: h.action,
+            result: h.result,
+            tools_used: h.tools_used || [],
+          })),
+          recentFailures: this.state.recentFailures.slice(-3).map(f => ({
+            tool: f.tool,
+            args: f.args,
+            error: f.error,
+            diagnosis: f.diagnosis,
+          })),
+        };
+
+        // Generate instruction plan
+        instructionPlan = await this.taskPlanner.generateInstructions(
+          reflection.next_action,
+          planningContext
+        );
+
+        const planningElapsedMs = Date.now() - planningStartTime;
+
+        // Log planning phase to ContextLog
+        await contextLogEvents.emitPlanningPhase(
+          context.convId,
+          context.turnId,
+          this.state.iteration,
+          {
+            action: reflection.next_action,
+            planningTimeMs: planningElapsedMs,
+            stepsGenerated: instructionPlan.steps.length,
+            overallConfidence: instructionPlan.overallConfidence,
+            fallbackUsed: instructionPlan.fallbackUsed,
+            hasPreconditions: !!instructionPlan.prerequisites && instructionPlan.prerequisites.length > 0,
+            hasVerification: !!instructionPlan.verification,
+          }
+        );
+
+        // Use instruction plan if confidence is reasonable
+        if (instructionPlan.overallConfidence >= 0.5) {
+          plan = this.convertInstructionsToPlan(instructionPlan);
+          planningUsed = true;
+          console.log(`[AutonomousAgent] Using task planner (confidence: ${(instructionPlan.overallConfidence * 100).toFixed(0)}%, ${instructionPlan.steps.length} steps)`);
+        } else {
+          console.log(`[AutonomousAgent] Task planner confidence too low (${(instructionPlan.overallConfidence * 100).toFixed(0)}%), falling back to heuristics`);
         }
-      );
-
-      // Use instruction plan if confidence is reasonable
-      if (instructionPlan.overallConfidence >= 0.5) {
-        plan = this.convertInstructionsToPlan(instructionPlan);
-        planningUsed = true;
-        console.log(`[AutonomousAgent] Using task planner (confidence: ${(instructionPlan.overallConfidence * 100).toFixed(0)}%, ${instructionPlan.steps.length} steps)`);
-      } else {
-        console.log(`[AutonomousAgent] Task planner confidence too low (${(instructionPlan.overallConfidence * 100).toFixed(0)}%), falling back to heuristics`);
+      } catch (error) {
+        console.warn('[AutonomousAgent] Task planning failed, using heuristics:', error.message);
       }
-    } catch (error) {
-      console.warn('[AutonomousAgent] Task planning failed, using heuristics:', error.message);
-    }
 
-    // Fallback to heuristic-based planning if task planner not used
-    if (!plan) {
-      plan = this.planExecution(reflection);
+      // Fallback to heuristic-based planning if task planner not used
+      if (!plan) {
+        plan = this.planExecution(reflection);
+      }
     }
 
     const toolsUsed = [];
