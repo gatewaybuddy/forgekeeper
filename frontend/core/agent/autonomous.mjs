@@ -28,6 +28,7 @@ import { SelfEvaluator } from './self-evaluator.mjs'; // Enhanced self-evaluatio
 import { createAlternativeGenerator } from './alternative-generator.mjs'; // [Phase 6.1] Multi-alternative planning
 import { createEffortEstimator } from './effort-estimator.mjs'; // [Phase 6.2] Effort estimation
 import { createPlanAlignmentChecker } from './plan-alignment-checker.mjs'; // [Phase 6.3] Plan alignment
+import { createAlternativeEvaluator } from './alternative-evaluator.mjs'; // [Phase 6.4] Alternative evaluation
 
 /**
  * @typedef {Object} AutonomousConfig
@@ -146,6 +147,16 @@ export class AutonomousAgent {
         low: 0.3,
         medium: 0.6,
         high: 1.0,
+      },
+    });
+
+    // Alternative evaluator for multi-criteria ranking [Phase 6.4]
+    this.alternativeEvaluator = createAlternativeEvaluator({
+      weights: {
+        effort: 0.35,      // 35% weight on effort (lower is better)
+        risk: 0.25,        // 25% weight on risk (lower is better)
+        alignment: 0.30,   // 30% weight on goal alignment (higher is better)
+        confidence: 0.10,  // 10% weight on confidence (higher is better)
       },
     });
   }
@@ -600,8 +611,58 @@ export class AutonomousAgent {
               contribution: align.contribution,
             })),
           });
+
+          // [Phase 6.4] Step 2.8: Evaluate and rank alternatives
+          console.log('[AutonomousAgent] Evaluating alternatives...');
+          const evaluation = this.alternativeEvaluator.evaluateAlternatives(
+            alternatives.alternatives,
+            effortEstimates,
+            alignmentResults
+          );
+
+          console.log(`[AutonomousAgent] Ranked ${evaluation.rankedAlternatives.length} alternatives`);
+          console.log(`[AutonomousAgent] Chosen: "${evaluation.chosen.alternativeName}"`);
+
+          // Log evaluation results for visibility
+          for (let i = 0; i < Math.min(evaluation.rankedAlternatives.length, 3); i++) {
+            const ranked = evaluation.rankedAlternatives[i];
+            console.log(`  ${ranked.rank}. ${ranked.alternativeName} (score: ${ranked.overall_score.toFixed(2)})`);
+            console.log(`     Breakdown: effort=${ranked.score_breakdown.effort.toFixed(2)}, risk=${ranked.score_breakdown.risk.toFixed(2)}, alignment=${ranked.score_breakdown.alignment.toFixed(2)}, confidence=${ranked.score_breakdown.confidence.toFixed(2)}`);
+            console.log(`     Metrics: ${ranked.raw_metrics.complexityLevel} complexity, ${ranked.raw_metrics.riskLevel} risk, ${ranked.raw_metrics.iterations} iterations, ${ranked.raw_metrics.alignmentRelevance} alignment`);
+          }
+
+          console.log(`[AutonomousAgent] Justification: ${evaluation.chosen.justification}`);
+
+          // Emit evaluation results to ContextLog
+          await contextLogEvents.emit({
+            id: ulid(),
+            type: 'alternative_evaluation',
+            ts: new Date().toISOString(),
+            conv_id: context.convId,
+            turn_id: context.turnId,
+            session_id: this.sessionId,
+            iteration: this.state.iteration,
+            actor: 'system',
+            act: 'alternative_evaluation',
+            action: reflection.next_action,
+            num_alternatives: evaluation.rankedAlternatives.length,
+            chosen_alternative: {
+              id: evaluation.chosen.alternativeId,
+              name: evaluation.chosen.alternativeName,
+              rank: evaluation.chosen.rank,
+              score: evaluation.chosen.overall_score,
+              justification: evaluation.chosen.justification,
+            },
+            ranked_alternatives: evaluation.rankedAlternatives.map(r => ({
+              rank: r.rank,
+              id: r.alternativeId,
+              name: r.alternativeName,
+              score: r.overall_score,
+            })),
+            weights: evaluation.weights,
+          });
         } catch (err) {
-          console.warn('[AutonomousAgent] Failed to generate alternatives, estimate effort, or check alignment:', err.message);
+          console.warn('[AutonomousAgent] Failed proactive planning (Phase 6):', err.message);
           // Continue without alternatives (fallback to existing task planner)
         }
 
