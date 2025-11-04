@@ -10,34 +10,29 @@
 
 ### **Start Here** 👇
 
-1. **[QUICK_START_AUTONOMOUS.md](../QUICK_START_AUTONOMOUS.md)** ⚡
+1. **[Quick Start](quick_start.md)** ⚡
    - Get started in 60 seconds
    - Example tasks to try
    - API quick reference
 
-2. **[AUTONOMOUS_MODE_READY.md](../AUTONOMOUS_MODE_READY.md)** 📖
-   - Complete user guide
-   - How to use the UI
-   - Detailed feature explanations
-   - Troubleshooting
+2. **[Phase 4 Completion Report](history/PHASE4_COMPLETE_SUMMARY.md)** 📖
+   - Executive summary
+   - Feature coverage and validation
+   - Links to supporting assets and metrics
 
 ### **Technical Details**
 
-3. **[AUTONOMOUS_MODE_ENHANCEMENTS.md](../AUTONOMOUS_MODE_ENHANCEMENTS.md)** 🔧
-   - Days 5-7 implementation details
-   - Session memory system
-   - Task type detection
-   - Enhanced tool inference
-   - Performance metrics
+3. **[Automation Enhancements](history/AUTOMATION_IMPROVEMENTS_SESSION_2025-11-01.md)** 🔧
+   - Implementation updates after the initial launch
+   - Session memory system improvements
+   - Tool execution refinements and metrics
 
-4. **[AUTONOMOUS_MODE_COMPLETE.md](../AUTONOMOUS_MODE_COMPLETE.md)** 📊
-   - Complete implementation summary
-   - All features and capabilities
-   - Test results
-   - Performance improvements
-   - API documentation
+4. **[Capability Digest](history/AUTONOMOUS_AGENT_CAPABILITIES_2025-11-02.md)** 📊
+   - Feature inventory and maturity snapshot
+   - Success metrics across task categories
+   - Follow-up recommendations
 
-5. **[PHASE4_COMPLETE_SUMMARY.md](PHASE4_COMPLETE_SUMMARY.md)** ✅
+5. **[PHASE4_COMPLETE_SUMMARY.md](history/PHASE4_COMPLETE_SUMMARY.md)** ✅
    - Executive summary
    - File breakdown
    - Code statistics
@@ -223,7 +218,7 @@ node tests/autonomous-enhancements.test.mjs
 
 The autonomous agent is **production-ready** and waiting for tasks.
 
-Start with: [QUICK_START_AUTONOMOUS.md](../QUICK_START_AUTONOMOUS.md)
+Start with: [Quick Start](quick_start.md)
 
 ---
 

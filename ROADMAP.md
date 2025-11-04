@@ -44,13 +44,7 @@ Reasoning vs Final Responses
   - Treat `finish_reason=length` as a hint to increase `max_tokens` or to request a shorter answer.
 
 ## Working Agreements (Guardrails)
-- Smallest-change-first. No opportunistic refactors. If a refactor exceeds 20 lines or crosses module boundaries, create a follow-up task.
-- Timebox per task: 4 hours. If the timebox is exceeded, stop and report blockers with a concrete proposal.
-- Tests default to smoke/unit only. Integration or end-to-end tests are explicitly called out in the task card.
-- Touch only files listed in the task’s “Allowed Touches.” New dependencies require a separate, approved task.
-- Feature-flag anything risky. New behavior off by default and switchable via env or config.
-- Definition of Done must be met before merging: acceptance checks pass, scope/out-of-scope honored, and rollback noted.
-- Every change must map to a Task Card (`forgekeeper/tasks.md`) with a unique `T#`. PRs must include `Task ID: T#` and will be checked in CI against that card’s Allowed Touches.
+See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the authoritative guardrail policy.
 
 Phase 2 — Minimal Backend and Agent Wiring
 - Stand up GraphQL backend + Python agent with only the endpoints needed for smoke tests.

@@ -2,6 +2,7 @@
 Note: This file is currently maintained manually for the fresh-start codebase. The previous auto-generator lived under the legacy archive; once revived, we will switch back to generating from `ROADMAP.md`.
 
 ## Policy
+- Follow the shared guardrails in [`docs/policies/guardrails.md`](docs/policies/guardrails.md).
 - Every piece of development work must have a Task Card in this file with a unique `T#` and must be referenced by PRs via `Task ID: T#`.
 - Cards use the structure below; CI may enforce presence of required fields and that changes stay within "Allowed Touches."
 
@@ -46,11 +47,8 @@ Enable iterative self-review for quality improvement and chunked response genera
 - [ ] T212 - Testing suite and validation  (Phase 5: Testing)
 
 ## Task Guidelines (Guardrails)
+See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
 - Keep tasks discrete and shippable within 4 hours of focused work.
-- No opportunistic refactors. If a change exceeds ~20 lines or crosses modules, split into a new task.
-- Default test scope: smoke/unit. Only add integration/E2E where called out below.
-- Touch only files listed under “Allowed Touches.” New dependencies require a separate, approved task.
-- Gate risky behavior behind env flags and document them in README.
 - Each task must state “Done When” checks that can be executed locally.
 
 ## Detailed Scope and Guardrails
