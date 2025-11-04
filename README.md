@@ -16,7 +16,8 @@ Quick CLI entry points and scripts to bring up the Core (llama.cpp by default), 
   
 - Ensure full stack (profiles + optional MongoDB):
   - Windows: `python -m forgekeeper ensure-stack --build --include-mongo`
-  - Linux/mac: `python -m forgekeeper ensure-stack --build --include-mongo --compose-file archive/docker-compose.yml`
+  - Linux/mac: `python -m forgekeeper ensure-stack --build --include-mongo`
+  - Use `--compose-file PATH` only when targeting a non-default Compose file (defaults to `docker-compose.yml`).
 
 - Chat
   - Python CLI (streaming default): `python -m forgekeeper chat -p "Say 'harmony ok'."`
@@ -197,16 +198,19 @@ See also: docs/ui/diagnostics_drawer.md for the Diagnostics Drawer and how conti
 ## CLI Reference
 
 - `python -m forgekeeper compose`
+  - Ensures stack via `ensure-stack` (builds when `.env`, `docker-compose.yml`, or `frontend/` sources change) and holds FG; Ctrl+C tears down.
+  - Stores a fingerprint at `.forgekeeper/stack_fingerprint.json` to skip rebuilds when configs are unchanged.
   - Tries platform start wrapper (`start.ps1`/`start.sh`). If unavailable/fails, falls back to `up-core` and prints a hint.
 
 - `python -m forgekeeper up-core`
-  - Ensures the default core (`llama-core`) is up. Use `FK_CORE_KIND=vllm` to switch and use vLLM instead.
+  - Ensures the default core (`llama-core`) is up. Set `FK_CORE_GPU=0` to prefer the CPU profile or `FK_CORE_KIND=vllm` to use vLLM instead.
 
 - `python -m forgekeeper ensure-stack [--build] [--include-mongo] [--profile NAME ...] [--compose-file FILE]`
-  - Cross‑platform wrapper over `scripts/ensure_stack.ps1|.sh`. Defaults to profiles: backend, ui, agent, inference.
+  - Cross‑platform wrapper over `scripts/ensure_stack.ps1|.sh`. Defaults to the `ui` + `inference` profiles (CPU vs GPU inference selected via `FK_CORE_GPU`).
 
 - `python -m forgekeeper chat [--base-url URL] [--model NAME] [--no-stream] -p PROMPT`
   - PowerShell streaming client on Windows; simple non-streaming Python fallback elsewhere.
+  - On non-Windows platforms the fallback runner delegates to `scripts/test_harmony_basic.py`, which always issues the "harmony ok" smoke test regardless of `-p` (known limitation).
   - When using the Python CLI, pass `--no-stream` (two hyphens). The PowerShell switch is `-NoStream` only when calling the `.ps1` directly.
   - Tools demo: add `--tools dir` to enable a minimal `list_dir` function; restrict with `--workdir PATH`.
 
