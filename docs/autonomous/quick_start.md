@@ -82,9 +82,9 @@ curl -X POST http://localhost:3000/api/chat/autonomous/stop \
 
 ## 📚 Full Documentation
 
-- **Complete Guide**: `AUTONOMOUS_MODE_COMPLETE.md`
-- **Enhancements**: `AUTONOMOUS_MODE_ENHANCEMENTS.md`
-- **User Manual**: `AUTONOMOUS_MODE_READY.md`
+- **Completion Summary**: [`history/PHASE4_COMPLETE_SUMMARY.md`](history/PHASE4_COMPLETE_SUMMARY.md)
+- **Automation Enhancements**: [`history/AUTOMATION_IMPROVEMENTS_SESSION_2025-11-01.md`](history/AUTOMATION_IMPROVEMENTS_SESSION_2025-11-01.md)
+- **Capability Overview**: [`history/AUTONOMOUS_AGENT_CAPABILITIES_2025-11-02.md`](history/AUTONOMOUS_AGENT_CAPABILITIES_2025-11-02.md)
 
 ---
 
