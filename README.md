@@ -223,7 +223,8 @@ Week 8-9 Features:
 **Overview**: Safe, automated PR creation from TGT task suggestions with comprehensive safety controls.
 
 **UI Access**:
-- From TGT task → Click "Propose PR" → Preview → Create PR
+- From TGT TasksDrawer → Select task → Click "📝 Propose PR" → Enhanced preview modal → Create PR
+- Features rich diff viewer, file validation, stats, and warnings
 
 **Core Endpoints** (5 at `/api/auto_pr/*`):
 - `GET /status` - Get SAPL configuration and status
@@ -318,13 +319,29 @@ curl -X POST http://localhost:3000/api/auto_pr/create \
 - ✅ ALWAYS logs to ContextLog
 - ✅ ALWAYS returns preview in dry-run mode
 
+**UI Components**:
+- ✅ **PRPreviewModal** - Enhanced preview with diff viewer, file validation, stats
+  - Syntax-highlighted diff display (add/remove/context)
+  - File validation with visual allowed/blocked indicators
+  - Stats display (files changed, lines added/removed)
+  - Warnings display for blocked files, disabled state
+  - Branch name preview
+  - Create PR button with safety checks
+- ✅ **TasksDrawer Integration** - "📝 Propose PR" button on each task
+  - One-click PR proposal from TGT suggestions
+  - Auto-fills PR title and body from task details
+  - Opens enhanced modal for review before creation
+
 **Documentation**:
 - Full Guide: `docs/sapl/README.md`
 - API Reference: See above endpoints
 - Implementation: `frontend/server.auto-pr.mjs`
+- UI Components: `frontend/src/components/PRPreviewModal.tsx`
 - Routes: `frontend/server.mjs` (lines 2490-2588)
 
 **Testing**:
+- UI: Click "📝 Propose PR" in TasksDrawer → Review in modal → Create PR
+- API: `curl http://localhost:3000/api/auto_pr/status`
 - Preview (always safe): `npm run test:sapl:preview`
 - Full integration: `npm run test:sapl` (requires gh CLI)
 

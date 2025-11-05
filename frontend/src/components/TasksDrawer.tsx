@@ -3,6 +3,7 @@ import BatchActionBar from './BatchActionBar';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import TemplateSelector from './TemplateSelector';
 import PriorityBadge from './PriorityBadge';
+import PRPreviewModal from './PRPreviewModal';
 
 type TaskItem = {
   id: string;
@@ -33,6 +34,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showPRModal, setShowPRModal] = useState(false);
+  const [prModalData, setPRModalData] = useState<any>(null);
 
   const load = async (windowMin: number) => {
     try {
@@ -83,6 +86,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       setPrLoading(true);
       setPrError(null);
       setPrPreview(null);
+      setPRModalData(null);
       const files = prFiles.split(',').map(s=>s.trim()).filter(Boolean);
       const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
       const labels = ['docs'];
@@ -94,9 +98,38 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
         setPrError(j?.error || `HTTP ${r.status}`);
       } else {
         setPrPreview(j);
+        setPRModalData(j);
+        setShowPRModal(true); // Open enhanced modal
       }
     } catch (e:any) {
       setPrError(e?.message || String(e));
+    } finally {
+      setPrLoading(false);
+    }
+  };
+
+  const createPR = async () => {
+    try {
+      setPrLoading(true);
+      setPrError(null);
+      const files = prFiles.split(',').map(s=>s.trim()).filter(Boolean);
+      const edits = (prAppendText && files.length > 0) ? [{ path: files[0], appendText: prAppendText }] : [];
+      const labels = ['docs', 'auto-pr'];
+      const m = prTitle.match(/\b(T\d{2,6})\b/i);
+      if (m) labels.push(`task:${m[1].toUpperCase()}`);
+      const r = await fetch('/api/auto_pr/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: prTitle, body: prBody, files, edits, labels }) });
+      const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
+      if (!r.ok || j.ok === false) {
+        setPrError(j?.error || `HTTP ${r.status}`);
+        alert(`Error creating PR: ${j?.error || 'Unknown error'}`);
+      } else {
+        alert(`PR created successfully!\n\n${j.prUrl || 'No URL returned'}`);
+        setShowPRModal(false);
+        setPRModalData(null);
+      }
+    } catch (e:any) {
+      setPrError(e?.message || String(e));
+      alert(`Error: ${e?.message || String(e)}`);
     } finally {
       setPrLoading(false);
     }
@@ -162,12 +195,20 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                       <div style={{marginTop:6, display:'flex', gap:8}}>
                         <button onClick={()=>{
                           const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
-                          setPrTitle(`[docs] ${it.title} (${it.id})`);
+                          setPrTitle(`docs: ${it.title} (${it.id})`);
                           setPrBody(body);
                           setPrFiles('README.md');
                           if ((it as any).append?.text) setPrAppendText((it as any).append.text);
                           setShowPr(true);
-                        }}>Open PR preview from this task</button>
+                        }} style={{
+                          background: '#2563eb',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                        }}>📝 Propose PR</button>
                         { (it as any).append?.text && (
                           <button onClick={()=> setPrAppendText((it as any).append.text) }>Use README snippet</button>
                         )}
@@ -304,6 +345,29 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
           }}
         />
       )}
+
+      {/* PR Preview Modal (Enhanced) */}
+      <PRPreviewModal
+        isOpen={showPRModal}
+        onClose={() => {
+          setShowPRModal(false);
+          setPRModalData(null);
+        }}
+        preview={prModalData}
+        onCreatePR={createPR}
+        loading={prLoading}
+        error={prError}
+        canCreate={prModalData?.preview?.files?.allowed > 0}
+        disabledReason={
+          !prModalData?.preview?.enabled
+            ? 'SAPL is disabled (set AUTO_PR_ENABLED=1)'
+            : prModalData?.preview?.dryRun
+            ? 'Dry-run mode (set AUTO_PR_DRYRUN=0 to create PRs)'
+            : prModalData?.preview?.files?.allowed === 0
+            ? 'No allowed files to commit'
+            : ''
+        }
+      />
     </div>
   );
 }
