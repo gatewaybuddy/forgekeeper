@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Chat } from './components/Chat';
 import AutonomousPanel from './components/AutonomousPanel';
+import { PreferencesPanel } from './components/PreferencesPanel';
 import { checkHealth } from './lib/health';
 
 type ToolMetadata = { name: string; description?: string };
@@ -26,6 +27,7 @@ export default function App() {
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(false);
   const [toolNames, setToolNames] = useState<string[]>([]);
   const [toolMetadata, setToolMetadata] = useState<ToolMetadata[]>([]);
@@ -108,6 +110,7 @@ export default function App() {
             <span style={{fontSize:12, color:'#555'}}>Model</span>
             <input value={model} onChange={e=>setModel(e.target.value)} style={{padding:'4px 6px'}} />
           </label>
+          <button onClick={()=>setShowPreferences(true)} title="User Preferences">⚙️ Preferences</button>
           <button onClick={()=>setShowSettings(s=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
         </div>
       </header>
@@ -156,6 +159,53 @@ export default function App() {
           repoWrite={toolCaps?.repoWrite}
         />
       </div>
+
+      {/* Preferences Panel Modal */}
+      {showPreferences && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowPreferences(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(1200px, 95vw)',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              background: '#fff',
+              borderRadius: 12,
+              position: 'relative',
+            }}
+          >
+            <button
+              onClick={() => setShowPreferences(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'transparent',
+                border: 'none',
+                fontSize: 24,
+                cursor: 'pointer',
+                zIndex: 1,
+                color: '#6b7280',
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+            <PreferencesPanel />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,6 @@ import {
   resumeFromCheckpoint,
   provideClarification,
   getLearningStats,
-  getFullHistory,
   type CheckpointInfo,
   type LearningStats,
 } from '../lib/autonomousClient';
@@ -158,12 +157,9 @@ export default function AutonomousPanel({ model }: { model: string }) {
   const onLoadFullHistory = useCallback(async () => {
     setLoadingFullHistory(true);
     try {
-      const resp = await getFullHistory(50);
-      setFullHistory(resp.sessions);
+      // TODO: Re-implement getFullHistory in autonomousClient
+      setToast({ msg: 'Full history feature not yet implemented', level: 'info' });
       setExpandedSection(expandedSection === 'fullHistory' ? null : 'fullHistory');
-      if (resp.sessions.length > 0) {
-        setToast({ msg: `Loaded ${resp.sessions.length} of ${resp.total} sessions from ${resp.file_path}`, level: 'info' });
-      }
     } catch (e: any) {
       setToast({ msg: `Failed to load full history: ${e?.message || e}`, level: 'error' });
     } finally {

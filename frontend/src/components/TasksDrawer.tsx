@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import BatchActionBar from './BatchActionBar';
+import AnalyticsDashboard from './AnalyticsDashboard';
+import TemplateSelector from './TemplateSelector';
+import PriorityBadge from './PriorityBadge';
 
 type TaskItem = {
   id: string;
@@ -7,6 +11,8 @@ type TaskItem = {
   evidence?: any;
   suggested?: string[];
   acceptance?: string[];
+  priority?: number;
+  status?: 'pending' | 'approved' | 'dismissed' | 'completed';
 };
 
 export default function TasksDrawer({ onClose }: { onClose: () => void }) {
@@ -22,6 +28,11 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   const [prPreview, setPrPreview] = useState<any>(null);
   const [prError, setPrError] = useState<string | null>(null);
   const [prLoading, setPrLoading] = useState(false);
+
+  // New state for enhanced features
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const load = async (windowMin: number) => {
     try {
@@ -39,6 +50,22 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(() => { load(win); }, []);
+
+  const toggleSelect = (taskId: string) => {
+    setSelectedTasks(prev =>
+      prev.includes(taskId)
+        ? prev.filter(id => id !== taskId)
+        : [...prev, taskId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTasks.length === items.length) {
+      setSelectedTasks([]);
+    } else {
+      setSelectedTasks(items.map(it => it.id));
+    }
+  };
 
   const copy = async () => {
     try {
@@ -81,6 +108,12 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
           <div style={{fontWeight:700, color:'#334155'}}>Suggested Tasks (last {win}m)</div>
           <div style={{display:'flex', alignItems:'center', gap:8}}>
+            <button onClick={() => setShowAnalytics(true)} title="View Analytics">
+              📊 Analytics
+            </button>
+            <button onClick={() => setShowTemplates(true)} title="New from Template">
+              📋 Templates
+            </button>
             <input type="number" min={5} max={480} value={win} onChange={e=> setWin(Math.max(5, Math.min(480, Number(e.target.value)||60)))} style={{width:80}} />
             <button onClick={()=>load(win)} disabled={loading}>Refresh</button>
             <button onClick={copy} disabled={!items.length}>Copy</button>
@@ -90,35 +123,64 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
         {loading && <div>Loading…</div>}
         {error && <div style={{color:'#b91c1c'}}>Error: {error}</div>}
         {!loading && !error && (
-          <ul style={{listStyle:'none', padding:0, margin:0}}>
-            {items.map((it, idx) => (
-              <li key={idx} style={{border:'1px solid #e5e7eb', borderRadius:8, padding:10, marginBottom:8}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
-                  <div style={{fontWeight:600}}>{it.title}</div>
-                  <div style={{fontSize:12, color:'#64748b'}}>{it.id} • {String(it.severity).toUpperCase()}</div>
-                </div>
-                {Array.isArray(it.suggested) && it.suggested.length > 0 && (
-                  <div style={{marginTop:6, fontSize:12}}>Suggested: {it.suggested.join('; ')}</div>
-                )}
-                <div style={{marginTop:6, display:'flex', gap:8}}>
-                  <button onClick={()=>{
-                    const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
-                    setPrTitle(`[docs] ${it.title} (${it.id})`);
-                    setPrBody(body);
-                    setPrFiles('README.md');
-                    if ((it as any).append?.text) setPrAppendText((it as any).append.text);
-                    setShowPr(true);
-                  }}>Open PR preview from this task</button>
-                  { (it as any).append?.text && (
-                    <button onClick={()=> setPrAppendText((it as any).append.text) }>Use README snippet</button>
-                  )}
-                </div>
-              </li>
-            ))}
-            {items.length === 0 && (
-              <li style={{color:'#64748b'}}>No suggestions for the selected window.</li>
+          <>
+            {items.length > 0 && (
+              <div style={{marginBottom:8, padding:8, background:'#f8fafc', borderRadius:6}}>
+                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTasks.length === items.length && items.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                  <span style={{fontSize:14, fontWeight:600}}>
+                    Select All ({selectedTasks.length}/{items.length})
+                  </span>
+                </label>
+              </div>
             )}
-          </ul>
+            <ul style={{listStyle:'none', padding:0, margin:0}}>
+              {items.map((it, idx) => (
+                <li key={idx} style={{border:'1px solid #e5e7eb', borderRadius:8, padding:10, marginBottom:8}}>
+                  <div style={{display:'flex', alignItems:'center', gap:10}}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTasks.includes(it.id)}
+                      onChange={() => toggleSelect(it.id)}
+                      style={{cursor:'pointer'}}
+                    />
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+                        <div style={{fontWeight:600}}>{it.title}</div>
+                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                          {it.priority !== undefined && <PriorityBadge score={it.priority} size="small" />}
+                          <div style={{fontSize:12, color:'#64748b'}}>{it.id}</div>
+                        </div>
+                      </div>
+                      {Array.isArray(it.suggested) && it.suggested.length > 0 && (
+                        <div style={{marginTop:6, fontSize:12}}>Suggested: {it.suggested.join('; ')}</div>
+                      )}
+                      <div style={{marginTop:6, display:'flex', gap:8}}>
+                        <button onClick={()=>{
+                          const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
+                          setPrTitle(`[docs] ${it.title} (${it.id})`);
+                          setPrBody(body);
+                          setPrFiles('README.md');
+                          if ((it as any).append?.text) setPrAppendText((it as any).append.text);
+                          setShowPr(true);
+                        }}>Open PR preview from this task</button>
+                        { (it as any).append?.text && (
+                          <button onClick={()=> setPrAppendText((it as any).append.text) }>Use README snippet</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+              {items.length === 0 && (
+                <li style={{color:'#64748b'}}>No suggestions for the selected window.</li>
+              )}
+            </ul>
+          </>
         )}
         <div style={{marginTop:12, padding:10, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
@@ -185,6 +247,63 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+
+      {/* Batch Action Bar */}
+      <BatchActionBar
+        selectedCount={selectedTasks.length}
+        onApproveSelected={async () => {
+          try {
+            const response = await fetch('/api/tasks/batch/approve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ taskIds: selectedTasks })
+            });
+            if (!response.ok) throw new Error('Batch approval failed');
+            setSelectedTasks([]);
+            load(win);
+          } catch (e: any) {
+            alert(`Error: ${e.message}`);
+          }
+        }}
+        onDismissSelected={async () => {
+          try {
+            const response = await fetch('/api/tasks/batch/dismiss', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                taskIds: selectedTasks,
+                reason: 'Batch dismissed'
+              })
+            });
+            if (!response.ok) throw new Error('Batch dismissal failed');
+            setSelectedTasks([]);
+            load(win);
+          } catch (e: any) {
+            alert(`Error: ${e.message}`);
+          }
+        }}
+        onClearSelection={() => setSelectedTasks([])}
+      />
+
+      {/* Analytics Dashboard Modal */}
+      {showAnalytics && (
+        <AnalyticsDashboard
+          isOpen={showAnalytics}
+          onClose={() => setShowAnalytics(false)}
+        />
+      )}
+
+      {/* Template Selector Modal */}
+      {showTemplates && (
+        <TemplateSelector
+          isOpen={showTemplates}
+          onClose={() => setShowTemplates(false)}
+          onTaskCreated={() => {
+            setShowTemplates(false);
+            load(win);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default function DependencyView({ taskId, tasks }: DependencyViewProps) {
     t => t.dependencies && t.dependencies.includes(taskId)
   );
 
-  const isBlocked = dependencies.some(dep => dep.status !== 'completed');
+  const isBlocked = dependencies.some((dep: any) => dep.status !== 'completed');
   const isBlocking = dependents.length > 0 && task.status !== 'completed';
 
   return (
