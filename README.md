@@ -437,13 +437,14 @@ curl http://localhost:3000/api/prompting_hints/stats?hours=24
 }
 ```
 
-**How Hints Are Applied** (Future Integration):
+**How Hints Are Applied** (✅ Orchestrator Integration Complete):
 
-When integrated into the orchestrator, MIP will:
-1. Check if continuation rate exceeds threshold in last N minutes
-2. Generate appropriate hint based on dominant reason
-3. Inject hint into system or developer message
-4. Log hint application to ContextLog (`act: 'hint_applied'`)
+MIP is now fully integrated into the orchestrator (`server.orchestrator.mjs`). When enabled:
+1. Checks if continuation rate exceeds threshold in last N minutes
+2. Generates appropriate hint based on dominant reason
+3. Injects hint into system or developer message **before the tool loop**
+4. Logs hint application to ContextLog (`act: 'hint_applied'`)
+5. Returns MIP diagnostics in `debug.mip` field
 
 **Example Hint Injection**:
 
@@ -493,22 +494,27 @@ When a hint is applied:
 ```
 
 **Documentation**:
-- Implementation: `frontend/server.prompting-hints.mjs`
+- Implementation: `frontend/server.prompting-hints.mjs` (380 lines)
 - API Routes: `frontend/server.mjs` (lines 2591-2634)
-- Integration: `frontend/server.orchestrator.mjs` (import added, full integration pending)
+- Integration: `frontend/server.orchestrator.mjs` (✅ **fully integrated**)
 
 **Current Status**:
 - ✅ Module implemented (380 lines)
 - ✅ API endpoints functional (3 endpoints)
 - ✅ Analysis and hint generation working
-- ✅ ContextLog integration ready
-- ⏳ Orchestrator integration (TODO for follow-up)
+- ✅ ContextLog integration complete
+- ✅ **Orchestrator integration complete** (wired into all 3 `orchestrateWithTools` calls)
 
-**Next Steps** (Future Integration):
-- Wire MIP into `orchestrateWithTools` function
-- Auto-inject hints before LLM calls when threshold exceeded
+**Integration Details**:
+- Added optional `tailEventsFn`, `appendEventFn`, and `convId` parameters to `orchestrateWithTools`
+- Hints are applied **before the tool loop** via `applyHintIfNeeded()`
+- MIP diagnostics returned in `debug.mip` field
+- All 3 orchestrator call sites in `server.mjs` updated (lines 321, 1203, 1235)
+
+**Next Steps** (Optional Enhancements):
 - Add toggle in UI to enable/disable MIP
 - Measure impact on continuation rates
+- Fine-tune thresholds based on production telemetry
 
 **Self-Improvement Plan**: Priority 3 Complete ✅
 

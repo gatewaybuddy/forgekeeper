@@ -246,16 +246,30 @@ async function ensureContextBudget({ baseUrl, model, messages, desiredMaxTokens 
 /**
  * Orchestrate tool calls until a final assistant message without tool_calls.
  */
-export async function orchestrateWithTools({ baseUrl, model, messages, tools, maxIterations = 4, maxTokens, temperature, topP, presencePenalty, frequencyPenalty, traceId = null }) {
+export async function orchestrateWithTools({ baseUrl, model, messages, tools, maxIterations = 4, maxTokens, temperature, topP, presencePenalty, frequencyPenalty, traceId = null, tailEventsFn = null, appendEventFn = null, convId = null }) {
   const convo = Array.isArray(messages) ? [...messages] : [];
   const diagnostics = [];
   let compactionInfo = null;
+  let mipApplied = null;
   const contLimit = Math.max(0, Number(process.env.FRONTEND_CONT_ATTEMPTS || '0'));
   const mdlName = model || process.env.FRONTEND_VLLM_MODEL || process.env.FRONTEND_MODEL || '';
   const useHarmony = (process.env.FRONTEND_USE_HARMONY === '1') || isGptOssModel(mdlName);
   const seenHarmonyCalls = new Set();
   let prefetchedTime = false;
   let enforceAttempts = 0;
+
+  // MIP: Apply prompting hint if needed (before tool loop)
+  if (tailEventsFn && appendEventFn) {
+    try {
+      mipApplied = await promptingHints.applyHintIfNeeded(convo, tailEventsFn, appendEventFn, { convId });
+      if (mipApplied?.applied) {
+        console.log('[MIP] Applied prompting hint:', mipApplied.hintInfo?.metadata?.hintId || 'unknown');
+      }
+    } catch (e) {
+      console.warn('[MIP] Failed to apply hint:', e.message);
+    }
+  }
+
   for (let iter = 0; iter < maxIterations; iter++) {
     // Feature flag: allow tool injection for Harmony prompts when enabled
     const allowHarmonyTools = process.env.FRONTEND_HARMONY_TOOLS === '1';
@@ -421,7 +435,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
         diagnostics.push({ ...step, enforced: true, intentGate: requiredTool });
         continue;
       }
-      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null } };
+      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied } };
     }
 
     // OpenAI path (no Harmony) and no tool calls -> treat as final
@@ -446,7 +460,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
       diagnostics.push(step);
       const continuedTotal = diagnostics.reduce((s, st) => s + (st.continued || 0), 0);
       const toolsUsed = Array.from(new Set(diagnostics.flatMap(d => (Array.isArray(d.tools) ? d.tools : []).map(t => t.name).filter(Boolean))));
-      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null } };
+      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied } };
     }
 
     // Append assistant msg with tool_calls to history (as upstream would expect)

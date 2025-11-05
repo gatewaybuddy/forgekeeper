@@ -326,6 +326,9 @@ app.post('/api/chat', async (req, res) => {
         maxIterations: 4,
         maxTokens: plan.maxOut,
         traceId,
+        convId,
+        tailEventsFn: tailEvents,
+        appendEventFn: appendEvent,
         temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
         topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
         presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
@@ -1205,6 +1208,9 @@ app.post('/api/chat/stream', async (req, res) => {
           maxIterations: 4,
           maxTokens: plan.maxOut,
           traceId,
+          convId,
+          tailEventsFn: tailEvents,
+          appendEventFn: appendEvent,
           temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
           topP: (typeof top_p === 'number' && !Number.isNaN(top_p)) ? top_p : undefined,
           presencePenalty: (typeof presence_penalty === 'number' && !Number.isNaN(presence_penalty)) ? presence_penalty : undefined,
@@ -1226,7 +1232,7 @@ app.post('/api/chat/stream', async (req, res) => {
     const contMax = Math.max(0, Math.min(6, (reqCont ?? envDefault)));
     if (useHarmony) {
       // Render via orchestrator non-stream and emit fk-final
-      const nonStream = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages: convo, tools: [], maxIterations: 1, maxTokens: maxOut });
+      const nonStream = await orchestrateWithTools({ baseUrl: upstreamBase, model: mdl, messages: convo, tools: [], maxIterations: 1, maxTokens: maxOut, traceId, convId, tailEventsFn: tailEvents, appendEventFn: appendEvent });
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' });
       try {
         const debug = nonStream?.debug || {};
