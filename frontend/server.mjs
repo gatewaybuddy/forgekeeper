@@ -20,6 +20,7 @@ import { createEpisodicMemory } from './core/agent/episodic-memory.mjs'; // [Pha
 import { createPatternLearner } from './core/agent/pattern-learner.mjs'; // [T310]
 import { createResilientLLMClient } from './core/agent/resilient-llm-client.mjs'; // LLM retry with health checks
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
+import tasksRouter from './server.tasks.mjs'; // TGT Task API router
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +49,10 @@ app.use(compression());
 
 // JSON parser only for API routes to avoid interfering with SSE proxying
 app.use('/api', express.json({ limit: '1mb' }));
+
+// Mount TGT Task API router (Week 6-9 implementation)
+app.use('/api/tasks', tasksRouter);
+
 const distDir = path.join(__dirname, 'dist');
 const apiBase = process.env.FRONTEND_VLLM_API_BASE || 'http://localhost:8001/v1';
 const targetOrigin = apiBase.replace(/\/v1\/?$/, '');
@@ -547,7 +552,10 @@ app.get('/metrics', (_req, res) => {
 });
 
 
-// Task suggestions — Telemetry‑Driven Task Generator (flag-gated but harmless)
+// DEPRECATED: Task suggestions endpoint moved to server.tasks.mjs router
+// The mounted router (line 54) provides comprehensive TGT implementation with Week 6-9 features.
+// This old endpoint is kept commented for reference.
+/*
 app.get('/api/tasks/suggest', async (req, res) => {
   try {
     const enabled = String(process.env.TASKGEN_ENABLED || '0') === '1';
@@ -559,6 +567,7 @@ app.get('/api/tasks/suggest', async (req, res) => {
     res.status(500).json({ ok: false, error: 'server_error', message: e?.message || String(e) });
   }
 });
+*/
 
 // Auto‑PR preview (allowlist enforcement; dry‑run default)
 app.post('/api/auto_pr/preview', async (req, res) => {
