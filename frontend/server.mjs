@@ -22,6 +22,7 @@ import { createResilientLLMClient } from './core/agent/resilient-llm-client.mjs'
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 import tasksRouter from './server.tasks.mjs'; // TGT Task API router
 import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
+import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2583,6 +2584,51 @@ app.post('/api/auto_pr/validate', async (req, res) => {
     return res.json({ ok: true, ...result });
   } catch (error) {
     console.error('[SAPL] Validate error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// ============================================================================
+// MIP (Metrics-Informed Prompting) - Hint injection to reduce incomplete responses
+// ============================================================================
+
+// Get MIP status and configuration
+app.get('/api/prompting_hints/status', async (req, res) => {
+  try {
+    const config = promptingHints.getConfig();
+    return res.json({ ok: true, ...config });
+  } catch (error) {
+    console.error('[MIP] Status error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Get hint statistics
+app.get('/api/prompting_hints/stats', async (req, res) => {
+  try {
+    const hours = parseInt(String(req.query.hours || '24'), 10) || 24;
+    const stats = promptingHints.getHintStats(tailEvents, { hours });
+    return res.json({ ok: true, ...stats });
+  } catch (error) {
+    console.error('[MIP] Stats error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Analyze recent continuations and generate hint (without applying)
+app.get('/api/prompting_hints/analyze', async (req, res) => {
+  try {
+    const convId = String(req.query.conv_id || '').trim() || null;
+    const minutes = parseInt(String(req.query.minutes || ''), 10) || undefined;
+
+    const hintInfo = promptingHints.generateHintFromContextLog(tailEvents, { convId, minutes });
+
+    return res.json({
+      ok: true,
+      ...hintInfo,
+    });
+  } catch (error) {
+    console.error('[MIP] Analyze error:', error);
     return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
   }
 });

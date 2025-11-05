@@ -328,6 +328,173 @@ curl -X POST http://localhost:3000/api/auto_pr/create \
 - Preview (always safe): `npm run test:sapl:preview`
 - Full integration: `npm run test:sapl` (requires gh CLI)
 
+### MIP (Metrics-Informed Prompting)
+
+**Status**: ✅ Implemented
+**Priority**: High
+**Purpose**: Reduce incomplete responses by injecting hints based on recent telemetry
+
+**Overview**: Analyzes recent ContextLog events for continuation patterns and generates specific hints to help the LLM complete responses properly.
+
+**Core Endpoints** (3 at `/api/prompting_hints/*`):
+- `GET /status` - Get MIP configuration and status
+- `GET /stats?hours=24` - Get hint usage statistics
+- `GET /analyze?conv_id=...&minutes=10` - Analyze continuations and generate hint
+
+**How It Works**:
+1. **Analyze Recent Events**: Scans ContextLog for incomplete responses (continuations)
+2. **Detect Patterns**: Identifies dominant reasons (fence, punct, short, length)
+3. **Generate Hints**: Creates specific hints based on patterns
+4. **Apply Hints**: Injects hints into system/developer prompts (future integration)
+5. **Log Usage**: Records hint application to ContextLog
+
+**Continuation Reasons Detected**:
+- `fence` → "Close any open code fence (\`\`\`) before finishing"
+- `punct` → "Finish your sentences with proper punctuation"
+- `short` → "Complete your full response before stopping"
+- `length` → "Prioritize completing current thought over adding new info"
+- `stop` → "Complete your current response fully before stopping"
+
+**Environment Variables**:
+
+Enable/Disable:
+  - `PROMPTING_HINTS_ENABLED=1` - Enable MIP (default: `0`)
+
+Configuration:
+  - `PROMPTING_HINTS_MINUTES=10` - Analysis window in minutes (default: `10`)
+  - `PROMPTING_HINTS_THRESHOLD=0.15` - Continuation rate threshold (default: `0.15`, i.e., 15%)
+  - `PROMPTING_HINTS_MIN_SAMPLES=5` - Minimum events to analyze (default: `5`)
+
+**Example Usage**:
+
+```bash
+# 1. Check status
+curl http://localhost:3000/api/prompting_hints/status
+
+# Response:
+{
+  "ok": true,
+  "enabled": false,
+  "minutes": 10,
+  "threshold": 0.15,
+  "minSamples": 5
+}
+
+# 2. Analyze recent continuations
+curl http://localhost:3000/api/prompting_hints/analyze?minutes=10
+
+# Response:
+{
+  "ok": true,
+  "hint": "IMPORTANT: Close any open code fence (...) before finishing. Recent telemetry shows 25% of responses are incomplete due to unclosed code blocks.",
+  "analysis": {
+    "totalEvents": 20,
+    "continuations": 5,
+    "continuationRate": 0.25,
+    "reasons": {
+      "fence": 3,
+      "punct": 2
+    },
+    "dominantReason": "fence",
+    "shouldInjectHint": true,
+    "threshold": 0.15
+  }
+}
+
+# 3. Get hint statistics (last 24 hours)
+curl http://localhost:3000/api/prompting_hints/stats?hours=24
+
+# Response:
+{
+  "ok": true,
+  "totalHints": 15,
+  "hours": 24,
+  "reasonCounts": {
+    "fence": 8,
+    "punct": 5,
+    "short": 2
+  },
+  "mostCommonReason": "fence",
+  "avgContinuationRate": 0.22,
+  "config": { "enabled": true, ... }
+}
+```
+
+**How Hints Are Applied** (Future Integration):
+
+When integrated into the orchestrator, MIP will:
+1. Check if continuation rate exceeds threshold in last N minutes
+2. Generate appropriate hint based on dominant reason
+3. Inject hint into system or developer message
+4. Log hint application to ContextLog (`act: 'hint_applied'`)
+
+**Example Hint Injection**:
+
+Before (no hint):
+```javascript
+{
+  "role": "system",
+  "content": "You are a helpful assistant."
+}
+```
+
+After (with hint):
+```javascript
+{
+  "role": "system",
+  "content": "You are a helpful assistant.\n\nIMPORTANT: Close any open code fence (```) before finishing your response. Recent telemetry shows 25% of responses are incomplete due to unclosed code blocks."
+}
+```
+
+**Benefits**:
+- ✅ Reduces incomplete responses (fence/punct errors)
+- ✅ Prevents cut-off responses (length hints)
+- ✅ No model fine-tuning required
+- ✅ Data-driven (based on actual telemetry)
+- ✅ Easy to disable (flag-gated)
+- ✅ Low overhead (milliseconds of analysis)
+
+**ContextLog Audit Events**:
+
+When a hint is applied:
+```json
+{
+  "id": "01HQXYZ...",
+  "ts": "2025-11-04T...",
+  "actor": "system",
+  "act": "hint_applied",
+  "conv_id": "conv-123",
+  "hint_type": "prompting_hint",
+  "continuation_rate": 0.25,
+  "dominant_reason": "fence",
+  "events_analyzed": 20,
+  "continuations_detected": 5,
+  "window_minutes": 10,
+  "threshold": 0.15,
+  "hint_preview": "IMPORTANT: Close any open code fence..."
+}
+```
+
+**Documentation**:
+- Implementation: `frontend/server.prompting-hints.mjs`
+- API Routes: `frontend/server.mjs` (lines 2591-2634)
+- Integration: `frontend/server.orchestrator.mjs` (import added, full integration pending)
+
+**Current Status**:
+- ✅ Module implemented (380 lines)
+- ✅ API endpoints functional (3 endpoints)
+- ✅ Analysis and hint generation working
+- ✅ ContextLog integration ready
+- ⏳ Orchestrator integration (TODO for follow-up)
+
+**Next Steps** (Future Integration):
+- Wire MIP into `orchestrateWithTools` function
+- Auto-inject hints before LLM calls when threshold exceeded
+- Add toggle in UI to enable/disable MIP
+- Measure impact on continuation rates
+
+**Self-Improvement Plan**: Priority 3 Complete ✅
+
 ### Autonomous Agent & Advanced Learning
 
 **Status**: ✅ Fully implemented (Phase 5 + Diagnostic Reflection)

@@ -3,6 +3,7 @@
 
 import { getToolDefs, runTool } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict, extractHarmonyAnalysisStrict, extractHarmonyToolCalls, renderHarmonyToolResults, stripHarmonyToolTags } from './server.harmony.mjs';
+import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
 
 function isGptOssModel(name) {
   try {
