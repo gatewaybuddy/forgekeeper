@@ -21,6 +21,7 @@ import { createPatternLearner } from './core/agent/pattern-learner.mjs'; // [T31
 import { createResilientLLMClient } from './core/agent/resilient-llm-client.mjs'; // LLM retry with health checks
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 import tasksRouter from './server.tasks.mjs'; // TGT Task API router
+import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2483,6 +2484,106 @@ app.get('/api/episodes/stats', async (req, res) => {
   } catch (error) {
     console.error('[EpisodicMemory] Stats error:', error);
     return res.status(500).json({ ok: false, error: 'episodic_memory_error', message: error?.message || String(error) });
+  }
+});
+
+// ============================================================================
+// SAPL (Safe Auto-PR Loop) - Auto-PR creation from TGT tasks
+// ============================================================================
+
+// Get SAPL status and configuration
+app.get('/api/auto_pr/status', async (req, res) => {
+  try {
+    const status = {
+      ok: true,
+      enabled: autoPR.isEnabled(),
+      dryRun: autoPR.isDryRun(),
+      allowlist: autoPR.getAllowlist(),
+      labels: autoPR.getLabels(),
+      autoMerge: String(process.env.AUTO_PR_AUTOMERGE || '0') === '1',
+    };
+    return res.json(status);
+  } catch (error) {
+    console.error('[SAPL] Status error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Preview PR creation (dry-run - always safe)
+app.post('/api/auto_pr/preview', async (req, res) => {
+  try {
+    const { files, title, body } = req.body;
+
+    if (!files || !Array.isArray(files)) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'files array required' });
+    }
+
+    if (!title) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'title required' });
+    }
+
+    const result = await autoPR.previewPR(files, title, body);
+    return res.json(result);
+  } catch (error) {
+    console.error('[SAPL] Preview error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Create PR (requires AUTO_PR_ENABLED=1 and AUTO_PR_DRYRUN=0)
+app.post('/api/auto_pr/create', async (req, res) => {
+  try {
+    const { files, title, body } = req.body;
+
+    if (!files || !Array.isArray(files)) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'files array required' });
+    }
+
+    if (!title) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'title required' });
+    }
+
+    // Pass context for audit logging
+    const context = {
+      convId: req.body.convId || null,
+      turnId: req.body.turnId || null,
+      sessionId: req.body.sessionId || null,
+      ip: req.ip,
+    };
+
+    const result = await autoPR.executePR(files, title, body, context);
+    return res.json(result);
+  } catch (error) {
+    console.error('[SAPL] Create error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Get current git status
+app.get('/api/auto_pr/git/status', async (req, res) => {
+  try {
+    const result = await autoPR.getGitStatus();
+    return res.json(result);
+  } catch (error) {
+    console.error('[SAPL] Git status error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
+  }
+});
+
+// Validate files against allowlist
+app.post('/api/auto_pr/validate', async (req, res) => {
+  try {
+    const { files } = req.body;
+
+    if (!files || !Array.isArray(files)) {
+      return res.status(400).json({ ok: false, error: 'invalid_request', message: 'files array required' });
+    }
+
+    const result = autoPR.validateFiles(files);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error('[SAPL] Validate error:', error);
+    return res.status(500).json({ ok: false, error: 'server_error', message: error?.message || String(error) });
   }
 });
 

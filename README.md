@@ -214,6 +214,120 @@ Week 8-9 Features:
 
 **Smoke test**: `bash forgekeeper/scripts/test_taskgen.sh 60` (with server running)
 
+### SAPL (Safe Auto-PR Loop)
+
+**Status**: ✅ Implemented
+**Priority**: High
+**Integration**: Works with TGT task suggestions
+
+**Overview**: Safe, automated PR creation from TGT task suggestions with comprehensive safety controls.
+
+**UI Access**:
+- From TGT task → Click "Propose PR" → Preview → Create PR
+
+**Core Endpoints** (5 at `/api/auto_pr/*`):
+- `GET /status` - Get SAPL configuration and status
+- `POST /preview` - Preview PR (always safe, no git operations)
+- `POST /create` - Create PR (requires flags to be enabled)
+- `GET /git/status` - Get current git status
+- `POST /validate` - Validate files against allowlist
+
+**Safety Features**:
+- ✅ **Allowlist-only**: Docs, config, tests only (no runtime code)
+- ✅ **Dry-run default**: Preview mode by default (`AUTO_PR_DRYRUN=1`)
+- ✅ **Kill-switch**: Instant disable via `AUTO_PR_ENABLED=0`
+- ✅ **Full audit**: Every action logged to ContextLog
+- ✅ **No auto-merge**: Manual review required (default)
+
+**Environment Variables**:
+
+Enable/Disable:
+  - `AUTO_PR_ENABLED=1` - Enable SAPL (default: `0`)
+  - `AUTO_PR_DRYRUN=1` - Dry-run mode (default: `1`, safe)
+  - `AUTO_PR_AUTOMERGE=0` - Auto-merge when CI passes (default: `0`, safe)
+
+Configuration:
+  - `AUTO_PR_ALLOW=...` - Comma-separated file patterns
+    - Default: `README.md,docs/**/*.md,*.example,tests/**/*.mjs`
+  - `AUTO_PR_LABELS=...` - PR labels (default: `auto-pr,safe,documentation`)
+
+**Default Allowlist** (safe files only):
+```
+README.md
+docs/**/*.md                    # All markdown in docs/
+forgekeeper/.env.example        # Example env files
+frontend/test/**/*.mjs          # Test files
+tests/**/*.mjs
+frontend/**/*.test.mjs
+package.json                    # Package metadata
+tsconfig.json                   # Config files
+```
+
+**Example Usage**:
+
+```bash
+# 1. Check status
+curl http://localhost:3000/api/auto_pr/status
+
+# 2. Preview PR (always safe)
+curl -X POST http://localhost:3000/api/auto_pr/preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "files": ["README.md", "docs/api.md"],
+    "title": "docs: update documentation",
+    "body": "Auto-generated from TGT task"
+  }'
+
+# 3. Validate files against allowlist
+curl -X POST http://localhost:3000/api/auto_pr/validate \
+  -H "Content-Type: application/json" \
+  -d '{"files": ["README.md", "src/server.mjs"]}'
+
+# Response: { "allowed": ["README.md"], "blocked": ["src/server.mjs"] }
+
+# 4. Create PR (requires AUTO_PR_ENABLED=1, AUTO_PR_DRYRUN=0)
+curl -X POST http://localhost:3000/api/auto_pr/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "files": ["README.md"],
+    "title": "docs: update README",
+    "body": "Auto-generated update"
+  }'
+```
+
+**Prerequisites**:
+- GitHub CLI (`gh`) must be installed and authenticated
+  - macOS: `brew install gh`
+  - Linux: See https://github.com/cli/cli#installation
+  - Auth: `gh auth login`
+
+**Workflow** (TGT → SAPL → PR):
+1. TGT suggests task: "Update API documentation"
+2. User clicks "Propose PR" in UI
+3. SAPL validates files against allowlist
+4. User reviews preview (diff, files, branch name)
+5. User confirms "Create PR"
+6. SAPL creates branch, commits, pushes, opens PR
+7. PR URL returned to user
+
+**Safety Guarantees**:
+- ❌ Will NEVER modify runtime code (src/, lib/, server files)
+- ❌ Will NEVER auto-merge by default
+- ❌ Will NEVER run when `AUTO_PR_ENABLED=0`
+- ✅ ALWAYS validates against allowlist BEFORE any git operation
+- ✅ ALWAYS logs to ContextLog
+- ✅ ALWAYS returns preview in dry-run mode
+
+**Documentation**:
+- Full Guide: `docs/sapl/README.md`
+- API Reference: See above endpoints
+- Implementation: `frontend/server.auto-pr.mjs`
+- Routes: `frontend/server.mjs` (lines 2490-2588)
+
+**Testing**:
+- Preview (always safe): `npm run test:sapl:preview`
+- Full integration: `npm run test:sapl` (requires gh CLI)
+
 ### Autonomous Agent & Advanced Learning
 
 **Status**: ✅ Fully implemented (Phase 5 + Diagnostic Reflection)
