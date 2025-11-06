@@ -230,6 +230,27 @@ function matchesGlob(filePath, pattern) {
 
 ## Common Issues
 
+### Issue: docker-compose.yml missing after running tests
+
+**Symptom**: `open docker-compose.yml: The system cannot find the file specified.`
+
+**Cause**: Earlier versions of `test-repo-write-direct.mjs` created and deleted `docker-compose.yml` as part of the test suite, which accidentally removed the actual docker-compose.yml file.
+
+**Solution**:
+```bash
+# Restore from git
+git restore docker-compose.yml
+
+# Verify it's back
+ls -la docker-compose.yml
+```
+
+**Fixed in**: Commit `ada70e9` - Test now uses `docker-compose.test.yml` instead
+
+**Prevention**: The test has been updated to not touch critical infrastructure files.
+
+---
+
 ### Issue: "path not allowed" even with pattern in allowlist
 
 **Check 1**: Verify pattern is correct
