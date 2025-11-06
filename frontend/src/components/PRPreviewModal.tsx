@@ -126,7 +126,17 @@ function DiffViewer({ diff }: { diff: string }) {
   );
 }
 
-function FileValidationDisplay({ files }: { files: PRPreviewData['preview']['files'] }) {
+interface FileValidationProps {
+  files: {
+    total: number;
+    allowed: number;
+    blocked: number;
+    allowedFiles: string[];
+    blockedFiles: string[];
+  };
+}
+
+function FileValidationDisplay({ files }: FileValidationProps) {
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ fontWeight: 600, marginBottom: 8, color: '#334155' }}>
@@ -167,7 +177,7 @@ function FileValidationDisplay({ files }: { files: PRPreviewData['preview']['fil
             ✅ Allowed ({files.allowedFiles.length})
           </div>
           <ul style={{ margin: 0, padding: '0 0 0 20px', fontSize: 13 }}>
-            {files.allowedFiles.map((file, idx) => (
+            {files.allowedFiles.map((file: string, idx: number) => (
               <li key={idx} style={{ color: '#065f46', marginBottom: 2 }}>
                 <code style={{ background: '#f0fdf4', padding: '2px 6px', borderRadius: 3 }}>
                   {file}
@@ -184,7 +194,7 @@ function FileValidationDisplay({ files }: { files: PRPreviewData['preview']['fil
             ❌ Blocked ({files.blockedFiles.length})
           </div>
           <ul style={{ margin: 0, padding: '0 0 0 20px', fontSize: 13 }}>
-            {files.blockedFiles.map((file, idx) => (
+            {files.blockedFiles.map((file: string, idx: number) => (
               <li key={idx} style={{ color: '#991b1b', marginBottom: 2 }}>
                 <code style={{ background: '#fef2f2', padding: '2px 6px', borderRadius: 3 }}>
                   {file}
@@ -198,7 +208,15 @@ function FileValidationDisplay({ files }: { files: PRPreviewData['preview']['fil
   );
 }
 
-function StatsDisplay({ stats }: { stats: PRPreviewData['preview']['stats'] }) {
+interface StatsDisplayProps {
+  stats: {
+    filesChanged: number;
+    linesAdded: number;
+    linesRemoved: number;
+  };
+}
+
+function StatsDisplay({ stats }: StatsDisplayProps) {
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ fontWeight: 600, marginBottom: 8, color: '#334155' }}>
@@ -249,12 +267,20 @@ function StatsDisplay({ stats }: { stats: PRPreviewData['preview']['stats'] }) {
   );
 }
 
-function WarningsDisplay({ warnings }: { warnings: PRPreviewData['preview']['warnings'] }) {
+interface WarningsDisplayProps {
+  warnings: Array<{
+    type: string;
+    message: string;
+    files?: string[];
+  }>;
+}
+
+function WarningsDisplay({ warnings }: WarningsDisplayProps) {
   if (!warnings || warnings.length === 0) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
-      {warnings.map((warning, idx) => (
+      {warnings.map((warning: { type: string; message: string; files?: string[] }, idx: number) => (
         <div
           key={idx}
           style={{
