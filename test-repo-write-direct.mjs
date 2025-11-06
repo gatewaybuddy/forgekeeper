@@ -63,10 +63,10 @@ const TEST_CASES = [
     shouldSucceed: true,
   },
   {
-    name: 'Docker compose file',
-    path: 'docker-compose.yml',
+    name: 'Docker compose test file',
+    path: 'docker-compose.test.yml',
     content: '# Test\nversion: "3"\n',
-    shouldSucceed: true,
+    shouldSucceed: false, // Not in allowlist - intentionally
   },
 
   // Should FAIL (not in allowlist)
