@@ -702,6 +702,28 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             lastEventTsRef.current = '';
           }}>New Conversation</button>
           <span style={{fontSize:12, color:'#64748b'}}>ID: <code>{convId.slice(0,12)}…</code></span>
+          <a
+            href={`/api/ctx/tail.json?n=1000&conv_id=${convId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 11,
+              color: '#3b82f6',
+              textDecoration: 'none',
+              padding: '4px 8px',
+              borderRadius: 4,
+              background: '#eff6ff',
+              border: '1px solid #bae6fd',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+          >
+            📄 View Full Logs
+          </a>
         </div>
       </div>
 

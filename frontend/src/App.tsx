@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Chat } from './components/Chat';
-import AutonomousPanel from './components/AutonomousPanel';
 import { PreferencesPanel } from './components/PreferencesPanel';
 import { checkHealth } from './lib/health';
 
@@ -28,7 +27,6 @@ export default function App() {
   const [checking, setChecking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
-  const [showAutonomousPanel, setShowAutonomousPanel] = useState(false);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(false);
   const [toolNames, setToolNames] = useState<string[]>([]);
   const [toolMetadata, setToolMetadata] = useState<ToolMetadata[]>([]);
@@ -111,18 +109,10 @@ export default function App() {
             <span style={{fontSize:12, color:'#555'}}>Model</span>
             <input value={model} onChange={e=>setModel(e.target.value)} style={{padding:'4px 6px'}} />
           </label>
-          <button onClick={()=>setShowAutonomousPanel(s=>!s)} title="Toggle Autonomous Panel">🤖 Autonomous</button>
           <button onClick={()=>setShowPreferences(true)} title="User Preferences">⚙️ Preferences</button>
           <button onClick={()=>setShowSettings(s=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
         </div>
       </header>
-
-      {/* Autonomous Panel [codex] - Collapsible */}
-      {showAutonomousPanel && (
-        <section id="autonomous-panel" style={{ marginBottom: 12 }}>
-          <AutonomousPanel model={model} />
-        </section>
-      )}
 
       {showSettings && (
         <section style={{
