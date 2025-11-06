@@ -134,19 +134,22 @@ def _run_compose() -> int:
     # Print friendly URLs
     def _get_env_value(path: Path, key: str, default: str) -> str:
         try:
-            for line in path.read_text().splitlines():
+            for line in path.read_text(encoding='utf-8').splitlines():
                 s = line.strip()
                 if not s or s.startswith('#'):
                     continue
                 if '=' in s:
                     k, v = s.split('=', 1)
+                    # Strip both key and value to handle any whitespace/line endings
                     if k.strip() == key:
                         return v.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            # Debug: print error if file can't be read
+            import sys
+            print(f"Warning: Could not read {key} from {path}: {e}", file=sys.stderr)
         return default
 
-    frontend_port = _get_env_value(env_path, 'FRONTEND_PORT', '3000')
+    frontend_port = _get_env_value(env_path, 'FRONTEND_PORT', '5173')
     # Prefer llama/localai core port; fall back to legacy vLLM env
     core_port = _get_env_value(env_path, 'LLAMA_PORT_CORE', _get_env_value(env_path, 'VLLM_PORT_CORE', '8001'))
     print(f"Forgekeeper UI: http://localhost:{frontend_port}")
