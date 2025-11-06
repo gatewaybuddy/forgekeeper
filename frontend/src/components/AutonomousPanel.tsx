@@ -534,15 +534,15 @@ export default function AutonomousPanel({ model }: { model: string }) {
             </div>
           )}
 
-          {/* Diagnostic & Recovery Section */}
+          {/* Diagnostic & Recovery Section - Collapsible */}
           {data?.state?.recentFailures && data.state.recentFailures.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>🔍 Diagnostic & Recovery</span>
+            <details style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+              <summary style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', listStyle: 'none' }}>
+                <span>▸ 🔍 Diagnostic & Recovery</span>
                 <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
                   ({data.state.recentFailures.filter((f: any) => f.recoverySucceeded).length}/{data.state.recentFailures.length} recovered)
                 </span>
-              </div>
+              </summary>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {data.state.recentFailures.slice(-3).reverse().map((failure: any, idx: number) => (
@@ -584,7 +584,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           {data?.result?.summary && !running && (
@@ -609,15 +609,15 @@ export default function AutonomousPanel({ model }: { model: string }) {
         </div>
       )}
 
-      {/* Real-time Action Log */}
+      {/* Real-time Action Log - Collapsible */}
       {sessionId && actionHistory.length > 0 && (
-        <div style={{
+        <details style={{
           background: 'white',
           border: '2px solid #e5e7eb',
           borderRadius: 12,
           overflow: 'hidden'
         }}>
-          <div style={{
+          <summary style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
             padding: '12px 16px',
@@ -625,14 +625,17 @@ export default function AutonomousPanel({ model }: { model: string }) {
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: 8
+            gap: 8,
+            cursor: 'pointer',
+            listStyle: 'none'
           }}>
+            <span>▸</span>
             <span>📋</span>
-            <span>Action Log</span>
+            <span>Recent Activities</span>
             <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.9 }}>
               {actionHistory.length} iteration{actionHistory.length !== 1 ? 's' : ''}
             </span>
-          </div>
+          </summary>
           <div style={{ maxHeight: 400, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {actionHistory.map((item: any, idx: number) => (
               <div key={idx} style={{
@@ -677,7 +680,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Clarification Dialog */}

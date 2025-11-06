@@ -855,7 +855,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         </div>
       )}
 
-      <div style={{display:'flex', gap:12, alignItems:'stretch', minHeight:0}}>
+      <div style={{display:'flex', gap:12, alignItems:'stretch', minHeight:0, flex: '1 1 0', overflow: 'hidden'}}>
         <div
           ref={scrollRef}
           style={{
@@ -863,13 +863,12 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             borderRadius:8,
             padding:12,
             marginBottom:12,
-            height: fill ? undefined : '55vh',
             overflowY: 'auto',
             overscrollBehavior: 'contain',
             background: '#fff',
             scrollBehavior: 'smooth',
             minHeight: 0,
-            flex: '1 1 auto'
+            flex: '1 1 0'
           }}
           onScroll={onScroll}
         >
