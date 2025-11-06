@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chatClient';
 import { tailContextLog, type CtxEvent } from '../lib/ctxClient';
-import { startAutonomousSession, stopAutonomousSession } from '../lib/autonomousClient';
 import StatusBar from './StatusBar';
 import DiagnosticsDrawer from './DiagnosticsDrawer';
 import TasksDrawer from './TasksDrawer';
-import { AutoModeButton, AutoModeProgress } from './AutoModeButton';
 import { injectDeveloperNoteBeforeLastUser } from '../lib/convoUtils';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
@@ -249,10 +247,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [bashCwd, setBashCwd] = useState<string>('');
   const [httpEnabled, setHttpEnabled] = useState<boolean | null>(null);
   const [httpInfo, setHttpInfo] = useState<{ maxBytes: number; timeoutMs: number } | null>(null);
-  // Autonomous mode state
-  const [autoMode, setAutoMode] = useState(false);
-  const [autoSessionId, setAutoSessionId] = useState<string | null>(null);
-  const [autoProgress, setAutoProgress] = useState({ iteration: 0, max: 15, percent: 0 });
   // Repo editor state
   const [repoPath, setRepoPath] = useState<string>('');
   const [repoContent, setRepoContent] = useState<string>('');
@@ -276,8 +270,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [genTemp, setGenTemp] = useState<number>(0.0);
   const [genTopP, setGenTopP] = useState<number>(0.4);
   const [genAuto, setGenAuto] = useState<boolean>(false);
-  // [codex] compact autonomous launcher (header)
-  const [quickAutoTask, setQuickAutoTask] = useState('');
   // Send strategy: auto chooses stream vs block based on prompt
   type SendStrategy = 'auto' | 'stream' | 'block';
   const [sendStrategy, setSendStrategy] = useState<SendStrategy>('auto');
@@ -553,24 +545,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     await onSend();
   }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics, genTemp, genTopP, convId]);
 
-  // [codex] quick autonomous start (async) and link panel state via localStorage
-  const onQuickAutoStart = useCallback(async () => {
-    const t = quickAutoTask.trim();
-    if (!t) return;
-    try {
-      const res = await startAutonomousSession({ task: t, model, max_iterations: 50, async: true, conv_id: convId });
-      try {
-        localStorage.setItem('fk_auto_adopt_session', res.session_id);
-        localStorage.setItem('fk_auto_adopt_task', t);
-      } catch {}
-      setMessages(prev => [...prev, { role: 'user', content: `🔄 Started autonomous session: ${t}` }, { role: 'assistant', content: `Session started (id: ${res.session_id}). See Autonomous Panel below for live progress.` }]);
-      setQuickAutoTask('');
-      try { document.getElementById('autonomous-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
-    } catch (e:any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `❌ Failed to start autonomous session: ${e?.message || String(e)}` }]);
-    }
-  }, [quickAutoTask, model, convId, setMessages]);
-
   const onSendOnce = useCallback(async () => {
     const text = input.trim();
     if (!text) return;
@@ -715,79 +689,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', vis); };
   }, [convId, pollingOn, streaming]);
 
-  // Autonomous mode handlers
-  const handleAutoStart = useCallback(async (task: string) => {
-    if (!task.trim()) return;
-
-    setAutoMode(true);
-    setStreaming(true);
-
-    try {
-      const response = await startAutonomousSession({
-        task: task.trim(),
-        model,
-        max_iterations: 50,
-        conv_id: convId,
-      });
-
-      setAutoSessionId(response.session_id);
-
-      const res = response.result;
-      if (!res) {
-        setMessages(prev => [
-          ...prev,
-          { role: 'user', content: `🤖 Auto Mode Task: ${task}` },
-          { role: 'assistant', content: `Autonomous session started (session_id: ${response.session_id}). Use the Autonomous Panel to monitor progress.`, reasoning: null }
-        ]);
-        return;
-      }
-
-      // Build reasoning from history
-      const reasoning = res.history.map((h, idx) => {
-        const tools = h.tools_used ? ` [${h.tools_used.join(', ')}]` : '';
-        return `Iteration ${h.iteration}${tools}: ${h.action}\n  Progress: ${h.progress}% | Confidence: ${(h.confidence * 100).toFixed(0)}%\n  ${h.result.slice(0, 200)}${h.result.length > 200 ? '...' : ''}`;
-      }).join('\n\n');
-
-      // Add result to messages
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'user',
-          content: `🤖 Auto Mode Task: ${task}`,
-        },
-        {
-          role: 'assistant',
-          content: res.summary,
-          reasoning: reasoning || null,
-        },
-      ]);
-
-    } catch (error) {
-      console.error('[Auto Mode] Error:', error);
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `❌ Auto Mode Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ]);
-    } finally {
-      setAutoMode(false);
-      setStreaming(false);
-      setAutoSessionId(null);
-    }
-  }, [model, convId]);
-
-  const handleAutoStop = useCallback(async () => {
-    if (autoSessionId) {
-      try {
-        await stopAutonomousSession(autoSessionId);
-      } catch (error) {
-        console.error('[Auto Mode] Stop error:', error);
-      }
-    }
-  }, [autoSessionId]);
-
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
       <div style={{display:'flex', gap:10, alignItems:'center', marginBottom:10}}>
@@ -803,57 +704,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           <span style={{fontSize:12, color:'#64748b'}}>ID: <code>{convId.slice(0,12)}…</code></span>
         </div>
       </div>
-
-      {/* Auto Mode Active Banner */}
-      {autoMode && (
-        <div
-          style={{
-            padding: '12px 16px',
-            background: '#ecfdf5',
-            border: '1px solid #10b981',
-            borderRadius: 8,
-            marginBottom: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <div
-            className="spinner"
-            style={{
-              width: 20,
-              height: 20,
-              border: '3px solid #10b981',
-              borderTopColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-            }}
-          />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, color: '#047857' }}>
-              🤖 Autonomous Mode Active
-            </div>
-            <div style={{ fontSize: 12, color: '#059669', marginTop: 2 }}>
-              Agent is working autonomously on your task...
-            </div>
-          </div>
-          <button
-            onClick={handleAutoStop}
-            style={{
-              background: '#dc2626',
-              color: 'white',
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            ⏹ Emergency Stop
-          </button>
-        </div>
-      )}
 
       <div style={{display:'flex', gap:12, alignItems:'stretch', minHeight:0, flex: '1 1 0', overflow: 'hidden'}}>
         <div
@@ -974,20 +824,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             <input type="checkbox" checked={showReasoning} onChange={e=>setShowReasoning(e.target.checked)} />
             <span style={{fontSize:12}}>Show reasoning</span>
           </label>
-
-          {/* Auto Mode Button */}
-          <div style={{marginLeft: 8}}>
-            {!autoMode ? (
-              <AutoModeButton onStart={handleAutoStart} disabled={streaming} />
-            ) : (
-              <AutoModeProgress
-                iteration={autoProgress.iteration}
-                maxIterations={autoProgress.max}
-                progress={autoProgress.percent}
-                onStop={handleAutoStop}
-              />
-            )}
-          </div>
 
           {/* Hamburger menu (top-right of controls row) */}
           <div style={{marginLeft:'auto'}}>
