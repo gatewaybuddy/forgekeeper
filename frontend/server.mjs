@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { orchestrateWithReview } from './server.review.mjs';
+import { orchestrateChunked } from './server.chunked.mjs';
 import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors, getToolRegressionStats, getAllToolRegressionStats, clearToolRegressionStats, getToolResourceUsage, getAllToolResourceUsage, clearToolResourceUsage } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
 import { getReviewConfig } from './config/review_prompts.mjs';
+import { getChunkedConfig, shouldTriggerChunking } from './config/chunked_prompts.mjs';
 // Enhanced Features Integration (Phase 1-3)
 import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server.enhanced-integration.mjs';
 import { createAutonomousAgent } from './core/agent/autonomous.mjs';
@@ -272,6 +274,8 @@ app.post('/api/chat', async (req, res) => {
 
     // M2: Use review orchestrator if enabled
     const reviewConfig = getReviewConfig();
+    // M2: Use chunked orchestrator if enabled
+    const chunkedConfig = getChunkedConfig();
     const lastUserMsg = [...preMessages].reverse().find(m => m?.role === 'user');
     const lastContent = String(lastUserMsg?.content || '');
     const reviewContext = {
@@ -279,9 +283,19 @@ app.post('/api/chat', async (req, res) => {
       response: null, // Will be filled after initial generation
       error: false,
       hasError: false,
+      tools: allowed, // Pass tools array so review mode can decide based on tool availability
+    };
+    const chunkedContext = {
+      question: lastContent,
+      expectedTokens: plan.maxOut,
+      maxTokens: plan.maxOut,
+      tools: allowed,
     };
 
-    // Choose orchestrator: Enhanced > Review > Standard
+    // Determine if chunking should be triggered
+    const useChunked = chunkedConfig.enabled && shouldTriggerChunking(chunkedContext, chunkedConfig) && (!allowed || allowed.length === 0);
+
+    // Choose orchestrator: Enhanced > Chunked > Review > Standard
     let out;
     if (enhancedOrchestrator && useEnhanced) {
       out = await enhancedOrchestrator({
@@ -299,6 +313,18 @@ app.post('/api/chat', async (req, res) => {
         convId,
         enablePhase1: true,
         enablePhase3: process.env.FRONTEND_ENABLE_AUTO_COMPACT === '1',
+      });
+    } else if (useChunked) {
+      // Use chunked orchestration for long text-only responses
+      console.log('[server] Using chunked orchestration');
+      out = await orchestrateChunked({
+        baseUrl: upstreamBase,
+        model: mdl,
+        messages: preMessages,
+        maxTokens: chunkedConfig.tokensPerChunk,
+        convId,
+        traceId,
+        config: chunkedConfig,
       });
     } else if (reviewConfig.enabled) {
       out = await orchestrateWithReview({

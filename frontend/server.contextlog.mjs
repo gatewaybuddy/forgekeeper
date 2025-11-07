@@ -208,3 +208,90 @@ export function createReviewSummaryEvent({
     total_elapsed_ms,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chunked Reasoning Event Creators
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function createChunkOutlineEvent({
+  conv_id,
+  trace_id,
+  chunk_count,
+  outline,
+  raw_outline = '',
+  elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'chunk_outline',
+    conv_id,
+    trace_id,
+    iter: 0,
+    name: 'generate_outline',
+    status,
+    chunk_count,
+    outline: Array.isArray(outline) ? outline : [],
+    raw_outline: truncateText(raw_outline, 1000),
+    elapsed_ms,
+  };
+}
+
+export function createChunkWriteEvent({
+  conv_id,
+  trace_id,
+  iter,
+  chunk_index,
+  chunk_label,
+  reasoning_tokens,
+  content_tokens,
+  elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'assistant',
+    act: 'chunk_write',
+    conv_id,
+    trace_id,
+    iter,
+    name: 'write_chunk',
+    status,
+    chunk_index,
+    chunk_label: truncateText(chunk_label, 100),
+    reasoning_tokens,
+    content_tokens,
+    elapsed_ms,
+  };
+}
+
+export function createChunkAssemblyEvent({
+  conv_id,
+  trace_id,
+  chunk_count,
+  total_reasoning_tokens,
+  total_content_tokens,
+  total_tokens,
+  elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'chunk_assembly',
+    conv_id,
+    trace_id,
+    iter: chunk_count,
+    name: 'assemble_chunks',
+    status,
+    chunk_count,
+    total_reasoning_tokens,
+    total_content_tokens,
+    total_tokens,
+    elapsed_ms,
+  };
+}
