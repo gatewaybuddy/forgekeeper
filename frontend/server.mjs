@@ -25,6 +25,7 @@ import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
 import tasksRouter from './server.tasks.mjs'; // TGT Task API router
 import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
 import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
+import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent consensus mode
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1810,6 +1811,160 @@ app.post('/api/chat/autonomous/clarify', async (req, res) => {
   } catch (error) {
     console.error('[Autonomous] Clarify error:', error);
     return res.status(500).json({ ok: false, error: 'clarify_error', message: error?.message || String(error) });
+  }
+});
+
+// POST /api/chat/thought-world - Multi-agent consensus mode
+app.post('/api/chat/thought-world', async (req, res) => {
+  try {
+    const { messages, model } = req.body || {};
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
+    }
+
+    // Extract the last user message as the task
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (!lastUserMessage || !lastUserMessage.content) {
+      return res.status(400).json({ error: 'invalid_request', message: 'No user message found' });
+    }
+
+    const task = lastUserMessage.content;
+
+    // Run 3-agent consensus
+    const result = await runThoughtWorld(task);
+
+    // Build response in format compatible with existing chat
+    const assistantMessage = {
+      role: 'assistant',
+      content: result.consensus.rawContent,
+      thoughtWorld: {
+        decision: result.decision,
+        forge: {
+          role: 'executor',
+          content: result.agents.forge.content
+        },
+        loom: {
+          role: 'verifier',
+          content: result.agents.loom.content
+        },
+        anvil: {
+          role: 'integrator',
+          content: result.agents.anvil.content
+        },
+        episodeId: result.episodeId
+      }
+    };
+
+    return res.json({
+      assistant: assistantMessage,
+      messages: [...messages, assistantMessage],
+      decision: result.decision,
+      success: result.success,
+      mode: 'thought-world',
+      episodeId: result.episodeId
+    });
+
+  } catch (error) {
+    console.error('[Thought World] Error:', error);
+    return res.status(500).json({
+      error: 'thought_world_error',
+      message: error?.message || String(error)
+    });
+  }
+});
+
+// POST /api/chat/thought-world/stream - Streaming multi-agent consensus
+app.post('/api/chat/thought-world/stream', async (req, res) => {
+  try {
+    const { messages, model, agentConfig } = req.body || {};
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
+    }
+
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (!lastUserMessage || !lastUserMessage.content) {
+      return res.status(400).json({ error: 'invalid_request', message: 'No user message found' });
+    }
+
+    const task = lastUserMessage.content;
+
+    // Set up SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Helper to send SSE events
+    const sendEvent = (event, data) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Import streaming function
+    const { runThoughtWorldStreaming } = await import('./server.thought-world.mjs');
+
+    // Run streaming consensus with callback
+    await runThoughtWorldStreaming(task, {
+      agentConfig,
+      onEvent: sendEvent
+    });
+
+    res.end();
+
+  } catch (error) {
+    console.error('[Thought World Stream] Error:', error);
+    res.write(`event: error\n`);
+    res.write(`data: ${JSON.stringify({ message: error?.message || String(error) })}\n\n`);
+    res.end();
+  }
+});
+
+// POST /api/chat/thought-world/tools - Phase 2: Multi-agent with tool execution
+app.post('/api/chat/thought-world/tools', async (req, res) => {
+  try {
+    const { messages, model, agentConfig } = req.body || {};
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'invalid_request', message: 'messages[] is required' });
+    }
+
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (!lastUserMessage || !lastUserMessage.content) {
+      return res.status(400).json({ error: 'invalid_request', message: 'No user message found' });
+    }
+
+    const task = lastUserMessage.content;
+
+    // Set up SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Helper to send SSE events
+    const sendEvent = (event, data) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Import Phase 2 tool execution function
+    const { runThoughtWorldWithTools } = await import('./server.thought-world-tools.mjs');
+
+    // Run tool-enabled consensus with callback
+    await runThoughtWorldWithTools(task, {
+      agentConfig,
+      onEvent: sendEvent
+    });
+
+    res.end();
+
+  } catch (error) {
+    console.error('[Thought World Tools] Error:', error);
+    res.write(`event: error\n`);
+    res.write(`data: ${JSON.stringify({ message: error?.message || String(error) })}\n\n`);
+    res.end();
   }
 });
 
