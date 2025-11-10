@@ -1968,6 +1968,60 @@ app.post('/api/chat/thought-world/tools', async (req, res) => {
   }
 });
 
+// GET /api/scout/metrics - Get current Scout metrics
+app.get('/api/scout/metrics', async (req, res) => {
+  try {
+    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const metrics = scoutMetrics.calculateMetrics();
+
+    res.json({
+      success: true,
+      metrics
+    });
+  } catch (error) {
+    console.error('[Scout Metrics] Error fetching metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: error?.message || String(error)
+    });
+  }
+});
+
+// GET /api/scout/metrics/history - Get historical Scout metrics
+app.get('/api/scout/metrics/history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const history = await scoutMetrics.getHistoricalMetrics(limit);
+
+    res.json({
+      success: true,
+      history,
+      count: history.length
+    });
+  } catch (error) {
+    console.error('[Scout Metrics] Error fetching history:', error);
+    res.status(500).json({
+      success: false,
+      error: error?.message || String(error)
+    });
+  }
+});
+
+// GET /api/scout/metrics/report - Get Scout performance report
+app.get('/api/scout/metrics/report', async (req, res) => {
+  try {
+    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const report = scoutMetrics.generateReport();
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.send(report);
+  } catch (error) {
+    console.error('[Scout Metrics] Error generating report:', error);
+    res.status(500).send('Error generating Scout metrics report');
+  }
+});
+
 // [Day 10] GET /api/chat/autonomous/stats - Get learning statistics
 app.get('/api/chat/autonomous/stats', async (req, res) => {
   try {

@@ -24,6 +24,12 @@ const AGENTS = {
     model: process.env.FORGE_MODEL || 'claude-sonnet-4-5-20250929',
     apiBase: process.env.FORGE_API_BASE || 'https://api.anthropic.com'
   },
+  scout: {
+    provider: process.env.SCOUT_PROVIDER || 'anthropic',
+    apiKey: process.env.SCOUT_API_KEY || process.env.ANTHROPIC_API_KEY,
+    model: process.env.SCOUT_MODEL || 'claude-3-5-haiku-20241022',
+    apiBase: process.env.SCOUT_API_BASE || 'https://api.anthropic.com'
+  },
   loom: {
     provider: process.env.LOOM_PROVIDER || 'anthropic',
     apiKey: process.env.LOOM_API_KEY || process.env.ANTHROPIC_API_KEY,
