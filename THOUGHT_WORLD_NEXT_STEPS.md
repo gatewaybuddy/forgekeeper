@@ -1,408 +1,177 @@
-# Thought World: Next Steps
+# Thought World - Next Development Steps
 
-**Current Status**: ✅ Phase 1 Complete - Basic 3-agent consensus working
-
----
-
-## What We Have Now (Phase 1)
-
-✅ **Multi-agent consensus**: Forge → Loom → Anvil
-✅ **Multi-provider support**: OpenAI + Anthropic + Local inference
-✅ **Episode logging**: Episodes saved to `.forgekeeper/thought_world/memory/episodes.jsonl`
-✅ **Test interface**: `http://localhost:5173/test-thought-world.html`
-✅ **API endpoint**: `POST /api/chat/thought-world`
-
-**Current Limitation**: Agents deliberate, but responses are returned all-at-once (no streaming, no tools).
+**Date**: November 11, 2025 (Updated)
+**Current Status**: ✅ Real-time SSE streaming fully functional, Tool formatter implemented
 
 ---
 
-## Phase 1.5: Immediate Enhancements (This Week)
+## Summary of Completed Work
 
-### 1. Streaming Agent Responses ⭐ HIGH PRIORITY
+✅ **SSE Reconnection Loop Fixed** - Stable EventSource connection
+✅ **Compression Buffering Fixed** - Events bypass compression middleware
+✅ **Vite Proxy Configured** - /api routes properly forwarded
+✅ **All Events Streaming** - 0% event loss (was 80-90% before)
+✅ **Human Input Integration** - Already complete! UI components ready
+✅ **Tool Formatter** - Beautiful JSON tool display with icons and formatting
 
-**Problem**: Currently you only see final results. No visibility into agent thinking as it happens.
+**Result**: Thought World UI is fully functional with real-time agent updates and beautiful tool displays!
 
-**Solution**: Server-Sent Events (SSE) streaming
+---
 
-**Implementation**:
-```javascript
-// New endpoint: POST /api/chat/thought-world/stream
-// Streams events:
-{
-  "event": "forge_start",
-  "data": { "agent": "forge", "status": "thinking" }
-}
-{
-  "event": "forge_chunk",
-  "data": { "agent": "forge", "content": "I propose..." }
-}
-{
-  "event": "forge_done",
-  "data": { "agent": "forge", "totalTokens": 1234 }
-}
-{
-  "event": "loom_start",
-  "data": { "agent": "loom", "status": "reviewing" }
-}
-// ... etc for all 3 agents
-{
-  "event": "consensus",
-  "data": { "decision": "approved", "episodeId": "..." }
-}
+## What Was Just Completed (November 11, 2025)
+
+### ✅ **Priority 1: Human Input Integration** (ALREADY COMPLETE!)
+**Time**: 0 hours (discovered already implemented)
+
+Discovered that human input was already fully implemented:
+- Backend: `requestHumanInput()` function and `/api/thought-world/human-input` endpoint exist
+- Frontend: Full UI in `AgentMessage.tsx` (lines 69-107)
+  - Quick action buttons
+  - Custom response textarea
+  - Integration with ConversationFeed event handlers
+- Will activate automatically when agents request human input
+
+### ✅ **Priority 2: JSON Tool Display Formatting** (COMPLETE!)
+**Time**: 2 hours actual
+
+Implemented ToolFormatter component:
+- 📁 Tool-specific icons (📄 read_file, ⚡ run_bash, 🌐 http_get, etc.)
+- Formatted argument display in readable key-value pairs
+- Smart result rendering:
+  - Short text → inline
+  - Long text → expandable `<details>` blocks
+  - Arrays → formatted lists
+  - Objects → pretty JSON
+- Color-coded status badges (✓ Success, ✗ Failed, ⏳ Running)
+- Execution time display
+- Monospace font for technical accuracy
+
+**Files Created**:
+- `ToolFormatter.tsx` (127 lines)
+- `ToolFormatter.css` (195 lines)
+- `TOOL_FORMATTER_IMPLEMENTED.md` (395 lines)
+
+**Commit**: `5365128` - Pushed to main ✅
+
+---
+
+## New Issues Discovered (November 11, 2025)
+
+### 🔴 **Issue 1: Header Disappears on Long Conversations** (HIGH PRIORITY)
+**Problem**: Session header (ID, iteration, status) scrolls out of view
+**User Impact**: Can't see session progress or current state
+**Solution**: Make header sticky/fixed position
+**Estimated Time**: 1-2 hours
+
+### 🟡 **Issue 2: JSON Still in Messages** (MEDIUM PRIORITY)
+**Problem**: ToolFormatter works, but message content still has raw JSON
+**User Impact**: Technical data is hard to read
+**Solution**: Detect and format JSON anywhere in message content
+**Estimated Time**: 2-3 hours
+
+### 🟡 **Issue 3: Long Sessions Hard to Navigate** (MEDIUM PRIORITY)
+**Problem**: No way to jump between iterations or find specific events
+**User Impact**: Difficult to review session or find errors
+**Solution**: Add navigation controls, iteration jumper, search
+**Estimated Time**: 3-4 hours
+
+See `THOUGHT_WORLD_UI_ISSUES.md` for complete details.
+
+---
+
+## Updated Priority Order for Next Session
+
+### **Phase 1: Critical UI Fixes** (3-5 hours) 🔴
+1. **Sticky header** - Keep session info always visible
+2. **JSON detection in messages** - Format all JSON, not just tools
+3. **Scroll navigation** - Jump to iterations, scroll to top/bottom
+
+### **Phase 2: Content Enhancement** (4-5 hours) 🟡
+4. **Markdown rendering** - Support bold, italic, lists, headings
+5. **Syntax highlighting** - Code blocks with language detection
+6. **Copy buttons** - Easy copying of tool results and messages
+
+### **Phase 3: Session Management** (4-6 hours) 🟢
+7. **Session controls** - Pause/resume/stop/export buttons
+8. **Progress indicators** - Visual feedback and animations
+9. **Search/filter** - Find specific messages or iterations
+
+### **Phase 4: Polish & UX** (3-4 hours) 🔵
+10. **Agent avatars** - Visual identity improvements
+11. **Animations** - Smooth transitions and effects
+12. **Responsive design** - Mobile-friendly layout
+
+**Total Estimated Time**: 14-20 hours
+
+---
+
+## Quick Wins (Start of Next Session)
+
+### 30-Minute Tasks ⚡:
+1. Make header sticky: Add `position: sticky; top: 0; z-index: 1000;` to `.conversation-header`
+2. Add "Scroll to Top" floating button (bottom-right corner)
+3. Add iteration numbers to message dividers
+4. Add copy button to ToolFormatter result sections
+
+### 1-Hour Tasks ⏱️:
+1. Detect JSON patterns in message content and format them
+2. Add collapsible sections for long agent messages (>500 chars)
+3. Implement "Jump to Iteration" dropdown in header
+4. Add keyboard shortcuts (J/K for next/prev iteration)
+
+---
+
+## Documentation Created
+
+- ✅ `SSE_RECONNECTION_LOOP_FIXED.md` - React useEffect best practices
+- ✅ `SSE_COMPRESSION_BUFFERING_FIXED.md` - Middleware configuration guide
+- ✅ `TOOL_FORMATTER_IMPLEMENTED.md` - Tool formatting implementation
+- ✅ `THOUGHT_WORLD_UI_ISSUES.md` - New issues and enhancement roadmap
+- ✅ `SESSION_SUMMARY_2025-11-11.md` - Today's session summary
+
+**All committed to**: `main` branch
+**Pushed to**: https://github.com/gatewaybuddy/forgekeeper
+
+---
+
+## How to Resume Next Session
+
+```bash
+# Start the stack (if not running)
+docker compose up -d
+
+# Navigate to Thought World UI
+open http://localhost:5173/thought-world
+
+# Start a test session with a task like:
+# "List all files in the current directory and show their sizes"
 ```
 
-**UI Updates**:
-- Add 3 side-by-side panels that fill in real-time
-- Show "Thinking..." animation while agent is generating
-- Highlight current active agent
-
-**Effort**: ~2-3 hours
-**Files to modify**: `server.thought-world.mjs`, `test-thought-world.html`
-
----
-
-### 2. Dynamic Model Selection UI ⭐ HIGH PRIORITY
-
-**Problem**: Currently must edit `.env` and rebuild to change models.
-
-**Solution**: Add UI controls to select models per conversation.
-
-**Implementation**:
-```html
-<!-- Add to test-thought-world.html -->
-<div class="agent-config">
-  <h3>Configure Agents</h3>
-
-  <div class="agent-row">
-    <label>Forge (Executor)</label>
-    <select id="forge-provider">
-      <option value="openai">OpenAI</option>
-      <option value="anthropic">Anthropic</option>
-      <option value="local">Local (vLLM)</option>
-    </select>
-    <input id="forge-model" placeholder="gpt-4o" />
-  </div>
-
-  <div class="agent-row">
-    <label>Loom (Verifier)</label>
-    <select id="loom-provider">
-      <option value="anthropic" selected>Anthropic</option>
-      <option value="openai">OpenAI</option>
-      <option value="local">Local (vLLM)</option>
-    </select>
-    <input id="loom-model" placeholder="claude-3-haiku-20240307" />
-  </div>
-
-  <div class="agent-row">
-    <label>Anvil (Integrator)</label>
-    <select id="anvil-provider">
-      <option value="anthropic" selected>Anthropic</option>
-      <option value="openai">OpenAI</option>
-      <option value="local">Local (vLLM)</option>
-    </select>
-    <input id="anvil-model" placeholder="claude-sonnet-4-5-20250929" />
-  </div>
-</div>
-```
-
-**Backend**:
-```javascript
-// Accept config in request body
-POST /api/chat/thought-world
-{
-  "messages": [...],
-  "agentConfig": {
-    "forge": { "provider": "openai", "model": "gpt-4o" },
-    "loom": { "provider": "anthropic", "model": "claude-3-haiku-20240307" },
-    "anvil": { "provider": "anthropic", "model": "claude-sonnet-4-5-20250929" }
-  }
-}
-```
-
-**Persistence**: Save to localStorage so config persists across page reloads.
-
-**Effort**: ~1-2 hours
-**Files to modify**: `server.thought-world.mjs`, `test-thought-world.html`
+**Expected Behavior**:
+- ✅ Agents appear immediately
+- ✅ Messages stream in real-time
+- ✅ Tools display with beautiful formatting
+- ✅ Human input prompts appear when requested
+- ⚠️ Header disappears when scrolling down (to be fixed)
+- ⚠️ Some JSON still appears in agent messages (to be fixed)
 
 ---
 
-### 3. Conversation Presets ⭐ NICE TO HAVE
+## Long-Term Roadmap
 
-Allow saving/loading configurations:
-
-```javascript
-const PRESETS = {
-  "all-claude": {
-    forge: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" },
-    loom: { provider: "anthropic", model: "claude-3-haiku-20240307" },
-    anvil: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" }
-  },
-  "mixed-cloud": {
-    forge: { provider: "openai", model: "gpt-4o" },
-    loom: { provider: "anthropic", model: "claude-3-haiku-20240307" },
-    anvil: { provider: "anthropic", model: "claude-sonnet-4-5-20250929" }
-  },
-  "cost-optimized": {
-    forge: { provider: "openai", model: "gpt-4o-mini" },
-    loom: { provider: "anthropic", model: "claude-3-haiku-20240307" },
-    anvil: { provider: "anthropic", model: "claude-3-haiku-20240307" }
-  },
-  "local-inference": {
-    forge: { provider: "local", model: "core" },
-    loom: { provider: "local", model: "core" },
-    anvil: { provider: "local", model: "core" }
-  }
-};
-```
-
-**Effort**: ~30 minutes
-**Files to modify**: `test-thought-world.html`
+### Future Features (Beyond Current Priorities):
+- **Historical Sessions** - View past Thought World sessions
+- **Session Replay** - Step through session events
+- **Export Options** - Save as JSON, Markdown, PDF
+- **Performance** - Virtual scrolling for 100+ messages
+- **Persistence** - Save session state to IndexedDB
+- **Analytics** - Session metrics and insights
+- **Collaboration** - Share sessions with others
+- **Templates** - Pre-configured agent configurations
 
 ---
 
-## Phase 2: Tool Usage + Autonomous Loop (Next Week)
-
-### 1. Tool Integration ⭐⭐⭐ CRITICAL
-
-**Goal**: Agents can call tools (file operations, bash commands, HTTP requests).
-
-**How it works**:
-1. **Forge proposes** a tool call (e.g., `write_file`)
-2. **Loom reviews** the tool call for safety
-3. **Anvil approves** → Tool is executed
-4. **Result fed back** to agents for next iteration
-
-**Implementation**:
-
-```javascript
-// Forge proposes tool call
-{
-  "reasoning": "I need to create a test file...",
-  "tool_call": {
-    "name": "write_file",
-    "arguments": {
-      "path": "test.md",
-      "content": "Hello World"
-    }
-  }
-}
-
-// Loom reviews
-{
-  "concerns": ["File path should be relative", "Content looks safe"],
-  "recommendation": "approve"
-}
-
-// Anvil decides
-{
-  "decision": "approved",
-  "execute": true
-}
-
-// Orchestrator executes tool
-const result = await tools.write_file({ path: "test.md", content: "Hello World" });
-
-// Result fed back to agents
-{
-  "tool_result": {
-    "success": true,
-    "path": "/workspace/test.md",
-    "bytes_written": 11
-  }
-}
-```
-
-**Available Tools** (from existing Forgekeeper):
-- `read_file` - Read file contents
-- `write_file` - Create/update files
-- `read_dir` - List directory contents
-- `run_bash` - Execute bash commands
-- `http_fetch` - Make HTTP requests
-- `get_time` - Get current time
-
-**Safety**:
-- All tool calls must pass Loom verification
-- Sandboxed to `.forgekeeper/sandbox/` by default
-- High-stakes operations (delete, git push) require unanimous approval
-
-**Effort**: ~4-6 hours
-**Files to modify**: `server.thought-world.mjs`, agent prompts
-
----
-
-### 2. Multi-Step Task Support
-
-**Goal**: Agents can complete complex tasks requiring multiple tool calls.
-
-**Example Task**: "Create a Python function to validate emails, write tests, commit"
-
-**Execution Flow**:
-```
-Iteration 1:
-  Forge: Propose write email_validator.py
-  Loom: Review code quality
-  Anvil: Approve → Execute write_file
-
-Iteration 2:
-  Forge: Propose write test_email_validator.py
-  Loom: Review test coverage
-  Anvil: Approve → Execute write_file
-
-Iteration 3:
-  Forge: Propose run pytest
-  Loom: Review (should pass)
-  Anvil: Approve → Execute run_bash
-
-Iteration 4:
-  Forge: Propose git add + commit
-  Loom: Review commit message
-  Anvil: Approve → Execute run_bash
-```
-
-**Implementation**:
-- Add `iteration` counter to orchestrator
-- Each iteration = one tool call
-- Stop when Forge says "task complete" or max iterations (10) reached
-
-**Effort**: ~2-3 hours
-**Files to modify**: `server.thought-world.mjs`
-
----
-
-### 3. Episodic Memory Search
-
-**Goal**: Agents learn from past experiences.
-
-**Current**: Episodes are logged but not used.
-
-**Next**: Load relevant past episodes into agent context.
-
-**Implementation**:
-```javascript
-// Before calling Forge, load similar episodes
-const relevantEpisodes = await searchEpisodes(task, { limit: 3 });
-
-// Inject into Forge's prompt
-const context = {
-  task,
-  pastExperiences: relevantEpisodes.map(ep => ({
-    task: ep.task,
-    outcome: ep.consensus.decision,
-    lessons: ep.integrator.content.match(/Lesson learned:.*/)?.[0]
-  }))
-};
-```
-
-**Search Strategy**:
-1. Keyword match (simple)
-2. Recency bias (last 10 episodes weighted higher)
-3. Future: Semantic similarity (embeddings)
-
-**Effort**: ~2-3 hours
-**Files to create**: `server.episodic-memory.mjs`
-
----
-
-## Phase 3: Advanced Features (Long-term)
-
-### 1. Full UI Integration
-
-**Goal**: Integrate into main Forgekeeper Chat.tsx
-
-**Features**:
-- Mode selector: "Standard Chat" vs "Thought World (Multi-Agent)"
-- See agent deliberation in DiagnosticsDrawer
-- Toggle individual agent visibility
-- Export episode as Markdown
-
-### 2. Gaming Detection
-
-**Goal**: Detect when agents try to game metrics
-
-**Patterns to detect**:
-- Repetitive justifications
-- Generic reasoning ("this seems good")
-- Value-washing (claiming alignment without evidence)
-
-**Implementation**:
-- Add pattern matching to Loom's review
-- Flag suspicious episodes
-- Require human review for flagged episodes
-
-### 3. Agent Specialization
-
-**Goal**: Add specialized agents
-
-**Candidates**:
-- **Security Agent**: Reviews all code changes for vulnerabilities
-- **Performance Agent**: Optimizes for efficiency
-- **Documentation Agent**: Ensures proper docs/comments
-- **Test Agent**: Validates test coverage
-
-**Integration**: 4-agent or 5-agent consensus for complex tasks.
-
----
-
-## Recommended Implementation Order
-
-### This Week (Phase 1.5):
-1. ✅ **Streaming responses** (2-3 hours) - HIGH IMPACT
-2. ✅ **Dynamic model selection UI** (1-2 hours) - HIGH IMPACT
-3. ⏸️ Conversation presets (30 min) - Nice to have
-
-### Next Week (Phase 2):
-1. ✅ **Tool integration** (4-6 hours) - CRITICAL
-2. ✅ **Multi-step task support** (2-3 hours) - CRITICAL
-3. ✅ **Episodic memory search** (2-3 hours) - Enables learning
-4. ⏸️ Gaming detection (4-6 hours) - Can defer
-
-### Future (Phase 3):
-1. Full UI integration into Chat.tsx
-2. Advanced emergence metrics
-3. Cross-session learning
-4. Agent specialization
-
----
-
-## Testing Strategy
-
-### Phase 1.5 Tests:
-- Streaming: Verify all 3 agents stream correctly
-- Model selection: Test all provider combinations (OpenAI/Anthropic/Local)
-
-### Phase 2 Tests:
-- **Tool safety**: Try malicious tool calls, verify Loom blocks them
-- **Multi-step**: Run complex task (implement → test → commit)
-- **Memory**: Verify agents cite past episodes
-
-### Phase 3 Tests:
-- **Gaming detection**: Simulate gaming attempt, verify flagging
-- **Specialization**: Test 4-agent consensus on security-critical code
-
----
-
-## Cost Estimates
-
-### Phase 1.5 (Streaming + UI):
-- **Free** (no additional API calls)
-
-### Phase 2 (Tools + Memory):
-- **$5-10/week** during development (testing iterations)
-- **$0.10-0.50/task** in production (depending on complexity)
-
-### Cost Optimization Tips:
-1. Use **Haiku for Loom** (10x cheaper than Sonnet)
-2. Use **local inference for Forge** during development (free)
-3. Cache system prompts (Anthropic prompt caching saves 90%)
-4. Limit tool iterations to 10 max
-
----
-
-## Questions for You
-
-1. **Streaming**: Do you want to see streaming ASAP? (2-3 hours to implement)
-2. **Tool usage**: Should we prioritize this for next week?
-3. **Model selection**: Do you want UI controls or just .env config?
-4. **Multi-step tasks**: What's a good test task? (e.g., "Implement feature X with tests")
-
-Let me know your priorities and I can start implementing!
+**Last Updated**: November 11, 2025
+**Session**: Tool Formatter Implementation Complete
+**Next Session**: UI Polish & Navigation Fixes
+**Status**: ✅ Ready to Continue
