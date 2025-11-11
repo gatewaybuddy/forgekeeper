@@ -26,6 +26,7 @@ import tasksRouter from './server.tasks.mjs'; // TGT Task API router
 import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
 import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
 import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent consensus mode
+import { ulid } from 'ulid'; // Phase 3: Session ID generation
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,7 +42,17 @@ if (!process.env.FRONTEND_USE_HARMONY) process.env.FRONTEND_USE_HARMONY = '1';
 // Enable Harmony tool injection by default (can be disabled by setting to '0')
 if (!process.env.FRONTEND_HARMONY_TOOLS) process.env.FRONTEND_HARMONY_TOOLS = '1';
 
-app.use(compression());
+// Compression - but skip SSE endpoints (they need unbuffered streaming)
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress SSE endpoints
+    if (req.path.includes('/stream')) {
+      return false;
+    }
+    // Use default compression filter for everything else
+    return compression.filter(req, res);
+  }
+}));
 
 // Setup enhanced features (Phase 1-3) - async initialization
 (async () => {
@@ -2021,6 +2032,166 @@ app.get('/api/scout/metrics/report', async (req, res) => {
     res.status(500).send('Error generating Scout metrics report');
   }
 });
+
+// ===== Phase 3: Interactive Chat Endpoints =====
+
+// Store active SSE connections
+const sseConnections = new Map();
+
+// POST /api/thought-world/start - Start a new interactive session
+app.post('/api/thought-world/start', async (req, res) => {
+  console.log('[Thought World] 🔍 POST /api/thought-world/start HIT!');
+  try {
+    const { task, config, maxIterations, autonomyLevel } = req.body;
+
+    if (!task) {
+      return res.status(400).json({ error: 'Task is required' });
+    }
+
+    const sessionId = ulid();
+    console.log('[Thought World] Starting new session:', sessionId);
+
+    // Store session config (but don't start yet - wait for SSE client to connect)
+    sseConnections.set(sessionId, {
+      clients: [],
+      task,
+      config,
+      maxIterations: maxIterations || 10,
+      autonomyLevel: autonomyLevel || 5,
+      startTime: Date.now(),
+      started: false // Track if session has been started
+    });
+
+    res.json({ sessionId, message: 'Session created, connect to SSE stream to start' });
+  } catch (error) {
+    console.error('[Thought World] Error starting session:', error);
+    res.status(500).json({ error: error?.message || String(error) });
+  }
+});
+
+// GET /api/thought-world/stream/:sessionId - SSE stream for a session
+app.get('/api/thought-world/stream/:sessionId', (req, res) => {
+  console.log('[Thought World] 🔍 SSE ROUTE HIT! Path:', req.path, 'Session ID:', req.params.sessionId);
+  const { sessionId } = req.params;
+
+  if (!sseConnections.has(sessionId)) {
+    console.log('[Thought World] ❌ Session not found in sseConnections:', sessionId);
+    console.log('[Thought World] 🔍 Available sessions:', Array.from(sseConnections.keys()));
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  // Set up SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+  console.log(`[Thought World] SSE client connected to session: ${sessionId}`);
+
+  // Add client to session
+  const session = sseConnections.get(sessionId);
+  const clientId = ulid();
+  session.clients.push({ id: clientId, res });
+
+  // Send initial connection event
+  res.write(`data: ${JSON.stringify({ type: 'connected', sessionId, clientId })}\n\n`);
+
+  // Start session if this is the first client and session hasn't started yet
+  if (!session.started) {
+    session.started = true;
+    console.log(`[Thought World] Starting session now that client is connected: ${sessionId}`);
+    setTimeout(() => runInteractiveSession(sessionId), 100);
+  }
+
+  // Handle client disconnect
+  req.on('close', () => {
+    console.log(`[Thought World] SSE client disconnected: ${clientId}`);
+    session.clients = session.clients.filter(c => c.id !== clientId);
+
+    if (session.clients.length === 0) {
+      console.log(`[Thought World] No clients left for session: ${sessionId}`);
+      // Keep session for 5 minutes in case client reconnects
+      setTimeout(() => {
+        if (session.clients.length === 0) {
+          sseConnections.delete(sessionId);
+          console.log(`[Thought World] Session cleaned up: ${sessionId}`);
+        }
+      }, 300000);
+    }
+  });
+});
+
+// POST /api/thought-world/human-input/:sessionId/:inputId - Receive human input
+app.post('/api/thought-world/human-input/:sessionId/:inputId', async (req, res) => {
+  const { sessionId, inputId } = req.params;
+  const { action, response } = req.body;
+
+  console.log(`[Thought World] Human input received for ${sessionId}/${inputId}:`, action);
+
+  if (!sseConnections.has(sessionId)) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  try {
+    const { resolveHumanInput } = await import('./server.thought-world-tools.mjs');
+    const resolved = resolveHumanInput(inputId, { action, response });
+
+    if (resolved) {
+      res.json({ success: true, message: 'Input received' });
+    } else {
+      res.status(404).json({ error: 'Input request not found or expired' });
+    }
+  } catch (error) {
+    console.error('[Thought World] Error resolving human input:', error);
+    res.status(500).json({ error: error?.message || String(error) });
+  }
+});
+
+// Helper: Run interactive session in background
+async function runInteractiveSession(sessionId) {
+  const session = sseConnections.get(sessionId);
+  if (!session) return;
+
+  const { task, config, maxIterations, autonomyLevel } = session;
+
+  // Event emitter that sends to all connected clients
+  const onEvent = (eventType, data) => {
+    console.log(`[Thought World] 📤 Sending SSE event: ${eventType} to ${session.clients.length} client(s)`);
+    const eventData = JSON.stringify({ ...data, type: eventType });
+    session.clients.forEach(client => {
+      try {
+        client.res.write(`event: ${eventType}\ndata: ${eventData}\n\n`);
+        console.log(`[Thought World] ✅ Event ${eventType} sent to client`);
+      } catch (error) {
+        console.error('[Thought World] ❌ Error sending SSE event:', error);
+      }
+    });
+  };
+
+  try {
+    const { runThoughtWorldWithTools } = await import('./server.thought-world-tools.mjs');
+
+    await runThoughtWorldWithTools(task, {
+      agentConfig: config,
+      onEvent,
+      autonomyLevel
+    });
+
+    // Send completion event
+    onEvent('session_complete', {
+      outcome: 'success',
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Thought World] Session error:', error);
+    onEvent('session_error', {
+      error: error?.message || String(error),
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
 
 // [Day 10] GET /api/chat/autonomous/stats - Get learning statistics
 app.get('/api/chat/autonomous/stats', async (req, res) => {
