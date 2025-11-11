@@ -178,18 +178,38 @@ export function ConversationFeed({
         iteration: data.iteration,
         agent: 'system',
         role: 'tool',
-        content: `Executing: ${data.tool}`,
-        status: 'streaming'
+        content: '', // Content will be rendered by ToolFormatter
+        status: 'streaming',
+        toolExecution: {
+          tool: data.tool,
+          arguments: data.arguments,
+          success: undefined,
+          elapsed: undefined
+        }
       });
     });
 
     eventSource.addEventListener('tool_result', (e) => {
       const data = JSON.parse(e.data);
-      const resultText = data.success
-        ? `✅ ${data.tool} completed successfully`
-        : `❌ ${data.tool} failed: ${data.error}`;
 
-      updateMessageContent(`tool-${data.iteration}-${data.tool}`, resultText, 'complete');
+      // Update the message with complete tool execution data
+      setMessages(prev => prev.map(m => {
+        if (m.id === `tool-${data.iteration}-${data.tool}`) {
+          return {
+            ...m,
+            status: 'complete' as const,
+            toolExecution: {
+              tool: data.tool,
+              arguments: m.toolExecution?.arguments || {},
+              result: data.result,
+              success: data.success,
+              error: data.error,
+              elapsed: data.elapsed
+            }
+          };
+        }
+        return m;
+      }));
     });
 
     // Human input request
