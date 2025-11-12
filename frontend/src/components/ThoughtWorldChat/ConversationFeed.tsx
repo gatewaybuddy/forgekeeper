@@ -18,8 +18,10 @@ export function ConversationFeed({
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [currentIteration, setCurrentIteration] = useState(0);
   const [sessionStatus, setSessionStatus] = useState<'running' | 'paused' | 'complete'>('running');
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const messageMapRef = useRef<Map<string, AgentMessageType>>(new Map());
   const currentIterationRef = useRef(currentIteration);
@@ -45,6 +47,20 @@ export function ConversationFeed({
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isAutoScroll]);
+
+  // Track scroll position to show/hide scroll-to-top button
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Show button if scrolled down more than 300px
+      setShowScrollTop(container.scrollTop > 300);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // SSE connection
   useEffect(() => {
@@ -361,6 +377,15 @@ export function ConversationFeed({
     setIsAutoScroll(!isAutoScroll);
   };
 
+  const scrollToTop = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
     <div className="conversation-feed">
       <div className="conversation-header">
@@ -385,7 +410,7 @@ export function ConversationFeed({
         </button>
       </div>
 
-      <div className="messages-container">
+      <div className="messages-container" ref={messagesContainerRef}>
         {messages.length === 0 && (
           <div className="empty-state">
             <p>Waiting for agents to start...</p>
@@ -413,6 +438,16 @@ export function ConversationFeed({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Scroll to top button */}
+      <button
+        onClick={scrollToTop}
+        className={`scroll-to-top ${!showScrollTop ? 'hidden' : ''}`}
+        title="Scroll to top"
+        aria-label="Scroll to top"
+      >
+        ↑
+      </button>
     </div>
   );
 }

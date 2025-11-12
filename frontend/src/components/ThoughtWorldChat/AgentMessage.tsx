@@ -1,6 +1,7 @@
 import React from 'react';
 import { AgentMessage as AgentMessageType } from './types';
 import { ToolFormatter } from './ToolFormatter';
+import { JsonFormatter } from './JsonFormatter';
 import './AgentMessage.css';
 
 interface AgentMessageProps {
@@ -64,7 +65,7 @@ export function AgentMessage({ message, onQuickAction }: AgentMessageProps) {
       </div>
 
       <div className="message-content">
-        {message.content}
+        <JsonFormatter content={message.content} />
       </div>
 
       {message.toolExecution && (
