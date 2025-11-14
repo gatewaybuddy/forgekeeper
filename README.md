@@ -35,6 +35,8 @@ Forgekeeper combines local LLM inference (llama.cpp/vLLM) with an intelligent au
 
 ## 🚀 Quick Start
 
+**New to Forgekeeper?** See **[QUICKSTART.md](QUICKSTART.md)** for a 10-minute path to your first contribution.
+
 ### Prerequisites
 
 - **Docker** + **Docker Compose** (for inference backend)

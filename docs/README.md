@@ -8,10 +8,11 @@ This index orients contributors to the documentation tree. Each section links to
 
 **New to Forgekeeper?** Start here:
 
-- [Quick Start Guide](../README.md) - Install and run Forgekeeper
-- [Configuration Quick Start](../CONFIG_QUICKSTART.md) - Environment variables and settings
-- [Integration Guide](../INTEGRATION_GUIDE.md) - Integrate Forgekeeper into your workflow
-- [Autonomous Mode Quick Start](../QUICK_START_AUTONOMOUS.md) - Get started with autonomous agents
+- **[Quickstart Guide](../QUICKSTART.md)** - 10-minute path to your first contribution
+- [Contributing Guide](../CONTRIBUTING.md) - Comprehensive contribution workflow
+- [README](../README.md) - Project overview and installation
+- [Configuration Guide](guides/CONFIG_QUICKSTART.md) - vLLM configuration options
+- [Autonomous Mode](autonomous/README.md) - Get started with autonomous agents
 
 ---
 

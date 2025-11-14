@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Forgekeeper! 🎉
 
+**Want the fast track?** See **[QUICKSTART.md](QUICKSTART.md)** for a 10-minute path to your first contribution.
+
 This guide will help you get started with development, understand our workflows, and make your first contribution.
 
 ---
