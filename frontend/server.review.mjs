@@ -198,6 +198,7 @@ export async function orchestrateWithReview({
   let bestScore = 0.0;
   let totalRegenerations = 0;
   let reviewPasses = 0;
+  let totalToolCalls = 0; // Track total tool calls made across all passes
 
   // Initial generation
   const initialResult = await orchestrator({
@@ -217,6 +218,15 @@ export async function orchestrateWithReview({
   let currentResponse = initialResult.assistant?.content || '';
   let currentReasoning = initialResult.assistant?.reasoning || null;
   let currentDebug = initialResult.debug;
+
+  // Count initial tool calls
+  if (currentDebug?.diagnostics && Array.isArray(currentDebug.diagnostics)) {
+    for (const diag of currentDebug.diagnostics) {
+      if (Array.isArray(diag?.tools)) {
+        totalToolCalls += diag.tools.length;
+      }
+    }
+  }
 
   // Extract user question for review context
   const userMessages = messages.filter(m => m?.role === 'user');
@@ -266,6 +276,18 @@ export async function orchestrateWithReview({
           score,
           critique,
         };
+      }
+
+      // DEADLOCK DETECTION: If we've done 2+ review passes with NO tool execution and tools are available,
+      // this is likely a review loop deadlock (system generating plans instead of executing tools)
+      const hasTools = Array.isArray(tools) && tools.length > 0;
+      if (reviewPasses >= 2 && totalToolCalls === 0 && hasTools) {
+        console.warn('[Review Loop Deadlock] Detected: %d review passes, 0 tool calls, %d tools available', reviewPasses, tools.length);
+        console.warn('[Review Loop Deadlock] Breaking review loop to prevent infinite planning without action');
+        console.warn('[Review Loop Deadlock] Recommendation: Consider using autonomous mode for tool-heavy requests');
+
+        // Accept current best response with warning
+        break;
       }
 
       // Check if accepted
@@ -321,6 +343,15 @@ export async function orchestrateWithReview({
       currentResponse = regenResult.content;
       currentReasoning = regenResult.reasoning;
       currentDebug = regenResult.debug;
+
+      // Count tool calls from regeneration
+      if (regenResult.debug?.diagnostics && Array.isArray(regenResult.debug.diagnostics)) {
+        for (const diag of regenResult.debug.diagnostics) {
+          if (Array.isArray(diag?.tools)) {
+            totalToolCalls += diag.tools.length;
+          }
+        }
+      }
 
     } catch (error) {
       // Review or regeneration failed - log and break

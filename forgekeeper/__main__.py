@@ -149,12 +149,13 @@ def _run_compose() -> int:
             print(f"Warning: Could not read {key} from {path}: {e}", file=sys.stderr)
         return default
 
-    frontend_port = _get_env_value(env_path, 'FRONTEND_PORT', '5173')
+    frontend_port = _get_env_value(env_path, 'FRONTEND_PORT', '3000')
     # Prefer llama/localai core port; fall back to legacy vLLM env
     core_port = _get_env_value(env_path, 'LLAMA_PORT_CORE', _get_env_value(env_path, 'VLLM_PORT_CORE', '8001'))
     print(f"Forgekeeper UI: http://localhost:{frontend_port}")
     print(f"Frontend health: http://localhost:{frontend_port}/health-ui")
     print(f"Core API: http://localhost:{core_port}/v1")
+    print(f"Thought World Test: http://localhost:{frontend_port}/test-thought-world.html")
 
     # Optional health wait for the Core (models or health endpoints)
     try:

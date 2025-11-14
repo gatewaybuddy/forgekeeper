@@ -67,6 +67,29 @@ export async function chatViaServer({ model, messages, maxTokens, autoTokens, te
   return { content, reasoning, raw: json, messages: messagesOut, diagnostics, debug };
 }
 
+// Call thought-world multi-agent consensus mode
+export async function chatViaThoughtWorld({ model, messages, convId }: { model: string; messages: ChatMessageReq[]; convId?: string; }): Promise<ChatOnceResult> {
+  const resp = await fetch('/api/chat/thought-world', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages,
+      conv_id: convId,
+    }),
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${resp.status}: ${txt}`);
+  }
+  const json = await resp.json();
+  const content = typeof json?.assistant?.content === 'string' ? json.assistant.content : null;
+  const reasoning = null; // Thought world uses consensus instead of reasoning
+  const messagesOut = Array.isArray(json?.messages) ? json.messages : null;
+  const thoughtWorld = json?.assistant?.thoughtWorld ?? null;
+  return { content, reasoning, raw: json, messages: messagesOut, diagnostics: { thoughtWorld } };
+}
+
 function extractContent(c: any): string | null {
   if (typeof c === 'string') return c;
   if (!c) return null;

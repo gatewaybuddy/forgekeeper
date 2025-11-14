@@ -53,8 +53,8 @@ if ! docker image inspect forgekeeper-frontend >/dev/null 2>&1; then
   fi
 fi
 
-echo "Bringing up stack: docker compose ${args[*]} up -d"
-if ! docker compose "${args[@]}" up -d; then
+echo "Bringing up stack: docker compose ${args[*]}"
+if ! docker compose "${args[@]}"; then
   echo "error: docker compose up failed. Please check the logs above and fix any build/runtime errors." >&2
   exit 1
 fi

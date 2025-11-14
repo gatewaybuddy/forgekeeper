@@ -18,11 +18,8 @@ RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm i --no-
     else npm i --no-audit --no-fund; fi
 
 COPY . .
-# Build-time config for API base and model
-ARG VITE_VLLM_API_BASE
-ARG VITE_VLLM_MODEL
-ENV VITE_VLLM_API_BASE=${VITE_VLLM_API_BASE}
-ENV VITE_VLLM_MODEL=${VITE_VLLM_MODEL}
+# Note: API base and model are configured at runtime via /config.json
+# No build-time env vars needed - React app uses relative URLs
 
 RUN npm run build
 

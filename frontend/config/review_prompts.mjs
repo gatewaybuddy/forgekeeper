@@ -218,7 +218,14 @@ export function shouldTriggerReview(mode, context = {}) {
   }
 
   if (mode === 'on_complex') {
-    // Check if original question is complex
+    // Skip review when tools are available (let tools execute, then review final summary)
+    // Only review text-only responses
+    const hasTools = Array.isArray(context.tools) && context.tools.length > 0;
+    if (hasTools) {
+      return false; // Don't review - tools will be executed
+    }
+
+    // For text-only responses, check if question is complex
     const question = context.question || '';
     const complexKeywords = [
       'explain in detail',

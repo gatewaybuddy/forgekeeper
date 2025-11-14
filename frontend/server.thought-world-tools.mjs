@@ -5,11 +5,78 @@
  */
 
 import { runTool } from './tools/index.mjs';
+import { getToolDefs } from './server.tools.mjs';
 import { callLLMStreaming, loadPrompt, extractJSON } from './server.thought-world.mjs';
 import { ulid } from 'ulid';
 import * as scoutMetrics from './server.scout-metrics.mjs';
 
 const MAX_ITERATIONS = 10;
+
+// Global map of pending human input requests
+const pendingHumanInputs = new Map();
+
+/**
+ * Request human input and pause execution until response received
+ *
+ * @param {string} question - Question to ask the human
+ * @param {object} context - Additional context for the question
+ * @param {Array} suggestedActions - Array of {label, action, icon}
+ * @param {Function} onEvent - Event emitter function
+ * @returns {Promise<{action: string, response: string}>}
+ */
+export async function requestHumanInput(question, context, suggestedActions, onEvent) {
+  const inputId = ulid();
+
+  return new Promise((resolve, reject) => {
+    // Store resolver
+    pendingHumanInputs.set(inputId, {
+      resolve,
+      timestamp: Date.now()
+    });
+
+    // Emit event to UI
+    onEvent('human_input_requested', {
+      inputId,
+      question,
+      context,
+      suggestedActions,
+      urgency: context.urgency || 'medium',
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`[Human Input] Waiting for response to: ${inputId}`);
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      if (pendingHumanInputs.has(inputId)) {
+        pendingHumanInputs.delete(inputId);
+        console.log(`[Human Input] Timeout for: ${inputId}`);
+        resolve({
+          action: 'timeout',
+          response: null,
+          message: 'No response received - continuing with best guess'
+        });
+      }
+    }, 300000); // 5 min
+  });
+}
+
+/**
+ * Resolve pending human input request
+ *
+ * @param {string} inputId - ID of the input request
+ * @param {object} response - {action, response}
+ * @returns {boolean} - True if request was found and resolved
+ */
+export function resolveHumanInput(inputId, response) {
+  if (pendingHumanInputs.has(inputId)) {
+    const { resolve } = pendingHumanInputs.get(inputId);
+    pendingHumanInputs.delete(inputId);
+    resolve(response);
+    return true;
+  }
+  return false;
+}
 
 /**
  * Run thought world with tool execution (Phase 2)
@@ -20,6 +87,9 @@ const MAX_ITERATIONS = 10;
 export async function runThoughtWorldWithTools(task, options = {}) {
   const { agentConfig: customConfig, onEvent, humanInput } = options;
 
+  console.log('[Thought World Tools] 🔍 DEBUG: onEvent type:', typeof onEvent);
+  console.log('[Thought World Tools] 🔍 DEBUG: onEvent is function?', typeof onEvent === 'function');
+
   // Merge custom config with defaults (imported from main file)
   const config = {
     forge: customConfig?.forge || AGENTS.forge,
@@ -28,10 +98,15 @@ export async function runThoughtWorldWithTools(task, options = {}) {
     anvil: customConfig?.anvil || AGENTS.anvil
   };
 
+  // Load available tools dynamically
+  const availableTools = await getToolDefs();
+  console.log(`[Thought World Tools] Loaded ${availableTools.length} tools dynamically`);
+
   const context = {
     humanInput: humanInput || null,
     conversationHistory: [],
-    toolResults: []
+    toolResults: [],
+    availableTools  // Add tools to context
   };
 
   let iteration = 0;
@@ -42,12 +117,18 @@ export async function runThoughtWorldWithTools(task, options = {}) {
 
   try {
     console.log('[Thought World Tools] Session starting:', { task: task.substring(0, 50) + '...' });
-    onEvent('session_start', {
-      task,
-      maxIterations: MAX_ITERATIONS,
-      metricsSessionId,
-      timestamp: new Date().toISOString()
-    });
+    console.log('[Thought World Tools] 🔍 DEBUG: About to call onEvent("session_start")');
+    if (typeof onEvent === 'function') {
+      onEvent('session_start', {
+        task,
+        maxIterations: MAX_ITERATIONS,
+        metricsSessionId,
+        timestamp: new Date().toISOString()
+      });
+      console.log('[Thought World Tools] 🔍 DEBUG: onEvent("session_start") called successfully');
+    } else {
+      console.error('[Thought World Tools] ❌ ERROR: onEvent is not a function!', typeof onEvent);
+    }
 
     while (iteration < MAX_ITERATIONS && !taskComplete) {
       iteration++;
@@ -169,7 +250,7 @@ export async function runThoughtWorldWithTools(task, options = {}) {
       onEvent('loom_start', { agent: 'loom', role: 'verifier', status: 'reviewing', iteration });
 
       const loomPrompt = await loadPrompt('verifier', 'v2');
-      const loomContext = buildLoomContext(forgeProposal, forgeFullContent);
+      const loomContext = buildLoomContext(forgeProposal, forgeFullContent, context.availableTools);
 
       let loomContent = '';
       const loomStartTime = Date.now();
@@ -382,6 +463,28 @@ export async function runThoughtWorldWithTools(task, options = {}) {
 function buildForgeContext(task, context, iteration) {
   let message = `Task: ${task}\n\n`;
 
+  // Add available tools dynamically
+  if (context.availableTools && context.availableTools.length > 0) {
+    message += `=== AVAILABLE TOOLS ===\n`;
+    message += `You have access to ${context.availableTools.length} tools:\n\n`;
+
+    context.availableTools.forEach(toolDef => {
+      const fn = toolDef.function;
+      message += `**${fn.name}**\n`;
+      message += `Description: ${fn.description || 'No description'}\n`;
+
+      if (fn.parameters && fn.parameters.properties) {
+        message += `Arguments:\n`;
+        Object.entries(fn.parameters.properties).forEach(([param, spec]) => {
+          const required = fn.parameters.required?.includes(param) ? ' (required)' : ' (optional)';
+          message += `  - ${param}${required}: ${spec.description || spec.type}\n`;
+        });
+      }
+      message += `\n`;
+    });
+    message += `\n`;
+  }
+
   if (iteration > 1 && context.toolResults.length > 0) {
     message += `=== PREVIOUS TOOL RESULTS ===\n`;
     context.toolResults.forEach((tr, idx) => {
@@ -401,10 +504,24 @@ function buildForgeContext(task, context, iteration) {
 }
 
 // Helper: Build context for Loom
-function buildLoomContext(forgeProposal, forgeFullContent) {
-  return `Review this tool proposal from Forge:\n\n${forgeFullContent}\n\n` +
-    `Parsed proposal:\n${JSON.stringify(forgeProposal, null, 2)}\n\n` +
-    `Your task: Assess safety, validity, and efficiency. Provide your review in JSON format.`;
+function buildLoomContext(forgeProposal, forgeFullContent, availableTools) {
+  let message = `Review this tool proposal from Forge:\n\n${forgeFullContent}\n\n`;
+  message += `Parsed proposal:\n${JSON.stringify(forgeProposal, null, 2)}\n\n`;
+
+  // Add tool spec for validation
+  if (availableTools && forgeProposal.tool) {
+    const toolDef = availableTools.find(t => t.function.name === forgeProposal.tool);
+    if (toolDef) {
+      message += `=== TOOL SPECIFICATION ===\n`;
+      message += `${toolDef.function.name}: ${toolDef.function.description}\n`;
+      if (toolDef.function.parameters) {
+        message += `Expected parameters: ${JSON.stringify(toolDef.function.parameters, null, 2)}\n\n`;
+      }
+    }
+  }
+
+  message += `Your task: Assess safety, validity, and efficiency. Provide your review in JSON format.`;
+  return message;
 }
 
 // Helper: Build context for Anvil
@@ -520,6 +637,45 @@ async function runScoutChallenge(scoutConfig, forgeContent, forgeProposal, conte
   });
 
   // Check Scout's response
+
+  // NEW: Scout requests human input
+  if (scoutResponse?.action === 'request_human_input') {
+    console.log(`[Scout] Requesting human input: ${scoutResponse.question}`);
+
+    const humanResponse = await requestHumanInput(
+      scoutResponse.question,
+      scoutResponse.context || {},
+      scoutResponse.suggested_actions || [],
+      onEvent
+    );
+
+    console.log(`[Scout] Human responded with: ${humanResponse.action}`);
+
+    // Add human response to context
+    context.conversationHistory.push({
+      role: 'human',
+      content: humanResponse.response || humanResponse.action,
+      action: humanResponse.action,
+      iteration
+    });
+
+    // Record in metrics
+    scoutMetrics.recordHumanIntervention({
+      question: scoutResponse.question,
+      response: humanResponse.response,
+      action: humanResponse.action,
+      iteration
+    });
+
+    // Continue with human's guidance
+    return {
+      approved: true,
+      reasoning: `Human provided: ${humanResponse.response || humanResponse.action}`,
+      humanContext: humanResponse,
+      escalated: false
+    };
+  }
+
   if (scoutResponse?.approved) {
     console.log(`[Thought World Tools] Scout approved with boundary type: ${scoutResponse.boundary_type}`);
     // Record boundary discovered

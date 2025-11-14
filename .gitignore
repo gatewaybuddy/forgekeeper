@@ -16,3 +16,23 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 sandbox/
+
+# Session transcripts and temporary files
+2025-*.txt
+SESSION_SUMMARY_*.md
+*_FIXED.md
+*_COMPLETE.md
+*_STATUS.md
+*_DIAGNOSTIC.md
+*_PLAN.md
+
+# Alternative .env files (keep .env.example only)
+.env.*
+!.env.example
+
+# Archive and scratch directories
+archive/
+codex_repo/
+
+# Duplicate/test markers
+frontend/frontend/

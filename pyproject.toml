@@ -18,6 +18,9 @@ dev = [
   "types-requests>=2.31.0.20240218",
 ]
 
+[project.scripts]
+forgekeeper = "forgekeeper.__main__:main"
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = [

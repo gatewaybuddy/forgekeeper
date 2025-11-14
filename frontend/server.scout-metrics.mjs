@@ -189,6 +189,26 @@ export function recordTaskComplete(data) {
 }
 
 /**
+ * Record human intervention (Phase 3)
+ *
+ * @param {object} data - {question, response, action, iteration}
+ */
+export function recordHumanIntervention(data) {
+  const event = {
+    id: ulid(),
+    timestamp: new Date().toISOString(),
+    type: 'human_intervention',
+    sessionId: sessionMetrics.sessionId,
+    ...data
+  };
+
+  sessionMetrics.events.push(event);
+  console.log('[Scout Metrics] Human intervention recorded:', data.action);
+
+  return event;
+}
+
+/**
  * Calculate current session metrics
  */
 export function calculateMetrics() {

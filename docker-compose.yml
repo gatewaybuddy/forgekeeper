@@ -83,10 +83,8 @@ services:
     profiles: [ui]
     build:
       context: ./frontend
-      args:
-        # Default to llama.cpp server's container port 8080 for llama-core
-        VITE_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8080/v1}
-        VITE_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
+      # Note: No build args needed - React app uses relative URLs
+      # API base and model are configured at runtime via /config.json
     env_file: ./.env
     environment:
       # Match default to llama-core container port 8080 (host port still mapped via LLAMA_PORT_CORE)
@@ -124,6 +122,7 @@ services:
     volumes:
       - ./frontend/tools:/app/tools:rw
       - ./:/workspace:rw
+      - ./.forgekeeper:/app/.forgekeeper:rw
 
 networks:
   forgekeeper-net:

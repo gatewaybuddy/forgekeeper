@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Chat } from './components/Chat';
 import { PreferencesPanel } from './components/PreferencesPanel';
+import { ThoughtWorldChat } from './components/ThoughtWorldChat';
 import { checkHealth } from './lib/health';
 
 type ToolMetadata = { name: string; description?: string };
@@ -21,8 +23,10 @@ function normalizeToolMetadata(defs: unknown): ToolMetadata[] {
 }
 
 export default function App() {
-  const [apiBase, setApiBase] = useState<string>(import.meta.env.VITE_VLLM_API_BASE || '/v1');
-  const [model, setModel] = useState<string>(import.meta.env.VITE_VLLM_MODEL || 'core');
+  // Always use relative URLs for browser requests - Docker hostnames don't work from browser
+  // The /config.json endpoint will provide the correct server-side config
+  const [apiBase, setApiBase] = useState<string>('/v1');
+  const [model, setModel] = useState<string>('core');
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -91,47 +95,97 @@ export default function App() {
   }, [healthUrls]);
 
   return (
+    <BrowserRouter>
+      <AppContent
+        apiBase={apiBase}
+        setApiBase={setApiBase}
+        model={model}
+        setModel={setModel}
+        healthy={healthy}
+        checking={checking}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        showPreferences={showPreferences}
+        setShowPreferences={setShowPreferences}
+        toolsAvailable={toolsAvailable}
+        toolNames={toolNames}
+        toolMetadata={toolMetadata}
+        toolStorage={toolStorage}
+        toolCaps={toolCaps}
+      />
+    </BrowserRouter>
+  );
+}
+
+function AppContent({
+  apiBase,
+  setApiBase,
+  model,
+  setModel,
+  healthy,
+  checking,
+  showSettings,
+  setShowSettings,
+  showPreferences,
+  setShowPreferences,
+  toolsAvailable,
+  toolNames,
+  toolMetadata,
+  toolStorage,
+  toolCaps
+}: any) {
+  const location = useLocation();
+  const isThoughtWorld = location.pathname === '/thought-world';
+
+  return (
     <div style={{
       fontFamily:'system-ui,Segoe UI,Roboto,Helvetica,Arial',
-      maxWidth: 960,
+      maxWidth: isThoughtWorld ? '100%' : 960,
       margin: '0 auto',
-      padding: 16,
+      padding: isThoughtWorld ? 0 : 16,
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden'
     }}>
-      <header style={{display:'flex', alignItems:'center', gap:12, marginBottom: 12, flex: '0 0 auto'}}>
-        <h1 style={{margin: 0, fontSize: 20}}>Forgekeeper Chat</h1>
-        <StatusDot healthy={healthy} checking={checking} />
-        <div style={{marginLeft:'auto', display:'flex', gap:8}}>
-          <label style={{display:'flex', alignItems:'center', gap:6}}>
-            <span style={{fontSize:12, color:'#555'}}>Model</span>
-            <input value={model} onChange={e=>setModel(e.target.value)} style={{padding:'4px 6px'}} />
-          </label>
-          <button onClick={()=>setShowPreferences(true)} title="User Preferences">⚙️ Preferences</button>
-          <button onClick={()=>setShowSettings(s=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
-        </div>
-      </header>
+      {!isThoughtWorld && (
+        <>
+          <header style={{display:'flex', alignItems:'center', gap:12, marginBottom: 12, flex: '0 0 auto'}}>
+            <h1 style={{margin: 0, fontSize: 20}}>Forgekeeper Chat</h1>
+            <StatusDot healthy={healthy} checking={checking} />
+            <div style={{marginLeft:'auto', display:'flex', gap:8}}>
+              <Link to="/thought-world" style={{textDecoration:'none'}}>
+                <button>🔭 Thought World</button>
+              </Link>
+              <label style={{display:'flex', alignItems:'center', gap:6}}>
+                <span style={{fontSize:12, color:'#555'}}>Model</span>
+                <input value={model} onChange={e=>setModel(e.target.value)} style={{padding:'4px 6px'}} />
+              </label>
+              <button onClick={()=>setShowPreferences(true)} title="User Preferences">⚙️ Preferences</button>
+              <button onClick={()=>setShowSettings((s: boolean)=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
+            </div>
+          </header>
 
-      {showSettings && (
-        <section style={{
-          border:'1px solid #ddd',
-          borderRadius:8,
-          padding:12,
-          marginBottom:12,
-          flex: '0 0 auto',
-          maxHeight: '25vh',
-          overflowY: 'auto'
-        }}>
-          <div style={{display:'flex', gap:12, alignItems:'center'}}>
-            <label style={{display:'flex', alignItems:'center', gap:6}}>
-              <span style={{fontSize:12, color:'#555'}}>API Base</span>
-              <input value={apiBase} onChange={e=>setApiBase(e.target.value)} style={{padding:'4px 6px', minWidth:320}} />
-            </label>
-            <small style={{color:'#666'}}>Defaults to proxy: /v1 (Vite dev server → vLLM)</small>
-          </div>
-        </section>
+          {showSettings && (
+            <section style={{
+              border:'1px solid #ddd',
+              borderRadius:8,
+              padding:12,
+              marginBottom:12,
+              flex: '0 0 auto',
+              maxHeight: '25vh',
+              overflowY: 'auto'
+            }}>
+              <div style={{display:'flex', gap:12, alignItems:'center'}}>
+                <label style={{display:'flex', alignItems:'center', gap:6}}>
+                  <span style={{fontSize:12, color:'#555'}}>API Base</span>
+                  <input value={apiBase} onChange={e=>setApiBase(e.target.value)} style={{padding:'4px 6px', minWidth:320}} />
+                </label>
+                <small style={{color:'#666'}}>Defaults to proxy: /v1 (Vite dev server → vLLM)</small>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       <div style={{
@@ -142,16 +196,21 @@ export default function App() {
         minHeight: 0,
         overflow: 'hidden'
       }}>
-        <Chat
-          apiBase={apiBase}
-          model={model}
-          fill
-          toolsAvailable={toolsAvailable}
-          toolNames={toolNames}
-          toolMetadata={toolMetadata}
-          toolStorage={toolStorage || undefined}
-          repoWrite={toolCaps?.repoWrite}
-        />
+        <Routes>
+          <Route path="/" element={
+            <Chat
+              apiBase={apiBase}
+              model={model}
+              fill
+              toolsAvailable={toolsAvailable}
+              toolNames={toolNames}
+              toolMetadata={toolMetadata}
+              toolStorage={toolStorage || undefined}
+              repoWrite={toolCaps?.repoWrite}
+            />
+          } />
+          <Route path="/thought-world" element={<ThoughtWorldChat />} />
+        </Routes>
       </div>
 
       {/* Preferences Panel Modal */}
