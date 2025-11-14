@@ -17,6 +17,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-sanity-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-sanity-
+            ${{ runner.os }}-pip-
       - name: Lint task cards
         run: python forgekeeper/scripts/task_sanity.py lint-cards
       - name: Enforce Allowed Touches (task gate)
@@ -34,11 +43,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run build
-      - run: npm run test
+          cache: 'npm'
+          cache-dependency-path: 'forgekeeper/frontend/package-lock.json'
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Test with coverage
+        run: npm run test -- --coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./forgekeeper/frontend/coverage/coverage-final.json
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: forgekeeper/frontend/coverage/
+          retention-days: 30
 
   python:
     runs-on: ubuntu-latest
@@ -47,9 +78,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install -e forgekeeper[dev]
-      - run: pytest -q
+          cache: 'pip'
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: python -m pip install -e forgekeeper[dev]
+      - name: Run tests with coverage
+        run: pytest --cov=forgekeeper --cov-report=xml --cov-report=term
         working-directory: forgekeeper
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./forgekeeper/coverage.xml
+          flags: python
+          name: python-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: forgekeeper/coverage.xml
+          retention-days: 30
 
   smoke:
     runs-on: ubuntu-latest
@@ -61,9 +117,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: node forgekeeper/scripts/mock_openai_server.mjs & echo $! > mock.pid && sleep 1
-      - run: python -m pip install openai
-      - run: python forgekeeper/scripts/test_harmony_basic.py
+          cache: 'pip'
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-smoke-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-smoke-
+            ${{ runner.os }}-pip-
+      - name: Install OpenAI package
+        run: python -m pip install openai
+      - name: Start mock server
+        run: node forgekeeper/scripts/mock_openai_server.mjs & echo $! > mock.pid && sleep 1
+      - name: Run smoke test
+        run: python forgekeeper/scripts/test_harmony_basic.py
         env:
           FK_CORE_API_BASE: http://localhost:8001
-      - run: kill $(cat mock.pid) || true
+      - name: Stop mock server
+        if: always()
+        run: kill $(cat mock.pid) || true
