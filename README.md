@@ -19,7 +19,7 @@ Forgekeeper combines local LLM inference (llama.cpp/vLLM) with an intelligent au
   - "5 Whys" diagnostic reflection with 85-90% error recovery
   - Proactive multi-alternative planning (40-60% fewer failed iterations)
 
-- 📊 **Telemetry-Driven Task Generation (TGT)** - Automatically detect issues and generate task cards from system telemetry
+- 📊 **Telemetry-Driven Task Generation (TGT)** - Automatically detect issues and generate task cards from system telemetry ([User Guide](docs/guides/TGT_USER_GUIDE.md))
 
 - 🔒 **Safe Auto-PR Loop (SAPL)** - Automated, safe PR creation with comprehensive safety controls
 

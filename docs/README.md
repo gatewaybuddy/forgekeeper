@@ -14,6 +14,10 @@ This index orients contributors to the documentation tree. Each section links to
 - [Configuration Guide](guides/CONFIG_QUICKSTART.md) - vLLM configuration options
 - [Autonomous Mode](autonomous/README.md) - Get started with autonomous agents
 
+**Feature Guides:**
+- **[TGT User Guide](guides/TGT_USER_GUIDE.md)** - Telemetry-Driven Task Generation with examples
+- [SAPL User Guide](guides/SAPL_USER_GUIDE.md) - Safe Auto-PR Loop (coming soon)
+
 ---
 
 ## 🏗️ Architecture
@@ -42,6 +46,7 @@ Documentation for the autonomous agent system:
   - [Phase 6: Proactive Planning](autonomous/PHASE6_COMPLETE.md)
   - [Phase 7: Pattern Learning](autonomous/PHASE7_COMPLETE.md)
 - **[TGT (Telemetry-Driven Task Generation)](autonomous/tgt/)** - Automatic task detection from telemetry
+  - **[TGT User Guide](guides/TGT_USER_GUIDE.md)** - How to use TGT with examples
 - **[Diagnostic Reflection](autonomous/diagnostic-reflection/)** - Error recovery and "5 Whys" analysis
 - **[History](autonomous/history/)** - Historical phase completion reports and automation retrospectives
 

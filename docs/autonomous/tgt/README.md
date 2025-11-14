@@ -4,6 +4,10 @@
 
 TGT automatically converts system telemetry (ContextLog events, metrics, errors) into actionable Task Cards for prioritization and execution.
 
+**📖 New to TGT?** See the **[TGT User Guide](../../guides/TGT_USER_GUIDE.md)** for practical examples and how-to instructions.
+
+This document is the technical reference. For usage instructions, start with the user guide.
+
 ---
 
 ## Overview
