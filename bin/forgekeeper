@@ -1,0 +1,11 @@
+#!/bin/bash
+# Forgekeeper CLI wrapper
+# Usage: forgekeeper [command] [args...]
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FORGEKEEPER_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Run the Python module
+cd "$FORGEKEEPER_ROOT"
+exec python3 -m forgekeeper "$@"

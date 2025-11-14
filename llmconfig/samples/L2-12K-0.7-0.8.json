@@ -1,0 +1,19 @@
+{
+  "name": "L2-12K-0.7-0.8",
+  "description": "12K context, length_penalty=0.8 (favor shorter responses)",
+  "phase": "8-length",
+  "requires_restart": false,
+  "parameters": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 0,
+    "repetition_penalty": 1.0,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.0,
+    "length_penalty": 0.8,
+    "max_tokens": 3072
+  },
+  "env_context": {
+    "VLLM_MAX_MODEL_LEN": 12288
+  }
+}
