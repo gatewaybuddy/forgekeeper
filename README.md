@@ -1,6 +1,7 @@
 # Forgekeeper
 
 ![CI](https://github.com/gatewaybuddy/forgekeeper/workflows/CI/badge.svg)
+![CodeQL](https://github.com/gatewaybuddy/forgekeeper/workflows/CodeQL%20Security%20Scan/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Node](https://img.shields.io/badge/node-20+-green.svg)
@@ -30,6 +31,8 @@ Forgekeeper combines local LLM inference (llama.cpp/vLLM) with an intelligent au
 - 🎯 **Metrics-Informed Prompting (MIP)** - Data-driven hints to reduce incomplete responses
 
 - 🌐 **Local-First** - Full control with local inference (no API costs, unlimited iterations)
+
+- 🔒 **Security** - Automated dependency updates, CodeQL scanning, vulnerability reporting ([Security Policy](SECURITY.md))
 
 ---
 
