@@ -1,0 +1,251 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Invalid version format '$VERSION'"
+            echo "Expected format: v1.0.0 or v1.0.0-beta.1"
+            exit 1
+          fi
+
+  build-and-test:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [frontend, python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.component == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'forgekeeper/frontend/package-lock.json'
+
+      - name: Setup Python
+        if: matrix.component == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Build frontend
+        if: matrix.component == 'frontend'
+        working-directory: forgekeeper/frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm run build
+          npm run test
+
+      - name: Test Python
+        if: matrix.component == 'python'
+        run: |
+          python -m pip install -e forgekeeper[dev]
+          pytest tests/ -q
+
+      - name: Upload build artifacts
+        if: matrix.component == 'frontend'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: forgekeeper/frontend/dist/
+          retention-days: 7
+
+  create-release:
+    needs: [validate, build-and-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: forgekeeper/frontend/dist/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "First release - no previous tag found"
+            CHANGES=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            echo "Generating changelog from $PREV_TAG to $VERSION"
+            CHANGES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+
+          # Save to file for release notes
+          cat > CHANGELOG.txt << EOF
+          # Release $VERSION
+
+          ## What's Changed
+
+          $CHANGES
+
+          ## Installation
+
+          ### Docker (Recommended)
+          \`\`\`bash
+          git clone https://github.com/gatewaybuddy/forgekeeper.git
+          cd forgekeeper
+          git checkout $VERSION
+          cp .env.example .env
+          python -m forgekeeper ensure-stack --build
+          \`\`\`
+
+          ### Manual
+          \`\`\`bash
+          # Clone and checkout
+          git clone https://github.com/gatewaybuddy/forgekeeper.git
+          cd forgekeeper
+          git checkout $VERSION
+
+          # Install dependencies
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -e forgekeeper[dev]
+
+          cd forgekeeper/frontend
+          npm install
+          npm run build
+          \`\`\`
+
+          ## Documentation
+
+          - [README](https://github.com/gatewaybuddy/forgekeeper/blob/$VERSION/README.md)
+          - [Quickstart Guide](https://github.com/gatewaybuddy/forgekeeper/blob/$VERSION/QUICKSTART.md)
+          - [Contributing Guide](https://github.com/gatewaybuddy/forgekeeper/blob/$VERSION/CONTRIBUTING.md)
+          - [TGT User Guide](https://github.com/gatewaybuddy/forgekeeper/blob/$VERSION/docs/guides/TGT_USER_GUIDE.md)
+          - [SAPL User Guide](https://github.com/gatewaybuddy/forgekeeper/blob/$VERSION/docs/guides/SAPL_USER_GUIDE.md)
+
+          **Full Changelog**: https://github.com/gatewaybuddy/forgekeeper/compare/${PREV_TAG}...$VERSION
+          EOF
+
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate.outputs.version }}
+          name: Release ${{ needs.validate.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
+          files: |
+            CHANGELOG.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-docker:
+    needs: [validate, build-and-test]
+    runs-on: ubuntu-latest
+    if: ${{ !contains(needs.validate.outputs.version, '-') }}  # Skip pre-releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./forgekeeper/frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  notify-success:
+    needs: [validate, create-release, build-docker]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🎉 Release ${{ needs.validate.outputs.version }} Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Release created" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Docker images published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ needs.validate.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+
+  notify-failure:
+    needs: [validate, create-release, build-docker]
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Summary
+        run: |
+          echo "## ❌ Release ${{ needs.validate.outputs.version }} Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY

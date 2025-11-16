@@ -17,6 +17,7 @@ This index orients contributors to the documentation tree. Each section links to
 **Feature Guides:**
 - **[TGT User Guide](guides/TGT_USER_GUIDE.md)** - Telemetry-Driven Task Generation with examples
 - **[SAPL User Guide](guides/SAPL_USER_GUIDE.md)** - Safe Auto-PR Loop with examples
+- **[Release Process Guide](guides/RELEASE_PROCESS.md)** - Creating and publishing releases
 
 ---
 
@@ -42,7 +43,7 @@ Documentation for the autonomous agent system:
   - [Phase 2: Meta-Cognition](../PHASE2_META_COGNITION_COMPLETE.md)
   - [Phase 3: Cross-Session Learning](../PHASE3_CROSS_SESSION_LEARNING_COMPLETE.md)
   - [Phase 4: Enhanced Progress Tracking](../PHASE4_COMPLETE_SUMMARY.md)
-  - [Phase 5: User Preferences](PHASE5_USER_PREFERENCE_LEARNING.md) + [Episodic Memory](PHASE5_EPISODIC_MEMORY.md)
+  - [Phase 5: User Preferences](autonomous/phases/PHASE5_USER_PREFERENCE_LEARNING.md) + [Episodic Memory](autonomous/phases/PHASE5_EPISODIC_MEMORY.md)
   - [Phase 6: Proactive Planning](autonomous/PHASE6_COMPLETE.md)
   - [Phase 7: Pattern Learning](autonomous/PHASE7_COMPLETE.md)
 - **[TGT (Telemetry-Driven Task Generation)](autonomous/tgt/)** - Automatic task detection from telemetry
@@ -54,12 +55,12 @@ Documentation for the autonomous agent system:
 
 ## 📖 Architecture Decision Records
 
-Key architectural decisions documented:
+Key architectural decisions documented (all in `adr/`):
 
-- [ADR-0001: ContextLog](contextlog/adr-0001-contextlog.md) - JSONL-backed event logging
-- [ADR-0002: Self-Review and Chunked Reasoning](adr-0002-self-review-and-chunked-reasoning.md)
-- [ADR-0003: Diagnostic Reflection](adr-0003-diagnostic-reflection.md) - "5 Whys" error analysis
-- [ADR-0004: Intelligent Task Planning](adr-0004-intelligent-task-planning.md)
+- [ADR-0001: ContextLog](adr/adr-0001-contextlog.md) - JSONL-backed event logging
+- [ADR-0002: Self-Review and Chunked Reasoning](adr/adr-0002-self-review-and-chunked-reasoning.md) - Iterative reasoning approach
+- [ADR-0003: Diagnostic Reflection](adr/adr-0003-diagnostic-reflection.md) - "5 Whys" error analysis
+- [ADR-0004: Intelligent Task Planning](adr/adr-0004-intelligent-task-planning.md) - Multi-alternative planning
 
 ---
 
@@ -127,19 +128,23 @@ Having issues? Check these guides:
 Documentation for testing and optimization:
 
 - [Performance Optimizations](PERFORMANCE_OPTIMIZATIONS.md) - Week 9 100-500x speedups
-- [Week 8: TGT Enhancements](WEEK_8_TGT_ENHANCEMENTS.md)
-- [Week 9: Smart Task Management](WEEK_9_SMART_TASK_MANAGEMENT.md)
+- [TGT Week 8 Testing Guide](autonomous/tgt/TGT_WEEK8_TESTING_GUIDE.md) - TGT test suite
 - [Autonomous Tests Analysis](../AUTONOMOUS_TESTS_ANALYSIS.md)
 
 ---
 
-## 📅 Weekly Progress
+## 📅 Implementation Notes
 
-Track implementation progress week by week:
+Track implementation progress and completion:
 
-- [Week 8: TGT Enhancements](WEEK_8_TGT_ENHANCEMENTS.md)
-- [Week 9: Smart Task Management](WEEK_9_SMART_TASK_MANAGEMENT.md)
-- Week 10: TBD
+- **[Implementation Directory](autonomous/implementation/)** - Week-by-week progress notes
+  - [Week 8: TGT Complete](autonomous/tgt/WEEK_8_TGT_COMPLETE.md)
+  - [Week 8: TGT Enhancements](autonomous/tgt/WEEK_8_TGT_ENHANCEMENTS.md)
+  - [Week 9: Smart Task Management](autonomous/implementation/WEEK_9_SMART_TASK_MANAGEMENT.md)
+  - [T300-T302: Implementation Complete](autonomous/implementation/T300-T302_IMPLEMENTATION_COMPLETE.md)
+- **[Session Summaries](autonomous/sessions/)** - Session notes and integration work
+  - [Session 2025-11-04: SAPL + MIP](autonomous/sessions/SESSION_2025_11_04_SAPL_MIP_INTEGRATION.md)
+  - [Session Summary 2025-11-04](autonomous/sessions/SESSION_SUMMARY_2025_11_04.md)
 
 ---
 
@@ -173,8 +178,14 @@ Third-party integrations:
 
 Legacy or Archived References:
 
-- [`autonomous/history/`](autonomous/history/): Historical reports migrated from the repository root
-- Additional archive material remains under `archive/` (if present) and should be referenced from planning documents before use
+- **[`archive/`](archive/)** - Historical and legacy documentation
+  - [`archive/roadmaps/`](archive/roadmaps/) - Old roadmaps and planning docs
+    - [Next Features Roadmap](archive/roadmaps/NEXT_FEATURES_ROADMAP.md)
+    - [Corrected Next Features](archive/roadmaps/CORRECTED_NEXT_FEATURES.md)
+    - [Continuation Guide](archive/roadmaps/CONTINUATION_GUIDE.md)
+  - [`archive/multi_role_pipeline/`](archive/multi_role_pipeline/) - Legacy pipeline docs
+  - [Migration Plan](archive/migration_plan.md), [Migration Playbook](archive/migration_playbook.md)
+- **[`autonomous/history/`](autonomous/history/)** - Historical phase completion reports
 
 ---
 
