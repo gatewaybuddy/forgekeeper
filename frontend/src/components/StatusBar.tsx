@@ -31,7 +31,7 @@ export default function StatusBar() {
         if (alive) setAgent(r2 && (r2.ok || (r2.status >= 200 && r2.status < 500)) ? 'up' : 'down');
       } catch { if (alive) setAgent('down'); }
       try {
-        const gqlUrl = (window as any).FRONTEND_GRAPHQL_URL || '/graphql';
+        const gqlUrl = (window as unknown).FRONTEND_GRAPHQL_URL || '/graphql';
         const r3 = await fetch(gqlUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{__typename}' }) });
         if (alive) setGql(r3 && (r3.status === 200 || r3.status === 400) ? 'up' : 'down');
       } catch { if (alive) setGql('down'); }

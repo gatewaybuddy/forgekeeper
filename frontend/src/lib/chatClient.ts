@@ -1,21 +1,30 @@
 export type Role = 'system' | 'user' | 'assistant' | 'tool';
 
+export interface ToolCall {
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
 export interface ChatMessageReq {
   role: Role;
   content: string;
   name?: string;
   tool_call_id?: string;
   // Optional: preserve assistant tool_calls to keep tool<->result pairing on round-trips
-  tool_calls?: any[];
+  tool_calls?: ToolCall[];
 }
 
 export interface ChatOnceResult {
   content: string | null;
   reasoning: string | null;
-  raw: any;
-  messages?: any[] | null;
-  diagnostics?: any;
-  debug?: any;
+  raw: unknown;
+  messages?: ChatMessageReq[] | null;
+  diagnostics?: unknown;
+  debug?: unknown;
 }
 
 export async function chatOnce({ apiBase, model, messages }: { apiBase: string; model: string; messages: ChatMessageReq[]; }): Promise<ChatOnceResult> {
@@ -40,7 +49,7 @@ export async function chatOnce({ apiBase, model, messages }: { apiBase: string; 
 }
 
 // Call server-side tool orchestrator (non-streaming). Useful when tools are required.
-export async function chatViaServer({ model, messages, maxTokens, autoTokens, temperature, topP, convId }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; temperature?: number; topP?: number; convId?: string; }): Promise<ChatOnceResult> {
+export async function chatViaServer({ model, messages, maxTokens, autoTokens, temperature, topP, convId, reviewEnabled, chunkedEnabled }: { model: string; messages: ChatMessageReq[]; maxTokens?: number; autoTokens?: boolean; temperature?: number; topP?: number; convId?: string; reviewEnabled?: boolean; chunkedEnabled?: boolean; }): Promise<ChatOnceResult> {
   const resp = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,6 +61,8 @@ export async function chatViaServer({ model, messages, maxTokens, autoTokens, te
       auto_tokens: !!autoTokens,
       temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
       top_p: (typeof topP === 'number' && !Number.isNaN(topP)) ? topP : undefined,
+      review_enabled: typeof reviewEnabled === 'boolean' ? reviewEnabled : undefined,
+      chunked_enabled: typeof chunkedEnabled === 'boolean' ? chunkedEnabled : undefined,
     }),
   });
   if (!resp.ok) {
@@ -90,7 +101,7 @@ export async function chatViaThoughtWorld({ model, messages, convId }: { model: 
   return { content, reasoning, raw: json, messages: messagesOut, diagnostics: { thoughtWorld } };
 }
 
-function extractContent(c: any): string | null {
+function extractContent(c: unknown): string | null {
   if (typeof c === 'string') return c;
   if (!c) return null;
   if (Array.isArray(c)) {
@@ -116,9 +127,16 @@ export interface StreamFinal {
   reasoning?: string | null;
   content?: string | null;
   continued?: boolean;
-  messages?: any[] | null;
-  diagnostics?: any;
-  debug?: any;
+  messages?: ChatMessageReq[] | null;
+  diagnostics?: unknown;
+  debug?: unknown;
+}
+
+export interface ProgressInfo {
+  mode: 'review' | 'chunked';
+  current: number;
+  total: number;
+  label?: string;
 }
 
 export async function streamChat({
@@ -136,7 +154,7 @@ export async function streamChat({
   signal?: AbortSignal;
   onDelta: (delta: StreamDelta) => void;
   onDone: (final: StreamFinal) => void;
-  onError: (err: any) => void;
+  onError: (err: Error | unknown) => void;
 }): Promise<void> {
   const url = apiBase.replace(/\/$/, '') + '/chat/completions';
   const resp = await fetch(url, {
@@ -155,6 +173,7 @@ export async function streamChat({
   let finalReasoning = '';
   let finalContent = '';
   try {
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -199,6 +218,7 @@ export async function streamViaServer({
   onDone,
   onError,
   onOrchestration,
+  onProgress,
   maxTokens,
   contTokens,
   contAttempts,
@@ -206,14 +226,17 @@ export async function streamViaServer({
   temperature,
   topP,
   convId,
+  reviewEnabled,
+  chunkedEnabled,
 }: {
   model: string;
   messages: ChatMessageReq[];
   signal?: AbortSignal;
   onDelta: (delta: StreamDelta) => void;
   onDone: (final: StreamFinal) => void;
-  onError: (err: any) => void;
-  onOrchestration?: (payload: { messages?: any[] | null; debug?: any; diagnostics?: any }) => void;
+  onError: (err: Error | unknown) => void;
+  onOrchestration?: (payload: { messages?: ChatMessageReq[] | null; debug?: unknown; diagnostics?: unknown }) => void;
+  onProgress?: (progress: ProgressInfo) => void;
   maxTokens?: number;
   contTokens?: number;
   contAttempts?: number;
@@ -221,6 +244,8 @@ export async function streamViaServer({
   temperature?: number;
   topP?: number;
   convId?: string;
+  reviewEnabled?: boolean;
+  chunkedEnabled?: boolean;
 }): Promise<void> {
   const url = '/api/chat/stream';
   const resp = await fetch(url, {
@@ -236,6 +261,8 @@ export async function streamViaServer({
       auto_tokens: !!autoTokens,
       temperature: (typeof temperature === 'number' && !Number.isNaN(temperature)) ? temperature : undefined,
       top_p: (typeof topP === 'number' && !Number.isNaN(topP)) ? topP : undefined,
+      review_enabled: typeof reviewEnabled === 'boolean' ? reviewEnabled : undefined,
+      chunked_enabled: typeof chunkedEnabled === 'boolean' ? chunkedEnabled : undefined,
     }),
     signal
   });
@@ -251,10 +278,11 @@ export async function streamViaServer({
   let continued = false;
   const contEvents: Array<{ attempt?: number; reason?: string }> = [];
   let currentEvent = '';
-  let orchestrationMessages: any[] | null | undefined;
-  let orchestrationDebug: any;
-  let orchestrationDiagnostics: any;
+  let orchestrationMessages: ChatMessageReq[] | null | undefined;
+  let orchestrationDebug: unknown;
+  let orchestrationDiagnostics: unknown;
   try {
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -291,6 +319,40 @@ export async function streamViaServer({
             orchestrationMessages = Array.isArray(payload?.messages) ? payload.messages : null;
             orchestrationDebug = payload?.debug ?? null;
             orchestrationDiagnostics = payload?.debug?.diagnostics ?? payload?.diagnostics ?? null;
+
+            // Parse progress information from debug data
+            if (onProgress && orchestrationDebug) {
+              const dbg = orchestrationDebug as Record<string, unknown>;
+              // Review mode progress: review_pass indicates current pass
+              if (typeof dbg?.review_pass === 'number') {
+                const reviewPass = dbg.review_pass as number;
+                const maxPasses = typeof dbg?.max_review_passes === 'number'
+                  ? dbg.max_review_passes as number
+                  : 3;
+                onProgress({
+                  mode: 'review',
+                  current: reviewPass,
+                  total: maxPasses,
+                });
+              }
+              // Chunked mode progress: chunk_index indicates current chunk
+              if (typeof dbg?.chunk_index === 'number') {
+                const chunkIndex = dbg.chunk_index as number;
+                const totalChunks = typeof dbg?.total_chunks === 'number'
+                  ? dbg.total_chunks as number
+                  : dbg.chunk_index as number;
+                const chunkLabel = typeof dbg?.chunk_label === 'string'
+                  ? dbg.chunk_label as string
+                  : undefined;
+                onProgress({
+                  mode: 'chunked',
+                  current: chunkIndex,
+                  total: totalChunks,
+                  label: chunkLabel,
+                });
+              }
+            }
+
             onOrchestration?.({
               messages: orchestrationMessages,
               debug: orchestrationDebug,
@@ -308,15 +370,15 @@ export async function streamViaServer({
               finalContent = c;
               onDelta({ contentDelta: c });
             }
-            const dbg = { fkFinal: true, content: c } as any;
+            const dbg: Record<string, unknown> = { fkFinal: true, content: c };
             if (contEvents.length > 0) { dbg.continuedTotal = contEvents.length; dbg.continuations = contEvents; }
             onOrchestration?.({ debug: dbg });
           } else {
-            const chunk = JSON.parse(data);
-            const choice = (chunk as any)?.choices?.[0];
-            const delta = (choice as any)?.delta || {};
-            const r = typeof (delta as any).reasoning_content === 'string' ? (delta as any).reasoning_content : '';
-            const c = typeof (delta as any).content === 'string' ? (delta as any).content : '';
+            const chunk = JSON.parse(data) as Record<string, unknown>;
+            const choice = (chunk?.choices as unknown[])?.[0] as Record<string, unknown> | undefined;
+            const delta = (choice?.delta as Record<string, unknown>) || {};
+            const r = typeof delta.reasoning_content === 'string' ? delta.reasoning_content : '';
+            const c = typeof delta.content === 'string' ? delta.content : '';
             if (r) finalReasoning += r;
             if (c) finalContent += c;
             if (r || c) onDelta({ reasoningDelta: r || undefined, contentDelta: c || undefined });

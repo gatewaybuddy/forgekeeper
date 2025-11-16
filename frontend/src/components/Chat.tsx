@@ -1,10 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { streamViaServer, chatViaServer, type ChatMessageReq } from '../lib/chatClient';
+import { streamViaServer, chatViaServer, type ChatMessageReq, type ProgressInfo } from '../lib/chatClient';
 import { tailContextLog, type CtxEvent } from '../lib/ctxClient';
 import StatusBar from './StatusBar';
 import DiagnosticsDrawer from './DiagnosticsDrawer';
 import TasksDrawer from './TasksDrawer';
 import { injectDeveloperNoteBeforeLastUser } from '../lib/convoUtils';
+import ToolStatusBadge, { type ToolStatus } from './ToolStatusBadge';
+import ToolErrorAction, { type ToolErrorType } from './ToolErrorAction';
+import { useToolAnnouncement, formatToolSuccessAnnouncement, formatToolErrorAnnouncement } from '../lib/useToolAnnouncement';
+import { fetchConfig } from '../lib/configClient';
+import { ModeToggle } from './ModeToggle';
+import { ProgressIndicator } from './ProgressIndicator';
+import type { ForgekeeperConfig } from '../types/config';
 
 type Role = 'system' | 'user' | 'assistant' | 'tool';
 interface Message {
@@ -13,10 +20,10 @@ interface Message {
   reasoning?: string | null;
   name?: string;
   tool_call_id?: string;
-  tool_calls?: any[];
+  tool_calls?: unknown[];
 }
 
-function extractContentFragment(content: any): string {
+function extractContentFragment(content: unknown): string {
   if (typeof content === 'string') return content;
   if (!content) return '';
   if (Array.isArray(content)) {
@@ -38,7 +45,7 @@ function extractContentFragment(content: any): string {
   return '';
 }
 
-function formatToolContent(raw: any): string {
+function formatToolContent(raw: unknown): string {
   if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
@@ -58,7 +65,7 @@ function formatToolContent(raw: any): string {
   return String(raw);
 }
 
-function mapServerMessageToUi(msg: any): Message | null {
+function mapServerMessageToUi(msg: unknown): Message | null {
   if (!msg || typeof msg !== 'object') return null;
   const role = msg.role;
   if (role === 'tool') {
@@ -85,7 +92,7 @@ function mapServerMessageToUi(msg: any): Message | null {
   return null;
 }
 
-function normalizeTranscript(serverMessages: any[] | null | undefined, final?: { content?: string | null; reasoning?: string | null }): Message[] {
+function normalizeTranscript(serverMessages: unknown[] | null | undefined, final?: { content?: string | null; reasoning?: string | null }): Message[] {
   const normalized: Message[] = [];
   if (Array.isArray(serverMessages)) {
     for (const entry of serverMessages) {
@@ -122,7 +129,7 @@ function toChatRequestMessages(msgs: Message[]): ChatMessageReq[] {
     return {
       role: msg.role,
       content: msg.content ?? '',
-      ...(msg.role === 'assistant' && Array.isArray((msg as any).tool_calls) ? { tool_calls: (msg as any).tool_calls } : {}),
+      ...(msg.role === 'assistant' && Array.isArray((msg as unknown).tool_calls) ? { tool_calls: (msg as unknown).tool_calls } : {}),
     };
   });
 }
@@ -197,13 +204,20 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   toolStorage?: { path: string; bindMounted: boolean };
   repoWrite?: { enabled: boolean; root: string; allowed: string[]; maxBytes: number } | undefined;
 }) {
+  // Accessibility announcement hook
+  const { announce } = useToolAnnouncement();
+
   // Conversation identity
   const [convId, setConvId] = useState<string>(() => {
-    try { const saved = localStorage.getItem('fk_conv_id'); if (saved) return saved; } catch {}
-    const gen = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+    try { const saved = localStorage.getItem('fk_conv_id'); if (saved) return saved; } catch {
+      // TODO: Add error handling
+    }
+    const gen = (typeof crypto !== 'undefined' && (crypto as unknown).randomUUID) ? (crypto as unknown).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
     return `c_${gen}`;
   });
-  useEffect(() => { try { localStorage.setItem('fk_conv_id', convId); } catch {} }, [convId]);
+  useEffect(() => { try { localStorage.setItem('fk_conv_id', convId); } catch {
+      // TODO: Add error handling
+    } }, [convId]);
   const [messages, setMessages] = useState<Message[]>(() => [
     { role: 'system', content: buildSystemPrompt(toolNames, toolsAvailable, toolMetadata) }
   ]);
@@ -213,9 +227,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   );
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
-  const [fkFinal, setFkFinal] = useState('');
   const [showReasoning, setShowReasoning] = useState(true);
-  const [pinReasoning, setPinReasoning] = useState<boolean>(() => { try { return localStorage.getItem('fk_pin_reasoning') === '1'; } catch { return false; } });
   const [toolDebug, setToolDebug] = useState<any>(null);
   const [showToolDiag, setShowToolDiag] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -223,8 +235,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const endRef = useRef<HTMLDivElement | null>(null);
   const [nearBottom, setNearBottom] = useState(true);
   const [metrics, setMetrics] = useState<any>(null);
-  const [diag, setDiag] = useState<any>(null);
-  const [diagLoading, setDiagLoading] = useState(false);
   // Stop & Revise
   const [reviseOpen, setReviseOpen] = useState(false);
   const [reviseText, setReviseText] = useState('');
@@ -235,7 +245,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const [compaction, setCompaction] = useState<any>(null);
   const [contNotice, setContNotice] = useState(false);
   const [contDetails, setContDetails] = useState<Array<{attempt?: number; reason?: string}>>([]);
-  const [hideInlineWhenPinned, setHideInlineWhenPinned] = useState<boolean>(() => { try { return localStorage.getItem('fk_hide_inline_reasoning_when_pinned') === '1'; } catch { return false; } });
   // System prompt (auto from tools vs user override)
   const [sysMode, setSysMode] = useState<'auto' | 'custom'>('auto');
   const [sysCustom, setSysCustom] = useState<string>('');
@@ -274,6 +283,26 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   type SendStrategy = 'auto' | 'stream' | 'block';
   const [sendStrategy, setSendStrategy] = useState<SendStrategy>('auto');
 
+  // M2: Review and chunked mode state (T207)
+  const [config, setConfig] = useState<ForgekeeperConfig | null>(null);
+  const [reviewEnabled, setReviewEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('forgekeeper_review_enabled');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [chunkedEnabled, setChunkedEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('forgekeeper_chunked_enabled');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [progress, setProgress] = useState<ProgressInfo | null>(null);
+
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
     if (!toolsAvailable) return '';
@@ -287,22 +316,11 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     try {
       const r = await fetch('/metrics');
       if (r.ok) setMetrics(await r.json());
-    } catch {}
-  }, []);
-
-  const runDiagnostics = useCallback(async () => {
-    try {
-      setDiagLoading(true);
-      const r = await fetch('/api/diagnose');
-      if (!r.ok) throw new Error(await r.text());
-      const j = await r.json();
-      setDiag(j);
-    } catch (e:any) {
-      setDiag({ ok: false, errors: [e?.message || String(e)] });
-    } finally {
-      setDiagLoading(false);
+    } catch {
+      // Ignore fetch errors
     }
   }, []);
+
 
   // Load generation controls + system override from storage
   useEffect(() => {
@@ -326,7 +344,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setSysMode(mode === 'custom' ? 'custom' : 'auto');
       const txt = localStorage.getItem('fk_sys_prompt_text') || '';
       if (txt) setSysCustom(txt);
-    } catch {}
+    } catch {
+      // Ignore fetch errors
+    }
   }, []);
 
   // Fetch runtime tool config (dev-only; no auth)
@@ -337,7 +357,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setSysMode(mode === 'custom' ? 'custom' : 'auto');
       const txt = localStorage.getItem('fk_sys_prompt_text') || '';
       if (txt) setSysCustom(txt);
-    } catch {}
+    } catch {
+      // Ignore fetch errors
+    }
   }, []);
 
   useEffect(() => {
@@ -353,12 +375,14 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           setBashCwd(typeof j?.bashCwd === 'string' ? j.bashCwd : '');
           if (typeof j?.httpFetchEnabled === 'boolean') setHttpEnabled(!!j.httpFetchEnabled);
           if (j?.httpFetch && typeof j.httpFetch === 'object') {
-            const mb = Number((j.httpFetch as any).maxBytes || 0);
-            const to = Number((j.httpFetch as any).timeoutMs || 0);
+            const mb = Number((j.httpFetch as unknown).maxBytes || 0);
+            const to = Number((j.httpFetch as unknown).timeoutMs || 0);
             setHttpInfo({ maxBytes: mb, timeoutMs: to });
           }
         }
-      } catch {}
+      } catch {
+      // Ignore fetch errors
+    }
     })();
   }, []);
 
@@ -406,6 +430,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         temperature: genTemp,
         topP: genTopP,
         convId,
+        reviewEnabled,
+        chunkedEnabled,
+        onProgress: handleProgress,
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -413,7 +440,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           }
           if (payload?.debug) {
             setToolDebug(payload.debug);
-            try { setCompaction(payload.debug?.compaction ?? null); } catch {}
+            try { setCompaction(payload.debug?.compaction ?? null); } catch {
+      // TODO: Add error handling
+    }
             if (payload.debug?.continuedTotal > 0) {
               setContNotice(true);
               if (Array.isArray(payload.debug?.continuations)) setContDetails(payload.debug.continuations);
@@ -423,10 +452,12 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               setContDetails((prev) => [...prev, { attempt: payload.debug.attempt, reason: payload.debug.reason }]);
             }
             try {
-              if ((payload as any)?.debug?.fkFinal && typeof (payload as any)?.debug?.content === 'string') {
-                setFkFinal((payload as any).debug.content);
+              if ((payload as unknown)?.debug?.fkFinal && typeof (payload as unknown)?.debug?.content === 'string') {
+                setFkFinal((payload as unknown).debug.content);
               }
-            } catch {}
+            } catch {
+      // Ignore fetch errors
+    }
           } else if (payload?.diagnostics) {
             setToolDebug({ diagnostics: payload.diagnostics });
           }
@@ -482,7 +513,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           });
         }
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       setMessages(prev => {
         const out = [...prev];
         const idx = out.length - 1;
@@ -496,14 +527,16 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setStreaming(false);
       abortRef.current = null;
     }
-  }, [input, messages, model, refreshMetrics, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId]);
+  }, [input, messages, model, refreshMetrics, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId, reviewEnabled, chunkedEnabled, handleProgress]);
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
-    try { setReviseOpen(true); } catch {}
+    try { setReviseOpen(true); } catch {
+      // TODO: Add error handling
+    }
   }, []);
 
-  const chooseSendMode = useCallback((text: string, history: Message[]): SendStrategy => {
+  const chooseSendMode = useCallback((text: string): SendStrategy => {
     try {
       const t = text.toLowerCase();
       const words = t.split(/\s+/).filter(Boolean).length;
@@ -519,7 +552,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   const onSendSmart = useCallback(async () => {
     const text = input.trim();
     if (!text) return;
-    const mode = sendStrategy === 'auto' ? chooseSendMode(text, messages) : sendStrategy;
+    const mode = sendStrategy === 'auto' ? chooseSendMode(text) : sendStrategy;
     if (mode === 'block') {
       // Run non-stream via server orchestrator
       setInput('');
@@ -530,47 +563,21 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       setToolDebug(null);
       setMessages(prev => [...prev, userMessage]);
       try {
-        const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP, convId });
+        const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP, convId, reviewEnabled, chunkedEnabled });
         const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
         setMessages(conv);
         if (res.debug) setToolDebug(res.debug);
         if (res.diagnostics) setToolDebug({ diagnostics: res.diagnostics });
         await refreshMetrics();
-      } catch (e: any) {
+      } catch (e: unknown) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
       }
       return;
     }
     // Default to streaming
     await onSend();
-  }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics, genTemp, genTopP, convId]);
+  }, [input, messages, model, onSend, sendStrategy, chooseSendMode, genMaxTokens, genAuto, refreshMetrics, genTemp, genTopP, convId, reviewEnabled, chunkedEnabled]);
 
-  const onSendOnce = useCallback(async () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput('');
-    setContNotice(false);
-    const userMessage: Message = { role: 'user', content: text };
-    const baseHistory = [...messages, userMessage];
-    const requestHistory = toChatRequestMessages(baseHistory);
-    setMessages(baseHistory);
-    setToolDebug(null);
-    setStreaming(true);
-    try {
-      const res = await chatViaServer({ model, messages: requestHistory, maxTokens: genMaxTokens, autoTokens: !!genAuto, temperature: genTemp, topP: genTopP, convId });
-      try { setCompaction((res as any)?.debug?.compaction ?? null); } catch {}
-      const conv = normalizeTranscript(res.messages ?? requestHistory, { content: res.content ?? '', reasoning: res.reasoning ?? null });
-      setMessages(conv);
-      const debug = res.debug ?? res.raw?.debug ?? null;
-      setToolDebug(debug);
-      if (debug?.continuedTotal > 0) setContNotice(true);
-      await refreshMetrics();
-    } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e?.message || e}` }]);
-    } finally {
-      setStreaming(false);
-    }
-  }, [input, messages, model, refreshMetrics, genMaxTokens, genAuto, genTemp, genTopP, convId]);
 
   // Auto-scroll to bottom as messages update
   useEffect(() => {
@@ -596,12 +603,56 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     refreshMetrics();
   }, [refreshMetrics]);
 
+  // M2: Fetch config on mount to determine available features (T207)
+  useEffect(() => {
+    (async () => {
+      try {
+        const cfg = await fetchConfig();
+        setConfig(cfg);
+      } catch (error) {
+        console.error('[Chat] Failed to fetch config:', error);
+      }
+    })();
+  }, []);
+
+  // M2: Persist review mode preference to localStorage (T207)
+  const handleReviewChange = useCallback((enabled: boolean) => {
+    setReviewEnabled(enabled);
+    try {
+      localStorage.setItem('forgekeeper_review_enabled', String(enabled));
+    } catch (error) {
+      console.error('[Chat] Failed to save review preference:', error);
+    }
+  }, []);
+
+  // M2: Persist chunked mode preference to localStorage (T207)
+  const handleChunkedChange = useCallback((enabled: boolean) => {
+    setChunkedEnabled(enabled);
+    try {
+      localStorage.setItem('forgekeeper_chunked_enabled', String(enabled));
+    } catch (error) {
+      console.error('[Chat] Failed to save chunked preference:', error);
+    }
+  }, []);
+
+  // M2: Handle progress updates (T207)
+  const handleProgress = useCallback((progressInfo: ProgressInfo) => {
+    setProgress(progressInfo);
+  }, []);
+
+  // M2: Clear progress when streaming ends (T207)
+  useEffect(() => {
+    if (!streaming) {
+      setProgress(null);
+    }
+  }, [streaming]);
+
   // Stop & Revise: inject developer note and relaunch
   const onReviseSubmit = useCallback(async () => {
     const note = (reviseText || '').trim();
     setReviseOpen(false);
     if (!note) return;
-    const base = injectDeveloperNoteBeforeLastUser(messages as any, note) as any;
+    const base = injectDeveloperNoteBeforeLastUser(messages as unknown, note) as unknown;
     const req = toChatRequestMessages(base);
     setToolDebug(null);
     setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '' }]);
@@ -620,6 +671,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         temperature: genTemp,
         topP: genTopP,
         convId,
+        reviewEnabled,
+        chunkedEnabled,
+        onProgress: handleProgress,
         onOrchestration: (payload) => {
           if (payload?.messages) {
             const conv = normalizeTranscript(payload.messages);
@@ -658,7 +712,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       abortRef.current = null;
       setReviseText('');
     }
-  }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId, refreshMetrics]);
+  }, [reviseText, messages, model, genMaxTokens, genContTokens, genContAttempts, genAuto, genTemp, genTopP, convId, refreshMetrics, reviewEnabled, chunkedEnabled, handleProgress]);
 
   // Diagnostics drawer helpers
   const refreshCtx = useCallback(async () => {
@@ -666,7 +720,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       const rows = await tailContextLog(100, convId);
       setCtxEvents(rows);
       if (rows && rows[0]?.ts) lastEventTsRef.current = rows[0].ts;
-    } catch {}
+    } catch {
+      // Ignore fetch errors
+    }
   }, [convId]);
 
   // Lightweight polling of ContextLog
@@ -689,6 +745,80 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', vis); };
   }, [convId, pollingOn, streaming]);
 
+  // Helper: determine tool status from error message
+  const determineToolStatus = (tool: { error?: string; ms?: number }): ToolStatus => {
+    if (!tool.error) return 'success';
+    const err = tool.error.toLowerCase();
+    if (err.includes('rate limit') || err.includes('ratelimit')) return 'rate_limited';
+    if (err.includes('timeout') || err.includes('timed out')) return 'timeout';
+    if (err.includes('validation') || err.includes('invalid argument')) return 'validation_error';
+    if (err.includes('gated') || err.includes('not allowed') || err.includes('disallowed')) return 'gated';
+    return 'error';
+  };
+
+  // Helper: determine error type for ToolErrorAction
+  const determineErrorType = (tool: { error?: string }): ToolErrorType => {
+    if (!tool.error) return 'generic';
+    const err = tool.error.toLowerCase();
+    if (err.includes('rate limit') || err.includes('ratelimit')) return 'rate_limited';
+    if (err.includes('timeout') || err.includes('timed out')) return 'timeout';
+    if (err.includes('validation') || err.includes('invalid argument')) return 'validation';
+    if (err.includes('gated') || err.includes('not allowed') || err.includes('disallowed')) return 'gated';
+    return 'generic';
+  };
+
+  // Helper: extract error details for ToolErrorAction
+  const extractErrorDetails = (tool: { error?: string }) => {
+    const details: { message?: string; retryAfter?: number; allowedTools?: string[]; validationErrors?: string[] } = {
+      message: tool.error
+    };
+
+    if (tool.error) {
+      // Try to extract retry delay from rate limit errors
+      const retryMatch = tool.error.match(/retry.*?(\d+)\s*(?:second|sec|s)/i);
+      if (retryMatch) {
+        details.retryAfter = parseInt(retryMatch[1], 10);
+      }
+
+      // Try to extract allowed tools from gated errors
+      if (tool.error.includes('Allowed:')) {
+        const allowedMatch = tool.error.match(/Allowed:\s*\[([^\]]+)\]/i);
+        if (allowedMatch) {
+          details.allowedTools = allowedMatch[1].split(',').map(t => t.trim().replace(/['"]/g, ''));
+        }
+      }
+
+      // Extract validation errors if present
+      if (tool.error.includes('validation')) {
+        details.validationErrors = [tool.error];
+      }
+    }
+
+    return details;
+  };
+
+  // Helper: announce tool results to screen readers
+  useEffect(() => {
+    if (!toolDebug?.diagnostics) return;
+
+    const allTools: Array<{ name: string; error?: string; ms?: number }> = [];
+    for (const step of toolDebug.diagnostics) {
+      if (Array.isArray(step.tools)) {
+        allTools.push(...step.tools);
+      }
+    }
+
+    // Announce only the latest tool execution
+    if (allTools.length > 0) {
+      const latest = allTools[allTools.length - 1];
+      if (latest.error) {
+        announce(formatToolErrorAnnouncement(latest.name, latest.error));
+      } else {
+        announce(formatToolSuccessAnnouncement(latest.name, latest.ms));
+      }
+    }
+  }, [toolDebug, announce]);
+
   return (
     <div style={{display:'flex', flexDirection:'column', flex: fill ? '1 1 auto' as const : undefined, minHeight: 0}}>
       <div style={{display:'flex', gap:10, alignItems:'center', marginBottom:10}}>
@@ -696,7 +826,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
         <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:8}}>
           <button onClick={() => {
             setMessages([{ role: 'system', content: systemPrompt }]);
-            const gen = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+            const gen = (typeof crypto !== 'undefined' && (crypto as unknown).randomUUID) ? (crypto as unknown).randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
             setConvId(`c_${gen}`);
             setCtxEvents([]);
             lastEventTsRef.current = '';
@@ -754,7 +884,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           if (m.role === 'tool') {
             const preview = toolPreview(m.content || '');
             const prev = i > 0 ? messages[i-1] : null;
-            const prevCalls = Array.isArray((prev as any)?.tool_calls) ? (prev as any).tool_calls : [];
+            const prevCalls = Array.isArray((prev as unknown)?.tool_calls) ? (prev as unknown).tool_calls : [];
             const paired = !!(m.tool_call_id && prevCalls.some((c:any)=> c?.id === m.tool_call_id));
             return (
               <div key={i} style={{ marginBottom: 12, border: paired ? '1px solid #d1fae5' : '1px solid #fee2e2', borderRadius: 8, padding: 6, background: paired ? '#f0fdf4' : '#fff7f7' }}>
@@ -784,9 +914,44 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               <div style={{whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
                 {m.content ? m.content : <span style={{color:'#aaa'}}>(no content)</span>}
               </div>
-              {i === messages.length - 1 && m.role === 'assistant' && toolDebug?.toolsUsed && Array.isArray(toolDebug.toolsUsed) && toolDebug.toolsUsed.length > 0 && (
-                <div style={{marginTop:6, display:'flex', gap:6, flexWrap:'wrap'}}>
-                  <span style={{fontSize:11, color:'#0f766e', background:'#ccfbf1', border:'1px solid #99f6e4', padding:'2px 6px', borderRadius:999}}>Used tools: {toolDebug.toolsUsed.join(', ')}</span>
+              {i === messages.length - 1 && m.role === 'assistant' && toolDebug?.diagnostics && Array.isArray(toolDebug.diagnostics) && (
+                <div style={{marginTop:6, display:'flex', flexDirection:'column', gap:8}}>
+                  {(() => {
+                    const allTools: Array<{ name: string; error?: string; ms?: number; args?: unknown }> = [];
+                    for (const step of toolDebug.diagnostics) {
+                      if (Array.isArray(step.tools)) {
+                        allTools.push(...step.tools);
+                      }
+                    }
+                    if (allTools.length === 0) return null;
+
+                    return (
+                      <>
+                        <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center'}}>
+                          {allTools.map((tool, idx) => (
+                            <ToolStatusBadge
+                              key={idx}
+                              status={determineToolStatus(tool)}
+                              toolName={tool.name}
+                              elapsedMs={tool.ms}
+                              errorMessage={tool.error}
+                            />
+                          ))}
+                        </div>
+                        {allTools.filter(t => t.error).map((tool, idx) => (
+                          <ToolErrorAction
+                            key={idx}
+                            errorType={determineErrorType(tool)}
+                            errorDetails={extractErrorDetails(tool)}
+                            onViewLogs={() => {
+                              setDrawerOpen(true);
+                              refreshCtx();
+                            }}
+                          />
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -823,6 +988,28 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
       )}
 
       <div style={{flex: '0 0 auto'}}>
+        {/* M2: Mode toggles (T207) */}
+        {config && (
+          <ModeToggle
+            reviewAvailable={config.reviewEnabled}
+            chunkedAvailable={config.chunkedEnabled}
+            reviewEnabled={reviewEnabled}
+            chunkedEnabled={chunkedEnabled}
+            onReviewChange={handleReviewChange}
+            onChunkedChange={handleChunkedChange}
+          />
+        )}
+
+        {/* M2: Progress indicator (T207) */}
+        {progress && streaming && (
+          <ProgressIndicator
+            mode={progress.mode}
+            current={progress.current}
+            total={progress.total}
+            label={progress.label}
+          />
+        )}
+
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6, position:'relative'}}>
           <input
             placeholder="Ask something..."
@@ -869,7 +1056,7 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
           </div>
         </div>
         <small style={{color:'#666'}}>
-          Using model "{model}" at base "{apiBase}" {toolsLabel ? `• Tools: ${toolsLabel}` : ''}
+          Using model &quot;{model}&quot; at base &quot;{apiBase}&quot; {toolsLabel ? `• Tools: ${toolsLabel}` : ''}
         </small>
         {contNotice && (
           <div style={{marginTop:8, padding:8, background:'#fffbe6', border:'1px solid #ffe58f', borderRadius:8, color:'#8c6d1f', fontSize:12}}>
@@ -963,7 +1150,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                 <input type="checkbox" checked={sysMode === 'custom'} onChange={e=>{
                   const on = e.target.checked;
                   setSysMode(on ? 'custom' : 'auto');
-                  try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {}
+                  try { localStorage.setItem('fk_sys_prompt_mode', on ? 'custom' : 'auto'); } catch {
+      // TODO: Add error handling
+    }
                 }} />
                 <span style={{fontSize:12}}>Use custom prompt (overrides tool‑generated)</span>
               </label>
@@ -992,7 +1181,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
               <div style={{fontWeight:600, color:'#334155', marginBottom:6}}>Generation</div>
               <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
-                  <input type="checkbox" checked={genAuto} onChange={e=>{ setGenAuto(e.target.checked); try { localStorage.setItem('fk_gen_auto', e.target.checked ? '1' : '0'); } catch {} }} />
+                  <input type="checkbox" checked={genAuto} onChange={e=>{ setGenAuto(e.target.checked); try { localStorage.setItem('fk_gen_auto', e.target.checked ? '1' : '0'); } catch {
+      // TODO: Add error handling
+    } }} />
                   <span style={{fontSize:12}}>Auto tokens (server chooses)</span>
                 </label>
                 <label style={{display:'flex', alignItems:'center', gap:6}}>
@@ -1030,10 +1221,12 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
             <div style={{display:'flex', gap:8, marginTop:10, justifyContent:'flex-end'}}>
               <button onClick={()=>setShowSysModal(false)}>Close</button>
               <button onClick={() => {
-                try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {}
+                try { localStorage.setItem('fk_sys_prompt_text', sysCustom || ''); localStorage.setItem('fk_sys_prompt_mode', 'custom'); } catch {
+      // TODO: Add error handling
+    }
                 setSysMode('custom');
                 setMessages(prev => {
-                  const [first, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as any];
+                  const [, ...rest] = prev.length ? prev : [{ role:'system', content:'' } as unknown];
                   return [{ role:'system', content: (sysCustom || '').trim() || systemPrompt }, ...(prev.length ? rest : [])];
                 });
                 try {
@@ -1043,13 +1236,19 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   localStorage.setItem('fk_gen_auto', genAuto ? '1' : '0');
                   localStorage.setItem('fk_gen_temp', String(genTemp));
                   localStorage.setItem('fk_gen_top_p', String(genTopP));
-                } catch {}
+                } catch {
+      // Ignore fetch errors
+    }
                 setShowSysModal(false);
               }} disabled={sysMode !== 'custom'}>Apply</button>
               <button onClick={() => {
                 setSysMode('auto'); setSysCustom('');
-                try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {}
-                try { localStorage.removeItem('fk_gen_max_tokens'); localStorage.removeItem('fk_gen_cont_tokens'); localStorage.removeItem('fk_gen_cont_attempts'); localStorage.removeItem('fk_gen_auto'); } catch {}
+                try { localStorage.removeItem('fk_sys_prompt_text'); localStorage.setItem('fk_sys_prompt_mode','auto'); } catch {
+      // TODO: Add error handling
+    }
+                try { localStorage.removeItem('fk_gen_max_tokens'); localStorage.removeItem('fk_gen_cont_tokens'); localStorage.removeItem('fk_gen_cont_attempts'); localStorage.removeItem('fk_gen_auto'); } catch {
+      // TODO: Add error handling
+    }
                 setShowSysModal(false);
               }}>Reset to auto</button>
             </div>
@@ -1158,7 +1357,9 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                   try {
                     const r = await fetch('/api/tools/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ powershellEnabled: !!psEnabled, bashEnabled: !!bashEnabled, httpFetchEnabled: !!httpEnabled, cwd: psCwd || null, bashCwd: bashCwd || null, allow: toolAllow }) });
                     if (!r.ok) throw new Error(await r.text());
-                    try { localStorage.setItem('fk_gen_temp', String(genTemp)); localStorage.setItem('fk_gen_top_p', String(genTopP)); } catch {}
+                    try { localStorage.setItem('fk_gen_temp', String(genTemp)); localStorage.setItem('fk_gen_top_p', String(genTopP)); } catch {
+      // TODO: Add error handling
+    }
                     await refreshMetrics();
                     setShowToolsModal(false);
                   } catch (e:any) {

@@ -26,6 +26,10 @@ Forgekeeper combines local LLM inference (llama.cpp/vLLM) with an intelligent au
 
 - 🛠️ **Tool System** - Extensible tool ecosystem with approval workflows, error tracking, and resource monitoring
 
+- 🔐 **Sensitive Data Redaction** - Comprehensive pattern-based redaction prevents API keys, credentials, and PII from appearing in logs (T21)
+
+- 🛡️ **Per-Request Rate Limiting** - Token bucket rate limiter prevents runaway tool loops by throttling at the API boundary (T22)
+
 - 💬 **Harmony Protocol** - Reasoning + final response split for transparent chain-of-thought
 
 - 🎯 **Metrics-Informed Prompting (MIP)** - Data-driven hints to reduce incomplete responses
@@ -200,9 +204,9 @@ AUTO_PR_ALLOW=README.md,docs/**/*.md   # Allowlist patterns
 
 ### Tool System
 
-**Status**: ✅ Complete (Phases 1-2)
+**Status**: ✅ Complete (Phases 1-2, T11-T12, M1 Complete)
 
-Extensible tool ecosystem with comprehensive management and monitoring.
+Extensible tool ecosystem with comprehensive management, monitoring, hardened execution sandbox, and full audit trail.
 
 **Features:**
 - ✅ AI-generated tool approval workflow
@@ -210,27 +214,186 @@ Extensible tool ecosystem with comprehensive management and monitoring.
 - ✅ Regression monitoring for performance degradation
 - ✅ Resource usage tracking (CPU, memory, disk)
 - ✅ Dynamic tool loading and reloading
+- ✅ **T11: Hardened execution sandbox** with centralized allowlist, argument validation, and structured telemetry
+- ✅ **T12: Tool output persistence** with ContextLog integration and UI diagnostics
+- ✅ **T21: Sensitive data redaction** with comprehensive pattern matching and recursive object/array handling
+- ✅ **T22: Per-request rate limiting** with token bucket algorithm
+- ✅ **T28: System prompts** with guardrail guidance for AI agents
+- ✅ **T29: UI feedback** with status badges and error actions
+- ✅ **T30: Comprehensive documentation** covering usage, limits, and troubleshooting
 
-**Built-in Tools:**
+**T11 Enhancements (Execution Hardening):**
+- **Centralized Allowlist**: Curated list of permitted tools in `config/tools.config.mjs`
+- **Argument Validation**: Schema-based validation for all tool arguments
+- **Runtime Limits**: Configurable timeout (30s default), max retries, output size limits
+- **Feature Flag**: Global `TOOLS_EXECUTION_ENABLED` toggle for emergency shutdown
+- **Structured Telemetry**: JSON logs for start/finish/error phases consumable by downstream guardrails
+
+**T12 Enhancements (Output Persistence & Audit Trail):**
+- **ContextLog Integration**: All tool executions (start/finish/error) persisted to `.forgekeeper/context_log/*.jsonl`
+- **Correlation IDs**: Every tool execution linked to `conv_id` and `trace_id` for end-to-end tracing
+- **UI Diagnostics**: DiagnosticsDrawer displays recent tool executions with status badges, timing, and previews
+- **API Endpoint**: `/api/tools/executions` for querying tool history with filtering by conversation or trace
+- **Audit Trail**: Complete record of all tool invocations, arguments, results, and errors for troubleshooting
+
+**T21 Enhancements (Sensitive Data Redaction):**
+- **Comprehensive Pattern Matching**: Redacts API keys (Stripe, OpenAI, AWS, GitHub, Anthropic), JWTs, SSH keys, passwords, emails, credit cards, URLs with credentials, and database connection strings
+- **Recursive Redaction**: Handles nested objects and arrays of arbitrary depth (configurable max depth)
+- **Key-Based Redaction**: Automatically redacts values for sensitive field names (password, secret, token, api_key, etc.)
+- **Preserve Structure**: Redaction maintains object/array structure for debuggability
+- **Applied at Logging Boundary**: Tool execution receives unredacted arguments; only log previews are redacted
+- **Configurable**: Aggressive mode for redacting any 32+ character strings, adjustable max preview size
+- **33 Unit Tests**: Comprehensive test coverage for all redaction patterns and edge cases
+
+**T22 Enhancements (Per-Request Rate Limiting):**
+- **Token Bucket Algorithm**: Lightweight in-memory rate limiter with configurable burst and refill parameters
+- **Configurable Limits**: Set max capacity (burst size), refill rate (tokens/second), and cost per request
+- **429 Responses**: Returns HTTP 429 with Retry-After header when rate limit exceeded
+- **Rate Limit Headers**: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset on all responses
+- **Metrics Tracking**: Monitors rate limit hits, current bucket level, and total requests
+- **Easy Override**: Simple environment variable toggle for local development (RATE_LIMIT_ENABLED=0)
+- **API Boundary Protection**: Prevents runaway tool loops by throttling chat-to-tool traffic at the server boundary
+
+**Built-in Tools (19 Total):**
 - `get_time` - Current UTC timestamp
 - `echo` - Echo provided text
 - `read_file`, `read_dir` - Sandboxed file operations
-- `write_file` - Sandboxed file writing
-- `run_powershell`, `run_bash` - Shell commands (gated)
+- `write_file`, `write_repo_file` - Sandboxed file writing
+- `http_fetch` - HTTP GET requests (gated)
+- `git_status`, `git_diff`, `git_add`, `git_commit`, `git_push`, `git_pull` - Git operations
+- `run_bash`, `run_powershell` - Shell commands (gated)
+- `refresh_tools`, `restart_frontend` - System management
 - `create_task_card` - Generate task cards (TGT integration)
 - `check_pr_status` - GitHub PR status (SAPL integration)
 
+**Redaction Examples:**
+
+| Input | Redacted Output |
+|-------|----------------|
+| `sk_live_1234567890abcd` | `<redacted:stripe-live-key>` |
+| `ghp_abc123...` | `<redacted:github-pat>` |
+| `alice@example.com` | `<redacted:email>` |
+| `postgresql://user:pass@host/db` | `postgresql://<redacted:db-creds>@host/db` |
+| `{ "password": "secret123" }` | `{ "password": "<redacted>" }` |
+| JWT tokens | `<redacted:jwt-token>` |
+| SSH private keys | `<redacted:ssh-private-key>` |
+
 **Environment Variables:**
 ```bash
+# Legacy allowlist (comma-separated)
 TOOL_ALLOW=get_time,echo,read_file     # Comma-separated allowlist
+
+# T11: Execution sandbox and gating
+TOOLS_EXECUTION_ENABLED=1              # Global execution toggle (default: 1)
+TOOL_TIMEOUT_MS=30000                  # Execution timeout in ms (default: 30s)
+TOOL_MAX_RETRIES=0                     # Max retries for failed tools (default: 0)
+TOOL_MAX_OUTPUT_BYTES=1048576          # Max output size (default: 1MB)
+
+# T21: Redaction settings
+TOOLS_LOG_MAX_PREVIEW=4096             # Max preview size in bytes (default: 4096)
+
+# T22: Rate limiting
+RATE_LIMIT_ENABLED=1                   # Enable rate limiting (default: 1)
+RATE_LIMIT_CAPACITY=100                # Max tokens (burst size, default: 100)
+RATE_LIMIT_REFILL_RATE=10              # Tokens per second (default: 10)
+RATE_LIMIT_COST_PER_REQUEST=1          # Tokens per request (default: 1)
+
+# Tool runtime
 TOOLS_FS_ROOT=.forgekeeper/sandbox     # Sandbox root
 TOOLS_APPROVAL_REQUIRED=1              # Require approval for new tools
 FRONTEND_ENABLE_BASH=1                 # Enable bash tool (default: 0)
+
+# Tool prompt variants (T28)
+TOOL_PROMPT_INCLUDE_GUARDRAILS=1       # Include guardrail guidance in prompts (default: 1)
+TOOL_PROMPT_VARIANT=enabled            # "enabled" or "disabled" (default: enabled)
+```
+
+**Structured Log Format:**
+```json
+{
+  "timestamp": "2025-11-16T10:30:45.123Z",
+  "event": "tool_execution",
+  "phase": "start|finish|error",
+  "tool": "get_time",
+  "version": "1.0.0",
+  "trace_id": "abc123",
+  "conv_id": "xyz789",
+  "elapsed_ms": 45,
+  "result_preview": "2025-11-16T10:30:45.123Z",
+  "result_size_bytes": 24
+}
 ```
 
 **Endpoints**: 15+ at `/api/tools/*`
 
-📖 **Documentation**: `docs/api/tools_api.md`
+📖 **Documentation**:
+- **[Tool Quickstart](docs/tooling/QUICKSTART.md)** - Setup and configuration guide
+- **[Tool Guardrails](docs/tooling/GUARDRAILS.md)** - Complete guardrail reference
+- **[Troubleshooting](docs/tooling/TROUBLESHOOTING.md)** - Common errors and solutions
+- **[Tool Reference](docs/tooling/TOOLS_REFERENCE.md)** - Complete tool documentation
+- **[API Reference](docs/api/tools_api.md)** - Tool API endpoints
+- **[Tool Security Guide](docs/TOOL_SECURITY_GUIDE.md)** - Security best practices
+- **[System Prompts](docs/prompts/system_prompt.md)** - Prompt templates
+
+---
+
+### Tool Prompt Variants (T28)
+
+**Status**: ✅ Complete
+
+System prompts have been refreshed to align with hardened tool workflow, providing agents with clear guidance on tool eligibility, guardrails, and failure-handling expectations.
+
+**Prompt Modes:**
+
+1. **Tool-Enabled Mode (Default)**: Includes comprehensive guardrail documentation
+   - Lists all 19 allowed tools
+   - Explains validation, timeouts, rate limits, redaction
+   - Provides best practices and error recovery strategies
+   - Enables via `TOOL_PROMPT_INCLUDE_GUARDRAILS=1`
+
+2. **Tool-Disabled Mode**: Minimal tool definitions without guardrail guidance
+   - Only tool signatures
+   - No guardrail documentation
+   - Useful for testing or minimal prompts
+   - Enable via `TOOL_PROMPT_INCLUDE_GUARDRAILS=0`
+
+**Switching Between Modes:**
+
+Python API:
+```python
+from forgekeeper.llm.tool_usage import render_tool_developer_message
+from forgekeeper.config import TOOL_PROMPT_INCLUDE_GUARDRAILS
+
+# Use config-driven mode
+message = render_tool_developer_message(tools, include_guardrails=TOOL_PROMPT_INCLUDE_GUARDRAILS)
+
+# Explicit override
+message = render_tool_developer_message(tools, include_guardrails=False)
+```
+
+Environment Variables:
+```bash
+# Default: Tool-enabled with guardrails
+TOOL_PROMPT_INCLUDE_GUARDRAILS=1
+TOOL_PROMPT_VARIANT=enabled
+
+# Testing: Tool-disabled without guardrails
+TOOL_PROMPT_INCLUDE_GUARDRAILS=0
+TOOL_PROMPT_VARIANT=disabled
+```
+
+**What's Included in Guardrail Prompts:**
+- 19-tool allowlist (from T11)
+- Argument validation schemas (from T11)
+- Timeout protection (30s default from T11)
+- Output size limits (1MB from T11)
+- Rate limiting (100 capacity, 10/sec from T22)
+- Sensitive data redaction (from T21)
+- ContextLog correlation IDs (from T12)
+- Error handling strategies
+- Best practices for tool usage
+
+📖 **Full Documentation**: `docs/prompts/system_prompt.md`
 
 ---
 
@@ -257,6 +420,150 @@ PROMPTING_HINTS_THRESHOLD=0.15         # Continuation rate threshold (15%)
 **Endpoints**: 3 at `/api/prompting_hints/*`
 
 📖 **Documentation**: `frontend/server.prompting-hints.mjs`
+
+---
+
+### M2: Quality & Comprehensiveness Features
+
+**Status**: ✅ Complete (T203-T212)
+
+Forgekeeper provides advanced orchestration modes for improving response quality and handling complex, comprehensive queries.
+
+#### Self-Review Mode
+
+Automatically evaluates and iteratively improves response quality before delivery.
+
+**Key Features:**
+- Quality scoring (0.0-1.0) against configurable criteria
+- Automatic regeneration with critique feedback
+- Configurable thresholds and iteration limits
+- Auto-detection heuristics for high-stakes queries
+
+**Configuration:**
+```bash
+FRONTEND_ENABLE_REVIEW=1                  # Enable review mode
+FRONTEND_REVIEW_MODE=auto                 # Trigger: manual, always, auto
+FRONTEND_REVIEW_THRESHOLD=0.7             # Quality threshold (0.0-1.0)
+FRONTEND_AUTO_REVIEW=1                    # Enable auto-detection
+FRONTEND_AUTO_REVIEW_THRESHOLD=0.5        # Auto-detect confidence
+```
+
+📖 **Documentation**: [Self-Review Guide](docs/features/self_review.md), [Example](docs/examples/review_example.md)
+
+#### Chunked Reasoning Mode
+
+Breaks complex responses into multiple focused chunks for comprehensive coverage.
+
+**Key Features:**
+- Automatic outline generation
+- Progressive chunk building (each builds on previous)
+- Handles responses exceeding context limits
+
+**Configuration:**
+```bash
+FRONTEND_ENABLE_CHUNKED=1                 # Enable chunked mode
+FRONTEND_CHUNKED_MAX_CHUNKS=5             # Max chunks (3-5 optimal)
+FRONTEND_AUTO_CHUNKED=1                   # Enable auto-detection
+FRONTEND_AUTO_CHUNKED_THRESHOLD=0.3       # Auto-detect confidence
+```
+
+📖 **Documentation**: [Chunked Reasoning Guide](docs/features/chunked_reasoning.md), [Example](docs/examples/chunked_example.md)
+
+### Combined Mode (Review + Chunked)
+
+**Status**: ✅ Complete (T209)
+
+Combines self-review iteration with chunked reasoning for high-quality, comprehensive responses.
+
+**Strategies:**
+
+1. **`per_chunk`** - Review each chunk individually before moving to the next
+   - Use when: Each section needs independent quality validation
+   - Behavior: Generate chunk → Review → Next chunk → Final assembly
+   - Review events: One per chunk
+
+2. **`final_only`** (default) - Generate all chunks, then review the assembled response
+   - Use when: Cohesion across chunks is more important than individual chunk quality
+   - Behavior: Generate all chunks → Assemble → Review final
+   - Review events: Single review at the end
+
+3. **`both`** - Review each chunk AND the final assembly
+   - Use when: Maximum quality assurance is required
+   - Behavior: Per-chunk reviews + final review
+   - Review events: One per chunk + one final
+
+**Environment Variables:**
+```bash
+# Enable both modes
+FRONTEND_ENABLE_REVIEW=1
+FRONTEND_ENABLE_CHUNKED=1
+
+# Set strategy (per_chunk, final_only, both)
+FRONTEND_COMBINED_REVIEW_STRATEGY=final_only
+
+# Review configuration
+FRONTEND_REVIEW_THRESHOLD=0.7          # Quality threshold (0.0-1.0)
+FRONTEND_REVIEW_ITERATIONS=3           # Max review passes
+FRONTEND_REVIEW_MODE=on_complex        # When to trigger review
+
+# Chunked configuration
+FRONTEND_CHUNKED_MAX_CHUNKS=5          # Max chunks per response
+FRONTEND_CHUNKED_TOKENS_PER_CHUNK=1024 # Tokens per chunk
+```
+
+**How It Works:**
+
+When both `FRONTEND_ENABLE_REVIEW` and `FRONTEND_ENABLE_CHUNKED` are enabled, the system automatically uses combined mode:
+
+1. **Detection**: Server detects both features are enabled
+2. **Strategy Selection**: Uses `FRONTEND_COMBINED_REVIEW_STRATEGY` to determine approach
+3. **Orchestration**: Routes to appropriate combined orchestrator
+4. **Logging**: All chunk and review events logged to ContextLog with `combined_mode_start` and `combined_mode_complete` events
+
+**ContextLog Events:**
+- `combined_mode_start` - Combined mode initiated with strategy
+- `chunk_outline` - Outline generated (from chunked mode)
+- `chunk_write` - Each chunk written (from chunked mode)
+- `review_cycle` - Review events (per strategy)
+- `chunk_assembly` - Chunks assembled (from chunked mode)
+- `combined_mode_complete` - Combined mode completed with final score and total review passes
+
+**Performance Considerations:**
+- `per_chunk`: Slowest (N reviews for N chunks)
+- `final_only`: Moderate (1 review for assembled response)
+- `both`: Slowest + most thorough (N+1 reviews)
+
+**When to Use Each Strategy:**
+
+| Strategy | Best For | Trade-off |
+|----------|----------|-----------|
+| `per_chunk` | Technical documentation, multi-part tutorials | Speed for quality per section |
+| `final_only` | Essays, narratives, cohesive explanations | Faster but may miss section-level issues |
+| `both` | Critical documentation, academic writing | Maximum quality, slowest execution |
+
+**Example Usage:**
+
+Enable combined mode with final-only strategy:
+```bash
+# .env
+FRONTEND_ENABLE_REVIEW=1
+FRONTEND_ENABLE_CHUNKED=1
+FRONTEND_COMBINED_REVIEW_STRATEGY=final_only
+```
+
+Check logs for combined mode events:
+```bash
+# View recent ContextLog events
+tail -50 .forgekeeper/context_log/ctx-*.jsonl | jq 'select(.act | contains("combined"))'
+```
+
+**Testing:**
+```bash
+# Run combined mode tests
+node forgekeeper/frontend/tests/test_combined_mode.mjs
+```
+
+📖 **Implementation**: `frontend/server.combined.mjs`
 
 ---
 

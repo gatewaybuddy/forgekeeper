@@ -25,7 +25,7 @@ const getToolIcon = (toolName: string): string => {
   return toolIcons[toolName] || toolIcons.default;
 };
 
-const formatArgValue = (value: any): string => {
+const formatArgValue = (value: unknown): string => {
   if (typeof value === 'string') {
     // Truncate long strings
     return value.length > 100 ? `${value.substring(0, 100)}...` : value;
@@ -42,7 +42,7 @@ const formatArgValue = (value: any): string => {
   return String(value);
 };
 
-const formatResult = (result: any): React.ReactNode => {
+const formatResult = (result: unknown): React.ReactNode => {
   if (typeof result === 'string') {
     // Check if it's file content or directory listing
     if (result.includes('\n') && result.length > 200) {

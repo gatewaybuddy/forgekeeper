@@ -52,11 +52,13 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 ## Request Lifecycle (Simplified)
 
 1. **UI → Server**: `POST /api/chat` with messages, model, tools
-2. **Orchestrator**: Calls upstream LLM with tools
-3. **Tool Loop**: Parse tool_calls → execute locally → append results → repeat
-4. **ContextLog**: Log to `.forgekeeper/context_log/ctx-YYYYMMDD-HH.jsonl`
-5. **Response**: Return final assistant message with debug info
-6. **UI**: Render content, store to localStorage, show diagnostics
+2. **Mode Selection**: Auto-detection heuristics or manual selection (standard/review/chunked/combined)
+3. **Orchestrator**: Calls upstream LLM with tools (mode-specific logic)
+4. **Tool Loop**: Parse tool_calls → execute locally → append results → repeat
+5. **Quality/Chunking**: Review evaluation or chunk assembly if enabled
+6. **ContextLog**: Log to `.forgekeeper/context_log/ctx-YYYYMMDD-HH.jsonl`
+7. **Response**: Return final assistant message with debug info
+8. **UI**: Render content, store to localStorage, show diagnostics
 
 ---
 
@@ -78,6 +80,14 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `FRONTEND_MAX_TOKENS=8192`, `FRONTEND_TEMP=0.0`, `FRONTEND_TOP_P=0.4`
 - `FRONTEND_CONT_ATTEMPTS=2` — Auto-continuation tries
 - `FRONTEND_USE_HARMONY=1` — Reasoning protocol
+
+**M2 Orchestration Modes**:
+- `FRONTEND_ENABLE_REVIEW=1` — Self-review mode
+- `FRONTEND_REVIEW_THRESHOLD=0.7` — Quality threshold (0.0-1.0)
+- `FRONTEND_AUTO_REVIEW=1` — Auto-detection for review
+- `FRONTEND_ENABLE_CHUNKED=1` — Chunked reasoning mode
+- `FRONTEND_CHUNKED_MAX_CHUNKS=5` — Max chunks per response
+- `FRONTEND_AUTO_CHUNKED=1` — Auto-detection for chunked
 
 **Tools**:
 - `TOOL_ALLOW=...` — Comma-separated allowlist (default: all)
@@ -122,6 +132,13 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 ### 5. Configuration-Driven
 - **Discovery**: `/config.json` exposes all capabilities
 - **UI**: Disables unavailable features dynamically
+
+### 6. Orchestration Modes (M2)
+- **Standard**: Base tool-enabled orchestration
+- **Review**: Iterative quality improvement with evaluation/regeneration
+- **Chunked**: Multi-chunk generation for comprehensive responses
+- **Combined**: Review + Chunked together
+- **Auto-Detection**: Heuristic-based mode selection
 
 ---
 

@@ -9,9 +9,9 @@ const DEFAULT_MAX_PREVIEW = Number(process.env.TOOLS_LOG_MAX_PREVIEW || '4096');
  */
 const REDACTION_PATTERNS = [
   // API Keys and Service Tokens
-  { pattern: /sk_live_[A-Za-z0-9_-]{24,}/gi, replacement: '<redacted:stripe-live-key>' },
-  { pattern: /sk_test_[A-Za-z0-9_-]{24,}/gi, replacement: '<redacted:stripe-test-key>' },
-  { pattern: /pk_live_[A-Za-z0-9_-]{24,}/gi, replacement: '<redacted:stripe-pub-key>' },
+  { pattern: /sk_live_[A-Za-z0-9_-]{10,}/gi, replacement: '<redacted:stripe-live-key>' },
+  { pattern: /sk_test_[A-Za-z0-9_-]{10,}/gi, replacement: '<redacted:stripe-test-key>' },
+  { pattern: /pk_live_[A-Za-z0-9_-]{10,}/gi, replacement: '<redacted:stripe-pub-key>' },
   { pattern: /sk-[A-Za-z0-9]{20,}/gi, replacement: '<redacted:openai-key>' }, // OpenAI
   { pattern: /sk-ant-[A-Za-z0-9_-]{10,}/gi, replacement: '<redacted:anthropic-key>' }, // Anthropic (relaxed length)
   { pattern: /AKIA[0-9A-Z]{16}/g, replacement: '<redacted:aws-access-key>' }, // AWS Access Key
@@ -184,9 +184,10 @@ export function containsSensitiveData(input) {
   try {
     const str = typeof input === 'string' ? input : JSON.stringify(input);
 
-    // Check for common sensitive patterns
+    // Check for common sensitive patterns (subset of REDACTION_PATTERNS for detection)
     const sensitivePatterns = [
       /sk_live_/i,
+      /sk_test_/i,
       /sk-[A-Za-z0-9]{20}/,
       /AKIA[0-9A-Z]{16}/,
       /-----BEGIN.*PRIVATE KEY-----/,
@@ -197,5 +198,132 @@ export function containsSensitiveData(input) {
     return sensitivePatterns.some(pattern => pattern.test(str));
   } catch {
     return false;
+  }
+}
+
+/**
+ * Main redaction function that handles strings, objects, and arrays recursively.
+ * This is the primary function to use for redacting sensitive data before logging.
+ *
+ * @param {any} data - Data to redact (string, object, array, or primitive)
+ * @param {Object} options - Redaction options
+ * @param {boolean} options.aggressive - Apply aggressive redaction (default: false)
+ * @param {number} options.maxDepth - Maximum recursion depth (default: 10)
+ * @param {boolean} options.preserveStructure - Keep object/array structure (default: true)
+ * @returns {any} Redacted data with same structure
+ */
+export function redactSensitiveData(data, options = {}) {
+  const {
+    aggressive = false,
+    maxDepth = 10,
+    preserveStructure = true
+  } = options;
+
+  // Track recursion depth to prevent infinite loops
+  let currentDepth = 0;
+
+  function redactValue(value, depth = 0) {
+    // Prevent infinite recursion
+    if (depth > maxDepth) {
+      return preserveStructure ? '[max-depth-exceeded]' : value;
+    }
+
+    // Handle null/undefined
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    // Handle strings - apply pattern-based redaction
+    if (typeof value === 'string') {
+      return redactString(value, aggressive);
+    }
+
+    // Handle arrays - recursively redact each element
+    if (Array.isArray(value)) {
+      return value.map(item => redactValue(item, depth + 1));
+    }
+
+    // Handle objects - recursively redact all values
+    if (typeof value === 'object') {
+      const redacted = {};
+      for (const [key, val] of Object.entries(value)) {
+        // Check if key name suggests sensitive data
+        const keyLower = key.toLowerCase();
+        const isSensitiveKey = [
+          'password', 'passwd', 'pwd', 'secret', 'token', 'apikey', 'api_key',
+          'access_token', 'refresh_token', 'auth_token', 'bearer', 'authorization',
+          'private_key', 'secret_key', 'encryption_key', 'ssn', 'credit_card',
+          'cvv', 'pin', 'otp', 'session_id', 'cookie', 'jwt', 'credentials'
+        ].some(pattern => keyLower.includes(pattern));
+
+        if (isSensitiveKey && typeof val === 'string') {
+          // Redact sensitive key values
+          redacted[key] = '<redacted>';
+        } else {
+          // Recursively redact value
+          redacted[key] = redactValue(val, depth + 1);
+        }
+      }
+      return redacted;
+    }
+
+    // Return primitives as-is (numbers, booleans, etc.)
+    return value;
+  }
+
+  function redactString(str, aggressive) {
+    let result = str;
+
+    // Apply all redaction patterns
+    for (const rule of REDACTION_PATTERNS) {
+      // Skip disabled patterns
+      if (rule.enabled === false) continue;
+
+      // Apply pattern replacement
+      if (typeof rule.replacement === 'function') {
+        result = result.replace(rule.pattern, rule.replacement);
+      } else {
+        result = result.replace(rule.pattern, rule.replacement);
+      }
+    }
+
+    // Aggressive mode: redact long alphanumeric strings
+    if (aggressive) {
+      result = result.replace(/\b[A-Za-z0-9_-]{32,}\b/g, '<redacted:long-string>');
+    }
+
+    return result;
+  }
+
+  return redactValue(data, 0);
+}
+
+/**
+ * Redact sensitive data and prepare for logging.
+ * Combines redaction with truncation for log-safe output.
+ *
+ * @param {any} data - Data to redact and prepare for logging
+ * @param {Object} options - Options for redaction and truncation
+ * @param {boolean} options.aggressive - Apply aggressive redaction (default: false)
+ * @param {number} options.maxBytes - Maximum bytes for truncation (default: from env)
+ * @returns {string} Redacted and truncated string suitable for logging
+ */
+export function redactForLogging(data, options = {}) {
+  const { aggressive = false, maxBytes = DEFAULT_MAX_PREVIEW } = options;
+
+  try {
+    // First redact sensitive data
+    const redacted = redactSensitiveData(data, { aggressive });
+
+    // Convert to string if needed
+    const str = typeof redacted === 'string'
+      ? redacted
+      : JSON.stringify(redacted, null, 2);
+
+    // Then truncate
+    return truncatePreview(str, maxBytes);
+  } catch (err) {
+    console.error('[Redaction] Error during redactForLogging:', err.message);
+    return truncatePreview(String(data || ''), maxBytes);
   }
 }

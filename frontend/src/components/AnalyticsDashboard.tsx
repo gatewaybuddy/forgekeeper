@@ -99,7 +99,7 @@ interface AnalyticsDashboardProps {
   onClose: () => void;
 }
 
-export default function AnalyticsDashboard({ isOpen, onClose }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ isOpen }: AnalyticsDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 
 interface DependencyViewProps {
   taskId: string;
-  tasks: any[];
+  tasks: Array<{ task_id: string; title: string; status: string }>;
 }
 
 export default function DependencyView({ taskId, tasks }: DependencyViewProps) {
@@ -35,7 +35,7 @@ export default function DependencyView({ taskId, tasks }: DependencyViewProps) {
     t => t.dependencies && t.dependencies.includes(taskId)
   );
 
-  const isBlocked = dependencies.some((dep: any) => dep.status !== 'completed');
+  const isBlocked = dependencies.some((dep) => dep.status !== 'completed');
   const isBlocking = dependents.length > 0 && task.status !== 'completed';
 
   return (
@@ -95,7 +95,7 @@ export default function DependencyView({ taskId, tasks }: DependencyViewProps) {
             Depends On ({dependencies.length}):
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {dependencies.map((dep: any) => (
+            {dependencies.map((dep) => (
               <div
                 key={dep.id}
                 style={{
@@ -134,7 +134,7 @@ export default function DependencyView({ taskId, tasks }: DependencyViewProps) {
             Blocking ({dependents.length}):
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {dependents.map((dep: any) => (
+            {dependents.map((dep) => (
               <div
                 key={dep.id}
                 style={{

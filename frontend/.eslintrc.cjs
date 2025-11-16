@@ -15,7 +15,8 @@ module.exports = {
   settings: { react: { version: 'detect' } },
   ignorePatterns: ['dist', 'node_modules'],
   rules: {
-    'react/react-in-jsx-scope': 'off'
+    'react/react-in-jsx-scope': 'off',
+    'react/prop-types': 'off'
   }
 }
 

@@ -7,11 +7,13 @@ import { Readable } from 'node:stream';
 import { orchestrateWithTools } from './server.orchestrator.mjs';
 import { orchestrateWithReview } from './server.review.mjs';
 import { orchestrateChunked } from './server.chunked.mjs';
+import { orchestrateCombined } from './server.combined.mjs';
 import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors, getToolRegressionStats, getAllToolRegressionStats, clearToolRegressionStats, getToolResourceUsage, getAllToolResourceUsage, clearToolResourceUsage } from './server.tools.mjs';
 import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
 import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
 import { getReviewConfig } from './config/review_prompts.mjs';
 import { getChunkedConfig, shouldTriggerChunking } from './config/chunked_prompts.mjs';
+import { detectOrchestrationMode, isAutoDetectionEnabled } from './server.heuristics.mjs';
 // Enhanced Features Integration (Phase 1-3)
 import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server.enhanced-integration.mjs';
 import { createAutonomousAgent } from './core/agent/autonomous.mjs';
@@ -27,6 +29,7 @@ import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
 import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
 import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent consensus mode
 import { ulid } from 'ulid'; // Phase 3: Session ID generation
+import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs'; // T22: Token bucket rate limiter
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -121,7 +124,8 @@ app.get('/config.json', async (_req, res) => {
   const reviewConfig = getReviewConfig();
   const reviewEnabled = reviewConfig.enabled;
   const chunkedEnabled = (process.env.FRONTEND_ENABLE_CHUNKED || '0') === '1';
-  res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, reviewEnabled, chunkedEnabled, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
+  const combinedStrategy = process.env.FRONTEND_COMBINED_REVIEW_STRATEGY || 'final_only';
+  res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, reviewEnabled, chunkedEnabled, combinedStrategy, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
 });
 
 // Resolve tool allowlist from env
@@ -240,7 +244,7 @@ function estimateTokenPlan(messages, fallback) {
 
 // Use shared finisher heuristics for both paths
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', rateLimitMiddleware, async (req, res) => {
   try {
     metrics.totalRequests += 1;
     if (circuit.isOpen()) {
@@ -304,10 +308,56 @@ app.post('/api/chat', async (req, res) => {
       tools: allowed,
     };
 
-    // Determine if chunking should be triggered
-    const useChunked = chunkedConfig.enabled && shouldTriggerChunking(chunkedContext, chunkedConfig) && (!allowed || allowed.length === 0);
+    // T210: Auto-detection heuristics (if enabled)
+    let autoDetectionResult = null;
+    let useReviewAuto = false;
+    let useChunkedAuto = false;
 
-    // Choose orchestrator: Enhanced > Chunked > Review > Standard
+    if (isAutoDetectionEnabled('review') || isAutoDetectionEnabled('chunked')) {
+      autoDetectionResult = detectOrchestrationMode(lastContent, {
+        messageCount: preMessages.filter(m => m?.role === 'user').length,
+        previousIncomplete: false, // Could track this in future
+        previousContinuations: 0, // Could track this in future
+      });
+
+      // Apply auto-detection results
+      if (isAutoDetectionEnabled('review') && autoDetectionResult.mode === 'review') {
+        useReviewAuto = true;
+        console.log(`[T210] Auto-detected review mode: ${autoDetectionResult.reason} (confidence: ${autoDetectionResult.confidence})`);
+      }
+      if (isAutoDetectionEnabled('chunked') && autoDetectionResult.mode === 'chunked') {
+        useChunkedAuto = true;
+        console.log(`[T210] Auto-detected chunked mode: ${autoDetectionResult.reason} (confidence: ${autoDetectionResult.confidence})`);
+      }
+
+      // Log auto-detection event
+      if (autoDetectionResult.mode !== 'standard') {
+        appendEvent({
+          actor: 'system',
+          act: 'auto_detect_mode',
+          conv_id: convId,
+          trace_id: traceId,
+          name: 'heuristics',
+          status: 'ok',
+          args_preview: {
+            detected_mode: autoDetectionResult.mode,
+            confidence: autoDetectionResult.confidence,
+            reason: autoDetectionResult.reason,
+          },
+        });
+      }
+    }
+
+    // Determine if chunking should be triggered (manual or auto)
+    const useChunked = (chunkedConfig.enabled && shouldTriggerChunking(chunkedContext, chunkedConfig) && (!allowed || allowed.length === 0)) || useChunkedAuto;
+
+    // Determine if review should be triggered (manual or auto)
+    const useReview = reviewConfig.enabled || useReviewAuto;
+
+    // T209: Check if both review and chunked are enabled (combined mode)
+    const useCombined = useReview && useChunked;
+
+    // Choose orchestrator: Enhanced > Combined > Chunked > Review > Standard
     let out;
     if (enhancedOrchestrator && useEnhanced) {
       out = await enhancedOrchestrator({
@@ -326,6 +376,28 @@ app.post('/api/chat', async (req, res) => {
         enablePhase1: true,
         enablePhase3: process.env.FRONTEND_ENABLE_AUTO_COMPACT === '1',
       });
+    } else if (useCombined) {
+      // T209: Use combined mode (review + chunked)
+      console.log('[server] Using combined mode (review + chunked)');
+      out = await orchestrateCombined({
+        baseUrl: upstreamBase,
+        model: mdl,
+        messages: preMessages,
+        maxTokens: chunkedConfig.tokensPerChunk,
+        convId,
+        traceId,
+        config: chunkedConfig,
+      });
+      // Convert chunked result format to standard orchestrator format
+      out = {
+        assistant: {
+          role: 'assistant',
+          content: out.content,
+          reasoning: out.reasoning,
+        },
+        messages: [...preMessages, { role: 'assistant', content: out.content }],
+        debug: out.debug,
+      };
     } else if (useChunked) {
       // Use chunked orchestration for long text-only responses
       console.log('[server] Using chunked orchestration');
@@ -338,7 +410,8 @@ app.post('/api/chat', async (req, res) => {
         traceId,
         config: chunkedConfig,
       });
-    } else if (reviewConfig.enabled) {
+    } else if (useReview) {
+      console.log('[server] Using review orchestration');
       out = await orchestrateWithReview({
         orchestrator: orchestrateWithTools,
         baseUrl: upstreamBase,
@@ -375,6 +448,10 @@ app.post('/api/chat', async (req, res) => {
     }
     if (!out.debug) out.debug = {};
     out.debug.tokenPlan = plan;
+    // Add auto-detection info to debug
+    if (autoDetectionResult) {
+      out.debug.autoDetection = autoDetectionResult;
+    }
     try {
       // accumulate tool metrics + audit
       const diags = out?.debug?.diagnostics || [];
@@ -1105,6 +1182,46 @@ app.post('/api/tools/resources/:tool_name/clear', async (req, res) => {
   }
 });
 
+// GET /api/tools/executions - Get tool execution history from ContextLog (T12)
+app.get('/api/tools/executions', async (req, res) => {
+  try {
+    const n = Math.max(1, Math.min(500, parseInt(String(req.query.n || '100'), 10) || 100));
+    const conv_id = String(req.query.conv_id || '').trim() || null;
+    const trace_id = String(req.query.trace_id || '').trim() || null;
+
+    // Get all recent events from ContextLog
+    const allEvents = tailEvents(n, conv_id);
+
+    // Filter for tool execution events
+    const toolEvents = allEvents.filter(e =>
+      e.actor === 'tool' &&
+      (e.act === 'tool_execution_start' || e.act === 'tool_execution_finish' || e.act === 'tool_execution_error')
+    );
+
+    // Further filter by trace_id if provided
+    const filteredEvents = trace_id
+      ? toolEvents.filter(e => String(e.trace_id || '') === trace_id)
+      : toolEvents;
+
+    res.json({
+      ok: true,
+      events: filteredEvents,
+      count: filteredEvents.length,
+      filters: {
+        n,
+        conv_id,
+        trace_id
+      }
+    });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      error: 'server_error',
+      message: e?.message || String(e)
+    });
+  }
+});
+
 // Local token store for GitHub (dev only). Allows pasting a PAT via API and storing it under .forgekeeper/secrets/gh_token.
 app.post('/api/auth/github/token', async (req, res) => {
   try {
@@ -1190,7 +1307,7 @@ app.post('/api/repo/write', async (req, res) => {
 
 // Streaming final turn after tool orchestration
 // Body: { messages, model }
-app.post('/api/chat/stream', async (req, res) => {
+app.post('/api/chat/stream', rateLimitMiddleware, async (req, res) => {
   try {
     metrics.streamRequests += 1;
     if (circuit.isOpen()) {
@@ -2030,6 +2147,21 @@ app.get('/api/scout/metrics/report', async (req, res) => {
   } catch (error) {
     console.error('[Scout Metrics] Error generating report:', error);
     res.status(500).send('Error generating Scout metrics report');
+  }
+});
+
+// ===== T22: Rate Limit Metrics Endpoint =====
+
+app.get('/api/rate-limit/metrics', (req, res) => {
+  try {
+    const metrics = getRateLimitMetrics();
+    res.json({
+      success: true,
+      metrics
+    });
+  } catch (error) {
+    console.error('[Rate Limit] Error getting metrics:', error);
+    res.status(500).json({ error: 'Failed to get rate limit metrics' });
   }
 });
 

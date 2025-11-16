@@ -15,11 +15,27 @@ export interface AutoStatusState {
     artifacts_created: number;
     errors: number;
     stuck_count: number;
-    action_history?: any[];
-    artifacts?: any[];
-    recentFailures?: any[];
+    action_history?: Array<{
+      iteration: number;
+      action: string;
+      result: string;
+    }>;
+    artifacts?: Array<{
+      type: string;
+      path: string;
+    }>;
+    recentFailures?: Array<{
+      iteration: number;
+      error: string;
+    }>;
   };
-  result?: any;
+  result?: {
+    completed: boolean;
+    reason: string;
+    iterations: number;
+    confidence: number;
+    summary?: string;
+  };
   error?: string;
 }
 
@@ -42,13 +58,13 @@ export function useAutonomousStatus(sessionId?: string | null, opts: UseAutoStat
       setData(st);
       setRunning(!!st.running);
       setError(null);
-    } catch (e: any) {
-      setError(e?.message || String(e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }, []);
 
   useEffect(() => {
-    let id: any;
+    let id: ReturnType<typeof setInterval> | undefined;
     if (sessionId) {
       // Poll immediately, then on interval
       tick();

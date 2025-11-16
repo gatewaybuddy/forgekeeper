@@ -312,7 +312,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
         const text = String(lastUser?.content || '').toLowerCase();
         const mentionsTime = /(what\s+time|current\s+time|time\s+now|utc|est|pst|cst|timezone|time\s+in\s+|clock)/i.test(text);
         if (useHarmony && allowHarmonyTools && mentionsTime) {
-          const now = await runTool('get_time', {});
+          const now = await runTool('get_time', {}, { trace_id: traceId, conv_id: convId });
           const pre = renderHarmonyToolResults([{ name: 'get_time', id: null, result: now }]);
           convo.push({ role: 'developer', content: `Current UTC timestamp via tool:\n${pre}\nUse this exact timestamp for any time conversions.` });
           prefetchedTime = true;
@@ -347,7 +347,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
           }
           try {
             const t0 = Date.now();
-            const result = await runTool(name, args);
+            const result = await runTool(name, args, { trace_id: traceId, conv_id: convId });
             const ms = Date.now() - t0;
             const preview = typeof result === 'string' ? result : (JSON.stringify(result).slice(0, 160) + (JSON.stringify(result).length > 160 ? '.' : ''));
             step.tools.push({ id: c?.id || null, name, args, ms, preview });
@@ -399,7 +399,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
       if (allowHarmonyTools && gateWantsTool && enforceAttempts >= maxEnforce) {
         // Fallback: proactively run the required tool once and provide the result
         try {
-          const result = await runTool(requiredTool, {});
+          const result = await runTool(requiredTool, {}, { trace_id: traceId, conv_id: convId });
           const blocks = renderHarmonyToolResults([{ name: requiredTool, id: null, result }]);
           convo.push({ role: 'developer', content: blocks || 'No tool results.' });
           diagnostics.push({ ...step, autoExecuted: requiredTool });
@@ -473,7 +473,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
         let args = {};
         try { args = tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {}; } catch {}
         const t0 = Date.now();
-        const result = await runTool(name, args);
+        const result = await runTool(name, args, { trace_id: traceId, conv_id: convId });
         const ms = Date.now() - t0;
         convo.push({ role: 'tool', content: typeof result === 'string' ? result : JSON.stringify(result), name: name || undefined, tool_call_id: tc?.id || undefined });
         const preview = typeof result === 'string' ? result : (JSON.stringify(result).slice(0, 160) + (JSON.stringify(result).length > 160 ? '.' : ''));

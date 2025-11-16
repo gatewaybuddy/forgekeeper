@@ -133,7 +133,18 @@ function AppContent({
   toolMetadata,
   toolStorage,
   toolCaps
-}: any) {
+}: {
+  apiBase: string;
+  model: string;
+  config: unknown;
+  toolsAvailable: boolean;
+  toolNames: string[];
+  toolMetadata: unknown;
+  toolStorage: unknown;
+  toolCaps: unknown;
+  showPreferences: boolean;
+  setShowPreferences: (show: boolean) => void;
+}) {
   const location = useLocation();
   const isThoughtWorld = location.pathname === '/thought-world';
 

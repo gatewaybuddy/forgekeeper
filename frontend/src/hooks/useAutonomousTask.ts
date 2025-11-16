@@ -26,7 +26,7 @@ export function useAutonomousTask(model: string, opts: UseAutoTaskOptions = {}) 
   const stop = useCallback(async () => {
     if (!sessionId) return;
     try { await stopAutonomousSession(sessionId); await refresh(); }
-    catch (e: any) { setLastError(e?.message || String(e)); }
+    catch (e) { setLastError(e instanceof Error ? e.message : String(e)); }
   }, [sessionId, refresh]);
 
   const clear = useCallback(() => {

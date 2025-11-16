@@ -5,6 +5,17 @@ import { pathToFileURL } from 'node:url';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import crypto from 'node:crypto';
+import {
+  checkToolAllowed,
+  validateToolArguments,
+  createToolLogEvent,
+  emitToolLog,
+  TOOL_TIMEOUT_MS,
+  TOOL_MAX_RETRIES,
+  TOOL_MAX_OUTPUT_BYTES
+} from './config/tools.config.mjs';
+import { appendEvent, createToolExecutionEvent } from './server.contextlog.mjs';
+import { redactForLogging } from './server.guardrails.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -551,35 +562,114 @@ export function clearToolErrors(toolName) {
   toolErrors.delete(toolName);
 }
 
-export async function runTool(name, args) {
-  const allow = (process?.env?.TOOL_ALLOW || '').trim();
-  if (allow) {
-    const set = new Set(allow.split(',').map((s) => s.trim()).filter(Boolean));
-    if (!set.has(name)) throw new Error(`Tool not allowed by policy: ${name}`);
-  }
-  if (!STATIC_AGG && REGISTRY.size === 0) await reloadTools();
+export async function runTool(name, args, metadata = {}) {
+  const startTime = Date.now();
+  const trace_id = metadata.trace_id || null;
+  const conv_id = metadata.conv_id || null;
 
-  // Check rate limit (codex.plan Phase 2, T212)
-  const rateLimitCheck = checkRateLimit(name);
-  if (!rateLimitCheck.allowed) {
-    throw new Error(`Rate limit exceeded for tool ${name}: ${rateLimitCheck.current}/${rateLimitCheck.limit} requests in last minute. Reset in ${Math.ceil(rateLimitCheck.reset_in_ms / 1000)}s`);
-  }
+  // T21: Redact sensitive data from arguments before logging
+  const redactedArgs = redactForLogging(args, { maxBytes: 200 });
 
-  const startTime = Date.now(); // Track latency for regression detection (T211)
-  let success = false;
+  // T11: Emit structured start log
+  const startLog = createToolLogEvent('start', name, { args: redactedArgs, trace_id, conv_id });
+  emitToolLog(startLog);
+
+  // T12: Persist to ContextLog with redacted preview
+  const ctxStartEvent = createToolExecutionEvent({
+    phase: 'start',
+    tool: name,
+    conv_id,
+    trace_id,
+    args_preview: redactedArgs,
+  });
+  appendEvent(ctxStartEvent);
 
   try {
-    let result;
-    if (STATIC_AGG && typeof STATIC_AGG.runTool === 'function') {
-      result = await STATIC_AGG.runTool(name, args || {});
-    } else {
-      const mod = REGISTRY.get(name);
-      if (!mod || typeof mod.run !== 'function') throw new Error(`Unknown tool: ${name}`);
-      result = await mod.run(args || {});
+    // T11: Check if tool execution is globally enabled and tool is in allowlist
+    const allowCheck = checkToolAllowed(name);
+    if (!allowCheck.allowed) {
+      const error = new Error(allowCheck.message);
+      error.gated = true;
+      error.reason = allowCheck.reason;
+      throw error;
     }
 
+    // T11: Validate arguments against schema
+    const validation = validateToolArguments(name, args);
+    if (!validation.valid) {
+      const error = new Error(`Tool argument validation failed: ${validation.errors.join(', ')}`);
+      error.validation_errors = validation.errors;
+      throw error;
+    }
+
+    if (!STATIC_AGG && REGISTRY.size === 0) await reloadTools();
+
+    // Check rate limit (codex.plan Phase 2, T212)
+    const rateLimitCheck = checkRateLimit(name);
+    if (!rateLimitCheck.allowed) {
+      throw new Error(`Rate limit exceeded for tool ${name}: ${rateLimitCheck.current}/${rateLimitCheck.limit} requests in last minute. Reset in ${Math.ceil(rateLimitCheck.reset_in_ms / 1000)}s`);
+    }
+
+    let success = false;
+    let result;
+
+    // T11: Execute with timeout
+    const executeWithTimeout = async () => {
+      if (STATIC_AGG && typeof STATIC_AGG.runTool === 'function') {
+        return await STATIC_AGG.runTool(name, args || {});
+      } else {
+        const mod = REGISTRY.get(name);
+        if (!mod || typeof mod.run !== 'function') throw new Error(`Unknown tool: ${name}`);
+        return await mod.run(args || {});
+      }
+    };
+
+    // T11: Apply timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Tool execution timeout after ${TOOL_TIMEOUT_MS}ms`)), TOOL_TIMEOUT_MS);
+    });
+
+    result = await Promise.race([executeWithTimeout(), timeoutPromise]);
     success = true;
+
+    // T11: Check output size limit
+    const resultSize = Buffer.byteLength(
+      typeof result === 'string' ? result : JSON.stringify(result),
+      'utf8'
+    );
+    if (resultSize > TOOL_MAX_OUTPUT_BYTES) {
+      console.warn(`[Tool Output] Tool ${name} exceeded output size limit: ${resultSize} > ${TOOL_MAX_OUTPUT_BYTES}`);
+      // Truncate result
+      const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+      result = resultStr.slice(0, TOOL_MAX_OUTPUT_BYTES) + '\n[... output truncated due to size limit]';
+    }
+
     const latencyMs = Date.now() - startTime;
+
+    // T21: Redact sensitive data from result before logging
+    const redactedResult = redactForLogging(result, { maxBytes: 200 });
+
+    // T11: Emit structured finish log with redacted result
+    const finishLog = createToolLogEvent('finish', name, {
+      elapsed_ms: latencyMs,
+      result_preview: redactedResult,
+      result_size_bytes: resultSize,
+      trace_id,
+      conv_id
+    });
+    emitToolLog(finishLog);
+
+    // T12: Persist to ContextLog with redacted preview
+    const ctxFinishEvent = createToolExecutionEvent({
+      phase: 'finish',
+      tool: name,
+      conv_id,
+      trace_id,
+      result_preview: redactedResult,
+      elapsed_ms: latencyMs,
+      result_size_bytes: resultSize,
+    });
+    appendEvent(ctxFinishEvent);
 
     // Track metrics and check for regression (codex.plan T211)
     trackToolMetrics(name, latencyMs, true);
@@ -611,8 +701,43 @@ export async function runTool(name, args) {
     const errorMsg = e?.message || String(e);
     const latencyMs = Date.now() - startTime;
 
+    // T11: Emit structured error log
+    const errorLog = createToolLogEvent('error', name, {
+      error: errorMsg,
+      error_type: e.gated ? 'gated' : (e.validation_errors ? 'validation' : 'execution'),
+      elapsed_ms: latencyMs,
+      stack: e.stack || null,
+      trace_id,
+      conv_id
+    });
+    emitToolLog(errorLog);
+
+    // T12: Persist to ContextLog
+    const ctxErrorEvent = createToolExecutionEvent({
+      phase: 'error',
+      tool: name,
+      conv_id,
+      trace_id,
+      error: errorMsg,
+      error_type: e.gated ? 'gated' : (e.validation_errors ? 'validation' : 'execution'),
+      elapsed_ms: latencyMs,
+    });
+    appendEvent(ctxErrorEvent);
+
     // Track failed execution metrics (codex.plan T211)
     trackToolMetrics(name, latencyMs, false);
+
+    // T11: If this is a gated error, return structured error immediately
+    if (e.gated) {
+      return {
+        error: errorMsg,
+        gated: true,
+        reason: e.reason,
+        timestamp: new Date().toISOString(),
+        trace_id,
+        conv_id
+      };
+    }
 
     // Track error and check if rollback is needed (codex.plan T205)
     const toolFile = `${name}.mjs`;

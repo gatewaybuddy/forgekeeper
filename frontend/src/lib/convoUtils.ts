@@ -1,4 +1,4 @@
-export type ChatMsg = { role: 'system'|'user'|'assistant'|'tool'|'developer'; content: any; [k: string]: any };
+export type ChatMsg = { role: 'system'|'user'|'assistant'|'tool'|'developer'; content: string; [k: string]: unknown };
 
 // Insert a developer note immediately before the last user message; if no user message exists,
 // insert after the system message (index 1).

@@ -31,7 +31,11 @@ export interface AutonomousResult {
   state: {
     progress_percent: number;
     errors: number;
-    reflections: any[];
+    reflections: Array<{
+      iteration: number;
+      assessment: string;
+      confidence: number;
+    }>;
   };
 }
 

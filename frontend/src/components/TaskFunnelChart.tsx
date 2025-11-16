@@ -6,7 +6,7 @@
  *                    ↘ Dismissed
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 interface FunnelStage {
   count: number;
@@ -62,11 +62,7 @@ export default function TaskFunnelChart({ daysBack = 7 }: TaskFunnelChartProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchFunnel();
-  }, [daysBack]);
-
-  async function fetchFunnel() {
+  const fetchFunnel = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -85,7 +81,11 @@ export default function TaskFunnelChart({ daysBack = 7 }: TaskFunnelChartProps) 
     } finally {
       setLoading(false);
     }
-  }
+  }, [daysBack]);
+
+  useEffect(() => {
+    fetchFunnel();
+  }, [fetchFunnel]);
 
   if (loading) {
     return (

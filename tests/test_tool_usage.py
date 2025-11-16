@@ -134,3 +134,124 @@ def test_tool_definition_round_trip_with_mcp_namespace():
     assert restored.namespace == "mcp"
     assert restored.name == "list_tasks"
     assert restored.description == "List tasks from MCP server."
+
+
+def test_render_tool_developer_message_with_guardrails():
+    """Test that tool-enabled mode includes guardrail documentation (T28)."""
+    tools = [
+        ToolDefinition(
+            name="read_file",
+            description="Read a file",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}}},
+        ),
+    ]
+
+    # With guardrails (default)
+    message = render_tool_developer_message(tools, include_guardrails=True)
+
+    assert message["role"] == "developer"
+    assert message["channel"] == "commentary"
+    content = message["content"]
+
+    # Check for guardrail sections
+    assert "TOOL SYSTEM GUARDRAILS" in content
+    assert "ALLOWLIST" in content
+    assert "19 curated tools" in content
+    assert "VALIDATION" in content
+    assert "EXECUTION LIMITS" in content
+    assert "30 seconds per tool call" in content
+    assert "1MB maximum size" in content
+    assert "100 requests burst, 10 per second sustained" in content
+    assert "SECURITY" in content
+    assert "Sensitive data" in content
+    assert "redacted in logs" in content
+    assert "ERROR HANDLING" in content
+    assert "TOOL USAGE BEST PRACTICES" in content
+    assert "When to use tools" in content
+    assert "When NOT to use tools" in content
+    assert "Error recovery" in content
+
+    # Check that tool definitions are still present
+    assert "namespace functions" in content
+    assert "type read_file" in content
+
+
+def test_render_tool_developer_message_without_guardrails():
+    """Test that tool-disabled mode excludes guardrail documentation (T28)."""
+    tools = [
+        ToolDefinition(
+            name="read_file",
+            description="Read a file",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}}},
+        ),
+    ]
+
+    # Without guardrails
+    message = render_tool_developer_message(tools, include_guardrails=False)
+
+    assert message["role"] == "developer"
+    assert message["channel"] == "commentary"
+    content = message["content"]
+
+    # Should NOT have guardrail sections
+    assert "TOOL SYSTEM GUARDRAILS" not in content
+    assert "TOOL USAGE BEST PRACTICES" not in content
+
+    # Should still have tool definitions
+    assert "namespace functions" in content
+    assert "type read_file" in content
+
+
+def test_render_tool_developer_message_empty_tools_with_guardrails():
+    """Test that empty tool list returns appropriate message regardless of guardrails."""
+    # With guardrails
+    message_with = render_tool_developer_message([], include_guardrails=True)
+    assert message_with["content"] == "# Tools\n\n// No tools registered."
+
+    # Without guardrails
+    message_without = render_tool_developer_message([], include_guardrails=False)
+    assert message_without["content"] == "# Tools\n\n// No tools registered."
+
+
+def test_render_tool_developer_message_mentions_t11_t12_t21_t22():
+    """Test that guardrail content mentions key implemented tasks (T28)."""
+    tools = [
+        ToolDefinition(
+            name="echo",
+            description="Echo text",
+            input_schema={"type": "object", "properties": {"text": {"type": "string"}}},
+        ),
+    ]
+
+    message = render_tool_developer_message(tools, include_guardrails=True)
+    content = message["content"]
+
+    # Check for features from T11, T12, T21, T22
+    assert "allowlist" in content.lower()
+    assert "validation" in content.lower()
+    assert "timeout" in content.lower()
+    assert "rate limit" in content.lower()
+    assert "redacted" in content.lower()
+    assert "contextlog" in content.lower() or "correlation id" in content.lower()
+
+
+def test_config_constants_exist():
+    """Test that config.py has tool prompt constants (T28)."""
+    import sys
+    from pathlib import Path
+
+    # Import config module
+    ROOT = Path(__file__).resolve().parents[1]
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from forgekeeper import config
+
+    # Check that constants exist
+    assert hasattr(config, "TOOL_PROMPT_INCLUDE_GUARDRAILS")
+    assert hasattr(config, "TOOL_PROMPT_VARIANT")
+
+    # Check default values
+    assert isinstance(config.TOOL_PROMPT_INCLUDE_GUARDRAILS, bool)
+    assert isinstance(config.TOOL_PROMPT_VARIANT, str)
+    assert config.TOOL_PROMPT_VARIANT in ["enabled", "disabled"] or config.TOOL_PROMPT_VARIANT == "enabled"

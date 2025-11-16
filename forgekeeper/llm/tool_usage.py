@@ -146,13 +146,82 @@ class ToolDefinition:
         )
 
 
-def render_tool_developer_message(tools: Sequence[ToolDefinition]) -> Mapping[str, Any]:
-    """Build the developer message that advertises tool availability."""
+def render_tool_developer_message(tools: Sequence[ToolDefinition], *, include_guardrails: bool = True) -> Mapping[str, Any]:
+    """Build the developer message that advertises tool availability with optional guardrail guidance.
+
+    Args:
+        tools: Sequence of tool definitions to advertise
+        include_guardrails: If True, include tool guardrail and best practices guidance
+
+    Returns:
+        Developer message dict with role, channel, and content
+    """
 
     if not tools:
         return {"role": "developer", "channel": "commentary", "content": "# Tools\n\n// No tools registered."}
 
-    lines: List[str] = ["# Tools", ""]
+    lines: List[str] = []
+
+    # Add guardrails section if requested
+    if include_guardrails:
+        lines.extend([
+            "# Tool System with Guardrails",
+            "",
+            "## TOOL SYSTEM GUARDRAILS",
+            "",
+            "1. **ALLOWLIST**: Only 19 curated tools are available:",
+            "   - echo, get_time, read_dir, read_file, write_file, write_repo_file",
+            "   - http_fetch, git_status, git_diff, git_add, git_commit, git_push, git_pull",
+            "   - run_bash, run_powershell, refresh_tools, restart_frontend",
+            "   - create_task_card, check_pr_status",
+            "",
+            "2. **VALIDATION**: All tool arguments are validated against schemas",
+            "   - Required arguments must be present",
+            "   - Type checking enforced (string, number, boolean, array, object)",
+            "   - Length limits enforced (strings, arrays)",
+            "   - Enum validation for restricted values",
+            "",
+            "3. **EXECUTION LIMITS**:",
+            "   - Timeout: 30 seconds per tool call",
+            "   - Output: 1MB maximum size",
+            "   - Rate limit: 100 requests burst, 10 per second sustained",
+            "",
+            "4. **SECURITY**:",
+            "   - Sensitive data (API keys, emails, paths) redacted in logs",
+            "   - Logs show <redacted:*> but tools receive real data",
+            "   - All executions logged to ContextLog with correlation IDs",
+            "",
+            "5. **ERROR HANDLING**:",
+            "   - Tool not in allowlist: Returns error with list of allowed tools",
+            "   - Invalid arguments: Returns validation error with details",
+            "   - Timeout: Returns timeout error after 30s",
+            "   - Rate limit: Returns 429 with retry-after header",
+            "",
+            "## TOOL USAGE BEST PRACTICES",
+            "",
+            "**When to use tools:**",
+            "- Use tools when you need real-time information (time, file contents, git status)",
+            "- Use tools when you need to perform actions (write files, run commands, create PRs)",
+            "- Use tools when you need external data (HTTP requests)",
+            "",
+            "**When NOT to use tools:**",
+            "- Don't use tools for information you already have in context",
+            "- Don't use tools for simple calculations or reasoning",
+            "- Don't repeatedly call tools with same arguments (results are likely same)",
+            "",
+            "**Error recovery:**",
+            "- If tool returns allowlist error: Check available tools and choose one from list",
+            "- If tool returns validation error: Fix arguments based on error message",
+            "- If tool times out: Try with smaller scope or simpler operation",
+            "- If rate limited: Wait for retry-after seconds before trying again",
+            "",
+            "## AVAILABLE TOOLS",
+            "",
+        ])
+    else:
+        lines.extend(["# Tools", ""])
+
+    # Add tool definitions grouped by namespace
     current_namespace: str | None = None
     for tool in tools:
         namespace = tool.namespace or "functions"
@@ -165,6 +234,7 @@ def render_tool_developer_message(tools: Sequence[ToolDefinition]) -> Mapping[st
         lines.append(tool.to_typescript_definition())
     if current_namespace is not None:
         lines.append("}")
+
     content = "\n".join(lines)
     return {"role": "developer", "channel": "commentary", "content": content}
 

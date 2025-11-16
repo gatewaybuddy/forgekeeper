@@ -55,5 +55,9 @@ TRITON_CHECKPOINT = os.getenv("TRITON_CHECKPOINT")
 
 CONFIG_DIR = Path(os.getenv("FK_CONFIG_DIR", ".forgekeeper"))
 
+# Tool prompt configuration (T28)
+TOOL_PROMPT_INCLUDE_GUARDRAILS = _bool_env("TOOL_PROMPT_INCLUDE_GUARDRAILS", True)
+TOOL_PROMPT_VARIANT = os.getenv("TOOL_PROMPT_VARIANT", "enabled")  # "enabled" or "disabled"
+
 __all__ = [name for name in list(globals()) if name.isupper()]
 

@@ -17,7 +17,7 @@ interface UserPreference {
   domain: string;
   category: string;
   preference: string;
-  value: any;
+  value: string | number | boolean;
   confidence: number;
   source: 'explicit' | 'inferred' | 'observed';
   observation_count: number;
@@ -439,7 +439,7 @@ export function PreferencesPanel() {
             {inferResult && (
               <div style={{ marginTop: 12 }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600 }}>Results:</h4>
-                {inferResult.map((result: any, idx: number) => (
+                {inferResult.map((result: PreferenceItem, idx: number) => (
                   <div
                     key={idx}
                     style={{

@@ -9,7 +9,7 @@ type TaskItem = {
   id: string;
   title: string;
   severity: 'low' | 'medium' | 'high' | string;
-  evidence?: any;
+  evidence?: unknown;
   suggested?: string[];
   acceptance?: string[];
   priority?: number;
@@ -45,14 +45,14 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       const j = await r.json();
       setItems(Array.isArray(j?.items) ? j.items : []);
       setError(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(e?.message || String(e));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(win); }, []);
+  useEffect(() => { load(win); }, [win, load]);
 
   const toggleSelect = (taskId: string) => {
     setSelectedTasks(prev =>
@@ -78,7 +78,9 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
       ].filter(Boolean).join('\n')).join('\n');
       await navigator.clipboard.writeText(md);
       alert('Copied tasks to clipboard.');
-    } catch {}
+    } catch {
+      // TODO: Add error handling
+    }
   };
 
   const previewPR = async () => {
@@ -198,7 +200,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                           setPrTitle(`docs: ${it.title} (${it.id})`);
                           setPrBody(body);
                           setPrFiles('README.md');
-                          if ((it as any).append?.text) setPrAppendText((it as any).append.text);
+                          if ((it as unknown).append?.text) setPrAppendText((it as unknown).append.text);
                           setShowPr(true);
                         }} style={{
                           background: '#2563eb',
@@ -209,8 +211,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                           cursor: 'pointer',
                           fontWeight: 500,
                         }}>📝 Propose PR</button>
-                        { (it as any).append?.text && (
-                          <button onClick={()=> setPrAppendText((it as any).append.text) }>Use README snippet</button>
+                        { (it as unknown).append?.text && (
+                          <button onClick={()=> setPrAppendText((it as unknown).append.text) }>Use README snippet</button>
                         )}
                       </div>
                     </div>
@@ -302,7 +304,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
             if (!response.ok) throw new Error('Batch approval failed');
             setSelectedTasks([]);
             load(win);
-          } catch (e: any) {
+          } catch (e: unknown) {
             alert(`Error: ${e.message}`);
           }
         }}
@@ -319,7 +321,7 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
             if (!response.ok) throw new Error('Batch dismissal failed');
             setSelectedTasks([]);
             load(win);
-          } catch (e: any) {
+          } catch (e: unknown) {
             alert(`Error: ${e.message}`);
           }
         }}

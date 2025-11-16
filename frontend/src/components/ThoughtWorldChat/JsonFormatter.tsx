@@ -62,7 +62,7 @@ export function JsonFormatter({ content }: JsonFormatterProps) {
 }
 
 interface JsonBlockProps {
-  data: any;
+  data: unknown;
 }
 
 function JsonBlock({ data }: JsonBlockProps) {

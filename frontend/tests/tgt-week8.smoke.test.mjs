@@ -89,7 +89,7 @@ describe('TGT Week 8: Smart Auto-Approval', () => {
       confidence: 0.5,
     };
 
-    const result = await shouldAutoApprove(lowConfidenceTask);
+    const result = await shouldAutoApprove(lowConfidenceTask, { enabled: true });
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('Confidence');
@@ -103,7 +103,7 @@ describe('TGT Week 8: Smart Auto-Approval', () => {
       confidence: 0.95,
     };
 
-    const result = await shouldAutoApprove(untrustedTask);
+    const result = await shouldAutoApprove(untrustedTask, { enabled: true });
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('not in trusted list');

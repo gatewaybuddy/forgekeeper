@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const BASE_DIR = path.resolve(process.cwd(), '.forgekeeper', 'context_log');
 const MAX_BYTES = Number(process.env.FRONEND_CTXLOG_MAX_BYTES || process.env.CTXLOG_MAX_BYTES || 10 * 1024 * 1024);
@@ -294,4 +295,118 @@ export function createChunkAssemblyEvent({
     total_tokens,
     elapsed_ms,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Combined Mode Event Creators (T209: Combined review + chunked)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function createCombinedModeStartEvent({
+  conv_id,
+  trace_id,
+  strategy,
+  chunk_count,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'combined_mode_start',
+    conv_id,
+    trace_id,
+    iter: 0,
+    name: 'combined_orchestration',
+    status,
+    strategy,
+    chunk_count,
+  };
+}
+
+export function createCombinedModeCompleteEvent({
+  conv_id,
+  trace_id,
+  strategy,
+  chunk_count,
+  total_review_passes,
+  final_score,
+  total_elapsed_ms,
+  status = 'ok',
+}) {
+  return {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'system',
+    act: 'combined_mode_complete',
+    conv_id,
+    trace_id,
+    iter: chunk_count,
+    name: 'combined_orchestration',
+    status,
+    strategy,
+    chunk_count,
+    total_review_passes,
+    final_score: Math.round(final_score * 1000) / 1000,
+    total_elapsed_ms,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool Execution Event Creators (T12: Persist tool outputs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function createToolExecutionEvent({
+  phase,
+  tool,
+  conv_id,
+  trace_id,
+  args_preview,
+  result_preview,
+  elapsed_ms,
+  error,
+  error_type,
+  result_size_bytes,
+  status = 'ok',
+}) {
+  const baseEvent = {
+    id: generateId(),
+    ts: new Date().toISOString(),
+    actor: 'tool',
+    conv_id,
+    trace_id,
+    iter: 0,
+    name: tool,
+    status,
+  };
+
+  switch (phase) {
+    case 'start':
+      return {
+        ...baseEvent,
+        act: 'tool_execution_start',
+        args_preview: truncateText(args_preview, 500),
+      };
+
+    case 'finish':
+      return {
+        ...baseEvent,
+        act: 'tool_execution_finish',
+        result_preview: truncateText(result_preview, 500),
+        elapsed_ms,
+        bytes: result_size_bytes || 0,
+      };
+
+    case 'error':
+      return {
+        ...baseEvent,
+        act: 'tool_execution_error',
+        status: 'error',
+        error: truncateText(error, 500),
+        error_type: error_type || 'execution_error',
+        elapsed_ms,
+      };
+
+    default:
+      return baseEvent;
+  }
 }

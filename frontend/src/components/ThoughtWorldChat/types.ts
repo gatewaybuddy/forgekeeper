@@ -22,7 +22,7 @@ export interface AgentMessage {
 export interface HumanInputRequest {
   inputId: string;
   question: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   suggestedActions: SuggestedAction[];
   urgency: 'low' | 'medium' | 'high';
 }
@@ -35,8 +35,8 @@ export interface SuggestedAction {
 
 export interface ToolExecution {
   tool: string;
-  arguments: Record<string, any>;
-  result?: any;
+  arguments: Record<string, unknown>;
+  result?: unknown;
   success?: boolean;
   error?: string;
   elapsed?: number;

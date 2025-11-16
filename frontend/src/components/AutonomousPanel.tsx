@@ -25,7 +25,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
   const [loadingStats, setLoadingStats] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'checkpoints' | 'stats' | 'history' | 'fullHistory' | 'episodes' | 'recoveryStats' | null>(null);
   const [expandedHistoryItem, setExpandedHistoryItem] = useState<string | null>(null);
-  const [fullHistory, setFullHistory] = useState<any[]>([]);
+  const [fullHistory] = useState<any[]>([]);
   const [loadingFullHistory, setLoadingFullHistory] = useState(false);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
@@ -37,12 +37,11 @@ export default function AutonomousPanel({ model }: { model: string }) {
   const progressPct = Math.max(0, Math.min(100, data?.state?.progress_percent ?? 0));
   const iter = data?.state?.iteration ?? 0;
   const iterMax = data?.state?.max_iterations ?? 0;
-  const reason = (data?.result as any)?.reason ?? '';
-  const completed = !!(data?.result && (data.result as any)?.completed === true);
+  const reason = (data?.result as unknown)?.reason ?? '';
+  const completed = !!(data?.result && (data.result as unknown)?.completed === true);
 
-  // Extract action history and artifacts from state
+  // Extract action history from state
   const actionHistory = data?.state?.action_history || [];
-  const artifacts = data?.state?.artifacts || [];
 
   const canStart = useMemo(() => !busy && (task.trim().length > 0), [busy, task]);
 
@@ -66,17 +65,23 @@ export default function AutonomousPanel({ model }: { model: string }) {
         localStorage.removeItem('fk_auto_adopt_session');
         localStorage.removeItem('fk_auto_adopt_task');
       }
-    } catch {}
+    } catch {
+      // Ignore errors when loading session from localStorage
+    }
   }, [sessionId, adopt]);
 
   const [history, setHistory] = useState<HistoryItem[]>(() => {
-    try { const raw = localStorage.getItem('fk_auto_history'); if (raw) return JSON.parse(raw); } catch {}
+    try { const raw = localStorage.getItem('fk_auto_history'); if (raw) return JSON.parse(raw); } catch {
+      // Ignore parse errors
+    }
     return [];
   });
-  useEffect(() => { try { localStorage.setItem('fk_auto_history', JSON.stringify(history.slice(-10))); } catch {} }, [history]);
+  useEffect(() => { try { localStorage.setItem('fk_auto_history', JSON.stringify(history.slice(-10))); } catch {
+    // Ignore storage errors
+  } }, [history]);
   useEffect(() => {
     if (sessionId && !running && data?.result) {
-      const item: HistoryItem = { session_id: sessionId, task: currentTask || task, completed: !!data.result.completed, reason: (data.result as any)?.reason, ts: new Date().toISOString() };
+      const item: HistoryItem = { session_id: sessionId, task: currentTask || task, completed: !!data.result.completed, reason: (data.result as unknown)?.reason, ts: new Date().toISOString() };
       setHistory(prev => {
         const exists = prev.some(h => h.session_id === item.session_id);
         return exists ? prev : [...prev.slice(-9), item];
@@ -86,12 +91,12 @@ export default function AutonomousPanel({ model }: { model: string }) {
 
   const onStart = useCallback(async () => {
     try { await start(task.trim(), 50); } // Increased from 15 to match agent default
-    catch (e: any) { setToast({ msg: `Failed to start: ${e?.message || e}`, level: 'error' }); }
+    catch (e: unknown) { setToast({ msg: `Failed to start: ${e?.message || e}`, level: 'error' }); }
   }, [task, start]);
 
   const onStop = useCallback(async () => {
     try { await stop(); }
-    catch (e: any) { setToast({ msg: `Stop failed: ${e?.message || e}`, level: 'error' }); }
+    catch (e: unknown) { setToast({ msg: `Stop failed: ${e?.message || e}`, level: 'error' }); }
   }, [stop]);
 
   const onReset = useCallback(() => { clear(); }, [clear]);
@@ -102,7 +107,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
       const resp = await listCheckpoints();
       setCheckpoints(resp.checkpoints || []);
       setExpandedSection(expandedSection === 'checkpoints' ? null : 'checkpoints');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to load checkpoints: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingCheckpoints(false);
@@ -118,7 +123,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
         adopt(resp.session_id, checkpoint?.task || 'Resumed session');
         setToast({ msg: `Resumed from checkpoint`, level: 'info' });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to resume: ${e?.message || e}`, level: 'error' });
     }
   }, [checkpoints, adopt]);
@@ -129,7 +134,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
       const resp = await getLearningStats();
       setLearningStats(resp.stats);
       setExpandedSection(expandedSection === 'stats' ? null : 'stats');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to load stats: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingStats(false);
@@ -147,7 +152,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
       } else {
         throw new Error(data.message || 'Failed to load recovery stats');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to load recovery stats: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingRecoveryStats(false);
@@ -160,7 +165,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
       // TODO: Re-implement getFullHistory in autonomousClient
       setToast({ msg: 'Full history feature not yet implemented', level: 'info' });
       setExpandedSection(expandedSection === 'fullHistory' ? null : 'fullHistory');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to load full history: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingFullHistory(false);
@@ -184,7 +189,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
       }
 
       setExpandedSection(expandedSection === 'episodes' ? null : 'episodes');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to load episodes: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingEpisodes(false);
@@ -207,7 +212,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
         setEpisodes(data.results || []);
         setToast({ msg: `Found ${data.results.length} similar episodes`, level: 'info' });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to search episodes: ${e?.message || e}`, level: 'error' });
     } finally {
       setLoadingEpisodes(false);
@@ -223,15 +228,15 @@ export default function AutonomousPanel({ model }: { model: string }) {
       setClarificationResponse('');
       setToast({ msg: `Clarification provided, agent resuming...`, level: 'info' });
       setTimeout(() => refresh(), 1000);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setToast({ msg: `Failed to provide clarification: ${e?.message || e}`, level: 'error' });
     }
   }, [sessionId, clarificationResponse, refresh]);
 
   useEffect(() => {
-    if (data && (data as any).needsClarification) {
+    if (data && (data as unknown).needsClarification) {
       setClarificationNeeded(true);
-      setClarificationQuestions((data as any).questions || []);
+      setClarificationQuestions((data as unknown).questions || []);
     }
   }, [data]);
 
@@ -496,7 +501,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
                     Show previous {actionHistory.length - 1} iterations
                   </summary>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                    {actionHistory.slice(0, -1).reverse().map((item: any, idx: number) => (
+                    {actionHistory.slice(0, -1).reverse().map((item: unknown, idx: number) => (
                       <div key={idx} style={{
                         background: item.error ? '#fef2f2' : '#f9fafb',
                         border: `1px solid ${item.error ? '#fecaca' : '#e5e7eb'}`,
@@ -540,12 +545,12 @@ export default function AutonomousPanel({ model }: { model: string }) {
               <summary style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', listStyle: 'none' }}>
                 <span>▸ 🔍 Diagnostic & Recovery</span>
                 <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>
-                  ({data.state.recentFailures.filter((f: any) => f.recoverySucceeded).length}/{data.state.recentFailures.length} recovered)
+                  ({data.state.recentFailures.filter((f: unknown) => f.recoverySucceeded).length}/{data.state.recentFailures.length} recovered)
                 </span>
               </summary>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {data.state.recentFailures.slice(-3).reverse().map((failure: any, idx: number) => (
+                {data.state.recentFailures.slice(-3).reverse().map((failure: unknown, idx: number) => (
                   <div key={idx} style={{
                     background: failure.recoverySucceeded ? '#f0fdf4' : '#fef2f2',
                     border: `1px solid ${failure.recoverySucceeded ? '#bbf7d0' : '#fecaca'}`,
@@ -578,7 +583,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
 
                     {failure.diagnosis?.whyChain?.why1 && (
                       <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
-                        "{failure.diagnosis.whyChain.why1}"
+                        &quot;{failure.diagnosis.whyChain.why1}&quot;
                       </div>
                     )}
                   </div>
@@ -637,7 +642,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
             </span>
           </summary>
           <div style={{ maxHeight: 400, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {actionHistory.map((item: any, idx: number) => (
+            {actionHistory.map((item: unknown, idx: number) => (
               <div key={idx} style={{
                 background: item.error ? '#fee2e2' : '#f8f9fa',
                 border: `1px solid ${item.error ? '#fca5a5' : '#e5e7eb'}`,
@@ -674,7 +679,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
                 </div>
                 {item.artifacts && item.artifacts.length > 0 && (
                   <div style={{ marginTop: 6, fontSize: 11, color: '#10b981' }}>
-                    ✓ Created: {item.artifacts.map((a: any) => a.path).join(', ')}
+                    ✓ Created: {item.artifacts.map((a: unknown) => a.path).join(', ')}
                   </div>
                 )}
               </div>
@@ -969,7 +974,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
           {recoveryStats.top_strategies && recoveryStats.top_strategies.length > 0 && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Top Recovery Strategies</div>
-              {recoveryStats.top_strategies.map((strategy: any, idx: number) => (
+              {recoveryStats.top_strategies.map((strategy: unknown, idx: number) => (
                 strategy.top_strategy && (
                   <div key={idx} style={{
                     background: '#f0fdf4',
@@ -1229,7 +1234,7 @@ export default function AutonomousPanel({ model }: { model: string }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {episodes.map((item: any, idx: number) => {
+              {episodes.map((item: unknown, idx: number) => {
                 const episode = item.episode || item;
                 const score = item.score !== undefined ? item.score : null;
 
