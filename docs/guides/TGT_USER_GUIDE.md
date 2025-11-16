@@ -756,7 +756,7 @@ Once you're comfortable with TGT, enable **SAPL (Safe Auto-PR Loop)** to automat
 5. Review PR preview
 6. Click "Create PR"
 
-See [SAPL User Guide](SAPL_USER_GUIDE.md) for details.
+See **[SAPL User Guide](SAPL_USER_GUIDE.md)** for complete details and examples.
 
 ### Enable MIP
 

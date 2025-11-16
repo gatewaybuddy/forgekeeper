@@ -4,6 +4,10 @@
 **Priority**: High
 **Date**: 2025-11-04
 
+**📖 New to SAPL?** See the **[SAPL User Guide](../guides/SAPL_USER_GUIDE.md)** for practical examples and how-to instructions.
+
+This document is the technical/API reference. For usage instructions, start with the user guide.
+
 ---
 
 ## Overview

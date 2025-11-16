@@ -16,7 +16,7 @@ This index orients contributors to the documentation tree. Each section links to
 
 **Feature Guides:**
 - **[TGT User Guide](guides/TGT_USER_GUIDE.md)** - Telemetry-Driven Task Generation with examples
-- [SAPL User Guide](guides/SAPL_USER_GUIDE.md) - Safe Auto-PR Loop (coming soon)
+- **[SAPL User Guide](guides/SAPL_USER_GUIDE.md)** - Safe Auto-PR Loop with examples
 
 ---
 
