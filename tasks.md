@@ -49,7 +49,7 @@ Enable iterative self-review for quality improvement and chunked response genera
 ## M3 - Collaborative Intelligence (Owner: TBD; Target: TBD; Priority: HIGH)
 Enable human-in-the-loop collaboration with approval workflows, decision checkpoints, and feedback integration for safer, more controlled autonomous operations.
 - [x] T301 - Approval request system and backend API  (Phase 8.1: Core Approval System)
-- [ ] T302 - Risk assessment engine and classification rules  (Phase 8.1: Core Approval System)
+- [x] T302 - Risk assessment engine and classification rules  (Phase 8.1: Core Approval System)
 - [ ] T303 - Approval UI components and notification system  (Phase 8.1: Core Approval System)
 - [ ] T304 - Decision checkpoint system and triggers  (Phase 8.2: Decision Checkpoints)
 - [ ] T305 - Interactive planning UI and modification interface  (Phase 8.2: Decision Checkpoints)
