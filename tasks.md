@@ -46,6 +46,21 @@ Enable iterative self-review for quality improvement and chunked response genera
 - [ ] T211 - Documentation, examples, and configuration guide  (Phase 5: Documentation)
 - [ ] T212 - Testing suite and validation  (Phase 5: Testing)
 
+## M3 - Collaborative Intelligence (Owner: TBD; Target: TBD; Priority: HIGH)
+Enable human-in-the-loop collaboration with approval workflows, decision checkpoints, and feedback integration for safer, more controlled autonomous operations.
+- [ ] T301 - Approval request system and backend API  (Phase 8.1: Core Approval System)
+- [ ] T302 - Risk assessment engine and classification rules  (Phase 8.1: Core Approval System)
+- [ ] T303 - Approval UI components and notification system  (Phase 8.1: Core Approval System)
+- [ ] T304 - Decision checkpoint system and triggers  (Phase 8.2: Decision Checkpoints)
+- [ ] T305 - Interactive planning UI and modification interface  (Phase 8.2: Decision Checkpoints)
+- [ ] T306 - Confidence calibration and threshold logic  (Phase 8.2: Decision Checkpoints)
+- [ ] T307 - Feedback collection forms and storage  (Phase 8.3: Feedback & Learning)
+- [ ] T308 - User preference pattern analysis  (Phase 8.3: Feedback & Learning)
+- [ ] T309 - Adaptive recommendation system  (Phase 8.3: Feedback & Learning)
+- [ ] T310 - ContextLog integration for collaboration events  (Phase 8.4: Integration & Polish)
+- [ ] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish)
+- [ ] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish)
+
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
 - Keep tasks discrete and shippable within 4 hours of focused work.
