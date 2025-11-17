@@ -57,9 +57,9 @@ Enable human-in-the-loop collaboration with approval workflows, decision checkpo
 - [x] T307 - Feedback collection forms and storage  (Phase 8.3: Feedback & Learning)
 - [x] T308 - User preference pattern analysis  (Phase 8.3: Feedback & Learning)
 - [x] T309 - Adaptive recommendation system  (Phase 8.3: Feedback & Learning)
-- [ ] T310 - ContextLog integration for collaboration events  (Phase 8.4: Integration & Polish)
-- [ ] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish)
-- [ ] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish)
+- [x] T310 - ContextLog integration for collaboration events  (Phase 8.4: Integration & Polish)
+- [x] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish)
+- [x] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish)
 
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
