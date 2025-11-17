@@ -30,6 +30,7 @@ import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-
 import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent consensus mode
 import { ulid } from 'ulid'; // Phase 3: Session ID generation
 import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs'; // T22: Token bucket rate limiter
+import * as approval from './server.approval.mjs'; // Phase 8.1: Approval system (T301)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3029,6 +3030,201 @@ app.get('/api/episodes/stats', async (req, res) => {
   } catch (error) {
     console.error('[EpisodicMemory] Stats error:', error);
     return res.status(500).json({ ok: false, error: 'episodic_memory_error', message: error?.message || String(error) });
+  }
+});
+
+// ============================================================================
+// APPROVAL SYSTEM (Phase 8.1: T301) - Human-in-the-loop for critical operations
+// ============================================================================
+
+// POST /api/autonomous/approval/request - Request approval for an operation
+// This is called by the autonomous agent when it needs user approval for critical operations
+app.post('/api/autonomous/approval/request', async (req, res) => {
+  try {
+    const { operation, context, timeoutMs, convId, traceId } = req.body;
+
+    if (!operation || !context) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'Missing required fields: operation, context',
+      });
+    }
+
+    // Validate context structure
+    if (!context.task || !context.reasoning || !context.impact) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_context',
+        message: 'Context must include: task, reasoning, impact',
+      });
+    }
+
+    // Request approval (this returns a promise that resolves when user responds)
+    const response = await approval.requestApproval(operation, context, {
+      timeoutMs,
+      convId,
+      traceId,
+    });
+
+    return res.json({
+      ok: true,
+      response,
+    });
+  } catch (error) {
+    console.error('[Approval] Request error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// POST /api/autonomous/approval/respond - Respond to an approval request
+// This is called by the UI when the user makes a decision
+app.post('/api/autonomous/approval/respond', async (req, res) => {
+  try {
+    const { requestId, decision, feedback, modifications } = req.body;
+
+    if (!requestId || !decision) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'Missing required fields: requestId, decision',
+      });
+    }
+
+    if (!['approve', 'reject', 'modify'].includes(decision)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_decision',
+        message: 'Decision must be one of: approve, reject, modify',
+      });
+    }
+
+    const success = approval.respondToApproval(requestId, decision, {
+      feedback,
+      modifications,
+    });
+
+    if (!success) {
+      return res.status(404).json({
+        ok: false,
+        error: 'request_not_found',
+        message: `Approval request ${requestId} not found or already resolved`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      requestId,
+      decision,
+    });
+  } catch (error) {
+    console.error('[Approval] Response error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/approval/pending - Get all pending approval requests
+app.get('/api/autonomous/approval/pending', async (req, res) => {
+  try {
+    const { convId } = req.query;
+    const pending = approval.getPendingApprovals({ convId });
+
+    return res.json({
+      ok: true,
+      pending,
+      count: pending.length,
+    });
+  } catch (error) {
+    console.error('[Approval] Get pending error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/approval/:requestId - Get a specific approval request
+app.get('/api/autonomous/approval/:requestId', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = approval.getApprovalRequest(requestId);
+
+    if (!request) {
+      return res.status(404).json({
+        ok: false,
+        error: 'request_not_found',
+        message: `Approval request ${requestId} not found`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      request,
+    });
+  } catch (error) {
+    console.error('[Approval] Get request error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// DELETE /api/autonomous/approval/:requestId - Cancel a pending approval request
+app.delete('/api/autonomous/approval/:requestId', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const success = approval.cancelApprovalRequest(requestId);
+
+    if (!success) {
+      return res.status(404).json({
+        ok: false,
+        error: 'request_not_found',
+        message: `Approval request ${requestId} not found or not pending`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      requestId,
+      cancelled: true,
+    });
+  } catch (error) {
+    console.error('[Approval] Cancel error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/approval/stats - Get approval system statistics
+app.get('/api/autonomous/approval/stats', async (req, res) => {
+  try {
+    const stats = approval.getApprovalStats();
+
+    return res.json({
+      ok: true,
+      stats,
+    });
+  } catch (error) {
+    console.error('[Approval] Stats error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'approval_error',
+      message: error?.message || String(error),
+    });
   }
 });
 
