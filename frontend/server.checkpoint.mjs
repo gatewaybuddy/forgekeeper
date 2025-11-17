@@ -15,6 +15,7 @@
 
 import { ulid } from 'ulid';
 import { appendEvent } from './server.contextlog.mjs';
+import { recordCalibration } from './server.confidence-calibration.mjs';
 
 /**
  * @typedef {'plan' | 'strategy' | 'parameter' | 'execution'} CheckpointType
@@ -242,6 +243,18 @@ export function resolveCheckpoint(checkpointId, selectedOptionId, reasoning) {
     reasoning,
     elapsed_ms: elapsedMs,
   });
+
+  // Record calibration data (T306)
+  recordCalibration(
+    checkpoint.type,
+    checkpoint.confidence,
+    checkpoint.recommendation,
+    selectedOptionId,
+    {
+      convId: checkpoint.convId,
+      checkpointId,
+    }
+  );
 
   // Resolve the promise with selected option
   pending.resolve(selectedOption);
