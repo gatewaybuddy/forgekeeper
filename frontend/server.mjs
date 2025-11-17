@@ -31,6 +31,7 @@ import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent con
 import { ulid } from 'ulid'; // Phase 3: Session ID generation
 import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs'; // T22: Token bucket rate limiter
 import * as approval from './server.approval.mjs'; // Phase 8.1: Approval system (T301)
+import * as checkpoint from './server.checkpoint.mjs'; // Phase 8.2: Decision checkpoints (T304)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3223,6 +3224,184 @@ app.get('/api/autonomous/approval/stats', async (req, res) => {
     return res.status(500).json({
       ok: false,
       error: 'approval_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// ============================================================================
+// DECISION CHECKPOINTS (Phase 8.2: T304) - User decision points for planning
+// ============================================================================
+
+// POST /api/autonomous/checkpoint/create - Create a new decision checkpoint
+app.post('/api/autonomous/checkpoint/create', async (req, res) => {
+  try {
+    const { type, title, description, options, recommendation, confidence, convId, traceId } = req.body;
+
+    if (!type || !title || !description || !options || !recommendation || confidence === undefined) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'Missing required fields: type, title, description, options, recommendation, confidence',
+      });
+    }
+
+    // Note: This creates a checkpoint but doesn't wait for resolution
+    // The actual waiting happens in the autonomous agent
+    const checkpointId = checkpoint.createCheckpoint(
+      type,
+      title,
+      description,
+      options,
+      recommendation,
+      confidence,
+      { convId, traceId }
+    );
+
+    return res.json({
+      ok: true,
+      checkpointId,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Create error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// POST /api/autonomous/checkpoint/resolve - Resolve a checkpoint with user's decision
+app.post('/api/autonomous/checkpoint/resolve', async (req, res) => {
+  try {
+    const { checkpointId, selectedOption, reasoning } = req.body;
+
+    if (!checkpointId || !selectedOption) {
+      return res.status(400).json({
+        ok: false,
+        error: 'invalid_request',
+        message: 'Missing required fields: checkpointId, selectedOption',
+      });
+    }
+
+    const success = checkpoint.resolveCheckpoint(checkpointId, selectedOption, reasoning);
+
+    if (!success) {
+      return res.status(404).json({
+        ok: false,
+        error: 'checkpoint_not_found',
+        message: `Checkpoint ${checkpointId} not found or already resolved`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      checkpointId,
+      selectedOption,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Resolve error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/checkpoint/waiting - Get all waiting checkpoints
+app.get('/api/autonomous/checkpoint/waiting', async (req, res) => {
+  try {
+    const { convId, type } = req.query;
+    const waiting = checkpoint.getWaitingCheckpoints({ convId, type });
+
+    return res.json({
+      ok: true,
+      waiting,
+      count: waiting.length,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Get waiting error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/checkpoint/:checkpointId - Get a specific checkpoint
+app.get('/api/autonomous/checkpoint/:checkpointId', async (req, res) => {
+  try {
+    const { checkpointId } = req.params;
+    const cp = checkpoint.getCheckpoint(checkpointId);
+
+    if (!cp) {
+      return res.status(404).json({
+        ok: false,
+        error: 'checkpoint_not_found',
+        message: `Checkpoint ${checkpointId} not found`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      checkpoint: cp,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Get checkpoint error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// DELETE /api/autonomous/checkpoint/:checkpointId - Cancel a checkpoint (auto-select recommendation)
+app.delete('/api/autonomous/checkpoint/:checkpointId', async (req, res) => {
+  try {
+    const { checkpointId } = req.params;
+    const success = checkpoint.cancelCheckpoint(checkpointId);
+
+    if (!success) {
+      return res.status(404).json({
+        ok: false,
+        error: 'checkpoint_not_found',
+        message: `Checkpoint ${checkpointId} not found or not waiting`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      checkpointId,
+      cancelled: true,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Cancel error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
+      message: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/checkpoint/stats - Get checkpoint system statistics
+app.get('/api/autonomous/checkpoint/stats', async (req, res) => {
+  try {
+    const stats = checkpoint.getCheckpointStats();
+
+    return res.json({
+      ok: true,
+      stats,
+    });
+  } catch (error) {
+    console.error('[Checkpoint] Stats error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'checkpoint_error',
       message: error?.message || String(error),
     });
   }
