@@ -32,6 +32,7 @@ import { ulid } from 'ulid'; // Phase 3: Session ID generation
 import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs'; // T22: Token bucket rate limiter
 import * as approval from './server.approval.mjs'; // Phase 8.1: Approval system (T301)
 import * as checkpoint from './server.checkpoint.mjs'; // Phase 8.2: Decision checkpoints (T304)
+import * as feedback from './server.feedback.mjs'; // Phase 8.3: Feedback collection (T307)
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3403,6 +3404,142 @@ app.get('/api/autonomous/checkpoint/stats', async (req, res) => {
       ok: false,
       error: 'checkpoint_error',
       message: error?.message || String(error),
+    });
+  }
+});
+
+// ============================================================================
+// Feedback Collection (Phase 8.3: T307)
+// ============================================================================
+
+// POST /api/autonomous/feedback/submit - Submit user feedback
+app.post('/api/autonomous/feedback/submit', async (req, res) => {
+  try {
+    const { category, rating, reasoning, suggestion, tags, context } = req.body;
+
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        error: 'Category is required',
+      });
+    }
+
+    const result = feedback.submitFeedback(category, {
+      rating,
+      reasoning,
+      suggestion,
+      tags,
+      context,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    console.error('[Feedback] Submit error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/feedback - Get all feedback with filters
+app.get('/api/autonomous/feedback', async (req, res) => {
+  try {
+    const { category, minRating, maxRating, convId, tag, limit, offset } = req.query;
+
+    const options = {
+      category,
+      minRating: minRating ? parseInt(minRating, 10) : undefined,
+      maxRating: maxRating ? parseInt(maxRating, 10) : undefined,
+      convId,
+      tag,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    };
+
+    const feedbackList = feedback.getAllFeedback(options);
+
+    return res.json({
+      ok: true,
+      feedback: feedbackList,
+      count: feedbackList.length,
+    });
+  } catch (error) {
+    console.error('[Feedback] Get error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/feedback/:id - Get specific feedback by ID
+app.get('/api/autonomous/feedback/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const feedbackEntry = feedback.getFeedback(id);
+
+    if (!feedbackEntry) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Feedback not found',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      feedback: feedbackEntry,
+    });
+  } catch (error) {
+    console.error('[Feedback] Get by ID error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/feedback/stats - Get feedback statistics
+app.get('/api/autonomous/feedback/stats', async (req, res) => {
+  try {
+    const { category, convId } = req.query;
+
+    const stats = feedback.getFeedbackStats({ category, convId });
+
+    return res.json({
+      ok: true,
+      stats,
+    });
+  } catch (error) {
+    console.error('[Feedback] Stats error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || String(error),
+    });
+  }
+});
+
+// GET /api/autonomous/feedback/recent - Get recent feedback
+app.get('/api/autonomous/feedback/recent', async (req, res) => {
+  try {
+    const { count, category } = req.query;
+
+    const recentFeedback = feedback.getRecentFeedback(
+      count ? parseInt(count, 10) : undefined,
+      category
+    );
+
+    return res.json({
+      ok: true,
+      feedback: recentFeedback,
+      count: recentFeedback.length,
+    });
+  } catch (error) {
+    console.error('[Feedback] Recent error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error?.message || String(error),
     });
   }
 });
