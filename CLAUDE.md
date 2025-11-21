@@ -9,7 +9,12 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 3. **Frontend React/Vite** (port 5173) — Web UI for chat and system control
 4. **Python Agent & CLI** (optional) — Legacy scripts, demonstrations
 
-**Design Philosophy**: Local development, minimal ops burden, config-driven, no database required for core flow.
+**Design Philosophy**:
+- **Capability First**: Maximum capability by default, guardrails optional
+- **Local development**: Minimal ops burden, config-driven
+- **No database**: Required for core flow
+- **Unrestricted access**: Full filesystem, unlimited execution, transparent logging (dev default)
+- **Configurable security**: Three-layer model (dev/team/production)
 
 ---
 
@@ -91,8 +96,16 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 
 **Tools**:
 - `TOOL_ALLOW=...` — Comma-separated allowlist (default: all)
-- `TOOLS_FS_ROOT=.forgekeeper/sandbox` — Sandbox root
-- `FRONTEND_ENABLE_POWERSHELL=0`, `FRONTEND_ENABLE_BASH=0`
+- `TOOLS_FS_ROOT=/workspace` — Filesystem root (default: full access)
+- `FRONTEND_ENABLE_POWERSHELL=1`, `FRONTEND_ENABLE_BASH=1`
+
+**Capability-First Configuration (T301-T306)**:
+- `ENABLE_FS_SANDBOX=0` — Filesystem sandbox (0=disabled [default], 1=enabled)
+- `ENABLE_LOG_REDACTION=0` — Log redaction (0=disabled [default], 1=enabled)
+- `REDACTION_MODE=off` — Redaction level (off/minimal/standard/aggressive)
+- `REDACTION_CONTEXT=dev` — Context-aware redaction (dev/staging/production)
+- `RATE_LIMIT_ENABLED=0` — Rate limiting (0=disabled [default], 1=enabled)
+- `RESOURCE_QUOTAS_ENABLED=0` — Resource quotas (0=disabled [default], 1=enabled)
 
 **ContextLog**:
 - `FGK_CONTEXTLOG_DIR=.forgekeeper/context_log`
