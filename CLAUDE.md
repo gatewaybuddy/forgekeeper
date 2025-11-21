@@ -117,6 +117,17 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `MCP_AUTO_RELOAD=1` — Hot-reload on config changes (1=enabled [default])
 - `MCP_HEALTH_CHECK_INTERVAL=60000` — Health check interval in ms (default: 60s)
 
+**Collaborative Intelligence (T308-T312, M3 - Phase 8)**:
+- `AUTONOMOUS_ENABLE_COLLABORATION=0` — Enable human-in-the-loop (0=disabled [default])
+- `AUTONOMOUS_APPROVAL_TIMEOUT_MS=300000` — Approval timeout (5 minutes)
+- `AUTONOMOUS_APPROVAL_REQUIRED=high` — Min risk for approval (low/medium/high/critical)
+- `AUTONOMOUS_CHECKPOINT_THRESHOLD=0.7` — Confidence threshold for checkpoints
+- `PREFERENCE_MIN_SAMPLES=5` — Min samples to detect patterns
+- `PREFERENCE_CONFIDENCE_THRESHOLD=0.6` — Min confidence to use patterns
+- `RECOMMENDATION_USE_PREFERENCES=1` — Use preferences in recommendations
+- `RECOMMENDATION_CONFIDENCE_BOOST=0.15` — Boost for preferred options (+15%)
+- `RECOMMENDATION_HISTORY_WEIGHT=0.3` — Weight of historical choices (30%)
+
 ### Docker Compose
 
 **Services**: `llama-core`, `llama-core-cpu`, `vllm-core`, `frontend`
@@ -390,7 +401,7 @@ make -C forgekeeper task-sanity
 
 ## References
 
-- **ADRs**: `docs/contextlog/` (ContextLog schema/design)
+- **ADRs**: `docs/contextlog/` (ContextLog schema/design), `docs/adr/adr-0003-collaborative-intelligence.md`
 - **API Docs**: `docs/api/`
 - **Task Cards**: `tasks.md`
 - **Contributing**: `CONTRIBUTING.md`
@@ -398,9 +409,10 @@ make -C forgekeeper task-sanity
 - **TGT**: `docs/autonomous/tgt/`
 - **SAPL**: `docs/sapl/`
 - **MCP**: `docs/mcp/` (Model Context Protocol integration)
+- **Collaborative Intelligence**: `docs/autonomous/collaborative-intelligence.md` (Human-in-the-loop, T308-T312)
 
 ---
 
 **Last updated**: 2025-11-21
 **Branch**: claude/code-review-tasks-01G9fy6vMN6zVp25RmcYRCtE
-**Size**: ~410 lines with MCP integration
+**Size**: ~430 lines with MCP and Collaborative Intelligence
