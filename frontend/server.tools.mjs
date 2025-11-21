@@ -39,13 +39,15 @@ const REGRESSION_WINDOW_SIZE = parseInt(process.env.REGRESSION_WINDOW_SIZE || '1
 const REGRESSION_BASELINE_SIZE = parseInt(process.env.REGRESSION_BASELINE_SIZE || '20', 10); // First N for baseline
 
 // Resource quotas (codex.plan Phase 2, T212)
+// T304: Disabled by default for maximum local capability
 // Maps toolName -> { requests: [{timestamp}], bytes_written: number }
 const toolResourceUsage = new Map();
+// T304: Resource quotas disabled by default (RESOURCE_QUOTAS_ENABLED undefined → false)
 const RESOURCE_QUOTAS_ENABLED = process.env.RESOURCE_QUOTAS_ENABLED === '1';
-const TOOL_RATE_LIMIT_PER_MIN = parseInt(process.env.TOOL_RATE_LIMIT_PER_MIN || '30', 10); // Requests per minute per tool
-const TOOL_DISK_QUOTA_BYTES = parseInt(process.env.TOOL_DISK_QUOTA_BYTES || String(10 * 1024 * 1024), 10); // 10 MB per tool
-const TOOL_MEMORY_LIMIT_MB = parseInt(process.env.TOOL_MEMORY_LIMIT_MB || '512', 10); // 512 MB per tool
-const TOOL_CPU_TIMEOUT_MS = parseInt(process.env.TOOL_CPU_TIMEOUT_MS || '30000', 10); // 30 seconds
+const TOOL_RATE_LIMIT_PER_MIN = parseInt(process.env.TOOL_RATE_LIMIT_PER_MIN || '30', 10); // Requests per minute per tool (when enabled)
+const TOOL_DISK_QUOTA_BYTES = parseInt(process.env.TOOL_DISK_QUOTA_BYTES || String(10 * 1024 * 1024), 10); // 10 MB per tool (when enabled)
+const TOOL_MEMORY_LIMIT_MB = parseInt(process.env.TOOL_MEMORY_LIMIT_MB || '512', 10); // 512 MB per tool (when enabled)
+const TOOL_CPU_TIMEOUT_MS = parseInt(process.env.TOOL_CPU_TIMEOUT_MS || '30000', 10); // 30 seconds (when enabled)
 
 // Tool signature validation (codex.plan Phase 2, T210)
 const SIGNATURE_CHECK_ENABLED = process.env.TOOL_SIGNATURE_CHECK === '1';
