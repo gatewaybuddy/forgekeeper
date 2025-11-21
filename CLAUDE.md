@@ -36,7 +36,7 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `server.contextlog.mjs` — Event logging
 - `server.finishers.mjs` — Continuation heuristics
 
-**Endpoints** (70+ total): Core chat, autonomous agent (12), tools (15), preferences/memory (9), TGT tasks (28), SAPL auto-PR (5), metrics (6), thought-world (6), ContextLog, repo ops.
+**Endpoints** (70+ total): Core chat, autonomous agent (12), tools (15), preferences/memory (9), TGT tasks (28), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog, repo ops.
 
 ### Frontend UI (Port 5173 dev / 3000 prod)
 **Location**: `forgekeeper/frontend/src/`
@@ -111,6 +111,12 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `FGK_CONTEXTLOG_DIR=.forgekeeper/context_log`
 - `FGK_CONTEXTLOG_MAX_BYTES=10485760` — 10MB rotation
 
+**MCP Integration (T401-T409)**:
+- `MCP_ENABLED=1` — Enable Model Context Protocol integration (1=enabled [default])
+- `MCP_SERVERS_CONFIG=.forgekeeper/mcp-servers.json` — Path to MCP servers config
+- `MCP_AUTO_RELOAD=1` — Hot-reload on config changes (1=enabled [default])
+- `MCP_HEALTH_CHECK_INTERVAL=60000` — Health check interval in ms (default: 60s)
+
 ### Docker Compose
 
 **Services**: `llama-core`, `llama-core-cpu`, `vllm-core`, `frontend`
@@ -169,6 +175,7 @@ forgekeeper/
 ├── frontend/
 │   ├── src/                    # React app
 │   ├── tools/                  # Tool definitions
+│   ├── mcp/                    # Model Context Protocol integration
 │   ├── core/agent/             # Autonomous agent
 │   ├── server.mjs              # Main server
 │   ├── server.*.mjs            # Modules
@@ -373,6 +380,8 @@ make -C forgekeeper task-sanity
 
 **Add tool**: Create `frontend/tools/mytool.mjs` → export from `index.mjs` → test via `/config.json`
 
+**MCP Integration**: `frontend/mcp/client.mjs`, `mcp/registry.mjs`, `mcp/tool-adapter.mjs`, `docs/mcp/README.md`
+
 **ContextLog**: `forgekeeper/services/context_log/jsonl.py`, `frontend/server.contextlog.mjs`, `docs/contextlog/adr-0001-contextlog.md`
 
 **Add task**: Edit `forgekeeper/tasks.md` → create PR with `Task ID: T#` → CI validates
@@ -388,9 +397,10 @@ make -C forgekeeper task-sanity
 - **Autonomous Phases**: `docs/autonomous/phases/`
 - **TGT**: `docs/autonomous/tgt/`
 - **SAPL**: `docs/sapl/`
+- **MCP**: `docs/mcp/` (Model Context Protocol integration)
 
 ---
 
-**Last updated**: 2025-11-14
-**Branch**: feat/contextlog-guardrails-telemetry
-**Size**: Condensed from 1308 to ~450 lines (65% reduction)
+**Last updated**: 2025-11-21
+**Branch**: claude/code-review-tasks-01G9fy6vMN6zVp25RmcYRCtE
+**Size**: ~410 lines with MCP integration
