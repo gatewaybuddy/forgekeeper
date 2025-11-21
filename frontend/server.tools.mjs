@@ -16,6 +16,12 @@ import {
 } from './config/tools.config.mjs';
 import { appendEvent, createToolExecutionEvent } from './server.contextlog.mjs';
 import { redactForLogging } from './server.guardrails.mjs';
+// T405: MCP Integration
+import {
+  getAllMCPTools,
+  isMCPTool,
+  executeMCPTool
+} from './mcp/tool-adapter.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -462,7 +468,13 @@ export async function getToolDefs() {
   if (TOOL_DEFS_CACHE.length === 0 || (SELF_UPDATE_ENABLED && (Date.now() - LAST_LOADED_AT) > 5000)) {
     await reloadTools();
   }
-  return TOOL_DEFS_CACHE;
+
+  // T405: Merge MCP tools with native tools
+  const nativeTools = TOOL_DEFS_CACHE;
+  const mcpTools = getAllMCPTools();
+
+  // Return combined tool list (MCP tools after native tools)
+  return [...nativeTools, ...mcpTools];
 }
 
 /**
@@ -615,8 +627,19 @@ export async function runTool(name, args, metadata = {}) {
     let success = false;
     let result;
 
+    // T405: Check if this is an MCP tool and route accordingly
+    const allTools = await getToolDefs();
+    const toolDef = allTools.find(t => t?.function?.name === name);
+
     // T11: Execute with timeout
     const executeWithTimeout = async () => {
+      // T405: Route to MCP adapter if this is an MCP tool
+      if (toolDef && isMCPTool(toolDef)) {
+        console.log(`[MCP] Routing tool call to MCP server: ${name}`);
+        return await executeMCPTool(toolDef, args || {});
+      }
+
+      // Native tool execution
       if (STATIC_AGG && typeof STATIC_AGG.runTool === 'function') {
         return await STATIC_AGG.runTool(name, args || {});
       } else {
