@@ -4,8 +4,9 @@ import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const BASE_DIR = path.resolve(process.cwd(), '.forgekeeper', 'context_log');
-const MAX_BYTES = Number(process.env.FRONEND_CTXLOG_MAX_BYTES || process.env.CTXLOG_MAX_BYTES || 10 * 1024 * 1024);
+const BASE_DIR = path.resolve(process.cwd(), process.env.FGK_CONTEXTLOG_DIR || '.forgekeeper/context_log');
+const MAX_BYTES = Number(process.env.FGK_CONTEXTLOG_MAX_BYTES || process.env.FRONTEND_CTXLOG_MAX_BYTES || process.env.CTXLOG_MAX_BYTES || 10 * 1024 * 1024);
+const RETENTION_DAYS = Number(process.env.FGK_CONTEXTLOG_RETENTION_DAYS || 7);
 
 // Simple in-memory tail cache for most-recent file to avoid repeated disk reads
 // Cache invalidates when file size or mtime changes.
@@ -408,5 +409,89 @@ export function createToolExecutionEvent({
 
     default:
       return baseEvent;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retention and Cleanup
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Clean up ContextLog files older than RETENTION_DAYS.
+ * Called periodically or on-demand.
+ * @returns {Object} - { deleted: number, errors: number, bytes_freed: number }
+ */
+export function cleanupOldLogs() {
+  const result = { deleted: 0, errors: 0, bytes_freed: 0 };
+
+  try {
+    ensureDir();
+    const now = Date.now();
+    const cutoffMs = now - (RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+    const files = readdirSync(BASE_DIR)
+      .filter((f) => f.startsWith('ctx-') && f.endsWith('.jsonl'))
+      .map((f) => path.join(BASE_DIR, f));
+
+    for (const fp of files) {
+      try {
+        const stats = statSync(fp);
+        // Delete files older than retention period
+        if (stats.mtimeMs < cutoffMs) {
+          const size = stats.size;
+          fs.unlinkSync(fp);
+          result.deleted += 1;
+          result.bytes_freed += size;
+          // Remove from cache
+          tailCache.delete(fp);
+          filesCache.list = filesCache.list.filter(x => x !== fp);
+        }
+      } catch (err) {
+        result.errors += 1;
+      }
+    }
+  } catch (err) {
+    result.errors += 1;
+  }
+
+  return result;
+}
+
+/**
+ * Get stats about current ContextLog storage.
+ * @returns {Object} - { total_files: number, total_bytes: number, oldest_file_age_days: number }
+ */
+export function getLogStats() {
+  try {
+    ensureDir();
+    const now = Date.now();
+    const files = readdirSync(BASE_DIR)
+      .filter((f) => f.startsWith('ctx-') && f.endsWith('.jsonl'))
+      .map((f) => path.join(BASE_DIR, f));
+
+    let total_bytes = 0;
+    let oldest_mtime = now;
+
+    for (const fp of files) {
+      try {
+        const stats = statSync(fp);
+        total_bytes += stats.size;
+        if (stats.mtimeMs < oldest_mtime) {
+          oldest_mtime = stats.mtimeMs;
+        }
+      } catch {}
+    }
+
+    const oldest_age_days = (now - oldest_mtime) / (24 * 60 * 60 * 1000);
+
+    return {
+      total_files: files.length,
+      total_bytes,
+      total_mb: Math.round(total_bytes / (1024 * 1024) * 100) / 100,
+      oldest_file_age_days: Math.round(oldest_age_days * 10) / 10,
+      retention_days: RETENTION_DAYS,
+    };
+  } catch {
+    return { total_files: 0, total_bytes: 0, total_mb: 0, oldest_file_age_days: 0, retention_days: RETENTION_DAYS };
   }
 }
