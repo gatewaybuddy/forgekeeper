@@ -256,10 +256,14 @@ export function searchSkillsByDescription(skills, query) {
  * @returns {string} Formatted skill instructions
  */
 export function formatSkillForPrompt(skill) {
+  const tags = Array.isArray(skill.tags) && skill.tags.length > 0
+    ? skill.tags.join(', ')
+    : 'none';
+
   return `## Skill: ${skill.name}
 
 **Description**: ${skill.description}
-**Tags**: ${Array.isArray(skill.tags) ? skill.tags.join(', ') : 'none'}
+**Tags**: ${tags}
 
 ${skill.instructions}
 
