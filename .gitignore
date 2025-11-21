@@ -1,5 +1,6 @@
 .venv/
 .forgekeeper/
+!.forgekeeper/*.example.json
 .forgekeeper-v2/
 __pycache__/
 *.pyc
