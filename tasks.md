@@ -22,13 +22,13 @@ Template to copy (replace placeholders and add details):
 
 ## M1 - Tool Integration & Guardrails (Owner: Jordan Ramirez; Target: 2024-08-16)
 Harden the end-to-end tool pathway so chat users get reliable feedback, logged execution history, and safe guardrails.
-- [ ] T11 - Harden ToolShell execution sandbox and gating  (Phase 1: Tool Execution Core)
-- [ ] T12 - Persist tool outputs to ContextLog and surface them in UI diagnostics  (Phase 1: Tool Execution Core)
-- [ ] T21 - Enforce tool allowlists and redact sensitive arguments before logging  (Phase 2: Guardrails & Safety)
-- [ ] T22 - Apply per-request rate limits for tool invocations  (Phase 2: Guardrails & Safety)
-- [ ] T28 - Refresh system prompt instructions for tool-capable conversations  (Phase 0: Chat Foundations)
-- [ ] T29 - Improve UI feedback for tool success, errors, and follow-up actions  (Phase 1: Tool Execution Core)
-- [ ] T30 - Document tool usage patterns, limits, and troubleshooting steps  (Phase 0: Chat Foundations)
+- [x] T11 - Harden ToolShell execution sandbox and gating  (Phase 1: Tool Execution Core) [Complete: 2025-11-23]
+- [x] T12 - Persist tool outputs to ContextLog and surface them in UI diagnostics  (Phase 1: Tool Execution Core) [Complete: 2025-11-23]
+- [x] T21 - Enforce tool allowlists and redact sensitive arguments before logging  (Phase 2: Guardrails & Safety) [Complete: 2025-11-23]
+- [x] T22 - Apply per-request rate limits for tool invocations  (Phase 2: Guardrails & Safety) [Complete: 2025-11-23]
+- [x] T28 - Refresh system prompt instructions for tool-capable conversations  (Phase 0: Chat Foundations) [Complete: 2025-11-23]
+- [x] T29 - Improve UI feedback for tool success, errors, and follow-up actions  (Phase 1: Tool Execution Core) [Complete: 2025-11-23]
+- [x] T30 - Document tool usage patterns, limits, and troubleshooting steps  (Phase 0: Chat Foundations) [Complete: 2025-11-23]
 
 ## M2 - Self-Review and Chunked Reasoning (Owner: TBD; Target: TBD; Priority: HIGH)
 Enable iterative self-review for quality improvement and chunked response generation to overcome context limits and produce comprehensive outputs.
