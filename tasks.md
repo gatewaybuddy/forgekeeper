@@ -35,16 +35,16 @@ Enable iterative self-review for quality improvement and chunked response genera
 - [x] T200 - Self-Review and Chunked Reasoning design spec (ADR)  (Phase 0: Design) [Complete: 2025-10-25]
 - [x] T201 - Review orchestration module implementation  (Phase 1: Review Mode MVP) [Complete: 2025-10-25]
 - [x] T202 - Review prompt templates and configuration  (Phase 1: Review Mode MVP) [Complete: 2025-10-25]
-- [ ] T203 - Chunked orchestration module implementation  (Phase 2: Chunked Mode MVP)
-- [ ] T204 - Chunked prompt templates and configuration  (Phase 2: Chunked Mode MVP)
+- [x] T203 - Chunked orchestration module implementation  (Phase 2: Chunked Mode MVP) [Complete: 2025-11-23]
+- [x] T204 - Chunked prompt templates and configuration  (Phase 2: Chunked Mode MVP) [Complete: 2025-11-23]
 - [x] T205 - Orchestrator routing and integration  (Phase 1-2: Integration) [Complete: 2025-10-25]
 - [x] T206 - ContextLog schema extensions for review and chunked events  (Phase 1-2: Observability) [Complete: 2025-10-25]
-- [ ] T207 - UI controls for review and chunked modes  (Phase 3: UI Integration)
-- [ ] T208 - DiagnosticsDrawer enhancements for review/chunk events  (Phase 3: UI Integration)
-- [ ] T209 - Combined mode implementation (review + chunked)  (Phase 4: Combined Mode)
-- [ ] T210 - Auto-detection heuristics and smart triggers  (Phase 4: Optimization)
-- [ ] T211 - Documentation, examples, and configuration guide  (Phase 5: Documentation)
-- [ ] T212 - Testing suite and validation  (Phase 5: Testing)
+- [x] T207 - UI controls for review and chunked modes  (Phase 3: UI Integration) [Complete: 2025-11-23]
+- [x] T208 - DiagnosticsDrawer enhancements for review/chunk events  (Phase 3: UI Integration) [Complete: 2025-11-23]
+- [x] T209 - Combined mode implementation (review + chunked)  (Phase 4: Combined Mode) [Complete: 2025-11-23]
+- [x] T210 - Auto-detection heuristics and smart triggers  (Phase 4: Optimization) [Complete: 2025-11-23]
+- [x] T211 - Documentation, examples, and configuration guide  (Phase 5: Documentation) [Complete: 2025-11-23]
+- [x] T212 - Testing suite and validation  (Phase 5: Testing) [Complete: 2025-11-23]
 
 ## M3 - Collaborative Intelligence (Owner: TBD; Target: TBD; Priority: HIGH)
 Enable human-in-the-loop collaboration with approval workflows, decision checkpoints, and feedback integration for safer, more controlled autonomous operations.
@@ -55,11 +55,11 @@ Enable human-in-the-loop collaboration with approval workflows, decision checkpo
 - [x] T305 - Interactive planning UI and modification interface  (Phase 8.2: Decision Checkpoints)
 - [x] T306 - Confidence calibration and threshold logic  (Phase 8.2: Decision Checkpoints)
 - [x] T307 - Feedback collection forms and storage  (Phase 8.3: Feedback & Learning)
-- [ ] T308 - User preference pattern analysis  (Phase 8.3: Feedback & Learning)
-- [ ] T309 - Adaptive recommendation system  (Phase 8.3: Feedback & Learning)
-- [ ] T310 - ContextLog integration for collaboration events  (Phase 8.4: Integration & Polish)
-- [ ] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish)
-- [ ] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish)
+- [x] T308 - User preference pattern analysis  (Phase 8.3: Feedback & Learning) [Complete: 2025-11-23]
+- [x] T309 - Adaptive recommendation system  (Phase 8.3: Feedback & Learning) [Complete: 2025-11-23]
+- [x] T310 - ContextLog integration for collaboration events  (Phase 8.4: Integration & Polish) [Complete: 2025-11-23]
+- [x] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish) [Complete: 2025-11-23]
+- [x] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish) [Complete: 2025-11-23]
 
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
