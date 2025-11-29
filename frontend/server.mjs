@@ -69,6 +69,56 @@ app.use(compression({
   }
 })();
 
+// T405: Initialize MCP Registry (if enabled)
+(async () => {
+  const mcpEnabled = process.env.MCP_ENABLED !== '0'; // Default: enabled
+  if (!mcpEnabled) {
+    console.log('[MCP] MCP integration disabled via MCP_ENABLED=0');
+    return;
+  }
+
+  try {
+    const { initializeRegistry } = await import('./mcp/registry.mjs');
+    const configPath = process.env.MCP_SERVERS_CONFIG || '.forgekeeper/mcp-servers.json';
+
+    console.log(`[MCP] Initializing MCP registry from: ${configPath}`);
+    await initializeRegistry(configPath);
+    console.log('[MCP] MCP registry initialized successfully');
+  } catch (error) {
+    // Non-fatal: MCP is optional, log warning and continue
+    if (error.code === 'ENOENT') {
+      console.log('[MCP] MCP config file not found - MCP servers will not be loaded');
+      console.log('[MCP] To use MCP servers, create .forgekeeper/mcp-servers.json');
+    } else {
+      console.warn('[MCP] Failed to initialize MCP registry:', error.message);
+    }
+  }
+})();
+
+// T503: Initialize Skills Registry (if enabled)
+(async () => {
+  const skillsEnabled = process.env.SKILLS_ENABLED !== '0'; // Default: enabled
+  if (!skillsEnabled) {
+    console.log('[Skills] Skills integration disabled via SKILLS_ENABLED=0');
+    return;
+  }
+
+  try {
+    const { initializeRegistry } = await import('./skills/registry.mjs');
+
+    console.log('[Skills] Initializing skills registry...');
+    await initializeRegistry({
+      projectSkillsDir: path.resolve(process.cwd(), '.claude/skills'),
+      enableHotReload: process.env.SKILLS_HOT_RELOAD !== '0', // Default: enabled
+      reloadDebounceMs: parseInt(process.env.SKILLS_RELOAD_DEBOUNCE || '500', 10)
+    });
+    console.log('[Skills] Skills registry initialized successfully');
+  } catch (error) {
+    // Non-fatal: Skills are optional, log warning and continue
+    console.warn('[Skills] Failed to initialize skills registry:', error.message);
+  }
+})();
+
 // JSON parser only for API routes to avoid interfering with SSE proxying
 app.use('/api', express.json({ limit: '1mb' }));
 
@@ -3651,6 +3701,57 @@ app.get('/api/tools', async (_req, res) => {
     res.json({ enabled: tools.length > 0, count: tools.length, names, defs: tools });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e?.message || String(e) });
+  }
+});
+
+// T405: MCP status endpoint
+app.get('/api/mcp/status', async (_req, res) => {
+  try {
+    const { getRegistry } = await import('./mcp/registry.mjs');
+    const { getMCPToolStats } = await import('./mcp/tool-adapter.mjs');
+
+    const registry = getRegistry();
+    const stats = getMCPToolStats();
+
+    res.json({
+      enabled: true,
+      servers: registry.getServerNames(),
+      stats,
+      config_path: registry.configPath
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'mcp_error',
+      message: error?.message || String(error)
+    });
+  }
+});
+
+// T503: Skills status endpoint
+app.get('/api/skills/status', async (_req, res) => {
+  try {
+    const { getRegistry } = await import('./skills/registry.mjs');
+
+    const registry = getRegistry();
+    const stats = registry.getStats();
+    const skills = registry.getAll();
+
+    res.json({
+      enabled: true,
+      stats,
+      skills: skills.map(s => ({
+        name: s.name,
+        description: s.description,
+        tags: s.tags,
+        version: s.version,
+        enabled: s.enabled
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'skills_error',
+      message: error?.message || String(error)
+    });
   }
 });
 

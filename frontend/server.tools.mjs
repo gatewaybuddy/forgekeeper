@@ -16,6 +16,12 @@ import {
 } from './config/tools.config.mjs';
 import { appendEvent, createToolExecutionEvent } from './server.contextlog.mjs';
 import { redactForLogging } from './server.guardrails.mjs';
+// T405: MCP Integration
+import {
+  getAllMCPTools,
+  isMCPTool,
+  executeMCPTool
+} from './mcp/tool-adapter.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,13 +45,15 @@ const REGRESSION_WINDOW_SIZE = parseInt(process.env.REGRESSION_WINDOW_SIZE || '1
 const REGRESSION_BASELINE_SIZE = parseInt(process.env.REGRESSION_BASELINE_SIZE || '20', 10); // First N for baseline
 
 // Resource quotas (codex.plan Phase 2, T212)
+// T304: Disabled by default for maximum local capability
 // Maps toolName -> { requests: [{timestamp}], bytes_written: number }
 const toolResourceUsage = new Map();
+// T304: Resource quotas disabled by default (RESOURCE_QUOTAS_ENABLED undefined → false)
 const RESOURCE_QUOTAS_ENABLED = process.env.RESOURCE_QUOTAS_ENABLED === '1';
-const TOOL_RATE_LIMIT_PER_MIN = parseInt(process.env.TOOL_RATE_LIMIT_PER_MIN || '30', 10); // Requests per minute per tool
-const TOOL_DISK_QUOTA_BYTES = parseInt(process.env.TOOL_DISK_QUOTA_BYTES || String(10 * 1024 * 1024), 10); // 10 MB per tool
-const TOOL_MEMORY_LIMIT_MB = parseInt(process.env.TOOL_MEMORY_LIMIT_MB || '512', 10); // 512 MB per tool
-const TOOL_CPU_TIMEOUT_MS = parseInt(process.env.TOOL_CPU_TIMEOUT_MS || '30000', 10); // 30 seconds
+const TOOL_RATE_LIMIT_PER_MIN = parseInt(process.env.TOOL_RATE_LIMIT_PER_MIN || '30', 10); // Requests per minute per tool (when enabled)
+const TOOL_DISK_QUOTA_BYTES = parseInt(process.env.TOOL_DISK_QUOTA_BYTES || String(10 * 1024 * 1024), 10); // 10 MB per tool (when enabled)
+const TOOL_MEMORY_LIMIT_MB = parseInt(process.env.TOOL_MEMORY_LIMIT_MB || '512', 10); // 512 MB per tool (when enabled)
+const TOOL_CPU_TIMEOUT_MS = parseInt(process.env.TOOL_CPU_TIMEOUT_MS || '30000', 10); // 30 seconds (when enabled)
 
 // Tool signature validation (codex.plan Phase 2, T210)
 const SIGNATURE_CHECK_ENABLED = process.env.TOOL_SIGNATURE_CHECK === '1';
@@ -460,7 +468,13 @@ export async function getToolDefs() {
   if (TOOL_DEFS_CACHE.length === 0 || (SELF_UPDATE_ENABLED && (Date.now() - LAST_LOADED_AT) > 5000)) {
     await reloadTools();
   }
-  return TOOL_DEFS_CACHE;
+
+  // T405: Merge MCP tools with native tools
+  const nativeTools = TOOL_DEFS_CACHE;
+  const mcpTools = getAllMCPTools();
+
+  // Return combined tool list (MCP tools after native tools)
+  return [...nativeTools, ...mcpTools];
 }
 
 /**
@@ -613,8 +627,19 @@ export async function runTool(name, args, metadata = {}) {
     let success = false;
     let result;
 
+    // T405: Check if this is an MCP tool and route accordingly
+    const allTools = await getToolDefs();
+    const toolDef = allTools.find(t => t?.function?.name === name);
+
     // T11: Execute with timeout
     const executeWithTimeout = async () => {
+      // T405: Route to MCP adapter if this is an MCP tool
+      if (toolDef && isMCPTool(toolDef)) {
+        console.log(`[MCP] Routing tool call to MCP server: ${name}`);
+        return await executeMCPTool(toolDef, args || {});
+      }
+
+      // Native tool execution
       if (STATIC_AGG && typeof STATIC_AGG.runTool === 'function') {
         return await STATIC_AGG.runTool(name, args || {});
       } else {

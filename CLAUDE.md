@@ -9,7 +9,12 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 3. **Frontend React/Vite** (port 5173) — Web UI for chat and system control
 4. **Python Agent & CLI** (optional) — Legacy scripts, demonstrations
 
-**Design Philosophy**: Local development, minimal ops burden, config-driven, no database required for core flow.
+**Design Philosophy**:
+- **Capability First**: Maximum capability by default, guardrails optional
+- **Local development**: Minimal ops burden, config-driven
+- **No database**: Required for core flow
+- **Unrestricted access**: Full filesystem, unlimited execution, transparent logging (dev default)
+- **Configurable security**: Three-layer model (dev/team/production)
 
 ---
 
@@ -31,7 +36,7 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `server.contextlog.mjs` — Event logging
 - `server.finishers.mjs` — Continuation heuristics
 
-**Endpoints** (92 total): Core chat (4), autonomous agent (18), tools (15), preferences/memory (9), TGT tasks (27), SAPL auto-PR (5), metrics (6), thought-world (6), ContextLog (4 including cleanup & stats), repo ops (2), health/config (6), auth (1).
+**Endpoints** (92+ total): Core chat (4), autonomous agent (18), tools (15), preferences/memory (9), TGT tasks (27), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog (4 including cleanup & stats), repo ops (2), health/config (6), auth (1).
 
 ### Frontend UI (Port 5173 dev / 3000 prod)
 **Location**: `forgekeeper/frontend/src/`
@@ -91,12 +96,37 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 
 **Tools**:
 - `TOOL_ALLOW=...` — Comma-separated allowlist (default: all)
-- `TOOLS_FS_ROOT=.forgekeeper/sandbox` — Sandbox root
-- `FRONTEND_ENABLE_POWERSHELL=0`, `FRONTEND_ENABLE_BASH=0`
+- `TOOLS_FS_ROOT=/workspace` — Filesystem root (default: full access)
+- `FRONTEND_ENABLE_POWERSHELL=1`, `FRONTEND_ENABLE_BASH=1`
+
+**Capability-First Configuration (T301-T306)**:
+- `ENABLE_FS_SANDBOX=0` — Filesystem sandbox (0=disabled [default], 1=enabled)
+- `ENABLE_LOG_REDACTION=0` — Log redaction (0=disabled [default], 1=enabled)
+- `REDACTION_MODE=off` — Redaction level (off/minimal/standard/aggressive)
+- `REDACTION_CONTEXT=dev` — Context-aware redaction (dev/staging/production)
+- `RATE_LIMIT_ENABLED=0` — Rate limiting (0=disabled [default], 1=enabled)
+- `RESOURCE_QUOTAS_ENABLED=0` — Resource quotas (0=disabled [default], 1=enabled)
 
 **ContextLog**:
 - `FGK_CONTEXTLOG_DIR=.forgekeeper/context_log`
 - `FGK_CONTEXTLOG_MAX_BYTES=10485760` — 10MB rotation
+
+**MCP Integration (T401-T409)**:
+- `MCP_ENABLED=1` — Enable Model Context Protocol integration (1=enabled [default])
+- `MCP_SERVERS_CONFIG=.forgekeeper/mcp-servers.json` — Path to MCP servers config
+- `MCP_AUTO_RELOAD=1` — Hot-reload on config changes (1=enabled [default])
+- `MCP_HEALTH_CHECK_INTERVAL=60000` — Health check interval in ms (default: 60s)
+
+**Collaborative Intelligence (T308-T312, M3 - Phase 8)**:
+- `AUTONOMOUS_ENABLE_COLLABORATION=0` — Enable human-in-the-loop (0=disabled [default])
+- `AUTONOMOUS_APPROVAL_TIMEOUT_MS=300000` — Approval timeout (5 minutes)
+- `AUTONOMOUS_APPROVAL_REQUIRED=high` — Min risk for approval (low/medium/high/critical)
+- `AUTONOMOUS_CHECKPOINT_THRESHOLD=0.7` — Confidence threshold for checkpoints
+- `PREFERENCE_MIN_SAMPLES=5` — Min samples to detect patterns
+- `PREFERENCE_CONFIDENCE_THRESHOLD=0.6` — Min confidence to use patterns
+- `RECOMMENDATION_USE_PREFERENCES=1` — Use preferences in recommendations
+- `RECOMMENDATION_CONFIDENCE_BOOST=0.15` — Boost for preferred options (+15%)
+- `RECOMMENDATION_HISTORY_WEIGHT=0.3` — Weight of historical choices (30%)
 
 ### Docker Compose
 
@@ -156,6 +186,7 @@ forgekeeper/
 ├── frontend/
 │   ├── src/                    # React app
 │   ├── tools/                  # Tool definitions
+│   ├── mcp/                    # Model Context Protocol integration
 │   ├── core/agent/             # Autonomous agent
 │   ├── server.mjs              # Main server
 │   ├── server.*.mjs            # Modules
@@ -360,6 +391,8 @@ make -C forgekeeper task-sanity
 
 **Add tool**: Create `frontend/tools/mytool.mjs` → export from `index.mjs` → test via `/config.json`
 
+**MCP Integration**: `frontend/mcp/client.mjs`, `mcp/registry.mjs`, `mcp/tool-adapter.mjs`, `docs/mcp/README.md`
+
 **ContextLog**: `forgekeeper/services/context_log/jsonl.py`, `frontend/server.contextlog.mjs`, `docs/adr/adr-0001-contextlog.md`
 
 **Add task**: Edit `forgekeeper/tasks.md` → create PR with `Task ID: T#` → CI validates
@@ -368,16 +401,18 @@ make -C forgekeeper task-sanity
 
 ## References
 
-- **ADRs**: `docs/adr/` (Architecture Decision Records)
+- **ADRs**: `docs/adr/` (Architecture Decision Records including ContextLog schema/design, collaborative-intelligence)
 - **API Docs**: `docs/api/`
 - **Task Cards**: `tasks.md`
 - **Contributing**: `CONTRIBUTING.md`
 - **Autonomous Phases**: `docs/autonomous/phases/`
 - **TGT**: `docs/autonomous/tgt/`
 - **SAPL**: `docs/sapl/`
+- **MCP**: `docs/mcp/` (Model Context Protocol integration)
+- **Collaborative Intelligence**: `docs/autonomous/collaborative-intelligence.md` (Human-in-the-loop, T308-T312)
 
 ---
 
-**Last updated**: 2025-11-14
-**Branch**: feat/contextlog-guardrails-telemetry
-**Size**: Condensed from 1308 to ~450 lines (65% reduction)
+**Last updated**: 2025-11-21
+**Branch**: claude/code-review-tasks-01G9fy6vMN6zVp25RmcYRCtE
+**Size**: ~430 lines with MCP and Collaborative Intelligence
