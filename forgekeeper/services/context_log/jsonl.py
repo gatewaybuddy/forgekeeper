@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any, Iterable, Optional
 
 
 DEFAULT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+DEFAULT_RETENTION_DAYS = 7
 
 
 def _base_dir() -> Path:
@@ -95,3 +97,73 @@ def tail(n: int = 50, *, conv_id: str | None = None, dir: Path | None = None) ->
             if len(out) >= n:
                 return out
     return out
+
+
+def cleanup_old_logs(*, retention_days: int | None = None, dir: Path | None = None) -> dict[str, Any]:
+    """Clean up ContextLog files older than retention_days.
+
+    Returns:
+        dict with keys: deleted (int), errors (int), bytes_freed (int)
+    """
+    result = {"deleted": 0, "errors": 0, "bytes_freed": 0}
+
+    d = dir or _base_dir()
+    if not d.exists():
+        return result
+
+    retention = retention_days or int(os.getenv("FGK_CONTEXTLOG_RETENTION_DAYS", DEFAULT_RETENTION_DAYS))
+    cutoff_time = time.time() - (retention * 24 * 60 * 60)
+
+    for fp in d.glob("ctx-*.jsonl"):
+        try:
+            stats = fp.stat()
+            # Delete files older than retention period
+            if stats.st_mtime < cutoff_time:
+                size = stats.st_size
+                fp.unlink()
+                result["deleted"] += 1
+                result["bytes_freed"] += size
+        except Exception:
+            result["errors"] += 1
+
+    return result
+
+
+def get_log_stats(*, dir: Path | None = None) -> dict[str, Any]:
+    """Get statistics about current ContextLog storage.
+
+    Returns:
+        dict with keys: total_files, total_bytes, total_mb, oldest_file_age_days, retention_days
+    """
+    d = dir or _base_dir()
+    if not d.exists():
+        return {
+            "total_files": 0,
+            "total_bytes": 0,
+            "total_mb": 0.0,
+            "oldest_file_age_days": 0.0,
+            "retention_days": int(os.getenv("FGK_CONTEXTLOG_RETENTION_DAYS", DEFAULT_RETENTION_DAYS)),
+        }
+
+    files = list(d.glob("ctx-*.jsonl"))
+    total_bytes = 0
+    oldest_mtime = time.time()
+
+    for fp in files:
+        try:
+            stats = fp.stat()
+            total_bytes += stats.st_size
+            if stats.st_mtime < oldest_mtime:
+                oldest_mtime = stats.st_mtime
+        except Exception:
+            pass
+
+    oldest_age_days = (time.time() - oldest_mtime) / (24 * 60 * 60)
+
+    return {
+        "total_files": len(files),
+        "total_bytes": total_bytes,
+        "total_mb": round(total_bytes / (1024 * 1024), 2),
+        "oldest_file_age_days": round(oldest_age_days, 1),
+        "retention_days": int(os.getenv("FGK_CONTEXTLOG_RETENTION_DAYS", DEFAULT_RETENTION_DAYS)),
+    }
