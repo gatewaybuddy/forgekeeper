@@ -29,7 +29,7 @@ import { ulid } from 'ulid';
 const execAsync = promisify(exec);
 
 // Default allowlist patterns (safe files only)
-const DEFAULT_ALLOWLIST = [
+export const DEFAULT_ALLOWLIST = [
   'README.md',
   'docs/**/*.md',
   'forgekeeper/.env.example',
@@ -80,6 +80,24 @@ export function getLabels() {
     return envLabels.split(',').map(l => l.trim()).filter(Boolean);
   }
   return ['auto-pr', 'safe', 'documentation'];
+}
+
+/**
+ * Get current SAPL status/configuration
+ */
+export function getStatus() {
+  const enabled = isEnabled();
+  const dryrun = isDryRun();
+  const allowlist = getAllowlist();
+  const automerge = String(process.env.AUTO_PR_AUTOMERGE || '0') === '1';
+
+  return {
+    enabled,
+    dryrun,
+    automerge,
+    allowlist,
+    mode: !enabled ? 'disabled' : (dryrun ? 'preview-only' : 'active'),
+  };
 }
 
 /**

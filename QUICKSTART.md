@@ -77,8 +77,8 @@ For backend/tool development:
 python -m forgekeeper ensure-stack --build
 
 # Or use the wrapper script:
-bash forgekeeper/start.sh  # Linux/macOS
-# pwsh forgekeeper/start.ps1  # Windows
+bash scripts/ensure_stack.sh  # Linux/macOS
+# pwsh scripts/ensure_stack.ps1  # Windows
 ```
 
 Access at `http://localhost:3000`

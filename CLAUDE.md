@@ -36,7 +36,7 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 - `server.contextlog.mjs` — Event logging
 - `server.finishers.mjs` — Continuation heuristics
 
-**Endpoints** (70+ total): Core chat, autonomous agent (12), tools (15), preferences/memory (9), TGT tasks (28), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog, repo ops.
+**Endpoints** (92+ total): Core chat (4), autonomous agent (18), tools (15), preferences/memory (9), TGT tasks (27), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog (4 including cleanup & stats), repo ops (2), health/config (6), auth (1).
 
 ### Frontend UI (Port 5173 dev / 3000 prod)
 **Location**: `forgekeeper/frontend/src/`
@@ -335,8 +335,8 @@ bash forgekeeper/scripts/ensure_llama_core.sh
 
 # 2. Start stack
 python -m forgekeeper ensure-stack --build
-# Or: bash forgekeeper/start.sh (Linux/macOS)
-# Or: pwsh forgekeeper/start.ps1 (Windows)
+# Or: bash scripts/ensure_stack.sh (Linux/macOS)
+# Or: pwsh scripts/ensure_stack.ps1 (Windows)
 
 # 3. Access UI
 http://localhost:5173 (dev) or http://localhost:3000 (prod)
@@ -393,7 +393,7 @@ make -C forgekeeper task-sanity
 
 **MCP Integration**: `frontend/mcp/client.mjs`, `mcp/registry.mjs`, `mcp/tool-adapter.mjs`, `docs/mcp/README.md`
 
-**ContextLog**: `forgekeeper/services/context_log/jsonl.py`, `frontend/server.contextlog.mjs`, `docs/contextlog/adr-0001-contextlog.md`
+**ContextLog**: `forgekeeper/services/context_log/jsonl.py`, `frontend/server.contextlog.mjs`, `docs/adr/adr-0001-contextlog.md`
 
 **Add task**: Edit `forgekeeper/tasks.md` → create PR with `Task ID: T#` → CI validates
 
@@ -401,7 +401,7 @@ make -C forgekeeper task-sanity
 
 ## References
 
-- **ADRs**: `docs/contextlog/` (ContextLog schema/design), `docs/adr/adr-0003-collaborative-intelligence.md`
+- **ADRs**: `docs/adr/` (Architecture Decision Records including ContextLog schema/design, collaborative-intelligence)
 - **API Docs**: `docs/api/`
 - **Task Cards**: `tasks.md`
 - **Contributing**: `CONTRIBUTING.md`
