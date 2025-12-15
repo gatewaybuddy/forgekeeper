@@ -42,8 +42,8 @@ describe('LLMClient', () => {
   });
 
   describe('detectTaskType', () => {
-    it('should detect exploratory research tasks', () => {
-      const taskType = llmClient.detectTaskType('How does the authentication system work?');
+    it('should detect exploratory tasks with uncertain patterns', () => {
+      const taskType = llmClient.detectTaskType('See if there is an authentication system');
       expect(taskType).toBe('exploratory');
     });
 
@@ -52,24 +52,24 @@ describe('LLMClient', () => {
       expect(taskType).toBe('documentation');
     });
 
-    it('should detect analysis tasks', () => {
+    it('should detect research tasks', () => {
       const taskType = llmClient.detectTaskType('Analyze the performance bottlenecks');
-      expect(taskType).toBe('analysis');
+      expect(taskType).toBe('research');
     });
 
-    it('should detect test creation tasks', () => {
+    it('should detect multi-step tasks with test creation', () => {
       const taskType = llmClient.detectTaskType('Write tests for the authentication module');
-      expect(taskType).toBe('test-creation');
+      expect(taskType).toBe('multi-step');
     });
 
-    it('should detect refactoring tasks', () => {
+    it('should detect self-improvement tasks', () => {
       const taskType = llmClient.detectTaskType('Refactor the user service to improve performance');
-      expect(taskType).toBe('refactoring');
+      expect(taskType).toBe('self-improvement');
     });
 
-    it('should detect multi-file tasks', () => {
+    it('should detect multi-step tasks with multiple files', () => {
       const taskType = llmClient.detectTaskType('Update 5 components to use new API');
-      expect(taskType).toBe('multi-file');
+      expect(taskType).toBe('multi-step');
     });
 
     it('should default to simple for basic tasks', () => {

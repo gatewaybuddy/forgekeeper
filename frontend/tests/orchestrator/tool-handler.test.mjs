@@ -248,7 +248,7 @@ describe('ToolHandler', () => {
       expect(steps).toContainEqual(
         expect.objectContaining({
           tool: 'read_file',
-          args: expect.objectContaining({ file: 'config.json' })
+          args: expect.objectContaining({ path: 'config.json' })
         })
       );
     });
@@ -259,7 +259,7 @@ describe('ToolHandler', () => {
       expect(steps).toContainEqual(
         expect.objectContaining({
           tool: 'write_file',
-          args: expect.objectContaining({ file: 'test.py' })
+          args: expect.objectContaining({ path: 'test.py' })
         })
       );
     });
@@ -270,7 +270,7 @@ describe('ToolHandler', () => {
       expect(steps).toContainEqual(
         expect.objectContaining({
           tool: 'run_bash',
-          args: expect.objectContaining({ script: 'npm test' })
+          args: expect.objectContaining({ command: 'npm test' })
         })
       );
     });
