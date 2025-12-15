@@ -40,6 +40,12 @@ import { MemoryManager } from './orchestrator/memory-manager.mjs';
 import { ToolHandler } from './orchestrator/tool-handler.mjs';
 import { Reflector } from './orchestrator/reflector.mjs';
 
+// [Phase 8] Collaborative Intelligence modules (T308-T312)
+import { requestApproval } from '../../server/collaborative/approval.mjs';
+import { assessRisk } from '../../server/collaborative/risk-assessment.mjs';
+import { createCheckpoint, shouldTriggerCheckpoint } from '../../server/collaborative/checkpoint.mjs';
+import { submitFeedback } from '../../server/collaborative/feedback.mjs';
+
 /**
  * @typedef {Object} AutonomousConfig
  * @property {Object} llmClient - LLM client for chat
@@ -1346,20 +1352,19 @@ export class AutonomousAgent {
           args_preview: JSON.stringify(step.args).slice(0, 200),
         });
 
+        // [Phase 8] Execute tool with collaborative intelligence (risk assessment, approval, checkpoints, feedback)
         const toolStartTime = Date.now();
-
-        // Execute tool (ensure session_id is included for ContextLog filtering)
-        const result = await executor.execute(
+        const executionResult = await this.executeWithCollaborativeIntelligence(
           toolCall,
-          {
-            ...context,
-            session_id: this.sessionId, // Add session_id for ContextLog filtering
-            cwd: this.playgroundRoot,
-            sandboxRoot: this.playgroundRoot,
-          }
+          step,
+          executor,
+          context
         );
-
         const toolElapsedMs = Date.now() - toolStartTime;
+
+        // Extract result from Phase 8 wrapper
+        const result = executionResult.result;
+        const { riskAssessment, approved, checkpointId, feedbackId } = executionResult;
 
         // [T302] Check if tool execution failed
         if (result.error) {
@@ -1604,22 +1609,28 @@ export class AutonomousAgent {
       try {
         console.log(`[AutonomousAgent] Recovery step ${i + 1}: ${step.tool}(${JSON.stringify(step.args).slice(0, 100)}...)`);
 
-        // Execute recovery step
-        const result = await executor.execute(
-          {
-            id: ulid(),
-            type: 'function',
-            function: {
-              name: step.tool,
-              arguments: typeof step.args === 'string' ? step.args : JSON.stringify(step.args),
-            },
+        // [Phase 8] Execute recovery step with collaborative intelligence
+        const toolCall = {
+          id: ulid(),
+          type: 'function',
+          function: {
+            name: step.tool,
+            arguments: typeof step.args === 'string' ? step.args : JSON.stringify(step.args),
           },
+        };
+
+        const executionResult = await this.executeWithCollaborativeIntelligence(
+          toolCall,
           {
-            ...context,
-            cwd: this.playgroundRoot,
-            sandboxRoot: this.playgroundRoot,
-          }
+            tool: step.tool,
+            args: step.args,
+            description: `Recovery step: ${step.action}`,
+          },
+          executor,
+          context
         );
+
+        const result = executionResult.result;
 
         // Check if recovery step succeeded
         if (result.error) {
@@ -2663,6 +2674,220 @@ export class AutonomousAgent {
       act: 'checkpoint',
       progress: this.getProgressSummary(),
     });
+  }
+
+  /**
+   * [Phase 8] Execute tool with collaborative intelligence workflow
+   *
+   * Wraps tool execution with:
+   * - Risk assessment
+   * - Human-in-the-loop approval (if needed)
+   * - Checkpoint creation (before risky operations)
+   * - Outcome feedback recording (after execution)
+   *
+   * @param {Object} toolCall - Tool call object
+   * @param {Object} step - Execution step details
+   * @param {Object} executor - Tool executor
+   * @param {Object} context - Execution context
+   * @returns {Promise<{result: Object, riskAssessment: Object, approved: boolean, checkpointId?: string}>}
+   */
+  async executeWithCollaborativeIntelligence(toolCall, step, executor, context) {
+    // Step 1: Assess risk of the operation
+    const operationName = `${step.tool} execution`;
+    const riskContext = {
+      tool: step.tool,
+      args: step.args,
+      description: step.description || '',
+      task: this.state.task,
+      iteration: this.state.iteration,
+      recentFailures: this.state.recentFailures.slice(-3),
+    };
+
+    const riskAssessment = assessRisk(operationName, riskContext);
+
+    console.log(`[Phase 8] Risk assessment for ${step.tool}: ${riskAssessment.level} (score: ${riskAssessment.score.toFixed(2)})`);
+    console.log(`[Phase 8] Requires approval: ${riskAssessment.requiresApproval}`);
+
+    // Emit risk assessment to ContextLog
+    await contextLogEvents.emit({
+      id: ulid(),
+      type: 'risk_assessment',
+      ts: new Date().toISOString(),
+      conv_id: context.convId,
+      turn_id: context.turnId,
+      session_id: this.sessionId,
+      iteration: this.state.iteration,
+      actor: 'system',
+      act: 'risk_assessment',
+      tool: step.tool,
+      risk_level: riskAssessment.level,
+      risk_score: riskAssessment.score,
+      requires_approval: riskAssessment.requiresApproval,
+      reasoning: riskAssessment.reasoning,
+    });
+
+    // Step 2: Request approval if high/critical risk
+    let approved = true;
+    let approvalResponse = null;
+
+    if (riskAssessment.requiresApproval) {
+      console.log(`[Phase 8] Requesting approval for ${step.tool} (risk: ${riskAssessment.level})`);
+
+      // Prepare approval context
+      const approvalContext = {
+        task: step.description || `Execute ${step.tool}`,
+        reasoning: riskAssessment.reasoning,
+        impact: riskAssessment.level,
+        alternatives: this.state.reflections.slice(-1)[0]?.alternatives || [],
+      };
+
+      approvalResponse = await requestApproval(
+        operationName,
+        approvalContext,
+        {
+          convId: context.convId,
+          traceId: context.turnId,
+        }
+      );
+
+      approved = approvalResponse.decision === 'approve';
+
+      console.log(`[Phase 8] Approval decision: ${approvalResponse.decision}`);
+
+      // Emit approval result to ContextLog
+      await contextLogEvents.emit({
+        id: ulid(),
+        type: 'approval_decision',
+        ts: new Date().toISOString(),
+        conv_id: context.convId,
+        turn_id: context.turnId,
+        session_id: this.sessionId,
+        iteration: this.state.iteration,
+        actor: 'user',
+        act: 'approval',
+        tool: step.tool,
+        decision: approvalResponse.decision,
+        feedback: approvalResponse.feedback || '',
+      });
+
+      if (!approved) {
+        return {
+          result: { error: { message: 'Operation rejected by user', code: 'APPROVAL_REJECTED' } },
+          riskAssessment,
+          approved: false,
+          approvalResponse,
+        };
+      }
+    }
+
+    // Step 3: Create checkpoint if needed (medium+ risk with sufficient confidence)
+    let checkpointId = null;
+    const lastReflection = this.state.reflections.slice(-1)[0];
+    const confidence = lastReflection?.confidence || 0.5;
+
+    if (shouldTriggerCheckpoint(confidence, riskAssessment.level)) {
+      console.log(`[Phase 8] Creating checkpoint before ${step.tool} execution`);
+
+      const checkpoint = await createCheckpoint(
+        {
+          sessionId: this.sessionId,
+          iteration: this.state.iteration,
+          task: this.state.task,
+          progress: this.state.lastProgressPercent,
+          confidence,
+          nextAction: step.description || `Execute ${step.tool}`,
+          history: this.state.history.slice(-5),
+        },
+        {
+          reason: `Before ${step.tool} execution (risk: ${riskAssessment.level})`,
+          convId: context.convId,
+          turnId: context.turnId,
+        },
+        this.state.chosenAlternativeForOutcome?.rankedAlternatives?.slice(0, 3) || []
+      );
+
+      checkpointId = checkpoint.checkpointId;
+
+      // Emit checkpoint creation to ContextLog
+      await contextLogEvents.emit({
+        id: ulid(),
+        type: 'checkpoint_created',
+        ts: new Date().toISOString(),
+        conv_id: context.convId,
+        turn_id: context.turnId,
+        session_id: this.sessionId,
+        iteration: this.state.iteration,
+        actor: 'system',
+        act: 'checkpoint',
+        checkpoint_id: checkpointId,
+        tool: step.tool,
+        risk_level: riskAssessment.level,
+      });
+    }
+
+    // Step 4: Execute the tool
+    const toolStartTime = Date.now();
+    const result = await executor.execute(
+      toolCall,
+      {
+        ...context,
+        session_id: this.sessionId,
+        cwd: this.playgroundRoot,
+        sandboxRoot: this.playgroundRoot,
+      }
+    );
+    const toolElapsedMs = Date.now() - toolStartTime;
+
+    // Step 5: Record outcome feedback
+    const feedbackCategory = result.error ? 'autonomous_error' : 'autonomous_success';
+    const feedbackData = {
+      sessionId: this.sessionId,
+      iteration: this.state.iteration,
+      tool: step.tool,
+      args: step.args,
+      riskLevel: riskAssessment.level,
+      riskScore: riskAssessment.score,
+      approved,
+      approvalRequired: riskAssessment.requiresApproval,
+      checkpointCreated: !!checkpointId,
+      checkpointId,
+      elapsedMs: toolElapsedMs,
+      success: !result.error,
+      error: result.error?.message || null,
+      result: result.content?.slice(0, 500) || null,
+      convId: context.convId,
+      turnId: context.turnId,
+    };
+
+    const feedbackId = submitFeedback(feedbackCategory, feedbackData);
+
+    console.log(`[Phase 8] Recorded outcome feedback: ${feedbackId}`);
+
+    // Emit feedback submission to ContextLog
+    await contextLogEvents.emit({
+      id: ulid(),
+      type: 'outcome_feedback',
+      ts: new Date().toISOString(),
+      conv_id: context.convId,
+      turn_id: context.turnId,
+      session_id: this.sessionId,
+      iteration: this.state.iteration,
+      actor: 'system',
+      act: 'feedback',
+      feedback_id: feedbackId,
+      category: feedbackCategory,
+      tool: step.tool,
+      success: !result.error,
+    });
+
+    return {
+      result,
+      riskAssessment,
+      approved,
+      approvalResponse,
+      checkpointId,
+      feedbackId,
+    };
   }
 
   /**
