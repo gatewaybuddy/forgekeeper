@@ -270,6 +270,36 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
     }
   }
 
+  // T504: Inject relevant skills (if enabled)
+  let skillsInjected = null;
+  const skillsEnabled = process.env.SKILLS_ENABLED !== '0'; // Default: enabled
+  if (skillsEnabled) {
+    try {
+      const { injectSkills } = await import('./skills/injector.mjs');
+      const skillsStrategy = process.env.SKILLS_STRATEGY || 'relevant'; // relevant, all, none
+      const maxSkills = parseInt(process.env.SKILLS_MAX_INJECT || '5', 10);
+
+      const result = injectSkills(convo, {
+        strategy: skillsStrategy,
+        maxSkills,
+        minRelevanceScore: 3
+      });
+
+      if (result.injected) {
+        // Update conversation with skills-injected messages
+        convo.length = 0;
+        convo.push(...result.messages);
+        skillsInjected = {
+          count: result.skills.length,
+          names: result.skillNames
+        };
+        console.log(`[Skills] Injected ${result.skills.length} skills:`, result.skillNames.join(', '));
+      }
+    } catch (e) {
+      console.warn('[Skills] Failed to inject skills:', e.message);
+    }
+  }
+
   for (let iter = 0; iter < maxIterations; iter++) {
     // Feature flag: allow tool injection for Harmony prompts when enabled
     const allowHarmonyTools = process.env.FRONTEND_HARMONY_TOOLS === '1';
@@ -435,7 +465,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
         diagnostics.push({ ...step, enforced: true, intentGate: requiredTool });
         continue;
       }
-      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied } };
+      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied, skills: skillsInjected } };
     }
 
     // OpenAI path (no Harmony) and no tool calls -> treat as final
@@ -460,7 +490,7 @@ export async function orchestrateWithTools({ baseUrl, model, messages, tools, ma
       diagnostics.push(step);
       const continuedTotal = diagnostics.reduce((s, st) => s + (st.continued || 0), 0);
       const toolsUsed = Array.from(new Set(diagnostics.flatMap(d => (Array.isArray(d.tools) ? d.tools : []).map(t => t.name).filter(Boolean))));
-      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied } };
+      return { assistant: { role: 'assistant', content, reasoning }, messages: convo, debug: { diagnostics, continuedTotal, toolsUsed, raw: json, compaction: compactionInfo, intentGate: requiredTool || null, mip: mipApplied, skills: skillsInjected } };
     }
 
     // Append assistant msg with tool_calls to history (as upstream would expect)

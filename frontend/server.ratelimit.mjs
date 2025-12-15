@@ -81,11 +81,14 @@ class TokenBucket {
  * Rate Limiter Manager
  *
  * Manages rate limiting configuration and bucket instances
+ *
+ * T303: Rate limiting disabled by default for maximum local capability
  */
 class RateLimiter {
   constructor() {
     // Load configuration from environment
-    this.enabled = String(process.env.RATE_LIMIT_ENABLED || '1') === '1';
+    // T303: Default to disabled (0) for unlimited local execution
+    this.enabled = String(process.env.RATE_LIMIT_ENABLED || '0') === '1';
     this.capacity = Number(process.env.RATE_LIMIT_CAPACITY || '100');
     this.refillRate = Number(process.env.RATE_LIMIT_REFILL_RATE || '10');
     this.costPerRequest = Number(process.env.RATE_LIMIT_COST_PER_REQUEST || '1');

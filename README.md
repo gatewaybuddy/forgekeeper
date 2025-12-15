@@ -38,6 +38,12 @@ Forgekeeper combines local LLM inference (llama.cpp/vLLM) with an intelligent au
 
 - 🔒 **Security** - Automated dependency updates, CodeQL scanning, vulnerability reporting ([Security Policy](SECURITY.md))
 
+- 🔌 **MCP Integration** - Standards-based protocol for external tools (GitHub, Postgres, Slack, Puppeteer) ([MCP Guide](docs/mcp/README.md))
+
+- 🤖 **Skills System** - Reusable, modular capabilities that Claude autonomously invokes ([Skills Guide](docs/skills/README.md))
+
+- 🛡️ **Two-Phase Mode** - Plan review and approval for high-stakes operations ([Two-Phase Guide](docs/features/sprint6-two-phase-reflection.md))
+
 ---
 
 ## 🚀 Quick Start
@@ -573,6 +579,118 @@ node forgekeeper/frontend/tests/test_combined_mode.mjs
 **Thought World Mode** - Isolated simulation environment for counterfactual reasoning
 **Scout Metrics** - Performance monitoring with request rates, response times, error rates
 **ContextLog** - JSONL-backed event logging with correlation IDs and telemetry
+
+---
+
+### MCP (Model Context Protocol) Integration
+
+**Status**: ✅ Complete (Sprint 2)
+
+Connect to external tools and data sources via the Model Context Protocol standard.
+
+**Supported Servers**:
+- `@modelcontextprotocol/server-github` - GitHub API integration
+- `@modelcontextprotocol/server-postgres` - PostgreSQL database access
+- `@modelcontextprotocol/server-filesystem` - Filesystem operations
+- `@modelcontextprotocol/server-git` - Git repository operations
+- `@modelcontextprotocol/server-slack` - Slack workspace integration
+- `@modelcontextprotocol/server-puppeteer` - Browser automation
+- Community MCP servers (thousands available)
+
+**Setup**:
+```bash
+# 1. Copy example config
+cp .forgekeeper/mcp-servers.example.json .forgekeeper/mcp-servers.json
+
+# 2. Add your tokens (GITHUB_TOKEN, etc.)
+# Edit mcp-servers.json to configure servers
+
+# 3. Enable MCP in .env
+echo "MCP_ENABLED=1" >> .env
+
+# 4. Restart
+docker compose restart frontend
+```
+
+**Configuration** (`.env`):
+```bash
+MCP_ENABLED=1
+MCP_SERVERS_CONFIG=.forgekeeper/mcp-servers.json
+MCP_AUTO_RELOAD=1
+MCP_HEALTH_CHECK_INTERVAL=60000
+```
+
+📖 **Documentation**: [MCP Integration Guide](docs/mcp/README.md)
+
+---
+
+### Skills System
+
+**Status**: ✅ Complete (Sprint 3)
+
+Modular, reusable capabilities that Claude autonomously invokes when tasks match.
+
+**Features**:
+- **Project Skills**: `.claude/skills/` - Shared with team, checked into git
+- **Personal Skills**: `~/.claude/skills/` - Available across all your projects
+- **Auto-Invocation**: Claude automatically loads skills when task matches
+- **Version Control**: Skills are versioned with your codebase
+
+**Creating a Skill**:
+```bash
+# 1. Copy the template
+cp -r .claude/skills/TEMPLATE .claude/skills/my-skill
+
+# 2. Edit my-skill/SKILL.md
+# - Update YAML frontmatter (name, description, tags)
+# - Write clear instructions
+# - Add examples
+
+# 3. Commit to git
+git add .claude/skills/my-skill
+git commit -m "feat: Add my-skill for [purpose]"
+```
+
+**No Configuration Needed**: Skills are automatically discovered and available immediately.
+
+📖 **Documentation**: [Skills Guide](docs/skills/README.md)
+
+---
+
+### Two-Phase Harmony Mode
+
+**Status**: ✅ Complete (Sprint 6)
+
+Separates planning from execution for high-stakes operations with user review and approval.
+
+**Use Cases**:
+- Production deployments
+- Database migrations
+- Large refactors
+- Safety-critical operations
+
+**How It Works**:
+
+**Phase 1: Analysis & Planning**
+1. User submits request (or auto-detected as high-stakes)
+2. System generates detailed plan WITHOUT executing any tools
+3. **System halts** and presents plan to user
+
+**Phase 2: Execution**
+1. User reviews and optionally **edits** the plan
+2. User approves (or cancels)
+3. System executes based on approved plan with full tool access
+
+**Auto-Detection**: Triggered by keywords like `production`, `deploy`, `critical`, `refactor`, `migrate`, or destructive operations.
+
+**Configuration** (`.env`):
+```bash
+FRONTEND_ENABLE_TWO_PHASE=1
+FRONTEND_AUTO_TWO_PHASE=1
+FRONTEND_AUTO_TWO_PHASE_THRESHOLD=0.6
+```
+
+📖 **Documentation**: [Two-Phase Mode Guide](docs/features/sprint6-two-phase-reflection.md)
 
 ---
 

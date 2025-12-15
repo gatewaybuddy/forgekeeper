@@ -1,5 +1,15 @@
 // Guardrail helpers for redaction and preview truncation
 // Enhanced for T21: Comprehensive sensitive data redaction
+// T302: Configurable redaction (default: disabled for maximum capability)
+
+// T302: Master redaction switch - disabled by default for maximum capability
+export const ENABLE_LOG_REDACTION = process.env.ENABLE_LOG_REDACTION === '1';
+
+// T302: Redaction mode granularity (off, minimal, standard, aggressive)
+export const REDACTION_MODE = process.env.REDACTION_MODE || 'off';
+
+// T302: Context-aware redaction (dev, staging, production)
+export const REDACTION_CONTEXT = process.env.REDACTION_CONTEXT || 'dev';
 
 const DEFAULT_MAX_PREVIEW = Number(process.env.TOOLS_LOG_MAX_PREVIEW || '4096');
 
@@ -84,20 +94,37 @@ export function truncatePreview(text, maxBytes = DEFAULT_MAX_PREVIEW) {
  * Redact sensitive data from input using comprehensive pattern matching.
  * Handles both strings and objects (by serializing to JSON first).
  *
+ * T302: Respects ENABLE_LOG_REDACTION flag - disabled by default for dev transparency
+ *
  * @param {string|object} input - Input to redact
  * @param {boolean} aggressive - If true, redacts more aggressively (default: false)
  * @returns {string} Redacted and truncated output
  */
 export function redactPreview(input, aggressive = false) {
   try {
+    // T302: Skip redaction if disabled (default in dev)
+    if (!ENABLE_LOG_REDACTION || REDACTION_MODE === 'off') {
+      return truncatePreview(input);
+    }
+
     // Convert input to string
     const str = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+
+    // Determine redaction level based on mode and context
+    const shouldRedactMinimal = REDACTION_MODE === 'minimal' || (REDACTION_CONTEXT === 'dev' && REDACTION_MODE !== 'aggressive');
+    const shouldRedactStandard = REDACTION_MODE === 'standard' || (REDACTION_CONTEXT === 'staging');
+    const shouldRedactAggressive = aggressive || REDACTION_MODE === 'aggressive' || (REDACTION_CONTEXT === 'production');
 
     // Apply all redaction patterns
     let out = str;
     for (const rule of REDACTION_PATTERNS) {
       // Skip disabled patterns
       if (rule.enabled === false) continue;
+
+      // Skip less critical patterns in minimal mode
+      if (shouldRedactMinimal && rule.pattern.source.includes('email|phone|ip')) {
+        continue;
+      }
 
       // Apply pattern replacement
       if (typeof rule.replacement === 'function') {
@@ -108,7 +135,7 @@ export function redactPreview(input, aggressive = false) {
     }
 
     // Aggressive mode: redact any long alphanumeric strings that might be secrets
-    if (aggressive) {
+    if (shouldRedactAggressive) {
       // Redact any 32+ character alphanumeric strings (likely hashes or keys)
       out = out.replace(/\b[A-Za-z0-9_-]{32,}\b/g, '<redacted:long-string>');
     }
@@ -302,6 +329,8 @@ export function redactSensitiveData(data, options = {}) {
  * Redact sensitive data and prepare for logging.
  * Combines redaction with truncation for log-safe output.
  *
+ * T302: Respects ENABLE_LOG_REDACTION flag - disabled by default for dev transparency
+ *
  * @param {any} data - Data to redact and prepare for logging
  * @param {Object} options - Options for redaction and truncation
  * @param {boolean} options.aggressive - Apply aggressive redaction (default: false)
@@ -312,6 +341,12 @@ export function redactForLogging(data, options = {}) {
   const { aggressive = false, maxBytes = DEFAULT_MAX_PREVIEW } = options;
 
   try {
+    // T302: Skip redaction if disabled (default in dev)
+    if (!ENABLE_LOG_REDACTION || REDACTION_MODE === 'off') {
+      const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      return truncatePreview(str, maxBytes);
+    }
+
     // First redact sensitive data
     const redacted = redactSensitiveData(data, { aggressive });
 
