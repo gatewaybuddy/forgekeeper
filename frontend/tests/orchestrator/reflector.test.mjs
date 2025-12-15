@@ -172,7 +172,7 @@ describe('Reflector', () => {
 
       expect(guidance).toContain('Prediction Accuracy Track Record');
       expect(guidance).toContain('Iteration 1: 85%');
-      expect(guidance).toContain('Average Accuracy: 89%');
+      expect(guidance).toContain('**Average Accuracy**: 89%');
       expect(guidance).toContain('GOOD ACCURACY');
     });
 
@@ -285,7 +285,7 @@ describe('Reflector', () => {
 
       expect(guidance).toContain('Task Planner Track Record');
       expect(guidance).toContain('SUCCESS');
-      expect(guidance).toContain('Success Rate: 100%');
+      expect(guidance).toContain('**Success Rate**: 100%');
       expect(guidance).toContain('GOOD CALIBRATION');
     });
 
@@ -484,9 +484,9 @@ describe('Reflector', () => {
       expect(summary).toContain('Autonomous Session Summary');
       expect(summary).toContain('Test task');
       expect(summary).toContain('task_complete');
-      expect(summary).toContain('Iterations: 10');
-      expect(summary).toContain('Progress: 85%');
-      expect(summary).toContain('Confidence: 90%');
+      expect(summary).toContain('**Iterations**: 10');
+      expect(summary).toContain('**Progress**: 85%');
+      expect(summary).toContain('**Confidence**: 90%');
       expect(summary).toContain('Artifacts Created (2)');
       expect(summary).toContain('test1.txt');
       expect(summary).toContain('Actions Taken');

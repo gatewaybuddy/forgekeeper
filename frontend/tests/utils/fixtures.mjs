@@ -264,7 +264,8 @@ export function createMockSessionMemory() {
     getSuccessfulPatterns: async (taskType) => mockMemories.pastLearnings,
     getFailurePatterns: async (taskType) => mockMemories.pastFailures,
     getGuidance: async (taskType) => mockMemories.learningGuidance,
-    recordOutcome: async (outcome) => { /* no-op */ }
+    recordOutcome: async (outcome) => { /* no-op */ },
+    recordSession: async (sessionData) => { /* no-op */ }
   };
 }
 

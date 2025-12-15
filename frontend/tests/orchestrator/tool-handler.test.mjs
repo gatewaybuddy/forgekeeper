@@ -234,12 +234,11 @@ describe('ToolHandler', () => {
     it('should infer grep for search', () => {
       const steps = toolHandler.inferToolsFromAction('Search for "authentication"', {});
 
-      expect(steps).toContainEqual(
-        expect.objectContaining({
-          tool: 'grep',
-          args: expect.objectContaining({ pattern: 'authentication' })
-        })
-      );
+      expect(steps.length).toBeGreaterThan(0);
+      // Should use run_bash with grep command
+      const grepStep = steps.find(s => s.tool === 'run_bash' && s.args.command?.includes('grep'));
+      expect(grepStep).toBeDefined();
+      expect(grepStep.args.command).toContain('authentication');
     });
 
     it('should infer read_file for reading', () => {
