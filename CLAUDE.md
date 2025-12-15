@@ -50,7 +50,14 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 
 **Commands**: `chat [prompt]`, `ensure-stack [--build]`
 
-**Modules**: `core/`, `pipeline/`, `memory/`, `llm/`, `tools/`, `services/context_log/`
+**CLI Architecture** (Refactored 2025-12-15):
+- `__main__.py` (136 lines) - Pure orchestration, delegates to CLI modules
+- `cli/commands.py` - Command implementations (chat, ensure-stack)
+- `cli/handlers.py` - Request handlers and routing
+- `cli/args.py` - Argument parsing and CLI structure
+- `cli/output.py` - Output formatting and display
+
+**Core Modules**: `core/`, `pipeline/`, `memory/`, `llm/`, `tools/`, `services/context_log/`
 
 ---
 
@@ -188,15 +195,31 @@ forgekeeper/
 │   ├── tools/                  # Tool definitions
 │   ├── mcp/                    # Model Context Protocol integration
 │   ├── core/agent/             # Autonomous agent
+│   │   ├── autonomous.mjs      # Main orchestrator (3,149 lines)
+│   │   └── orchestrator/       # Modular architecture (refactored 2025-12-15)
+│   │       ├── llm-client.mjs      # LLM interactions, prompt building
+│   │       ├── memory-manager.mjs  # Memory coordination, checkpoints
+│   │       ├── tool-handler.mjs    # Tool planning, inference, execution
+│   │       └── reflector.mjs       # Self-evaluation, meta-cognition
 │   ├── server.mjs              # Main server
 │   ├── server.*.mjs            # Modules
 │   └── package.json
 ├── forgekeeper/                # Python package
-│   ├── __main__.py
+│   ├── __main__.py             # CLI orchestrator (136 lines, refactored 2025-12-15)
+│   ├── cli/                    # CLI modules (refactored 2025-12-15)
+│   │   ├── commands.py         # Command implementations
+│   │   ├── handlers.py         # Request handlers
+│   │   ├── args.py             # Argument parsing
+│   │   └── output.py           # Output formatting
 │   ├── services/context_log/
 │   ├── core/, pipeline/, memory/, llm/, tools/
 ├── scripts/                    # Setup/test scripts
 ├── docs/                       # Documentation
+│   ├── features/               # Feature-specific docs
+│   ├── releases/               # Release notes
+│   └── setup/                  # Setup guides
+├── archive/                    # Archived session files
+│   └── sessions/2025/          # Session transcripts and working docs
 └── tasks.md                    # Task cards
 ```
 
@@ -242,7 +265,47 @@ forgekeeper/
 
 **Impact**: Failure rate 35%→12%, iterations 12→8, recovery 40%→85%
 
-**Key Files**: `autonomous.mjs`, `self-evaluator.mjs`, `episodic-memory.mjs`, `diagnostic-reflection.mjs`, `alternative-generator.mjs`, `effort-estimator.mjs`, `task-graph-builder.mjs`, `outcome-tracker.mjs`, `weight-learner.mjs`
+**Architecture** (Refactored 2025-12-15):
+
+The autonomous agent uses a modular **orchestrator pattern** for clean separation of concerns:
+
+**Main Orchestrator**: `autonomous.mjs` (3,149 lines)
+- Pure orchestration logic
+- Coordinates 4 specialized modules
+- Main execution loop: reflect → execute → evaluate → repeat
+
+**Orchestrator Modules** (`frontend/core/agent/orchestrator/`):
+
+1. **LLMClient** (`llm-client.mjs`, 744 lines)
+   - All LLM interactions and prompt building
+   - Reflection parsing and validation
+   - Task type detection and guidance
+   - Diagnostic reflection (5 Whys analysis)
+
+2. **MemoryManager** (`memory-manager.mjs`, 232 lines)
+   - Coordinates all memory systems (session, episodic, preferences, tool effectiveness)
+   - Checkpoint save/load
+   - Session recording for learning
+
+3. **ToolHandler** (`tool-handler.mjs`, 686 lines)
+   - Tool planning and execution
+   - Heuristic tool inference (200+ lines)
+   - Argument inference for tool calls
+   - Recovery strategy execution
+
+4. **Reflector** (`reflector.mjs`, 513 lines)
+   - Self-evaluation and meta-cognition
+   - Accuracy scoring (prediction vs reality)
+   - Stopping criteria logic
+   - Result building and summary generation
+
+**Supporting Modules**: `self-evaluator.mjs`, `episodic-memory.mjs`, `diagnostic-reflection.mjs`, `alternative-generator.mjs`, `effort-estimator.mjs`, `task-graph-builder.mjs`, `outcome-tracker.mjs`, `weight-learner.mjs`
+
+**Benefits**:
+- ✅ Improved testability (modules can be unit tested in isolation)
+- ✅ Enhanced reusability (modules can be used by other agents)
+- ✅ Better maintainability (clear boundaries, focused responsibilities)
+- ✅ Reduced complexity (3,937 → 3,149 lines main file, -20%)
 
 **Env Vars**:
 - `AUTONOMOUS_ENABLE_ALTERNATIVES=1`, `AUTONOMOUS_ENABLE_LOOKAHEAD=1`
