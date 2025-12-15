@@ -16,6 +16,9 @@ import * as t_git_commit from './git_commit.mjs';
 import * as t_git_push from './git_push.mjs';
 import * as t_git_pull from './git_pull.mjs';
 import * as t_restart_frontend from './restart_frontend.mjs';
+import * as t_search_conversations from './search_conversations.mjs';
+import * as t_update_agent_config from './update_agent_config.mjs';
+import * as t_create_tool from './create_tool.mjs';
 
 export const TOOL_DEFS = [
   t_get_time.def,
@@ -35,6 +38,9 @@ export const TOOL_DEFS = [
   t_git_push.def,
   t_git_pull.def,
   t_restart_frontend.def,
+  t_search_conversations.definition,
+  t_update_agent_config.def,
+  t_create_tool.def,
 ];
 
 const REGISTRY = new Map([
@@ -55,6 +61,9 @@ const REGISTRY = new Map([
   ['git_push', t_git_push],
   ['git_pull', t_git_pull],
   ['restart_frontend', t_restart_frontend],
+  ['search_conversations', t_search_conversations],
+  ['update_agent_config', t_update_agent_config],
+  ['create_tool', t_create_tool],
 ]);
 
 export async function runTool(name, args) {
