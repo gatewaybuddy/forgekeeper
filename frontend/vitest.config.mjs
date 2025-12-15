@@ -13,7 +13,9 @@ export default defineConfig({
       'test/**/*.test.mjs',
       'tests/truncator.test.mjs',
       'tests/autonomous.async.test.mjs',
-      'tests/tgt-week8.smoke.test.mjs'
+      'tests/tgt-week8.smoke.test.mjs',
+      'tests/orchestrator/**/*.test.mjs',
+      'tests/utils/**/*.test.mjs'
     ],
 
     // Exclude integration tests that need server and standalone test scripts
