@@ -15,7 +15,7 @@ import {
   getFeedbackForApproval,
   clearAllFeedback,
   getFeedbackCount,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 
 describe('Feedback Collection System (T307)', () => {
   beforeEach(() => {

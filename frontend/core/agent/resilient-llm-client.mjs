@@ -10,7 +10,7 @@
  * - Preserves original client interface
  */
 
-import { waitForBackendHealth, checkBackendHealth } from '../../server.health.mjs';
+import { waitForBackendHealth, checkBackendHealth } from '../../server/core/health.mjs';
 
 /**
  * Create a resilient LLM client that handles backend restarts

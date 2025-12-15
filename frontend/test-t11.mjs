@@ -2,7 +2,7 @@
 // T11 Test Script - Verify hardened ToolShell execution sandbox
 // Tests: allowlist, argument validation, feature flag, timeout, structured logging
 
-import { runTool } from './server.tools.mjs';
+import { runTool } from './server/core/tools.mjs';
 import {
   checkToolAllowed,
   validateToolArguments,

@@ -6,7 +6,7 @@
  */
 
 import { ulid } from 'ulid';
-import { appendEvent } from '../../server.contextlog.mjs';
+import { appendEvent } from '../../server/telemetry/contextlog.mjs';
 
 /**
  * Event Emitter for ContextLog

@@ -11,7 +11,7 @@ import {
   getRiskLevel,
   explainRisk,
   getRiskConfig,
-} from '../server.risk-assessment.mjs';
+} from '../server/collaborative/risk-assessment.mjs';
 
 describe('Risk Assessment Engine (T302)', () => {
   beforeEach(() => {

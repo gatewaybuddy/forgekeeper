@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { suggestTasksFromStats } from '../server.taskgen.mjs';
+import { suggestTasksFromStats } from '../server/automation/taskgen.mjs';
 
 describe('taskgen: suggestTasksFromStats', () => {
   it('suggests continuation tuning when ratio exceeds threshold', () => {

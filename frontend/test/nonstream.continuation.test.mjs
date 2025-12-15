@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import './polyfills.mjs';
-import { orchestrateWithTools } from '../server.orchestrator.mjs';
+import { orchestrateWithTools } from '../server/orchestration/orchestrator.mjs';
 
 // Simulate /api/chat non-stream path behavior by calling orchestrate and then
 // faking the upstream chat completion response to be truncated once, followed by

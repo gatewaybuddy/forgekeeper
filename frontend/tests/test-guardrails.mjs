@@ -1,7 +1,7 @@
 // Comprehensive test suite for redaction and guardrails (T21)
 // Tests all 30+ sensitive data patterns with real-world examples
 
-import { redactPreview, redactObject, containsSensitiveData, truncatePreview } from '../server.guardrails.mjs';
+import { redactPreview, redactObject, containsSensitiveData, truncatePreview } from '../server/core/guardrails.mjs';
 import assert from 'assert';
 
 // Color output for better readability

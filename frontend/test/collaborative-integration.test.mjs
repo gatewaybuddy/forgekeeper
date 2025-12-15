@@ -19,7 +19,7 @@ import {
   respondToApproval,
   getPendingApprovals,
   getApprovalStats,
-} from '../server.approval.mjs';
+} from '../server/collaborative/approval.mjs';
 
 // Feedback system
 import {
@@ -27,7 +27,7 @@ import {
   getAllFeedback,
   getFeedbackStats,
   clearAllFeedback,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 
 // Preference analysis
 import {
@@ -35,7 +35,7 @@ import {
   getPreferenceProfile,
   hasPattern,
   clearPreferenceProfile,
-} from '../server.preference-analysis.mjs';
+} from '../server/collaborative/preference-analysis.mjs';
 
 // Adaptive recommendations
 import {
@@ -44,7 +44,7 @@ import {
   getRecommendationAccuracy,
   clearRecommendationHistory,
   clearABTests,
-} from '../server.adaptive-recommendations.mjs';
+} from '../server/collaborative/adaptive-recommendations.mjs';
 
 // ContextLog integration
 import {
@@ -52,7 +52,7 @@ import {
   getCollaborationTimeline,
   getCollaborationAnalytics,
   COLLABORATION_EVENT_TYPES,
-} from '../server.collaboration-events.mjs';
+} from '../server/telemetry/collaboration-events.mjs';
 
 describe('Collaborative Intelligence - Integration Tests', () => {
   const TEST_USER = `integration-test-user-${Date.now()}`;

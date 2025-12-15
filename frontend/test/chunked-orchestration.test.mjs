@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { orchestrateChunked } from '../server.chunked.mjs';
+import { orchestrateChunked } from '../server/orchestration/chunked.mjs';
 
 // Mock fetch for API calls
 global.fetch = vi.fn();

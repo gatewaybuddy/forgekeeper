@@ -10,17 +10,17 @@ import {
   recordCalibration,
   getCalibrationStats,
   clearCalibrationHistory,
-} from '../server.confidence-calibration.mjs';
+} from '../server/collaborative/confidence-calibration.mjs';
 import {
   submitFeedback,
   getFeedbackStats,
   clearAllFeedback,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 import {
   analyzeUserPreferences,
   getAdaptiveRecommendation,
   clearUserProfiles,
-} from '../server.preferences.mjs';
+} from '../server/collaborative/preferences.mjs';
 
 describe('Phase 8 Integration Tests (T312)', () => {
   beforeEach(() => {

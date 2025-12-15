@@ -17,8 +17,8 @@ import {
   exportCollaborationEvents,
   getCollaborationStats,
   logCollaborationEvent,
-} from '../server.collaboration-events.mjs';
-import { appendEvent } from '../server.contextlog.mjs';
+} from '../server/telemetry/collaboration-events.mjs';
+import { appendEvent } from '../server/telemetry/contextlog.mjs';
 
 describe('Collaboration Events (ContextLog Integration)', () => {
   beforeEach(() => {

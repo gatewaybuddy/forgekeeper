@@ -11,7 +11,7 @@ import {
   getWaitingCheckpoints,
   cancelCheckpoint,
   getCheckpointStats,
-} from '../server.checkpoint.mjs';
+} from '../server/collaborative/checkpoint.mjs';
 
 describe('Checkpoint UI Integration (T305)', () => {
   beforeEach(() => {

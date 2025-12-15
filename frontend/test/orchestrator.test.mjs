@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { orchestrateWithTools } from '../server.orchestrator.mjs';
+import { orchestrateWithTools } from '../server/orchestration/orchestrator.mjs';
 
 // Mock fetch to simulate one tool call then final answer
 const originalFetch = globalThis.fetch;

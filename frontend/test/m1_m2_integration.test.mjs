@@ -13,10 +13,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { runTool } from '../server.tools.mjs';
-import { tailEvents } from '../server.contextlog.mjs';
-import { redactSensitiveData } from '../server.guardrails.mjs';
-import { detectReviewMode, detectChunkedMode } from '../server.heuristics.mjs';
+import { runTool } from '../server/core/tools.mjs';
+import { tailEvents } from '../server/telemetry/contextlog.mjs';
+import { redactSensitiveData } from '../server/core/guardrails.mjs';
+import { detectReviewMode, detectChunkedMode } from '../server/telemetry/heuristics.mjs';
 import { getReviewConfig } from '../config/review_prompts.mjs';
 import { getChunkedConfig } from '../config/chunked_prompts.mjs';
 import { TOOL_TIMEOUT_MS, TOOL_MAX_OUTPUT_BYTES } from '../config/tools.config.mjs';

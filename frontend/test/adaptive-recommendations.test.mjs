@@ -14,15 +14,15 @@ import {
   clearRecommendationHistory,
   clearABTests,
   getRecommendationStats,
-} from '../server.adaptive-recommendations.mjs';
+} from '../server/collaborative/adaptive-recommendations.mjs';
 import {
   submitFeedback,
   clearAllFeedback,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 import {
   buildPreferenceProfile,
   clearPreferenceProfile,
-} from '../server.preference-analysis.mjs';
+} from '../server/collaborative/preference-analysis.mjs';
 
 describe('Adaptive Recommendation System', () => {
   beforeEach(() => {

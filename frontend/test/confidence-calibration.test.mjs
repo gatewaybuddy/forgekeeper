@@ -13,7 +13,7 @@ import {
   suggestThresholdAdjustments,
   clearCalibrationHistory,
   getCalibrationHistorySize,
-} from '../server.confidence-calibration.mjs';
+} from '../server/collaborative/confidence-calibration.mjs';
 
 describe('Confidence Calibration System (T306)', () => {
   beforeEach(() => {

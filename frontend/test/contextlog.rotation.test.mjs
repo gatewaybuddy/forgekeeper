@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { appendEvent, tailEvents } from '../server.contextlog.mjs';
+import { appendEvent, tailEvents } from '../server/telemetry/contextlog.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 

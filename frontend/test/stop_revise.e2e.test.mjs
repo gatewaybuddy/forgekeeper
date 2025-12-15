@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { injectDeveloperNoteBeforeLastUser } from '../src/lib/convoUtils';
-import { orchestrateWithTools } from '../server.orchestrator.mjs';
+import { orchestrateWithTools } from '../server/orchestration/orchestrator.mjs';
 
 describe('Stop & Revise E2E smoke', () => {
   const originalFetch = globalThis.fetch;

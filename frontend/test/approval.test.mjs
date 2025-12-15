@@ -14,7 +14,7 @@ import {
   cancelApprovalRequest,
   getApprovalStats,
   cleanupOldRequests,
-} from '../server.approval.mjs';
+} from '../server/collaborative/approval.mjs';
 
 describe('Approval System (T301)', () => {
   beforeEach(() => {

@@ -7,7 +7,7 @@ import {
   createCombinedModeCompleteEvent,
   appendEvent,
   tailEvents,
-} from '../server.contextlog.mjs';
+} from '../server/telemetry/contextlog.mjs';
 
 // Color output
 const colors = {

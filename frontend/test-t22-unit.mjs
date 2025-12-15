@@ -5,7 +5,7 @@
  * Quick unit tests to verify token bucket algorithm works correctly.
  */
 
-import { getRateLimitMetrics, resetRateLimiter } from './server.ratelimit.mjs';
+import { getRateLimitMetrics, resetRateLimiter } from './server/core/ratelimit.mjs';
 
 // Test utilities
 let testsPassed = 0;

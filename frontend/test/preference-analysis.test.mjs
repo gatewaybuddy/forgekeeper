@@ -14,11 +14,11 @@ import {
   getPreferenceInsights,
   clearPreferenceProfile,
   getPreferenceStats,
-} from '../server.preference-analysis.mjs';
+} from '../server/collaborative/preference-analysis.mjs';
 import {
   submitFeedback,
   clearAllFeedback,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 
 describe('Preference Pattern Analysis', () => {
   beforeEach(() => {

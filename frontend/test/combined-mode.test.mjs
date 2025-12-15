@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { getReviewConfig } from '../config/review_prompts.mjs';
 import { getChunkedConfig } from '../config/chunked_prompts.mjs';
-import { orchestrateCombined } from '../server.combined.mjs';
+import { orchestrateCombined } from '../server/orchestration/combined.mjs';
 
 describe('Combined Mode Integration Tests (T209)', () => {
   describe('Strategy Configuration', () => {

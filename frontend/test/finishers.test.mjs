@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isProbablyIncomplete, incompleteReason } from '../server.finishers.mjs';
+import { isProbablyIncomplete, incompleteReason } from '../server/core/finishers.mjs';
 
 describe('finishers: isProbablyIncomplete()', () => {
   it('detects short text as incomplete', () => {

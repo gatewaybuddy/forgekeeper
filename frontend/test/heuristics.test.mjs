@@ -11,7 +11,7 @@ import {
   detectOrchestrationMode,
   isAutoDetectionEnabled,
   getAutoDetectionConfig,
-} from '../server.heuristics.mjs';
+} from '../server/telemetry/heuristics.mjs';
 
 describe('Auto-detection Heuristics (T210)', () => {
   let originalEnv;

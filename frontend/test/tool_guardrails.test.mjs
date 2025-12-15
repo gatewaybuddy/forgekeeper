@@ -7,7 +7,7 @@ import {
   redactForLogging,
   containsSensitiveData,
   redactObject
-} from '../server.guardrails.mjs';
+} from '../server/core/guardrails.mjs';
 
 describe('server.guardrails - Pattern-based redaction', () => {
   it('redacts Stripe API keys', () => {

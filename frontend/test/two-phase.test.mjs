@@ -13,7 +13,7 @@ import {
   orchestrateTwoPhase,
   isTwoPhaseEnabled,
   isAutoDetectEnabled,
-} from '../server.two-phase.mjs';
+} from '../server/orchestration/two-phase.mjs';
 
 describe('Two-Phase Harmony Mode (Sprint 6)', () => {
   let originalEnv;

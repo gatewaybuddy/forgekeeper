@@ -4,18 +4,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // Lightweight manual proxy; http-proxy-middleware removed to reduce ambiguity
 import { Readable } from 'node:stream';
-import { orchestrateWithTools } from './server.orchestrator.mjs';
-import { orchestrateWithReview } from './server.review.mjs';
-import { orchestrateChunked } from './server.chunked.mjs';
-import { orchestrateCombined } from './server.combined.mjs';
-import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors, getToolRegressionStats, getAllToolRegressionStats, clearToolRegressionStats, getToolResourceUsage, getAllToolResourceUsage, clearToolResourceUsage } from './server.tools.mjs';
-import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server.harmony.mjs';
-import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server.finishers.mjs';
+import { orchestrateWithTools } from './server/orchestration/orchestrator.mjs';
+import { orchestrateWithReview } from './server/orchestration/review.mjs';
+import { orchestrateChunked } from './server/orchestration/chunked.mjs';
+import { orchestrateCombined } from './server/orchestration/combined.mjs';
+import { getToolDefs, reloadTools, writeToolFile, getToolErrorStats, getAllToolErrorStats, clearToolErrors, getToolRegressionStats, getAllToolRegressionStats, clearToolRegressionStats, getToolResourceUsage, getAllToolResourceUsage, clearToolResourceUsage } from './server/core/tools.mjs';
+import { buildHarmonySystem, buildHarmonyDeveloper, toolsToTypeScript, renderHarmonyConversation, renderHarmonyMinimal, extractHarmonyFinalStrict } from './server/orchestration/harmony.mjs';
+import { isProbablyIncomplete as isIncompleteHeuristic, incompleteReason } from './server/core/finishers.mjs';
 import { getReviewConfig } from './config/review_prompts.mjs';
 import { getChunkedConfig, shouldTriggerChunking } from './config/chunked_prompts.mjs';
-import { detectOrchestrationMode, isAutoDetectionEnabled } from './server.heuristics.mjs';
+import { detectOrchestrationMode, isAutoDetectionEnabled } from './server/telemetry/heuristics.mjs';
 // Enhanced Features Integration (Phase 1-3)
-import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server.enhanced-integration.mjs';
+import { setupEnhancedFeatures, getEnhancedOrchestrator } from './server/core/enhanced-integration.mjs';
 import { createAutonomousAgent } from './core/agent/autonomous.mjs';
 import { createExecutor } from './core/tools/executor.mjs';
 import { createSessionMemory } from './core/agent/session-memory.mjs'; // [Day 10]
@@ -24,16 +24,16 @@ import { createEpisodicMemory } from './core/agent/episodic-memory.mjs'; // [Pha
 import { createPatternLearner } from './core/agent/pattern-learner.mjs'; // [T310]
 import { createResilientLLMClient } from './core/agent/resilient-llm-client.mjs'; // LLM retry with health checks
 import fs2 from 'node:fs/promises'; // [Day 10] For checkpoint file operations
-import tasksRouter from './server.tasks.mjs'; // TGT Task API router
-import * as autoPR from './server.auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
-import * as promptingHints from './server.prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
-import { runThoughtWorld } from './server.thought-world.mjs'; // Multi-agent consensus mode
+import tasksRouter from './server/automation/tasks.mjs'; // TGT Task API router
+import * as autoPR from './server/automation/auto-pr.mjs'; // SAPL (Safe Auto-PR Loop)
+import * as promptingHints from './server/telemetry/prompting-hints.mjs'; // MIP (Metrics-Informed Prompting)
+import { runThoughtWorld } from './server/core/thought-world.mjs'; // Multi-agent consensus mode
 import { ulid } from 'ulid'; // Phase 3: Session ID generation
-import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs'; // T22: Token bucket rate limiter
-import * as approval from './server.approval.mjs'; // Phase 8.1: Approval system (T301)
-import * as checkpoint from './server.checkpoint.mjs'; // Phase 8.2: Decision checkpoints (T304)
-import * as feedback from './server.feedback.mjs'; // Phase 8.3: Feedback collection (T307)
-import { initializeConsciousness, setupConsciousnessSubscriptions, shutdownConsciousness, isConsciousnessEnabled } from './server.consciousness.mjs'; // Sprint 8: Consciousness integration
+import { rateLimitMiddleware, getRateLimitMetrics } from './server/core/ratelimit.mjs'; // T22: Token bucket rate limiter
+import * as approval from './server/collaborative/approval.mjs'; // Phase 8.1: Approval system (T301)
+import * as checkpoint from './server/collaborative/checkpoint.mjs'; // Phase 8.2: Decision checkpoints (T304)
+import * as feedback from './server/collaborative/feedback.mjs'; // Phase 8.3: Feedback collection (T307)
+import { initializeConsciousness, setupConsciousnessSubscriptions, shutdownConsciousness, isConsciousnessEnabled } from './server/collaborative/consciousness.mjs'; // Sprint 8: Consciousness integration
 import { createServer } from 'http'; // For WebSocket support
 
 const __filename = fileURLToPath(import.meta.url);
@@ -72,7 +72,7 @@ app.use(compression({
 
   // Initialize Conversation Space (multi-agent system)
   try {
-    const { initConversationSpace } = await import('./server.conversation-space.mjs');
+    const { initConversationSpace } = await import('./server/conversations/conversation-space.mjs');
     await initConversationSpace(app);
   } catch (error) {
     console.error('[Conversation Space] Failed to initialize:', error);
@@ -191,6 +191,33 @@ app.get('/config.json', async (_req, res) => {
   res.end(JSON.stringify({ apiBase: '/v1', model, useHarmony, harmonyToolsEnabled, reviewEnabled, chunkedEnabled, combinedStrategy, tools: { enabled: Array.isArray(tools) && tools.length > 0, count: Array.isArray(tools) ? tools.length : 0, names, powershellEnabled, bashEnabled, httpFetchEnabled, selfUpdateEnabled, allow, cwd, storage, repo, repoWrite, httpFetch } }));
 });
 
+// Get available models from vLLM server
+app.get('/api/models', async (_req, res) => {
+  try {
+    const response = await fetch(targetOrigin + '/v1/models');
+    if (!response.ok) {
+      throw new Error(`vLLM server responded with ${response.status}`);
+    }
+    const data = await response.json();
+    const models = data.data?.map(m => ({
+      id: m.id,
+      name: m.id,
+      maxTokens: m.max_model_len || null,
+      root: m.root || null
+    })) || [];
+    res.json({ success: true, models });
+  } catch (error) {
+    console.error('[API] Failed to fetch models:', error);
+    // Return default model if vLLM is unavailable
+    const defaultModel = process.env.FRONTEND_VLLM_MODEL || 'core';
+    res.json({
+      success: false,
+      error: error.message,
+      models: [{ id: defaultModel, name: defaultModel, maxTokens: null, root: null }]
+    });
+  }
+});
+
 // Resolve tool allowlist from env
 async function resolveAllowedTools() {
   const defs = await getToolDefs().catch(() => []);
@@ -230,10 +257,10 @@ import { mkdirSync } from 'node:fs';
 import crypto from 'node:crypto';
 const auditDir = path.join(process.cwd(), '.forgekeeper');
 const auditFile = path.join(auditDir, 'tools_audit.jsonl');
-import { redactPreview, truncatePreview } from './server.guardrails.mjs';
-import { appendEvent, tailEvents, cleanupOldLogs, getLogStats } from './server.contextlog.mjs';
+import { redactPreview, truncatePreview } from './server/core/guardrails.mjs';
+import { appendEvent, tailEvents, cleanupOldLogs, getLogStats } from './server/telemetry/contextlog.mjs';
 import { execSync } from 'node:child_process';
-import { suggestTasks, buildPromptHints, getWindowStats } from './server.taskgen.mjs';
+import { suggestTasks, buildPromptHints, getWindowStats } from './server/automation/taskgen.mjs';
 function auditTool(rec) {
   try {
     mkdirSync(auditDir, { recursive: true });
@@ -1571,7 +1598,7 @@ app.post('/api/chat/autonomous', async (req, res) => {
     for (const toolDef of toolDefs) {
       const name = toolDef?.function?.name;
       if (name) {
-        const { runTool } = await import('./server.tools.mjs');
+        const { runTool } = await import('./server/core/tools.mjs');
         toolRegistry.set(name, {
           name,
           description: toolDef.function.description,
@@ -1956,7 +1983,7 @@ app.post('/api/chat/thought-world/stream', async (req, res) => {
     };
 
     // Import streaming function
-    const { runThoughtWorldStreaming } = await import('./server.thought-world.mjs');
+    const { runThoughtWorldStreaming } = await import('./server/core/thought-world.mjs');
 
     // Run streaming consensus with callback
     await runThoughtWorldStreaming(task, {
@@ -2003,7 +2030,7 @@ app.post('/api/chat/thought-world/tools', async (req, res) => {
     };
 
     // Import Phase 2 tool execution function
-    const { runThoughtWorldWithTools } = await import('./server.thought-world-tools.mjs');
+    const { runThoughtWorldWithTools } = await import('./server/core/thought-world-tools.mjs');
 
     // Run tool-enabled consensus with callback
     await runThoughtWorldWithTools(task, {
@@ -2024,7 +2051,7 @@ app.post('/api/chat/thought-world/tools', async (req, res) => {
 // GET /api/scout/metrics - Get current Scout metrics
 app.get('/api/scout/metrics', async (req, res) => {
   try {
-    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const scoutMetrics = await import('./server/telemetry/scout-metrics.mjs');
     const metrics = scoutMetrics.calculateMetrics();
 
     res.json({
@@ -2044,7 +2071,7 @@ app.get('/api/scout/metrics', async (req, res) => {
 app.get('/api/scout/metrics/history', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const scoutMetrics = await import('./server/telemetry/scout-metrics.mjs');
     const history = await scoutMetrics.getHistoricalMetrics(limit);
 
     res.json({
@@ -2064,7 +2091,7 @@ app.get('/api/scout/metrics/history', async (req, res) => {
 // GET /api/scout/metrics/report - Get Scout performance report
 app.get('/api/scout/metrics/report', async (req, res) => {
   try {
-    const scoutMetrics = await import('./server.scout-metrics.mjs');
+    const scoutMetrics = await import('./server/telemetry/scout-metrics.mjs');
     const report = scoutMetrics.generateReport();
 
     res.setHeader('Content-Type', 'text/markdown');
@@ -2190,7 +2217,7 @@ app.post('/api/thought-world/human-input/:sessionId/:inputId', async (req, res) 
   }
 
   try {
-    const { resolveHumanInput } = await import('./server.thought-world-tools.mjs');
+    const { resolveHumanInput } = await import('./server/core/thought-world-tools.mjs');
     const resolved = resolveHumanInput(inputId, { action, response });
 
     if (resolved) {
@@ -2226,7 +2253,7 @@ async function runInteractiveSession(sessionId) {
   };
 
   try {
-    const { runThoughtWorldWithTools } = await import('./server.thought-world-tools.mjs');
+    const { runThoughtWorldWithTools } = await import('./server/core/thought-world-tools.mjs');
 
     await runThoughtWorldWithTools(task, {
       agentConfig: config,

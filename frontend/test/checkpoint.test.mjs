@@ -15,7 +15,7 @@ import {
   shouldTriggerCheckpoint,
   createStrategyCheckpoint,
   cleanupOldCheckpoints,
-} from '../server.checkpoint.mjs';
+} from '../server/collaborative/checkpoint.mjs';
 
 describe('Decision Checkpoint System (T304)', () => {
   beforeEach(() => {

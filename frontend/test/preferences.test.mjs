@@ -11,15 +11,15 @@ import {
   getUserProfile,
   clearUserProfiles,
   getUserProfileCount,
-} from '../server.preferences.mjs';
+} from '../server/collaborative/preferences.mjs';
 import {
   recordCalibration,
   clearCalibrationHistory,
-} from '../server.confidence-calibration.mjs';
+} from '../server/collaborative/confidence-calibration.mjs';
 import {
   submitFeedback,
   clearAllFeedback,
-} from '../server.feedback.mjs';
+} from '../server/collaborative/feedback.mjs';
 
 describe('User Preference Analysis & Adaptive Recommendations (T308-T309)', () => {
   beforeEach(() => {

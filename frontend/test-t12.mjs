@@ -1,8 +1,8 @@
 // Test suite for T12: Persist tool outputs to ContextLog
 // Validates that tool execution events are written to ContextLog and retrievable via API
 
-import { runTool } from './server.tools.mjs';
-import { tailEvents, appendEvent, createToolExecutionEvent } from './server.contextlog.mjs';
+import { runTool } from './server/core/tools.mjs';
+import { tailEvents, appendEvent, createToolExecutionEvent } from './server/telemetry/contextlog.mjs';
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 

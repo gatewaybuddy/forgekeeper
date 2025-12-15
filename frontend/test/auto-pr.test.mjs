@@ -13,7 +13,7 @@ import {
   previewPR,
   getStatus,
   DEFAULT_ALLOWLIST,
-} from '../server.auto-pr.mjs';
+} from '../server/automation/auto-pr.mjs';
 
 describe('SAPL (Safe Auto-PR Loop)', () => {
   const originalEnv = { ...process.env };
