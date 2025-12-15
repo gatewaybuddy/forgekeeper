@@ -1,13 +1,25 @@
 import React, { useEffect, useState } from 'react';
+import '../styles/design-system.css';
 
 type Status = 'up' | 'down' | 'na';
 
 function Dot({ status, label }: { status: Status; label: string }) {
-  const color = status === 'up' ? '#16a34a' : status === 'down' ? '#dc2626' : '#94a3b8';
+  const color = status === 'up'
+    ? 'var(--accent-green)'
+    : status === 'down'
+    ? 'var(--accent-red)'
+    : 'var(--text-dim)';
+
   return (
-    <span title={`${label}: ${status}`} style={{display:'inline-flex', alignItems:'center', gap:6, marginRight:12}}>
-      <span style={{width:8, height:8, borderRadius:99, background: color, display:'inline-block'}} />
-      <span style={{fontSize:12, color:'#334155'}}>{label}</span>
+    <span
+      title={`${label}: ${status}`}
+      className="status-indicator"
+    >
+      <span
+        className="status-dot"
+        style={{ background: color }}
+      />
+      <span className="text-sm text-secondary">{label}</span>
     </span>
   );
 }
@@ -44,7 +56,12 @@ export default function StatusBar() {
   }, []);
 
   return (
-    <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', border:'1px solid #e5e7eb', borderRadius:8, background:'#f8fafc'}}>
+    <div className="panel" style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 'var(--gap-md)',
+      padding: 'var(--padding-sm) var(--padding-md)'
+    }}>
       <Dot status={inf} label="Inference" />
       <Dot status={agent} label="Agent" />
       <Dot status={gql} label="GraphQL" />

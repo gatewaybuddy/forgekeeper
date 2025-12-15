@@ -54,6 +54,8 @@ COPY --from=build /app/server*.mjs ./
 COPY --from=build /app/tools ./tools
 # Copy shared server-side core modules used by server.* imports
 COPY --from=build /app/core ./core
+# Copy GraphQL modules (for consciousness/apollo server)
+COPY --from=build /app/graphql ./graphql
 # Copy config directory (M2: review prompts and future configs)
 COPY --from=build /app/config ./config
 

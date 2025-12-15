@@ -10,6 +10,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import fs from 'fs/promises';
+import path from 'path';
 import { ulid } from 'ulid';
 import dotenv from 'dotenv';
 import { runTool } from './tools/index.mjs';
@@ -56,8 +57,20 @@ const openai = new OpenAI({
 
 // Load agent prompts
 export async function loadPrompt(role, version = 'v1') {
-  const path = `.forgekeeper/thought_world/prompts/${version}/${role}.txt`;
-  return await fs.readFile(path, 'utf8');
+  // In Docker: /app/.forgekeeper (mounted volume)
+  // On host: ../forgekeeper (when running from frontend/)
+  // Try Docker path first, fall back to host path
+  const dockerPath = path.join('.forgekeeper', 'thought_world', 'prompts', version, `${role}.txt`);
+  const hostPath = path.join('..', '.forgekeeper', 'thought_world', 'prompts', version, `${role}.txt`);
+
+  try {
+    return await fs.readFile(dockerPath, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return await fs.readFile(hostPath, 'utf8');
+    }
+    throw err;
+  }
 }
 
 // Parse JSON from agent response (handles both pure JSON and text with embedded JSON)
@@ -86,25 +99,32 @@ export { AGENTS };
  * Provider-agnostic LLM call (non-streaming)
  * Handles OpenAI, Anthropic, and potentially local inference
  */
-async function callLLM(agentConfig, systemPrompt, userMessage, maxTokens = 4096) {
+export async function callLLM(agentConfig, systemPrompt, userMessage, maxTokens = 4096) {
   const { provider, apiKey, model, apiBase } = agentConfig;
 
   if (provider === 'openai') {
-    const client = new OpenAI({
-      apiKey,
-      baseURL: apiBase
+    // Use Responses API for OpenAI with direct fetch
+    const combinedInput = `${systemPrompt}\n\n${userMessage}`;
+
+    const response = await fetch(`${apiBase}/responses`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        max_output_tokens: maxTokens,
+        input: combinedInput
+      })
     });
 
-    const response = await client.chat.completions.create({
-      model,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ]
-    });
+    if (!response.ok) {
+      throw new Error(`Responses API error: ${response.status} ${response.statusText}`);
+    }
 
-    return response.choices[0].message.content;
+    const data = await response.json();
+    return data.output[0]?.content[0]?.text || '';
   } else if (provider === 'anthropic') {
     const client = new Anthropic({ apiKey });
 
@@ -153,25 +173,63 @@ export async function callLLMStreaming(agentConfig, systemPrompt, userMessage, m
       baseURL: apiBase
     });
 
-    const stream = await client.chat.completions.create({
-      model,
-      max_tokens: maxTokens,
-      stream: true,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ]
-    });
+    // Use Responses API for OpenAI provider, Chat Completions for local/vllm/llama
+    if (provider === 'openai') {
+      // Combine system prompt and user message for Responses API
+      const combinedInput = `${systemPrompt}\n\n${userMessage}`;
 
-    let fullContent = '';
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content || '';
-      if (delta) {
-        fullContent += delta;
-        onChunk(delta);
+      // Use direct fetch for Responses API (SDK doesn't support it yet)
+      const url = `${apiBase}/responses`;
+      console.log(`[forge] Calling Responses API: ${url} with model: ${model}`);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          max_output_tokens: maxTokens,
+          input: combinedInput,
+          stream: false  // Non-streaming for now
+        })
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.log(`[forge] Responses API error: ${response.status} ${response.statusText}, body: ${errorBody}`);
+        throw new Error(`Responses API error: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      const text = data.output[0]?.content[0]?.text || '';
+
+      // Simulate streaming by calling onChunk once with full text
+      onChunk(text);
+      return text;
+    } else {
+      // Use Chat Completions API for local/vllm/llama providers
+      const stream = await client.chat.completions.create({
+        model,
+        max_tokens: maxTokens,
+        stream: true,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ]
+      });
+
+      let fullContent = '';
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          fullContent += delta;
+          onChunk(delta);
+        }
+      }
+      return fullContent;
     }
-    return fullContent;
 
   } else if (provider === 'anthropic') {
     const client = new Anthropic({ apiKey });

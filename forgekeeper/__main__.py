@@ -282,6 +282,126 @@ def _run_ensure_stack(build: bool, include_mongo: bool, profiles: list[str] | No
     return 1
 
 
+def _show_logs_help(category: str = "all") -> int:
+    """Display log locations and useful commands."""
+    root = Path(__file__).resolve().parents[1]
+
+    def print_section(title: str):
+        print(f"\n{'='*70}")
+        print(f"  {title}")
+        print(f"{'='*70}\n")
+
+    if category in ("conversation", "all"):
+        print_section("CONVERSATION SPACE LOGS")
+        print("📝 Active Conversation Messages:")
+        print(f"   Location: .forgekeeper/conversation_spaces/channels/general.jsonl")
+        print(f"   Format:   JSONL (one message per line)")
+        print(f"   View:     cat .forgekeeper/conversation_spaces/channels/general.jsonl | jq")
+        print()
+
+        print("📦 Archived Conversations:")
+        print(f"   Location: .forgekeeper/conversation_spaces/archives/")
+        print(f"   Example:  general-2025-12-14T02-14-56-766Z.jsonl")
+        print(f"   List:     ls -lh .forgekeeper/conversation_spaces/archives/")
+        print(f"   View:     cat .forgekeeper/conversation_spaces/archives/<file> | jq")
+        print()
+
+        print("🧠 Agent Context/Memory:")
+        print(f"   Location: .forgekeeper/conversation_spaces/agent_context/")
+        print(f"   Files:    claude.json, chatgpt.json, forge.json, etc.")
+        print(f"   View:     cat .forgekeeper/conversation_spaces/agent_context/claude.json | jq")
+        print()
+
+        print("⚙️  Agent Configuration:")
+        print(f"   Location: .forgekeeper/conversation_spaces/agents.json")
+        print(f"   Edit:     vim .forgekeeper/conversation_spaces/agents.json")
+        print(f"   Reload:   curl -X POST http://localhost:3000/api/conversation-space/reload-agents")
+
+    if category in ("system", "all"):
+        print_section("SYSTEM-WIDE LOGS")
+        print("📊 ContextLog (Event Telemetry):")
+        print(f"   Location: .forgekeeper/context_log/")
+        print(f"   Format:   ctx-YYYYMMDD-HH.jsonl (rotates hourly)")
+        print(f"   Tail:     tail -f .forgekeeper/context_log/ctx-*.jsonl | jq")
+        print(f"   Latest:   ls -t .forgekeeper/context_log/*.jsonl | head -1 | xargs cat | jq")
+        print()
+
+        print("📈 Scout Metrics (Performance):")
+        print(f"   Location: .forgekeeper/scout_metrics/scout-performance.jsonl")
+        print(f"   View:     cat .forgekeeper/scout_metrics/scout-performance.jsonl | jq")
+        print()
+
+        print("🔧 Tool Audit Log:")
+        print(f"   Location: .forgekeeper/tools_audit.jsonl")
+        print(f"   View:     cat .forgekeeper/tools_audit.jsonl | jq")
+
+    if category in ("memory", "all"):
+        print_section("MEMORY SYSTEMS")
+        print("💾 Episodic Memory:")
+        print(f"   Locations:")
+        print(f"     - .forgekeeper/consciousness/memory/.episodic_memory.jsonl")
+        print(f"     - .forgekeeper/memory/episodic.jsonl")
+        print(f"     - .forgekeeper/thought_world/memory/episodes.jsonl")
+        print()
+
+        print("👤 User Preferences:")
+        print(f"   Location: .forgekeeper/preferences/*.jsonl")
+        print(f"   List:     ls .forgekeeper/preferences/")
+        print()
+
+        print("📚 Learning Outcomes:")
+        print(f"   Location: .forgekeeper/learning/outcomes.jsonl")
+
+    if category in ("docker", "all"):
+        print_section("DOCKER CONTAINER LOGS")
+        print("🐳 View Live Logs:")
+        print(f"   All:      docker compose logs --follow")
+        print(f"   Frontend: docker compose logs frontend --tail 100 --follow")
+        print(f"   Core:     docker compose logs llama-core --tail 100 --follow")
+        print()
+
+        print("🔍 Search Logs:")
+        print(f"   Errors:   docker compose logs frontend | grep -i error")
+        print(f"   Agents:   docker compose logs frontend | grep -E '(Hot-reload|Starting|Stopping)'")
+        print(f"   API:      docker compose logs frontend | grep 'POST\\|GET\\|PUT\\|DELETE'")
+        print()
+
+        print("📝 Container Info:")
+        print(f"   Status:   docker compose ps")
+        print(f"   Inspect:  docker inspect forgekeeper-frontend-1")
+
+    if category == "all":
+        print_section("USEFUL COMMANDS")
+        print("🔄 Agent Management:")
+        print(f"   Reload agents:     curl -X POST http://localhost:3000/api/conversation-space/reload-agents")
+        print(f"   List agents:       curl http://localhost:3000/api/conversation-space/agents | jq")
+        print(f"   Agent status:      curl http://localhost:3000/api/conversation-space/status | jq")
+        print()
+
+        print("🗂️  Data Management:")
+        print(f"   Archive chat:      curl -X POST http://localhost:3000/api/conversation-space/channels/general/archive")
+        print(f"   List archives:     curl http://localhost:3000/api/conversation-space/channels/general/archives | jq")
+        print()
+
+        print("🔧 System Health:")
+        print(f"   Frontend health:   curl http://localhost:3000/health-ui")
+        print(f"   Core models:       curl http://localhost:8001/v1/models | jq")
+        print()
+
+        print("💡 Tips:")
+        print(f"   - All JSONL files can be piped to 'jq' for pretty-printing")
+        print(f"   - Use 'tail -f' to watch logs in real-time")
+        print(f"   - Grep with -E for extended regex patterns")
+        print(f"   - Add '| grep -v noise' to filter out unwanted lines")
+
+    print(f"\n{'='*70}\n")
+    print(f"💡 Pro tip: Run 'python -m forgekeeper logs --category <type>' to filter")
+    print(f"   Categories: conversation, system, memory, docker, all")
+    print()
+
+    return 0
+
+
 def _run_chat(prompt: str, base_url: str | None, model: str | None, no_stream: bool, tools: str | None = None, workdir: str | None = None, system: str | None = None) -> int:
     # Tools demo path (Python-only) when --tools is provided
     if tools:
@@ -423,6 +543,18 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Forgekeeper launcher (fresh start)")
     sub = p.add_subparsers(dest="cmd")
 
+    # Import consciousness CLI
+    try:
+        from forgekeeper.consciousness_cli import setup_consciousness_parser, handle_consciousness_command
+        setup_consciousness_parser(sub)
+        has_consciousness = True
+    except Exception as e:
+        has_consciousness = False
+        # Silently skip if module not available
+
+    # Conversational REPL
+    s_talk = sub.add_parser("talk", help="Start conversational interface with consciousness (REPL mode)", aliases=["repl"])
+
     s_comp = sub.add_parser("compose", help="Ensure full stack (build), hold FG; Ctrl+C tears down")
 
     s_upc = sub.add_parser("up-core", help="Start only Core (llama.cpp) via compose")
@@ -446,8 +578,30 @@ def main(argv: list[str] | None = None) -> int:
     s_switch.add_argument("kind", choices=["llama", "vllm"], help="Target core backend")
     s_switch.add_argument("--no-restart", dest="no_restart", action="store_true", help="Only update .env; do not restart services")
 
+    s_logs = sub.add_parser("logs", help="Show log locations and useful commands", aliases=["help-logs"])
+    s_logs.add_argument("--category", dest="category", choices=["conversation", "system", "memory", "docker", "all"], default="all", help="Show specific log category")
+
     args = p.parse_args(argv)
 
+    # Handle consciousness command
+    if args.cmd in ("consciousness", "c"):
+        if has_consciousness:
+            return handle_consciousness_command(args)
+        else:
+            print("Consciousness CLI not available", file=sys.stderr)
+            return 1
+
+    # Handle conversational REPL
+    if args.cmd in ("talk", "repl"):
+        try:
+            from forgekeeper.consciousness_repl import main as repl_main
+            return repl_main()
+        except ImportError:
+            print("Consciousness REPL not available", file=sys.stderr)
+            return 1
+
+    if args.cmd in ("logs", "help-logs"):
+        return _show_logs_help(args.category)
     if args.cmd == "compose" or args.cmd is None:
         rc = _run_compose()
         if rc != 0:

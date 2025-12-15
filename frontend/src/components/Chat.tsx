@@ -303,6 +303,11 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
   });
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
 
+  // M2: Handle progress updates (T207) - MOVED HERE to fix forward reference
+  const handleProgress = useCallback((progressInfo: ProgressInfo) => {
+    setProgress(progressInfo);
+  }, []);
+
   const canSend = useMemo(() => input.trim().length > 0 && !streaming, [input, streaming]);
   const toolsLabel = useMemo(() => {
     if (!toolsAvailable) return '';
@@ -633,11 +638,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
     } catch (error) {
       console.error('[Chat] Failed to save chunked preference:', error);
     }
-  }, []);
-
-  // M2: Handle progress updates (T207)
-  const handleProgress = useCallback((progressInfo: ProgressInfo) => {
-    setProgress(progressInfo);
   }, []);
 
   // M2: Clear progress when streaming ends (T207)
@@ -1066,29 +1066,6 @@ export function Chat({ apiBase, model, fill, toolsAvailable, toolNames, toolMeta
                 Attempts: {contDetails.map(d => `${d.attempt ?? ''}${d.reason ? `:${d.reason}` : ''}`).join(', ')}
               </div>
             )}
-          </div>
-        )}
-        {diag && (
-          <div style={{marginTop:8, padding:10, background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:8}}>
-            <div style={{fontWeight:600, color:'#3730a3', marginBottom:6}}>Diagnostics</div>
-            <div style={{fontSize:12, color: diag.ok ? '#166534' : '#991b1b'}}>
-              Status: {diag.ok ? 'OK' : 'Issues detected'}
-              {Array.isArray(diag.errors) && diag.errors.length > 0 && (
-                <div style={{marginTop:4}}>Errors: {diag.errors.join('; ')}</div>
-              )}
-            </div>
-            <details style={{marginTop:8}} open>
-              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Environment</summary>
-              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.env, null, 2)}</pre>
-            </details>
-            <details style={{marginTop:8}} open>
-              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Mounts</summary>
-              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.mounts, null, 2)}</pre>
-            </details>
-            <details style={{marginTop:8}}>
-              <summary style={{cursor:'pointer', fontSize:12, color:'#3730a3'}}>Upstream</summary>
-              <pre style={{whiteSpace:'pre-wrap', fontSize:12}}>{JSON.stringify(diag.upstream, null, 2)}</pre>
-            </details>
           </div>
         )}
         {compaction && (

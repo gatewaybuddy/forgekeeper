@@ -77,6 +77,24 @@ services:
       "--max-num-batched-tokens","${VLLM_MAX_NUM_BATCHED_TOKENS:-4096}"
     ]
 
+  # ChromaDB - Vector memory storage for consciousness
+  chromadb:
+    image: chromadb/chroma:latest
+    profiles: [ui]
+    ports:
+      - "${CHROMADB_PORT:-8000}:8000"
+    environment:
+      IS_PERSISTENT: 1
+      ANONYMIZED_TELEMETRY: ${CHROMADB_TELEMETRY:-0}
+    volumes:
+      - ./.forgekeeper/chromadb:/chroma/chroma
+    networks: [forgekeeper-net]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   frontend:
     image: forgekeeper-frontend
     pull_policy: build
@@ -116,6 +134,15 @@ services:
       # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
       # TOOL_ALLOW: "get_time,echo,read_dir"
       PORT: 3000
+      # Consciousness configuration (disabled temporarily due to Apollo Server v3 API incompatibility)
+      CONSCIOUSNESS_ENABLED: ${CONSCIOUSNESS_ENABLED:-0}
+      CONSCIOUSNESS_AUTO_START: ${CONSCIOUSNESS_AUTO_START:-0}
+      CONSCIOUSNESS_CYCLE_INTERVAL: ${CONSCIOUSNESS_CYCLE_INTERVAL:-30000}
+      CONSCIOUSNESS_DAILY_API_BUDGET: ${CONSCIOUSNESS_DAILY_API_BUDGET:-1000000}
+      CHROMADB_URL: ${CHROMADB_URL:-http://chromadb:8000}
+      # API keys for deep reasoning
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     networks: [forgekeeper-net]
@@ -123,6 +150,8 @@ services:
       - ./frontend/tools:/app/tools:rw
       - ./:/workspace:rw
       - ./.forgekeeper:/app/.forgekeeper:rw
+    depends_on:
+      - chromadb
 
 networks:
   forgekeeper-net:

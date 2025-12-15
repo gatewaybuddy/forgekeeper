@@ -4,6 +4,7 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 import TemplateSelector from './TemplateSelector';
 import PriorityBadge from './PriorityBadge';
 import PRPreviewModal from './PRPreviewModal';
+import './Drawer.css';
 
 type TaskItem = {
   id: string;
@@ -138,36 +139,37 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div role="dialog" aria-modal="true" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100}} onClick={onClose}>
-      <div style={{width:'min(900px, 94vw)', background:'#fff', borderRadius:10, border:'1px solid #e5e7eb', boxShadow:'0 12px 32px rgba(0,0,0,0.18)', padding:16, maxHeight:'80vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-          <div style={{fontWeight:700, color:'#334155'}}>Suggested Tasks (last {win}m)</div>
-          <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <button onClick={() => setShowAnalytics(true)} title="View Analytics">
+    <div role="dialog" aria-modal="true" className="drawer-overlay" onClick={onClose}>
+      <div className="drawer-container" style={{width:'min(900px, 94vw)', maxHeight:'80vh'}} onClick={e=>e.stopPropagation()}>
+        <div className="drawer-header">
+          <h2 className="drawer-title">Suggested Tasks (last {win}m)</h2>
+          <div style={{display:'flex', alignItems:'center', gap:'var(--gap-sm)'}}>
+            <button onClick={() => setShowAnalytics(true)} title="View Analytics" className="button secondary">
               📊 Analytics
             </button>
-            <button onClick={() => setShowTemplates(true)} title="New from Template">
+            <button onClick={() => setShowTemplates(true)} title="New from Template" className="button secondary">
               📋 Templates
             </button>
             <input type="number" min={5} max={480} value={win} onChange={e=> setWin(Math.max(5, Math.min(480, Number(e.target.value)||60)))} style={{width:80}} />
-            <button onClick={()=>load(win)} disabled={loading}>Refresh</button>
-            <button onClick={copy} disabled={!items.length}>Copy</button>
-            <button onClick={onClose} aria-label="Close" title="Close">✕</button>
+            <button onClick={()=>load(win)} disabled={loading} className="button secondary">Refresh</button>
+            <button onClick={copy} disabled={!items.length} className="button secondary">Copy</button>
+            <button onClick={onClose} aria-label="Close" title="Close" className="drawer-close-button">✕</button>
           </div>
         </div>
-        {loading && <div>Loading…</div>}
-        {error && <div style={{color:'#b91c1c'}}>Error: {error}</div>}
+        <div className="drawer-body">
+        {loading && <div style={{color:'var(--text-secondary)'}}>Loading…</div>}
+        {error && <div style={{color:'var(--accent-red)'}}>Error: {error}</div>}
         {!loading && !error && (
           <>
             {items.length > 0 && (
-              <div style={{marginBottom:8, padding:8, background:'#f8fafc', borderRadius:6}}>
-                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}}>
+              <div style={{marginBottom:'var(--gap-md)', padding:'var(--padding-md)', background:'var(--bg-tertiary)', borderRadius:'var(--radius-md)'}}>
+                <label style={{display:'flex', alignItems:'center', gap:'var(--gap-sm)', cursor:'pointer'}}>
                   <input
                     type="checkbox"
                     checked={selectedTasks.length === items.length && items.length > 0}
                     onChange={toggleSelectAll}
                   />
-                  <span style={{fontSize:14, fontWeight:600}}>
+                  <span style={{fontSize:'var(--font-md)', fontWeight:600, color:'var(--text-primary)'}}>
                     Select All ({selectedTasks.length}/{items.length})
                   </span>
                 </label>
@@ -175,8 +177,8 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
             )}
             <ul style={{listStyle:'none', padding:0, margin:0}}>
               {items.map((it, idx) => (
-                <li key={idx} style={{border:'1px solid #e5e7eb', borderRadius:8, padding:10, marginBottom:8}}>
-                  <div style={{display:'flex', alignItems:'center', gap:10}}>
+                <li key={idx} className="task-card">
+                  <div style={{display:'flex', alignItems:'center', gap:'var(--gap-md)'}}>
                     <input
                       type="checkbox"
                       checked={selectedTasks.includes(it.id)}
@@ -184,17 +186,19 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                       style={{cursor:'pointer'}}
                     />
                     <div style={{flex:1}}>
-                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
-                        <div style={{fontWeight:600}}>{it.title}</div>
-                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      <div className="task-header">
+                        <div className="task-description">{it.title}</div>
+                        <div style={{display:'flex', alignItems:'center', gap:'var(--gap-sm)'}}>
                           {it.priority !== undefined && <PriorityBadge score={it.priority} size="small" />}
-                          <div style={{fontSize:12, color:'#64748b'}}>{it.id}</div>
+                          <div className="task-id">{it.id}</div>
                         </div>
                       </div>
                       {Array.isArray(it.suggested) && it.suggested.length > 0 && (
-                        <div style={{marginTop:6, fontSize:12}}>Suggested: {it.suggested.join('; ')}</div>
+                        <div className="task-metadata">
+                          <span>Suggested: {it.suggested.join('; ')}</span>
+                        </div>
                       )}
-                      <div style={{marginTop:6, display:'flex', gap:8}}>
+                      <div style={{marginTop:'var(--gap-sm)', display:'flex', gap:'var(--gap-sm)'}}>
                         <button onClick={()=>{
                           const body = `Task: ${it.id} — ${it.title}\n\nSeverity: ${it.severity}\n\nSuggested: ${Array.isArray(it.suggested)? it.suggested.join('; ') : ''}`;
                           setPrTitle(`docs: ${it.title} (${it.id})`);
@@ -202,17 +206,9 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                           setPrFiles('README.md');
                           if ((it as unknown).append?.text) setPrAppendText((it as unknown).append.text);
                           setShowPr(true);
-                        }} style={{
-                          background: '#2563eb',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          fontWeight: 500,
-                        }}>📝 Propose PR</button>
+                        }} className="button primary">📝 Propose PR</button>
                         { (it as unknown).append?.text && (
-                          <button onClick={()=> setPrAppendText((it as unknown).append.text) }>Use README snippet</button>
+                          <button onClick={()=> setPrAppendText((it as unknown).append.text) } className="button secondary">Use README snippet</button>
                         )}
                       </div>
                     </div>
@@ -220,43 +216,43 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                 </li>
               ))}
               {items.length === 0 && (
-                <li style={{color:'#64748b'}}>No suggestions for the selected window.</li>
+                <li className="drawer-empty-message">No suggestions for the selected window.</li>
               )}
             </ul>
           </>
         )}
-        <div style={{marginTop:12, padding:10, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8}}>
+        <div style={{marginTop:'var(--gap-md)', padding:'var(--padding-md)', background:'var(--bg-tertiary)', border:'1px solid var(--border-primary)', borderRadius:'var(--radius-md)'}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <div style={{fontWeight:700, color:'#334155'}}>Propose PR (allowlist & dry‑run)</div>
-            <button onClick={()=>setShowPr(v=>!v)}>{showPr ? 'Hide' : 'Show'}</button>
+            <div style={{fontWeight:700, color:'var(--text-bright)'}}>Propose PR (allowlist & dry‑run)</div>
+            <button onClick={()=>setShowPr(v=>!v)} className="button secondary">{showPr ? 'Hide' : 'Show'}</button>
           </div>
           {showPr && (
-            <div style={{marginTop:8}}>
-              <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            <div style={{marginTop:'var(--gap-md)'}}>
+              <div style={{display:'flex', flexDirection:'column', gap:'var(--gap-sm)'}}>
+                <div style={{display:'flex', gap:'var(--gap-sm)', alignItems:'center'}}>
                   <input placeholder="PR title" value={prTitle} onChange={e=>setPrTitle(e.target.value)} style={{flex:'1 1 auto'}} />
-                  <button onClick={()=>{ if (!prTitle.startsWith('[docs]')) setPrTitle(`[docs] ${prTitle}`); }}>Mark as [docs]</button>
+                  <button onClick={()=>{ if (!prTitle.startsWith('[docs]')) setPrTitle(`[docs] ${prTitle}`); }} className="button secondary">Mark as [docs]</button>
                 </div>
                 <textarea placeholder="PR body" rows={4} value={prBody} onChange={e=>setPrBody(e.target.value)} />
                 <input placeholder="Files (comma‑separated)" value={prFiles} onChange={e=>setPrFiles(e.target.value)} />
                 <textarea placeholder="Append text (optional; appended to first allowed file)" rows={3} value={prAppendText} onChange={e=>setPrAppendText(e.target.value)} />
-                <div style={{display:'flex', gap:8}}>
-                  <button onClick={previewPR} disabled={prLoading}>Preview</button>
+                <div style={{display:'flex', gap:'var(--gap-sm)'}}>
+                  <button onClick={previewPR} disabled={prLoading} className="button primary">Preview</button>
                 </div>
-                {prError && <div style={{color:'#b91c1c'}}>Error: {prError}</div>}
+                {prError && <div style={{color:'var(--accent-red)'}}>Error: {prError}</div>}
                 {prPreview && (
-                  <div style={{fontSize:12, background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:8}}>
-                    <div><b>Allowed files:</b> {(prPreview.preview?.files || []).join(', ') || '(none)'}</div>
-                    <div style={{marginTop:4}}><b>Labels:</b> {(prPreview.preview?.labels || ['docs']).join(', ')}</div>
+                  <div style={{fontSize:'var(--font-sm)', background:'var(--bg-primary)', border:'1px solid var(--border-primary)', borderRadius:'var(--radius-md)', padding:'var(--padding-md)'}}>
+                    <div style={{color:'var(--text-primary)'}}><b>Allowed files:</b> {(prPreview.preview?.files || []).join(', ') || '(none)'}</div>
+                    <div style={{marginTop:'var(--gap-xs)', color:'var(--text-primary)'}}><b>Labels:</b> {(prPreview.preview?.labels || ['docs']).join(', ')}</div>
                     {Array.isArray(prPreview.preview?.appendPreviews) && prPreview.preview.appendPreviews.length > 0 && (
-                      <div style={{marginTop:6}}>
-                        <div><b>Append previews:</b></div>
-                        <ul style={{marginTop:4}}>
+                      <div style={{marginTop:'var(--gap-sm)'}}>
+                        <div style={{color:'var(--text-primary)'}}><b>Append previews:</b></div>
+                        <ul style={{marginTop:'var(--gap-xs)'}}>
                           {prPreview.preview.appendPreviews.map((a:any,i:number)=> (
-                            <li key={i}><code>{a.path}</code> — {a.bytes} bytes<br/>
+                            <li key={i} style={{color:'var(--text-secondary)'}}><code>{a.path}</code> — {a.bytes} bytes<br/>
                               <details>
                                 <summary>Unified diff</summary>
-                                <pre style={{whiteSpace:'pre-wrap'}}>{a.diff || a.preview}</pre>
+                                <pre style={{whiteSpace:'pre-wrap', background:'var(--bg-tertiary)', padding:'var(--padding-sm)', borderRadius:'var(--radius-sm)'}}>{a.diff || a.preview}</pre>
                               </details>
                             </li>
                           ))}
@@ -264,9 +260,9 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                       </div>
                     )}
                     {Array.isArray(prPreview.blocked) && prPreview.blocked.length > 0 && (
-                      <div style={{marginTop:4, color:'#b45309'}}>Blocked: {prPreview.blocked.join(', ')}</div>
+                      <div style={{marginTop:'var(--gap-xs)', color:'var(--accent-yellow)'}}>Blocked: {prPreview.blocked.join(', ')}</div>
                     )}
-                    <div style={{marginTop:4}}>
+                    <div style={{marginTop:'var(--gap-xs)'}}>
                       <button onClick={async()=>{
                         try {
                           setPrLoading(true); setPrError(null);
@@ -281,13 +277,14 @@ export default function TasksDrawer({ onClose }: { onClose: () => void }) {
                           }
                         } catch (e:any) { setPrError(e?.message || String(e)); }
                         finally { setPrLoading(false); }
-                      }} disabled={prLoading || !prPreview?.enabled || prPreview?.dryrun} title={!prPreview?.enabled ? 'AUTO_PR_ENABLED=1 required' : (prPreview?.dryrun ? 'AUTO_PR_DRYRUN=0 required' : '')}>Create PR</button>
+                      }} disabled={prLoading || !prPreview?.enabled || prPreview?.dryrun} title={!prPreview?.enabled ? 'AUTO_PR_ENABLED=1 required' : (prPreview?.dryrun ? 'AUTO_PR_DRYRUN=0 required' : '')} className="button primary">Create PR</button>
                     </div>
                   </div>
                 )}
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
 

@@ -34,12 +34,6 @@ import { createMultiStepEvaluator } from './multi-step-evaluator.mjs'; // [Phase
 import { createOutcomeTracker } from './outcome-tracker.mjs'; // [Phase 7.3] Outcome tracking
 import { createWeightLearner } from './weight-learner.mjs'; // [Phase 7.4] Adaptive weight learning
 
-// Orchestrator modules for modular agent architecture
-import { LLMClient } from './orchestrator/llm-client.mjs';
-import { MemoryManager } from './orchestrator/memory-manager.mjs';
-import { ToolHandler } from './orchestrator/tool-handler.mjs';
-import { Reflector } from './orchestrator/reflector.mjs';
-
 /**
  * @typedef {Object} AutonomousConfig
  * @property {Object} llmClient - LLM client for chat
@@ -205,42 +199,6 @@ export class AutonomousAgent {
         compoundFactor: 1.2,        // 20% complexity increase for multi-step
       }
     );
-
-    // [Refactored] Orchestrator modules for modular architecture
-    // Self-evaluator for meta-cognitive monitoring
-    this.selfEvaluator = new SelfEvaluator({
-      accuracyWindow: 10,
-      confidenceCalibration: true,
-      enableMetaReflection: true,
-    });
-
-    // LLM client module - handles all LLM interactions and prompt building
-    this.llmClientModule = new LLMClient(
-      this.llmClient,
-      this.model,
-      this.diagnosticReflection
-    );
-
-    // Memory manager module - coordinates all memory systems
-    this.memoryManager = new MemoryManager({
-      sessionMemory: this.sessionMemory,
-      episodicMemory: this.episodicMemory,
-      preferenceSystem: this.preferenceSystem,
-      toolEffectiveness: this.toolEffectiveness,
-      playgroundRoot: this.playgroundRoot,
-    });
-
-    // Tool handler module - handles tool planning, inference, and execution
-    this.toolHandler = new ToolHandler({
-      taskPlanner: this.taskPlanner,
-    });
-
-    // Reflector module - handles self-evaluation and meta-cognition
-    this.reflectorModule = new Reflector({
-      maxIterations: this.maxIterations,
-      errorThreshold: this.errorThreshold,
-      interactiveMode: this.interactiveMode,
-    });
   }
 
   /**
@@ -301,17 +259,61 @@ export class AutonomousAgent {
       chosenAlternativeForOutcome: null,
     };
 
-    // [Refactored] Load all memories using MemoryManager
+    // Load past learnings for this task type (successes + failures) [Day 10]
     const taskType = this.detectTaskType(task);
-    const memories = await this.memoryManager.loadAll(taskType, task);
+    this.pastLearnings = await this.sessionMemory.getSuccessfulPatterns(taskType);
+    this.pastFailures = await this.sessionMemory.getFailurePatterns(taskType);
+    this.learningGuidance = await this.sessionMemory.getGuidance(taskType);
 
-    // Assign loaded memories to instance variables
-    this.pastLearnings = memories.pastLearnings;
-    this.pastFailures = memories.pastFailures;
-    this.learningGuidance = memories.learningGuidance;
-    this.relevantEpisodes = memories.relevantEpisodes;
-    this.userPreferenceGuidance = memories.userPreferenceGuidance;
-    this.toolRecommendations = memories.toolRecommendations;
+    if (this.pastLearnings.length > 0) {
+      console.log(`[AutonomousAgent] Loaded ${this.pastLearnings.length} successful patterns for ${taskType} tasks`);
+    }
+    if (this.pastFailures.length > 0) {
+      console.log(`[AutonomousAgent] Loaded ${this.pastFailures.length} failure patterns to avoid`);
+    }
+
+    // Load user preferences [Phase 5 Option D]
+    if (this.preferenceSystem) {
+      try {
+        this.userPreferenceGuidance = await this.preferenceSystem.generatePreferenceGuidance();
+        if (this.userPreferenceGuidance && this.userPreferenceGuidance.trim().length > 0) {
+          console.log('[AutonomousAgent] Loaded user preferences');
+        }
+      } catch (err) {
+        console.warn('[AutonomousAgent] Failed to load user preferences:', err);
+      }
+    }
+
+    // Search for relevant episodes using semantic similarity [Phase 5 Option A]
+    try {
+      const similarEpisodes = await this.episodicMemory.searchSimilar(task, {
+        limit: 3,
+        minScore: 0.4,
+        successOnly: true, // Only show successful examples
+      });
+
+      if (similarEpisodes.length > 0) {
+        this.relevantEpisodes = similarEpisodes;
+        console.log(`[AutonomousAgent] Found ${similarEpisodes.length} relevant episodes (scores: ${similarEpisodes.map(e => e.score.toFixed(2)).join(', ')})`);
+      }
+    } catch (err) {
+      console.warn('[AutonomousAgent] Failed to search episodes:', err);
+    }
+
+    // Load tool recommendations from historical data [Phase 3]
+    try {
+      this.toolRecommendations = await this.toolEffectiveness.getRecommendations(taskType, {
+        minSampleSize: 3,
+        maxRecommendations: 5,
+      });
+
+      if (this.toolRecommendations.length > 0) {
+        console.log(`[AutonomousAgent] Found ${this.toolRecommendations.length} tool recommendations for ${taskType} tasks`);
+        console.log(`[AutonomousAgent] Top recommendation: ${this.toolRecommendations[0].tool} (${(this.toolRecommendations[0].successRate * 100).toFixed(0)}% success rate)`);
+      }
+    } catch (err) {
+      console.warn('[AutonomousAgent] Failed to load tool recommendations:', err);
+    }
 
     // Emit session start
     await contextLogEvents.emit({
@@ -1128,28 +1130,112 @@ export class AutonomousAgent {
    * @returns {Promise<ReflectionResult>}
    */
   async reflect(context, executor) {
-    // [Refactored] Build guidance object for LLMClient
-    const guidance = {
-      learningsText: this.learningGuidance || '',
-      preferencesText: this.userPreferenceGuidance || '',
-      episodesText: this.llmClientModule.buildEpisodesGuidance(this.relevantEpisodes || []),
-      toolRecommendationsText: this.llmClientModule.buildToolRecommendationsGuidance(
-        this.toolRecommendations || [],
-        this.detectTaskType(this.state.task)
-      ),
-      pastFailures: this.pastFailures || [],
-      reflectionAccuracy: this.state.reflectionAccuracy || [],
-      planningFeedback: this.state.planningFeedback || [],
-      successPatterns: this.pastLearnings || [],
-    };
+    const reflectionPrompt = this.buildReflectionPrompt(executor);
 
-    // [Refactored] Delegate to LLMClient module
-    return await this.llmClientModule.reflect(
-      this.state,
-      executor,
-      this.selfEvaluator,
-      guidance
-    );
+    try {
+      const response = await this.llmClient.chat({
+        model: this.model,
+        messages: [
+          {
+            role: 'system',
+            content: REFLECTION_SYSTEM_PROMPT,
+          },
+          {
+            role: 'user',
+            content: reflectionPrompt,
+          },
+        ],
+        temperature: 0.3, // Some creativity, but mostly deterministic
+        max_tokens: 1500,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'reflection_result',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                assessment: {
+                  type: 'string',
+                  enum: ['continue', 'complete', 'stuck'],
+                },
+                progress_percent: {
+                  type: 'number',
+                  minimum: 0,
+                  maximum: 100,
+                },
+                confidence: {
+                  type: 'number',
+                  minimum: 0,
+                  maximum: 1,
+                },
+                next_action: {
+                  type: 'string',
+                },
+                reasoning: {
+                  type: 'string',
+                },
+                tool_plan: {
+                  type: 'object',
+                  properties: {
+                    tool: { type: 'string' },
+                    purpose: { type: 'string' },
+                  },
+                  required: ['tool', 'purpose'],
+                  additionalProperties: false,
+                },
+              },
+              required: ['assessment', 'progress_percent', 'confidence', 'next_action', 'reasoning'],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      const reflection = JSON.parse(response.choices[0].message.content);
+
+      // Validate and sanitize
+      const rawConfidence = Math.max(0, Math.min(1, reflection.confidence || 0));
+
+      // Calibrate confidence using historical accuracy
+      let calibratedConfidence = rawConfidence;
+      let calibrationReason = '';
+      if (this.selfEvaluator) {
+        const calibration = this.selfEvaluator.calibrateConfidence(rawConfidence, {
+          taskType: this.detectTaskType(this.state.task),
+          tool: reflection.tool_plan?.tool,
+        });
+        calibratedConfidence = calibration.calibrated;
+        calibrationReason = calibration.reason;
+
+        if (Math.abs(calibration.adjustment) > 0.05) {
+          console.log(`[AutonomousAgent] Confidence calibrated: ${(rawConfidence * 100).toFixed(0)}% → ${(calibratedConfidence * 100).toFixed(0)}% (${calibrationReason})`);
+        }
+      }
+
+      return {
+        assessment: reflection.assessment || 'continue',
+        progress_percent: Math.max(0, Math.min(100, reflection.progress_percent || 0)),
+        confidence: calibratedConfidence,
+        rawConfidence, // Keep original for debugging
+        calibrationReason,
+        next_action: reflection.next_action || 'Continue working on task',
+        reasoning: reflection.reasoning || '',
+        tool_plan: reflection.tool_plan,
+      };
+
+    } catch (error) {
+      console.error('[AutonomousAgent] Reflection failed:', error);
+
+      // Fallback: continue with generic action
+      return {
+        assessment: 'continue',
+        progress_percent: this.state.lastProgressPercent || 0,
+        confidence: 0.3,
+        next_action: 'Continue working on the task',
+        reasoning: 'Failed to generate reflection, continuing with default action',
+      };
+    }
   }
 
   /**
@@ -3194,8 +3280,56 @@ Use these learnings to inform your approach.
    * @returns {Object}
    */
   shouldStop() {
-    // [Refactored] Delegate to Reflector module
-    return this.reflectorModule.shouldStop(this.state, this.waitingForClarification);
+    // Hard limits
+    if (this.state.iteration >= this.maxIterations) {
+      return { stop: true, reason: 'max_iterations' };
+    }
+
+    if (this.state.errors >= this.errorThreshold) {
+      return { stop: true, reason: 'too_many_errors' };
+    }
+
+    // Self-assessment: Task complete
+    if (this.state.taskComplete && this.state.confidence >= 0.9) {
+      return {
+        stop: true,
+        reason: 'task_complete',
+        confidence: this.state.confidence,
+      };
+    }
+
+    // [Day 8 + Day 10] Repetitive action detection - with interactive mode option
+    if (this.state.repetitiveActionDetected) {
+      if (this.interactiveMode && !this.waitingForClarification) {
+        return { stop: false, needsClarification: true, reason: 'repetitive_actions' };
+      }
+      return { stop: true, reason: 'repetitive_actions' };
+    }
+
+    // [Day 8 + Day 10] Stuck loop detection - with interactive mode option
+    if (this.state.actionHistory.length >= 3) {
+      const last3 = this.state.actionHistory.slice(-3);
+      const uniqueLast3 = new Set(last3);
+      if (uniqueLast3.size === 1) {
+        // Same exact action 3 times consecutively
+        if (this.interactiveMode && !this.waitingForClarification) {
+          return { stop: false, needsClarification: true, reason: 'stuck_loop' };
+        }
+        return { stop: true, reason: 'stuck_loop' };
+      }
+    }
+
+    // [Day 10] Stuck detection (no progress) - with interactive mode option
+    if (this.state.noProgressCount >= 3) {
+      console.log(`[AutonomousAgent] No progress detected. InteractiveMode: ${this.interactiveMode}, Waiting: ${this.waitingForClarification}`);
+      if (this.interactiveMode && !this.waitingForClarification) {
+        console.log(`[AutonomousAgent] Requesting clarification for no_progress`);
+        return { stop: false, needsClarification: true, reason: 'no_progress' };
+      }
+      return { stop: true, reason: 'no_progress' };
+    }
+
+    return { stop: false };
   }
 
   /**
@@ -3229,16 +3363,16 @@ Use these learnings to inform your approach.
   async complete(reason, context) {
     const summary = this.generateSummary(reason);
 
-    // [Refactored] Record session using MemoryManager
+    // Record session to memory for learning
     const taskType = this.detectTaskType(this.state.task);
     const toolsUsed = [...new Set(this.state.history.flatMap(h => h.tools_used || []))];
 
-    // Extract recovery attempts and error patterns from recent failures
+    // [T310] Extract recovery attempts and error patterns from recent failures
     const recoveryAttempts = this.state.recentFailures
       .filter(f => f.recoveryAttempted && f.diagnosis)
       .map(f => ({
         error_category: f.diagnosis.rootCause?.category || 'unknown',
-        strategy_name: 'unknown',
+        strategy_name: 'unknown', // This is set during recovery execution
         recovery_succeeded: f.recoverySucceeded || false,
         iterations_to_success: f.recoverySucceeded ? 1 : null,
         tools_used: [],
@@ -3253,24 +3387,41 @@ Use these learnings to inform your approach.
       }
     }
 
-    // Delegate to MemoryManager for recording
-    await this.memoryManager.recordSession(taskType, {
-      task: this.state.task,
+    // [Day 10] Enhanced session recording with failure details
+    await this.sessionMemory.recordSession({
       task_type: taskType,
       success: reason === 'task_complete',
       iterations: this.state.iteration,
       tools_used: toolsUsed,
       strategy: this.generateStrategyDescription(),
       confidence: this.state.confidence,
+      task: this.state.task,
       failure_reason: reason !== 'task_complete' ? reason : null,
       failed_tools: this.state.recentFailures.map(f => f.tool),
       repetitive_actions: this.state.repetitiveActionDetected,
       error_count: this.state.errors,
+      // [T310] Phase 4: Recovery tracking
       recovery_attempts: recoveryAttempts,
       error_patterns: errorPatterns,
+    });
+
+    // [Phase 5 Option A] Record episode to episodic memory for semantic search
+    await this.episodicMemory.recordEpisode({
+      task: this.state.task,
+      task_type: taskType,
+      completed: reason === 'task_complete',
+      iterations: this.state.iteration,
+      tools_used: toolsUsed,
+      strategy: this.generateStrategyDescription(),
       history: this.state.history,
       artifacts: this.state.artifacts,
       summary,
+      confidence: this.state.confidence,
+      failure_reason: reason !== 'task_complete' ? reason : null,
+      error_count: this.state.errors,
+      // [T310] Phase 4: Error recovery patterns
+      error_recoveries: recoveryAttempts,
+      error_categories_encountered: errorPatterns,
     });
 
     await contextLogEvents.emit({
@@ -3332,8 +3483,40 @@ Use these learnings to inform your approach.
    * @returns {string}
    */
   generateSummary(reason) {
-    // [Refactored] Delegate to Reflector module
-    return this.reflectorModule.generateSummary(this.state, reason);
+    const lastReflection = this.state.reflections[this.state.reflections.length - 1];
+
+    let summary = `# Autonomous Session Summary\n\n`;
+    summary += `**Task**: ${this.state.task}\n`;
+    summary += `**Status**: ${reason}\n`;
+    summary += `**Iterations**: ${this.state.iteration} / ${this.maxIterations}\n`;
+    summary += `**Progress**: ${this.state.lastProgressPercent}%\n`;
+    summary += `**Confidence**: ${(this.state.confidence * 100).toFixed(0)}%\n\n`;
+
+    if (this.state.artifacts.length > 0) {
+      summary += `## Artifacts Created (${this.state.artifacts.length})\n`;
+      this.state.artifacts.forEach(a => {
+        summary += `- ${a.type}: ${a.path}\n`;
+      });
+      summary += '\n';
+    }
+
+    if (this.state.history.length > 0) {
+      summary += `## Actions Taken\n`;
+      this.state.history.slice(-5).forEach(h => {
+        summary += `**Iteration ${h.iteration}**: ${h.action}\n`;
+        if (h.tools_used) {
+          summary += `  Tools: ${h.tools_used.join(', ')}\n`;
+        }
+      });
+      summary += '\n';
+    }
+
+    if (lastReflection) {
+      summary += `## Final Assessment\n`;
+      summary += lastReflection.reasoning + '\n';
+    }
+
+    return summary;
   }
 
   /**
@@ -3343,8 +3526,20 @@ Use these learnings to inform your approach.
    * @returns {AutonomousResult}
    */
   buildResult(reason) {
-    // [Refactored] Delegate to Reflector module
-    return this.reflectorModule.buildResult(this.state, reason);
+    return {
+      completed: reason === 'task_complete',
+      reason,
+      iterations: this.state.iteration,
+      confidence: this.state.confidence,
+      history: this.state.history,
+      artifacts: this.state.artifacts,
+      summary: this.generateSummary(reason),
+      state: {
+        progress_percent: this.state.lastProgressPercent,
+        errors: this.state.errors,
+        reflections: this.state.reflections,
+      },
+    };
   }
 
   /**
@@ -3397,14 +3592,40 @@ Use these learnings to inform your approach.
    * @returns {Promise<string>} Path to checkpoint file
    */
   async saveCheckpoint(checkpointId = null) {
-    // [Refactored] Delegate to MemoryManager
-    const config = {
-      maxIterations: this.maxIterations,
-      checkpointInterval: this.checkpointInterval,
-      errorThreshold: this.errorThreshold,
-      model: this.model,
+    const id = checkpointId || this.sessionId;
+    const checkpointPath = path.join(this.playgroundRoot, `.checkpoint_${id}.json`);
+
+    const checkpoint = {
+      version: '1.0',
+      sessionId: this.sessionId,
+      timestamp: new Date().toISOString(),
+      task: this.state.task,
+      state: {
+        iteration: this.state.iteration,
+        errors: this.state.errors,
+        noProgressCount: this.state.noProgressCount,
+        lastProgressPercent: this.state.lastProgressPercent,
+        confidence: this.state.confidence,
+        taskComplete: this.state.taskComplete,
+        history: this.state.history,
+        artifacts: this.state.artifacts,
+        reflections: this.state.reflections,
+        actionHistory: this.state.actionHistory,
+        recentFailures: this.state.recentFailures,
+        repetitiveActionDetected: this.state.repetitiveActionDetected,
+      },
+      config: {
+        maxIterations: this.maxIterations,
+        checkpointInterval: this.checkpointInterval,
+        errorThreshold: this.errorThreshold,
+        model: this.model,
+      },
     };
-    return await this.memoryManager.saveCheckpoint(this.sessionId, this.state, config, checkpointId);
+
+    await fs.writeFile(checkpointPath, JSON.stringify(checkpoint, null, 2), 'utf8');
+    console.log(`[AutonomousAgent] Checkpoint saved: ${checkpointPath}`);
+
+    return checkpointPath;
   }
 
   /**
@@ -3415,8 +3636,20 @@ Use these learnings to inform your approach.
    * @returns {Promise<Object>} Loaded checkpoint data
    */
   async loadCheckpoint(checkpointId) {
-    // [Refactored] Delegate to MemoryManager
-    return await this.memoryManager.loadCheckpoint(checkpointId);
+    const checkpointPath = path.join(this.playgroundRoot, `.checkpoint_${checkpointId}.json`);
+
+    try {
+      const content = await fs.readFile(checkpointPath, 'utf8');
+      const checkpoint = JSON.parse(content);
+
+      console.log(`[AutonomousAgent] Checkpoint loaded: ${checkpointPath}`);
+      console.log(`[AutonomousAgent] Resume from iteration ${checkpoint.state.iteration}`);
+
+      return checkpoint;
+    } catch (error) {
+      console.error(`[AutonomousAgent] Failed to load checkpoint:`, error);
+      throw new Error(`Checkpoint not found: ${checkpointId}`);
+    }
   }
 
   /**

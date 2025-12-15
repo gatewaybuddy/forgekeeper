@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Chat } from './components/Chat';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { CleanChatWrapper } from './components/CleanChatWrapper';
 import { PreferencesPanel } from './components/PreferencesPanel';
 import { ThoughtWorldChat } from './components/ThoughtWorldChat';
+import { ConversationSpace } from './components/ConversationSpace/ConversationSpace';
+import { MainLayout } from './components/Layout';
+import { ThoughtWorldSidebar } from './components/ThoughtWorld';
 import { checkHealth } from './lib/health';
+import './styles/design-system.css';
+import './styles/layout.css';
 
 type ToolMetadata = { name: string; description?: string };
 
@@ -135,133 +140,93 @@ function AppContent({
   toolCaps
 }: {
   apiBase: string;
+  setApiBase: (base: string) => void;
   model: string;
-  config: unknown;
-  toolsAvailable: boolean;
-  toolNames: string[];
-  toolMetadata: unknown;
-  toolStorage: unknown;
-  toolCaps: unknown;
+  setModel: (model: string) => void;
+  healthy: boolean | null;
+  checking: boolean;
+  showSettings: boolean;
+  setShowSettings: (show: boolean) => void;
   showPreferences: boolean;
   setShowPreferences: (show: boolean) => void;
+  toolsAvailable: boolean;
+  toolNames: string[];
+  toolMetadata: ToolMetadata[];
+  toolStorage: unknown;
+  toolCaps: unknown;
 }) {
   const location = useLocation();
+  const [showThoughtWorldSidebar, setShowThoughtWorldSidebar] = useState(false);
+  const [thoughtWorldSessionId, setThoughtWorldSessionId] = useState<string | null>(null);
+
   const isThoughtWorld = location.pathname === '/thought-world';
+  const isMainChat = location.pathname === '/';
+  const isConversationSpace = location.pathname === '/conversation';
 
-  return (
-    <div style={{
-      fontFamily:'system-ui,Segoe UI,Roboto,Helvetica,Arial',
-      maxWidth: isThoughtWorld ? '100%' : 960,
-      margin: '0 auto',
-      padding: isThoughtWorld ? 0 : 16,
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      {!isThoughtWorld && (
-        <>
-          <header style={{display:'flex', alignItems:'center', gap:12, marginBottom: 12, flex: '0 0 auto'}}>
-            <h1 style={{margin: 0, fontSize: 20}}>Forgekeeper Chat</h1>
-            <StatusDot healthy={healthy} checking={checking} />
-            <div style={{marginLeft:'auto', display:'flex', gap:8}}>
-              <Link to="/thought-world" style={{textDecoration:'none'}}>
-                <button>🔭 Thought World</button>
-              </Link>
-              <label style={{display:'flex', alignItems:'center', gap:6}}>
-                <span style={{fontSize:12, color:'#555'}}>Model</span>
-                <input value={model} onChange={e=>setModel(e.target.value)} style={{padding:'4px 6px'}} />
-              </label>
-              <button onClick={()=>setShowPreferences(true)} title="User Preferences">⚙️ Preferences</button>
-              <button onClick={()=>setShowSettings((s: boolean)=>!s)}>{showSettings? 'Close' : 'Settings'}</button>
-            </div>
-          </header>
+  // For thought-world page, always show sidebar with full layout
+  // For main chat, sidebar is optional and toggleable
+  const shouldShowSidebar = isThoughtWorld || showThoughtWorldSidebar;
 
-          {showSettings && (
-            <section style={{
-              border:'1px solid #ddd',
-              borderRadius:8,
-              padding:12,
-              marginBottom:12,
-              flex: '0 0 auto',
-              maxHeight: '25vh',
-              overflowY: 'auto'
-            }}>
-              <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                <label style={{display:'flex', alignItems:'center', gap:6}}>
-                  <span style={{fontSize:12, color:'#555'}}>API Base</span>
-                  <input value={apiBase} onChange={e=>setApiBase(e.target.value)} style={{padding:'4px 6px', minWidth:320}} />
-                </label>
-                <small style={{color:'#666'}}>Defaults to proxy: /v1 (Vite dev server → vLLM)</small>
-              </div>
-            </section>
-          )}
-        </>
-      )}
-
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        flex: '1 1 auto',
-        minHeight: 0,
-        overflow: 'hidden'
-      }}>
+  // Clean chat has its own layout, so don't wrap it in MainLayout
+  if (isMainChat) {
+    return (
+      <>
         <Routes>
           <Route path="/" element={
-            <Chat
+            <CleanChatWrapper
               apiBase={apiBase}
               model={model}
-              fill
-              toolsAvailable={toolsAvailable}
-              toolNames={toolNames}
-              toolMetadata={toolMetadata}
-              toolStorage={toolStorage || undefined}
-              repoWrite={toolCaps?.repoWrite}
             />
           } />
-          <Route path="/thought-world" element={<ThoughtWorldChat />} />
         </Routes>
-      </div>
+
+        {/* Preferences Panel Modal */}
+        {showPreferences && (
+          <div className="modal-backdrop" onClick={() => setShowPreferences(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowPreferences(false)}
+                className="modal-close"
+                title="Close"
+              >
+                ✕
+              </button>
+              <PreferencesPanel />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Conversation Space has its own layout
+  if (isConversationSpace) {
+    return (
+      <Routes>
+        <Route path="/conversation" element={<ConversationSpace />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <MainLayout
+      showThoughtWorldSidebar={shouldShowSidebar}
+      onToggleSidebar={isThoughtWorld ? undefined : () => setShowThoughtWorldSidebar(!showThoughtWorldSidebar)}
+      thoughtWorldSidebar={
+        <ThoughtWorldSidebar sessionId={thoughtWorldSessionId} />
+      }
+    >
+      <Routes>
+        <Route path="/thought-world" element={<ThoughtWorldChat />} />
+      </Routes>
 
       {/* Preferences Panel Modal */}
       {showPreferences && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setShowPreferences(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 'min(1200px, 95vw)',
-              maxHeight: '90vh',
-              overflow: 'auto',
-              background: '#fff',
-              borderRadius: 12,
-              position: 'relative',
-            }}
-          >
+        <div className="modal-backdrop" onClick={() => setShowPreferences(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowPreferences(false)}
-              style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                background: 'transparent',
-                border: 'none',
-                fontSize: 24,
-                cursor: 'pointer',
-                zIndex: 1,
-                color: '#6b7280',
-              }}
+              className="modal-close"
               title="Close"
             >
               ✕
@@ -270,18 +235,7 @@ function AppContent({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatusDot({ healthy, checking }: { healthy: boolean | null, checking: boolean }) {
-  const color = checking ? '#f0ad4e' : healthy ? '#28a745' : '#dc3545';
-  const label = checking ? 'checking' : healthy ? 'healthy' : 'unhealthy';
-  return (
-    <div title={`vLLM status: ${label}`} style={{display:'inline-flex', alignItems:'center', gap:6}}>
-      <span style={{width:10, height:10, borderRadius:10, background: color, display:'inline-block'}} />
-      <span style={{fontSize:12, color:'#555'}}>{label}</span>
-    </div>
+    </MainLayout>
   );
 }
 

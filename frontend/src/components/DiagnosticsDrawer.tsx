@@ -5,6 +5,7 @@ import type {
   ChunkOutlineEvent,
   ChunkWriteEvent,
 } from '../lib/ctxClient';
+import './Drawer.css';
 
 interface DiagnosticsDrawerProps {
   events: CtxEvent[];
@@ -22,31 +23,18 @@ function CollapsibleSection({ title, count, defaultOpen = true, children }: Coll
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div className="collapsible-section">
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 10,
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: 8,
-          fontWeight: 700,
-          color: '#334155',
-          cursor: 'pointer',
-          fontSize: 14,
-        }}
+        className="collapsible-header"
       >
         <span>
           {isOpen ? '▼' : '▶'} {title}
           {count !== undefined && ` (${count})`}
         </span>
       </button>
-      {isOpen && <div style={{ marginTop: 8 }}>{children}</div>}
+      {isOpen && <div className="collapsible-content">{children}</div>}
     </div>
   );
 }
@@ -68,16 +56,7 @@ function CopyButton({ data, label = 'Copy JSON' }: { data: unknown; label?: stri
   return (
     <button
       onClick={handleCopy}
-      style={{
-        padding: '4px 8px',
-        fontSize: 11,
-        background: copied ? '#52c41a' : '#e2e8f0',
-        color: copied ? '#fff' : '#475569',
-        border: 'none',
-        borderRadius: 4,
-        cursor: 'pointer',
-        fontWeight: 600,
-      }}
+      className={`copy-button ${copied ? 'copied' : ''}`}
       title={label}
     >
       {copied ? '✓ Copied' : label}
@@ -90,125 +69,53 @@ function ReviewPassCard({ event }: { event: ReviewCycleEvent }) {
   const { review_pass, quality_score, threshold, accepted, critique, elapsed_ms } = event;
 
   const scoreDiff = quality_score - threshold;
-  const scoreColor = accepted
-    ? '#52c41a' // green - accepted
+  const badgeClass = accepted
+    ? 'accepted'
     : scoreDiff > -0.2
-      ? '#faad14' // yellow - close
-      : '#ff4d4f'; // red - far from threshold
+      ? 'marginal'
+      : 'rejected';
 
   return (
-    <div
-      style={{
-        padding: 12,
-        background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 8,
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>
-            Pass {review_pass}
-          </span>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 20,
-              height: 20,
-              lineHeight: '20px',
-              textAlign: 'center',
-              borderRadius: '50%',
-              background: accepted ? '#52c41a' : '#ff4d4f',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-            title={accepted ? 'Accepted' : 'Rejected'}
-          >
-            {accepted ? '✓' : '✗'}
+    <div className="review-pass-card">
+      <div className="review-pass-header">
+        <div>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Pass {review_pass}</span>
+          <span className={`review-pass-badge ${badgeClass}`}>
+            {accepted ? 'Accepted' : 'Rejected'}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#64748b' }}>
-            {typeof elapsed_ms === 'number' ? `${elapsed_ms}ms` : '-'}
-          </span>
+        <div className="review-metrics">
+          <span>{typeof elapsed_ms === 'number' ? `${elapsed_ms}ms` : '-'}</span>
           <CopyButton data={event} />
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <div>
-          <span style={{ fontSize: 12, color: '#64748b' }}>Score: </span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor }}>
-            {quality_score.toFixed(3)}
-          </span>
-          <span style={{ fontSize: 12, color: '#64748b' }}> / {threshold.toFixed(2)}</span>
-        </div>
+      <div className="review-score-bar">
         <div
-          style={{
-            flex: 1,
-            height: 6,
-            background: '#e2e8f0',
-            borderRadius: 3,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              height: '100%',
-              width: `${Math.min(100, (quality_score / threshold) * 100)}%`,
-              background: scoreColor,
-              transition: 'width 0.3s ease',
-            }}
-          />
-        </div>
+          className={`review-score-fill ${badgeClass}`}
+          style={{ width: `${Math.min(100, (quality_score / threshold) * 100)}%` }}
+        />
+      </div>
+
+      <div className="review-metrics">
+        <span>Score: {quality_score.toFixed(3)} / {threshold.toFixed(2)}</span>
       </div>
 
       {critique && (
         <div>
           <button
             onClick={() => setExpanded(!expanded)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#0369a1',
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-              padding: 0,
-              marginBottom: 4,
-            }}
+            className="toggle-button"
           >
             {expanded ? '▼ Hide Critique' : '▶ Show Critique'}
           </button>
           {expanded && (
-            <div
-              style={{
-                fontSize: 12,
-                color: '#475569',
-                background: '#f8fafc',
-                padding: 8,
-                borderRadius: 4,
-                border: '1px solid #e2e8f0',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
+            <div className="review-critique">
               {critique}
             </div>
           )}
           {!expanded && critique.length > 200 && (
-            <div
-              style={{
-                fontSize: 12,
-                color: '#64748b',
-                fontStyle: 'italic',
-              }}
-            >
+            <div style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--text-tertiary)' }}>
               {critique.substring(0, 200)}...
             </div>
           )}
@@ -222,56 +129,44 @@ function ChunkCard({ event, totalChunks }: { event: ChunkWriteEvent; totalChunks
   const { chunk_index, chunk_label, reasoning_tokens, content_tokens, elapsed_ms } = event;
 
   return (
-    <div
-      style={{
-        padding: 12,
-        background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 8,
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+    <div className="chunk-card">
+      <div className="chunk-header">
         <div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>
-            Chunk {chunk_index + 1}/{totalChunks}
-          </span>
+          <span>Chunk {chunk_index + 1}/{totalChunks}</span>
           {chunk_label && (
-            <span style={{ fontSize: 12, color: '#64748b', marginLeft: 8 }}>
-              {chunk_label}
-            </span>
+            <span className="chunk-description">{chunk_label}</span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#64748b' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-sm)' }}>
+          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>
             {typeof elapsed_ms === 'number' ? `${(elapsed_ms / 1000).toFixed(1)}s` : '-'}
           </span>
           <CopyButton data={event} />
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+      <div style={{ display: 'flex', gap: 'var(--gap-lg)', fontSize: 'var(--font-sm)' }}>
         {typeof reasoning_tokens === 'number' && (
           <div>
-            <span style={{ color: '#64748b' }}>Reasoning: </span>
-            <span style={{ fontWeight: 600, color: '#7c3aed' }}>{reasoning_tokens}</span>
-            <span style={{ color: '#64748b' }}> tokens</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>Reasoning: </span>
+            <span style={{ fontWeight: 600, color: 'var(--accent-purple)' }}>{reasoning_tokens}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}> tokens</span>
           </div>
         )}
         {typeof content_tokens === 'number' && (
           <div>
-            <span style={{ color: '#64748b' }}>Content: </span>
-            <span style={{ fontWeight: 600, color: '#0369a1' }}>{content_tokens}</span>
-            <span style={{ color: '#64748b' }}> tokens</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>Content: </span>
+            <span style={{ fontWeight: 600, color: 'var(--accent-blue)' }}>{content_tokens}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}> tokens</span>
           </div>
         )}
         {typeof reasoning_tokens === 'number' && typeof content_tokens === 'number' && (
           <div>
-            <span style={{ color: '#64748b' }}>Total: </span>
-            <span style={{ fontWeight: 600, color: '#334155' }}>
+            <span style={{ color: 'var(--text-tertiary)' }}>Total: </span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
               {reasoning_tokens + content_tokens}
             </span>
-            <span style={{ color: '#64748b' }}> tokens</span>
+            <span style={{ color: 'var(--text-tertiary)' }}> tokens</span>
           </div>
         )}
       </div>
@@ -385,99 +280,79 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
     <div
       role="dialog"
       aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-      }}
+      className="drawer-overlay"
       onClick={onClose}
     >
       <div
-        style={{
-          width: 'min(900px, 94vw)',
-          background: '#fff',
-          borderRadius: 10,
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-          padding: 16,
-          maxHeight: '80vh',
-          overflow: 'auto',
-        }}
+        className="drawer-container"
+        style={{ width: 'min(900px, 94vw)', maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>Diagnostics — Recent Events</div>
+        <div className="drawer-header">
+          <h2 className="drawer-title">Diagnostics — Recent Events</h2>
           <button
             onClick={onClose}
             aria-label="Close"
             title="Close"
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: 20,
-              cursor: 'pointer',
-              color: '#64748b',
-              padding: 4,
-            }}
+            className="drawer-close-button"
           >
             ✕
           </button>
         </div>
+        <div className="drawer-body">
 
         {/* Tool Executions Section */}
         {hasToolExecutions && (
           <CollapsibleSection title="Tool Executions" count={toolEvents.length} defaultOpen={true}>
-            {loadingTools && <div style={{ fontSize: 12, color: '#64748b' }}>Loading...</div>}
+            {loadingTools && <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Loading...</div>}
             <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-sm)' }}>
                 <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #d9d9d9' }}>
-                    <th style={{ padding: '4px 6px' }}>Tool</th>
-                    <th style={{ padding: '4px 6px' }}>Status</th>
-                    <th style={{ padding: '4px 6px' }}>Time</th>
-                    <th style={{ padding: '4px 6px' }}>Preview</th>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-primary)' }}>
+                    <th style={{ padding: '4px 6px', color: 'var(--text-secondary)' }}>Tool</th>
+                    <th style={{ padding: '4px 6px', color: 'var(--text-secondary)' }}>Status</th>
+                    <th style={{ padding: '4px 6px', color: 'var(--text-secondary)' }}>Time</th>
+                    <th style={{ padding: '4px 6px', color: 'var(--text-secondary)' }}>Preview</th>
                   </tr>
                 </thead>
                 <tbody>
                   {toolEvents.slice(0, 20).map((e, i) => {
                     const isError = e.act === 'tool_execution_error';
                     const isFinish = e.act === 'tool_execution_finish';
-                    const statusColor = isError ? '#ff4d4f' : isFinish ? '#52c41a' : '#faad14';
+                    const statusColor = isError ? 'var(--accent-red)' : isFinish ? 'var(--accent-green)' : 'var(--accent-yellow)';
+                    const statusBg = isError ? 'var(--accent-red-dark)' : isFinish ? 'var(--accent-green-dark)' : 'var(--accent-yellow-dark)';
                     const statusText = isError ? 'error' : isFinish ? 'done' : 'start';
                     const preview = e.result_preview || e.args_preview || (e as { error?: string }).error || '';
                     return (
-                      <tr key={`tool-${i}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                        <td style={{ padding: '4px 6px', fontWeight: 600 }}>{e.name}</td>
+                      <tr key={`tool-${i}`} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+                        <td style={{ padding: '4px 6px', fontWeight: 600, color: 'var(--text-primary)' }}>{e.name}</td>
                         <td style={{ padding: '4px 6px' }}>
                           <span
                             style={{
                               display: 'inline-block',
                               padding: '2px 6px',
-                              borderRadius: 4,
-                              fontSize: 11,
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 'var(--font-xs)',
                               fontWeight: 600,
-                              background: statusColor,
-                              color: '#fff',
+                              background: statusBg,
+                              color: statusColor,
                             }}
                           >
                             {statusText}
                           </span>
                         </td>
-                        <td style={{ padding: '4px 6px', fontSize: 11, color: '#8c8c8c' }}>
+                        <td style={{ padding: '4px 6px', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>
                           {typeof e.elapsed_ms === 'number' ? `${e.elapsed_ms}ms` : '-'}
                         </td>
                         <td
                           style={{
                             padding: '4px 6px',
-                            fontSize: 11,
+                            fontSize: 'var(--font-xs)',
                             maxWidth: 300,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
+                            color: 'var(--text-secondary)',
                           }}
                         >
                           {preview}
@@ -494,7 +369,7 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
         {/* Review History Section */}
         {hasReviewEvents && (
           <CollapsibleSection title="Review History" count={reviewEvents.length} defaultOpen={true}>
-            {loadingReview && <div style={{ fontSize: 12, color: '#64748b' }}>Loading...</div>}
+            {loadingReview && <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Loading...</div>}
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
               {reviewEvents.map((event, idx) => (
                 <ReviewPassCard key={event.id || idx} event={event} />
@@ -506,25 +381,25 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
         {/* Chunk Breakdown Section */}
         {hasChunkEvents && (
           <CollapsibleSection title="Chunk Breakdown" count={chunkEvents.length} defaultOpen={true}>
-            {loadingChunks && <div style={{ fontSize: 12, color: '#64748b' }}>Loading...</div>}
+            {loadingChunks && <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-tertiary)' }}>Loading...</div>}
             {chunkOutline && (
               <div
                 style={{
-                  padding: 12,
-                  background: '#f0f9ff',
-                  border: '1px solid #bae6fd',
-                  borderRadius: 8,
-                  marginBottom: 12,
+                  padding: 'var(--padding-md)',
+                  background: 'var(--accent-blue-dark)',
+                  border: '1px solid var(--accent-blue)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 'var(--gap-md)',
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#0369a1', marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', color: 'var(--accent-blue)', marginBottom: 'var(--gap-xs)' }}>
                   Outline ({chunkOutline.chunk_count} chunks)
                 </div>
-                <div style={{ fontSize: 12, color: '#0c4a6e' }}>
+                <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
                   {chunkOutline.outline.join(' → ')}
                 </div>
                 {typeof chunkOutline.elapsed_ms === 'number' && (
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)', marginTop: 'var(--gap-xs)' }}>
                     Generated in {chunkOutline.elapsed_ms}ms
                   </div>
                 )}
@@ -547,37 +422,37 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
           <CollapsibleSection title="Continuations" count={contCounts.total} defaultOpen={false}>
             <div
               style={{
-                padding: 10,
-                background: '#fffbe6',
-                border: '1px solid #ffe58f',
-                borderRadius: 8,
-                color: '#8c6d1f',
+                padding: 'var(--padding-md)',
+                background: 'var(--accent-yellow-dark)',
+                border: '1px solid var(--accent-yellow)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
               }}
             >
-              <ul style={{ margin: '6px 0 0 16px', padding: 0, fontSize: 12 }}>
+              <ul style={{ margin: 'var(--gap-xs) 0 0 16px', padding: 0, fontSize: 'var(--font-sm)' }}>
                 {events
                   .filter((e) => e.act === 'auto_continue')
                   .map((e, i) => (
-                    <li key={`cont-${i}`}>
+                    <li key={`cont-${i}`} style={{ color: 'var(--text-secondary)' }}>
                       attempt {String(e.attempt || '?')}: {String(e.reason || 'incomplete')}{' '}
                       {typeof e.elapsed_ms === 'number' ? `(${e.elapsed_ms} ms)` : ''}
                     </li>
                   ))}
               </ul>
-              <div style={{ marginTop: 6, fontSize: 12 }}>
+              <div style={{ marginTop: 'var(--gap-xs)', fontSize: 'var(--font-sm)' }}>
                 Counts — total: <b>{contCounts.total}</b> short: <b>{contCounts.short}</b> punct:{' '}
                 <b>{contCounts.punct}</b> fence: <b>{contCounts.fence}</b>
               </div>
-              <div style={{ marginTop: 6 }}>
+              <div style={{ marginTop: 'var(--gap-xs)' }}>
                 <button
                   onClick={copyLast}
                   style={{
                     padding: '4px 8px',
-                    fontSize: 11,
-                    background: '#faad14',
-                    color: '#fff',
+                    fontSize: 'var(--font-xs)',
+                    background: 'var(--accent-yellow)',
+                    color: 'var(--bg-primary)',
                     border: 'none',
-                    borderRadius: 4,
+                    borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer',
                     fontWeight: 600,
                   }}
@@ -594,29 +469,29 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>ts</th>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>actor</th>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>act</th>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>name</th>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>preview</th>
-                  <th style={{ padding: '6px 8px', fontSize: 12, color: '#64748b' }}>ms</th>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-primary)' }}>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>ts</th>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>actor</th>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>act</th>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>name</th>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>preview</th>
+                  <th style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>ms</th>
                 </tr>
               </thead>
               <tbody>
                 {events.map((e, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '6px 8px', fontSize: 12, color: '#334155' }}>
+                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+                    <td style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
                       {e.ts?.replace('T', ' ').replace('Z', 'Z')}
                     </td>
-                    <td style={{ padding: '6px 8px', fontSize: 12, color: '#334155' }}>{e.actor}</td>
-                    <td style={{ padding: '6px 8px', fontSize: 12, color: '#334155' }}>{e.act}</td>
-                    <td style={{ padding: '6px 8px', fontSize: 12, color: '#334155' }}>{e.name || ''}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>{e.actor}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>{e.act}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>{e.name || ''}</td>
                     <td
                       style={{
                         padding: '6px 8px',
-                        fontSize: 12,
-                        color: '#334155',
+                        fontSize: 'var(--font-sm)',
+                        color: 'var(--text-secondary)',
                         maxWidth: 480,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -625,7 +500,7 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
                     >
                       {e.content_preview || e.result_preview || e.args_preview || ''}
                     </td>
-                    <td style={{ padding: '6px 8px', fontSize: 12, color: '#334155' }}>
+                    <td style={{ padding: '6px 8px', fontSize: 'var(--font-sm)', color: 'var(--text-primary)' }}>
                       {typeof e.elapsed_ms === 'number' ? e.elapsed_ms : ''}
                     </td>
                   </tr>
@@ -634,6 +509,7 @@ export default function DiagnosticsDrawer({ events, onClose }: DiagnosticsDrawer
             </table>
           </div>
         </CollapsibleSection>
+        </div>
       </div>
     </div>
   );

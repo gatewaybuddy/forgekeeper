@@ -33,6 +33,8 @@ import { rateLimitMiddleware, getRateLimitMetrics } from './server.ratelimit.mjs
 import * as approval from './server.approval.mjs'; // Phase 8.1: Approval system (T301)
 import * as checkpoint from './server.checkpoint.mjs'; // Phase 8.2: Decision checkpoints (T304)
 import * as feedback from './server.feedback.mjs'; // Phase 8.3: Feedback collection (T307)
+import { initializeConsciousness, setupConsciousnessSubscriptions, shutdownConsciousness, isConsciousnessEnabled } from './server.consciousness.mjs'; // Sprint 8: Consciousness integration
+import { createServer } from 'http'; // For WebSocket support
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +68,14 @@ app.use(compression({
     await setupEnhancedFeatures(app);
   } catch (error) {
     console.error('[Enhanced Features] Failed to initialize:', error);
+  }
+
+  // Initialize Conversation Space (multi-agent system)
+  try {
+    const { initConversationSpace } = await import('./server.conversation-space.mjs');
+    await initConversationSpace(app);
+  } catch (error) {
+    console.error('[Conversation Space] Failed to initialize:', error);
   }
 })();
 
@@ -3665,8 +3675,43 @@ app.use((req, res, next) => {
   res.sendFile(path.join(distDir, 'index.html'));
 });
 
-app.listen(port, () => {
+// Initialize consciousness system (Sprint 8)
+let consciousnessSystem = null;
+if (isConsciousnessEnabled()) {
+  try {
+    consciousnessSystem = await initializeConsciousness(app);
+    console.log('[Server] Consciousness system initialized');
+  } catch (error) {
+    console.error('[Server] Failed to initialize consciousness:', error);
+  }
+}
+
+// Create HTTP server for WebSocket support
+const httpServer = createServer(app);
+
+// Setup WebSocket subscriptions if consciousness is enabled
+if (consciousnessSystem) {
+  setupConsciousnessSubscriptions(httpServer);
+}
+
+httpServer.listen(port, () => {
   console.log(`Forgekeeper UI listening on http://0.0.0.0:${port}`);
+  if (consciousnessSystem) {
+    console.log(`GraphQL Playground: http://localhost:${port}/graphql`);
+  }
+});
+
+// Graceful shutdown handlers (Sprint 8)
+process.on('SIGINT', async () => {
+  console.log('\nShutting down gracefully...');
+  await shutdownConsciousness();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\nShutting down gracefully...');
+  await shutdownConsciousness();
+  process.exit(0);
 });
 
 // Periodic ContextLog cleanup (runs every 24 hours)
