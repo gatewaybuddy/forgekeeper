@@ -30,11 +30,11 @@ Forgekeeper is a modular AI development platform with a **three-layer architectu
 
 **Key Files**:
 - `server.mjs` — Main Express app
-- `server.orchestrator.mjs` — Tool-aware chat loop
-- `server.tools.mjs` — Tool registry and execution
-- `server.harmony.mjs` — Reasoning/final protocol
-- `server.contextlog.mjs` — Event logging
-- `server.finishers.mjs` — Continuation heuristics
+- `server/orchestration/orchestrator.mjs` — Tool-aware chat loop
+- `server/core/tools.mjs` — Tool registry and execution
+- `server/orchestration/harmony.mjs` — Reasoning/final protocol
+- `server/telemetry/contextlog.mjs` — Event logging
+- `server/core/finishers.mjs` — Continuation heuristics
 
 **Endpoints** (92+ total): Core chat (4), autonomous agent (18), tools (15), preferences/memory (9), TGT tasks (27), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog (4 including cleanup & stats), repo ops (2), health/config (6), auth (1).
 
@@ -202,7 +202,14 @@ forgekeeper/
 │   │       ├── tool-handler.mjs    # Tool planning, inference, execution
 │   │       └── reflector.mjs       # Self-evaluation, meta-cognition
 │   ├── server.mjs              # Main server
-│   ├── server.*.mjs            # Modules
+│   ├── server/                 # Server modules (refactored 2025-12-15)
+│   │   ├── orchestration/      # Request flow (8 files)
+│   │   ├── agents/             # Multi-agent system (9 files)
+│   │   ├── conversations/      # Message infrastructure (5 files)
+│   │   ├── collaborative/      # Human-AI collaboration (9 files)
+│   │   ├── telemetry/          # Logging & metrics (5 files)
+│   │   ├── automation/         # Task/PR automation (3 files)
+│   │   └── core/               # Foundational utilities (9 files)
 │   └── package.json
 ├── forgekeeper/                # Python package
 │   ├── __main__.py             # CLI orchestrator (136 lines, refactored 2025-12-15)
