@@ -46,6 +46,11 @@ import { assessRisk } from '../../server/collaborative/risk-assessment.mjs';
 import { createCheckpoint, shouldTriggerCheckpoint } from '../../server/collaborative/checkpoint.mjs';
 import { submitFeedback } from '../../server/collaborative/feedback.mjs';
 
+// Artifact Generation System (Persistent Knowledge Base)
+import { generateSessionArtifact } from '../../server/automation/session-artifacts.mjs';
+import { generateLearningArtifact, generatePatternArtifact } from '../../server/automation/learning-artifacts.mjs';
+import { generateDecisionArtifact, generateDecisionJournal } from '../../server/automation/decision-artifacts.mjs';
+
 /**
  * @typedef {Object} AutonomousConfig
  * @property {Object} llmClient - LLM client for chat
@@ -2957,6 +2962,39 @@ export class AutonomousAgent {
       confidence: this.state.confidence,
       summary,
     });
+
+    // Generate persistent artifacts (knowledge base instead of cache)
+    try {
+      const sessionArtifact = await generateSessionArtifact({
+        sessionId: this.sessionId,
+        task: this.state.task,
+        reason,
+        iterations: this.state.iteration,
+        confidence: this.state.confidence,
+        history: this.state.history,
+        state: this.state,
+        summary,
+      });
+
+      console.log(`[AutonomousAgent] Generated session artifact: ${sessionArtifact.filepath}`);
+
+      // Emit artifact generation event
+      await contextLogEvents.emit({
+        id: ulid(),
+        type: 'artifact_generated',
+        ts: new Date().toISOString(),
+        conv_id: context.convId,
+        turn_id: context.turnId,
+        session_id: this.sessionId,
+        actor: 'system',
+        act: 'artifact_generation',
+        artifact_type: 'session',
+        artifact_id: sessionArtifact.artifactId,
+        filepath: sessionArtifact.filepath,
+      });
+    } catch (err) {
+      console.error('[AutonomousAgent] Failed to generate session artifact:', err.message);
+    }
 
     console.log(`[AutonomousAgent] Session complete: ${reason}`);
     console.log(summary);
