@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  forgekeeper:
+    build: .
+    container_name: forgekeeper-v3
+    restart: unless-stopped
+
+    environment:
+      # Required
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+
+      # Optional - restrict to specific users
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - TELEGRAM_ADMIN_USERS=${TELEGRAM_ADMIN_USERS:-}
+
+      # Loop settings
+      - FK_LOOP_INTERVAL_MS=${FK_LOOP_INTERVAL_MS:-5000}
+      - FK_WORKING_DIR=/workspace
+
+      # Guardrails
+      - FK_GUARDRAILS_ENABLED=${FK_GUARDRAILS_ENABLED:-true}
+      - FK_MAX_CLAUDE_CALLS_PER_HOUR=${FK_MAX_CLAUDE_CALLS_PER_HOUR:-100}
+
+      # Dashboard
+      - FK_DASHBOARD_ENABLED=${FK_DASHBOARD_ENABLED:-1}
+      - FK_DASHBOARD_PORT=3000
+
+    ports:
+      - "${FK_DASHBOARD_PORT:-3000}:3000"
+
+    volumes:
+      # Persistent data (tasks, goals, learnings)
+      - forgekeeper-data:/app/data
+
+      # Your project workspace
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
+
+      # Optional: SSH keys for git operations
+      # - ~/.ssh:/root/.ssh:ro
+
+    # No ports needed - Telegram is the interface
+    # Uncomment if you add a web UI later:
+    # ports:
+    #   - "3000:3000"
+
+volumes:
+  forgekeeper-data:
