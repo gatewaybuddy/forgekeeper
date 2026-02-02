@@ -26,6 +26,25 @@ v3 is a radical simplification. Instead of 85,000+ lines trying to make local in
 
 ## Quick Start
 
+### Option A: Docker (Recommended)
+
+```bash
+cd v3
+cp .env.example .env
+# Edit .env with ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN
+
+# Set your workspace path
+export WORKSPACE_PATH=/path/to/your/projects
+
+# Run
+docker compose up -d
+
+# View logs
+docker compose logs -f
+```
+
+### Option B: Local
+
 ```bash
 # 1. Install dependencies
 cd v3
