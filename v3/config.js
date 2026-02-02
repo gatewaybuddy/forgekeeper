@@ -22,6 +22,12 @@ export const config = {
     adminUsers: (process.env.TELEGRAM_ADMIN_USERS || '').split(',').filter(Boolean),
   },
 
+  // Web dashboard
+  dashboard: {
+    enabled: process.env.FK_DASHBOARD_ENABLED !== '0',
+    port: parseInt(process.env.FK_DASHBOARD_PORT || '3000'),
+  },
+
   // Data storage paths
   paths: {
     data: process.env.FK_DATA_DIR || './data',

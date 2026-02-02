@@ -23,6 +23,13 @@ services:
       - FK_GUARDRAILS_ENABLED=${FK_GUARDRAILS_ENABLED:-true}
       - FK_MAX_CLAUDE_CALLS_PER_HOUR=${FK_MAX_CLAUDE_CALLS_PER_HOUR:-100}
 
+      # Dashboard
+      - FK_DASHBOARD_ENABLED=${FK_DASHBOARD_ENABLED:-1}
+      - FK_DASHBOARD_PORT=3000
+
+    ports:
+      - "${FK_DASHBOARD_PORT:-3000}:3000"
+
     volumes:
       # Persistent data (tasks, goals, learnings)
       - forgekeeper-data:/app/data

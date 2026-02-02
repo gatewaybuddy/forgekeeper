@@ -41,7 +41,16 @@ async function init() {
   console.log(`  - Active goals: ${status.activeGoals}`);
   console.log(`  - Pending approvals: ${status.pendingApprovals}`);
 
+  // Start dashboard if enabled
+  if (config.dashboard.enabled) {
+    const { startDashboard } = await import('./interface/dashboard.js');
+    startDashboard();
+  }
+
   console.log('\n[Ready] Forgekeeper v3 is running.');
+  if (config.dashboard.enabled) {
+    console.log(`  - Dashboard: http://localhost:${config.dashboard.port}`);
+  }
   console.log('  - Start Telegram: npm run telegram');
   console.log('  - Stop: Ctrl+C\n');
 }

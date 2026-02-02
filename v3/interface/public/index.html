@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forgekeeper v3</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-secondary: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .status-badge.running {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--success);
+    }
+
+    .status-badge.stopped {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--danger);
+    }
+
+    .status-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .card-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .card-header .count {
+      background: var(--border);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+
+    .card-content {
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .empty {
+      color: var(--text-muted);
+      text-align: center;
+      padding: 24px;
+      font-size: 14px;
+    }
+
+    .item {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+    }
+
+    .item:last-child {
+      margin-bottom: 0;
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .item-title {
+      font-size: 14px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .item-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .tag.pending { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .tag.active { background: rgba(88, 166, 255, 0.2); color: var(--accent); }
+    .tag.completed { background: rgba(63, 185, 80, 0.2); color: var(--success); }
+    .tag.failed { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+    .tag.proposed { background: rgba(139, 148, 158, 0.2); color: var(--text-muted); }
+
+    .btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--border);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn.success {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .btn.danger {
+      background: transparent;
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .input-group input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-time {
+      color: var(--text-muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .activity-event {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .ws-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .ws-status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .ws-status.connected .dot { background: var(--success); }
+    .ws-status.disconnected .dot { background: var(--danger); }
+
+    @media (max-width: 768px) {
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Forgekeeper v3</h1>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="ws-status disconnected" id="wsStatus">
+          <span class="dot"></span>
+          <span>Disconnected</span>
+        </div>
+        <div class="status-badge stopped" id="loopStatus">
+          <span class="dot"></span>
+          <span>Stopped</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="statPending">0</div>
+        <div class="stat-label">Pending Tasks</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statGoals">0</div>
+        <div class="stat-label">Active Goals</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statApprovals">0</div>
+        <div class="stat-label">Awaiting Approval</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statCompleted">0</div>
+        <div class="stat-label">Completed Today</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Tasks -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Tasks</h2>
+          <span class="count" id="taskCount">0</span>
+        </div>
+        <div class="card-content">
+          <div class="input-group">
+            <input type="text" id="newTask" placeholder="New task description...">
+            <button class="btn primary" onclick="createTask()">Add</button>
+          </div>
+          <div id="taskList">
+            <div class="empty">No tasks</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goals -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Goals</h2>
+          <span class="count" id="goalCount">0</span>
+        </div>
+        <div class="card-content">
+          <div class="input-group">
+            <input type="text" id="newGoal" placeholder="New goal description...">
+            <button class="btn primary" onclick="createGoal()">Add</button>
+          </div>
+          <div id="goalList">
+            <div class="empty">No goals</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Approvals -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Pending Approvals</h2>
+          <span class="count" id="approvalCount">0</span>
+        </div>
+        <div class="card-content">
+          <div id="approvalList">
+            <div class="empty">No pending approvals</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Activity</h2>
+        </div>
+        <div class="card-content">
+          <div id="activityList">
+            <div class="empty">No recent activity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let state = {
+      status: {},
+      tasks: { pending: [], active: [], completed: [], failed: [] },
+      goals: { active: [], proposed: [], completed: [] },
+      approvals: [],
+      activity: []
+    };
+
+    // WebSocket connection
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}`);
+
+      ws.onopen = () => {
+        document.getElementById('wsStatus').className = 'ws-status connected';
+        document.getElementById('wsStatus').querySelector('span:last-child').textContent = 'Connected';
+      };
+
+      ws.onclose = () => {
+        document.getElementById('wsStatus').className = 'ws-status disconnected';
+        document.getElementById('wsStatus').querySelector('span:last-child').textContent = 'Disconnected';
+        setTimeout(connect, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      };
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'init':
+          state = { ...state, ...msg.data };
+          renderAll();
+          break;
+        case 'status':
+          state.status = msg.data;
+          renderStatus();
+          break;
+        case 'tasks':
+          state.tasks = msg.data;
+          renderTasks();
+          break;
+        case 'goals':
+          state.goals = msg.data;
+          renderGoals();
+          break;
+        case 'approvals':
+          state.approvals = msg.data;
+          renderApprovals();
+          break;
+        case 'activity':
+          state.activity.unshift(msg.data);
+          if (state.activity.length > 50) state.activity.pop();
+          renderActivity();
+          break;
+      }
+      renderStats();
+    }
+
+    function renderAll() {
+      renderStatus();
+      renderTasks();
+      renderGoals();
+      renderApprovals();
+      renderActivity();
+      renderStats();
+    }
+
+    function renderStatus() {
+      const el = document.getElementById('loopStatus');
+      if (state.status.running) {
+        el.className = 'status-badge running';
+        el.querySelector('span:last-child').textContent = state.status.currentTask
+          ? `Working: ${state.status.currentTask.slice(0, 20)}...`
+          : 'Running';
+      } else {
+        el.className = 'status-badge stopped';
+        el.querySelector('span:last-child').textContent = 'Stopped';
+      }
+    }
+
+    function renderStats() {
+      document.getElementById('statPending').textContent = state.tasks.pending?.length || 0;
+      document.getElementById('statGoals').textContent = state.goals.active?.length || 0;
+      document.getElementById('statApprovals').textContent = state.approvals?.length || 0;
+      document.getElementById('statCompleted').textContent = state.tasks.completed?.length || 0;
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('taskList');
+      const all = [...(state.tasks.active || []), ...(state.tasks.pending || [])];
+      document.getElementById('taskCount').textContent = all.length;
+
+      if (all.length === 0) {
+        container.innerHTML = '<div class="empty">No tasks</div>';
+        return;
+      }
+
+      container.innerHTML = all.map(task => `
+        <div class="item">
+          <div class="item-header">
+            <div>
+              <div class="item-title">${escapeHtml(task.description)}</div>
+              <div class="item-meta">${task.id} · ${formatTime(task.created)}</div>
+            </div>
+            <span class="tag ${task.status}">${task.status}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderGoals() {
+      const container = document.getElementById('goalList');
+      const all = [...(state.goals.active || []), ...(state.goals.proposed || [])];
+      document.getElementById('goalCount').textContent = all.length;
+
+      if (all.length === 0) {
+        container.innerHTML = '<div class="empty">No goals</div>';
+        return;
+      }
+
+      container.innerHTML = all.map(goal => `
+        <div class="item">
+          <div class="item-header">
+            <div>
+              <div class="item-title">${escapeHtml(goal.description)}</div>
+              <div class="item-meta">${goal.tasks?.length || 0} tasks · ${formatTime(goal.created)}</div>
+            </div>
+            <div class="btn-group">
+              <span class="tag ${goal.status}">${goal.status}</span>
+              ${goal.status === 'proposed' ? `<button class="btn success" onclick="activateGoal('${goal.id}')">Activate</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderApprovals() {
+      const container = document.getElementById('approvalList');
+      document.getElementById('approvalCount').textContent = state.approvals?.length || 0;
+
+      if (!state.approvals?.length) {
+        container.innerHTML = '<div class="empty">No pending approvals</div>';
+        return;
+      }
+
+      container.innerHTML = state.approvals.map(approval => `
+        <div class="item">
+          <div class="item-header">
+            <div>
+              <div class="item-title">${escapeHtml(approval.description)}</div>
+              <div class="item-meta">${approval.reason} · ${formatTime(approval.requested)}</div>
+            </div>
+          </div>
+          <div class="btn-group" style="margin-top: 8px;">
+            <button class="btn success" onclick="resolveApproval('${approval.id}', 'approved')">Approve</button>
+            <button class="btn danger" onclick="resolveApproval('${approval.id}', 'rejected')">Reject</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderActivity() {
+      const container = document.getElementById('activityList');
+
+      if (!state.activity?.length) {
+        container.innerHTML = '<div class="empty">No recent activity</div>';
+        return;
+      }
+
+      container.innerHTML = state.activity.slice(0, 20).map(item => `
+        <div class="activity-item">
+          <span class="activity-time">${formatTime(item.ts)}</span>
+          <span class="activity-event">${item.event}</span>
+          <span>${escapeHtml(JSON.stringify(item.data).slice(0, 50))}</span>
+        </div>
+      `).join('');
+    }
+
+    // Actions
+    async function createTask() {
+      const input = document.getElementById('newTask');
+      const description = input.value.trim();
+      if (!description) return;
+
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description })
+      });
+      input.value = '';
+    }
+
+    async function createGoal() {
+      const input = document.getElementById('newGoal');
+      const description = input.value.trim();
+      if (!description) return;
+
+      await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description })
+      });
+      input.value = '';
+    }
+
+    async function activateGoal(id) {
+      await fetch(`/api/goals/${id}/activate`, { method: 'POST' });
+    }
+
+    async function resolveApproval(id, decision) {
+      await fetch(`/api/approvals/${id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision })
+      });
+    }
+
+    // Helpers
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatTime(ts) {
+      const date = new Date(ts);
+      const now = new Date();
+      const diff = now - date;
+
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+      return date.toLocaleDateString();
+    }
+
+    // Enter key handlers
+    document.getElementById('newTask').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') createTask();
+    });
+    document.getElementById('newGoal').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') createGoal();
+    });
+
+    // Start
+    connect();
+  </script>
+</body>
+</html>
