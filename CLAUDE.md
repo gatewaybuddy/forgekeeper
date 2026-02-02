@@ -1,5 +1,34 @@
 # Forgekeeper Architecture Guide
 
+## Forgekeeper v3 (Recommended)
+
+**Location**: `v3/`
+
+v3 is a radical simplification (~2,000 lines vs 85,000+) that uses Claude Code as the brain instead of local inference. See `v3/README.md` for details.
+
+```
+Telegram/Discord → Task Loop → Claude Code (headless) → JSONL Memory
+```
+
+**Why v3?**
+- Claude Code has real tool usage and strong inference
+- Simple task/goal system with proactive triggers
+- Self-extension via MCP server generation
+- ~20 config options vs 140+
+
+**Quick start:**
+```bash
+cd v3 && npm install && cp .env.example .env
+# Edit .env with TELEGRAM_BOT_TOKEN
+npm start
+```
+
+---
+
+## Forgekeeper v1/v2 (Legacy)
+
+The original architecture below is preserved for reference but is overcomplicated for most use cases.
+
 ## Overview
 
 Forgekeeper is a modular AI development platform with a **three-layer architecture**:
