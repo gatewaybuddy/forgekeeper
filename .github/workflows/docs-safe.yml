@@ -9,7 +9,7 @@ jobs:
     if: startsWith(github.event.pull_request.title, '[docs]')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Check allowed files
@@ -36,7 +36,7 @@ jobs:
           fi
       - name: Frontend unit tests (if tests touched)
         if: contains(github.event.pull_request.title, '[docs]')
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
       - name: Run frontend tests (docs-safe)
