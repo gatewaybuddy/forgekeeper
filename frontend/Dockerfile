@@ -58,6 +58,8 @@ COPY --from=build /app/core ./core
 COPY --from=build /app/graphql ./graphql
 # Copy config directory (M2: review prompts and future configs)
 COPY --from=build /app/config ./config
+# Copy MCP integration modules
+COPY --from=build /app/mcp ./mcp
 
 ENV PORT=3000
 EXPOSE 3000

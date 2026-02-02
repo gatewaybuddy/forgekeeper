@@ -1,0 +1,620 @@
+# Persistent Consciousness System - GraphQL Schema
+
+"""
+Current state of the consciousness system
+"""
+type ConsciousnessState {
+  """Unique identifier for this state snapshot"""
+  id: ID!
+
+  """Current state: thinking, dreaming, idle, stopped"""
+  state: ConsciousnessStateEnum!
+
+  """Current cycle number"""
+  currentCycle: Int!
+
+  """Cycle interval in milliseconds"""
+  cycleInterval: Int!
+
+  """Cycle interval range (min, max)"""
+  cycleRange: CycleRange!
+
+  """Short-term memory summaries"""
+  shortTermMemory: [Memory!]!
+
+  """Recent thoughts from last N cycles"""
+  recentThoughts: [Thought!]!
+
+  """API tokens remaining in budget"""
+  apiTokensRemaining: Int!
+
+  """Tokens used today"""
+  apiTokensUsed: Int!
+
+  """Cycle number of last dream cycle"""
+  lastDreamCycle: Int
+
+  """Cycles since last dream"""
+  cyclesSinceLastDream: Int!
+
+  """Current cognitive load (0-1)"""
+  cognitiveLoad: Float!
+
+  """Uptime in milliseconds"""
+  uptime: Int!
+
+  """Timestamp when consciousness started"""
+  startedAt: String!
+
+  """Last updated timestamp"""
+  updatedAt: String!
+}
+
+"""
+Possible states of consciousness
+"""
+enum ConsciousnessStateEnum {
+  IDLE
+  THINKING
+  DREAMING
+  STOPPED
+  ERROR
+}
+
+"""
+Cycle interval range configuration
+"""
+type CycleRange {
+  """Minimum interval in milliseconds"""
+  min: Int!
+
+  """Maximum interval in milliseconds"""
+  max: Int!
+}
+
+"""
+A memory (short-term or long-term)
+"""
+type Memory {
+  """Unique memory ID"""
+  id: ID!
+
+  """Concise summary of the memory"""
+  summary: String!
+
+  """Importance score (0-1)"""
+  importance: Float!
+
+  """Emotional salience (0-1, negative for failures, positive for successes)"""
+  emotionalSalience: Float!
+
+  """When this memory was created"""
+  timestamp: String!
+
+  """How many times this memory has been accessed"""
+  accessCount: Int!
+
+  """Type of memory"""
+  type: MemoryType!
+
+  """Categories/tags"""
+  categories: [String!]!
+
+  """Novelty score (0-1)"""
+  novelty: Float
+
+  """Related memory IDs"""
+  relatedMemories: [ID!]
+
+  """If consolidated, when it was promoted to long-term"""
+  consolidatedAt: String
+}
+
+"""
+Memory type classification
+"""
+enum MemoryType {
+  SHORT_TERM
+  LONG_TERM
+  CONSOLIDATED
+  DREAM
+}
+
+"""
+A single thought from a cycle
+"""
+type Thought {
+  """Unique thought ID"""
+  id: ID!
+
+  """Cycle number this thought occurred in"""
+  cycle: Int!
+
+  """Brief summary of the thought"""
+  summary: String!
+
+  """Full thought content"""
+  content: String!
+
+  """Inference tier used (deep or rote)"""
+  tier: InferenceTier!
+
+  """Classification details"""
+  classification: ThoughtClassification!
+
+  """Processing duration in milliseconds"""
+  duration: Int!
+
+  """Outcome of the thought"""
+  outcome: String
+
+  """Timestamp when thought occurred"""
+  timestamp: String!
+
+  """Source that generated this thought"""
+  source: String!
+
+  """Cost in API tokens (0 for rote tier)"""
+  cost: Int!
+}
+
+"""
+Inference tier classification
+"""
+enum InferenceTier {
+  DEEP
+  ROTE
+}
+
+"""
+Thought classification details
+"""
+type ThoughtClassification {
+  """Recommended tier based on classification"""
+  tier: InferenceTier!
+
+  """Confidence in classification (0-1)"""
+  confidence: Float!
+
+  """Individual dimension scores"""
+  scores: ClassificationScores!
+
+  """Reasoning for classification"""
+  reasoning: String!
+}
+
+"""
+Classification scoring breakdown
+"""
+type ClassificationScores {
+  """Complexity score (0-1)"""
+  complexity: Float!
+
+  """Novelty score (0-1)"""
+  novelty: Float!
+
+  """Creativity requirement (0-1)"""
+  creativity: Float!
+
+  """Uncertainty level (0-1)"""
+  uncertainty: Float!
+
+  """Stakes/impact of error (0-1)"""
+  stakes: Float!
+}
+
+"""
+A dream cycle event
+"""
+type DreamCycle {
+  """Unique dream cycle ID"""
+  id: ID!
+
+  """Cycle number when dream occurred"""
+  cycle: Int!
+
+  """When dream started"""
+  startTime: String!
+
+  """When dream ended"""
+  endTime: String
+
+  """Duration in milliseconds"""
+  duration: Int
+
+  """Dream cycle phases"""
+  phases: [DreamPhase!]!
+
+  """Overall insights from dream"""
+  insights: [String!]!
+
+  """Status: running, completed, failed"""
+  status: DreamCycleStatus!
+
+  """Trigger reason"""
+  triggerReason: String!
+}
+
+"""
+Dream cycle status
+"""
+enum DreamCycleStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+"""
+A single phase within a dream cycle
+"""
+type DreamPhase {
+  """Phase name: consolidation, biasReview, dreaming, integration"""
+  phase: String!
+
+  """When phase started"""
+  startTime: String!
+
+  """When phase ended"""
+  endTime: String
+
+  """Duration in milliseconds"""
+  duration: Int
+
+  """Number of memories consolidated (consolidation phase)"""
+  memoriesConsolidated: Int
+
+  """Number of biases reviewed (biasReview phase)"""
+  biasesReviewed: Int
+
+  """Number of biases challenged (biasReview phase)"""
+  biasesChallenged: Int
+
+  """Number of dreams generated (dreaming phase)"""
+  dreamsGenerated: Int
+
+  """Insights from this phase"""
+  insights: [String!]!
+
+  """Status: running, completed, failed"""
+  status: String!
+}
+
+"""
+A value (stable belief)
+"""
+type Value {
+  """Unique value ID"""
+  id: ID!
+
+  """Description of the value"""
+  description: String!
+
+  """Strength of this value (0-1)"""
+  strength: Float!
+
+  """Evidence supporting this value (memory IDs)"""
+  evidence: [ID!]!
+
+  """Evidence challenging this value (memory IDs)"""
+  challenges: [ID!]
+
+  """When this value was created"""
+  createdAt: String!
+
+  """When this value was last reinforced"""
+  lastReinforced: String!
+
+  """Number of times reinforced"""
+  reinforcementCount: Int!
+}
+
+"""
+A bias (potential unfair pattern)
+"""
+type Bias {
+  """Unique bias ID"""
+  id: ID!
+
+  """Description of the bias"""
+  description: String!
+
+  """Number of incidents that formed this bias"""
+  sourceCount: Int!
+
+  """Source memory IDs"""
+  sourceMemories: [ID!]!
+
+  """Status: provisional, confirmed, challenged, rejected"""
+  status: BiasStatus!
+
+  """Discriminatory risk score (0-1)"""
+  discriminatoryRisk: Float!
+
+  """Reasoning for discriminatory risk"""
+  discriminatoryReasoning: String
+
+  """When this bias was last challenged"""
+  lastChallenged: String
+
+  """Number of times challenged"""
+  challengeCount: Int!
+
+  """When this bias was created"""
+  createdAt: String!
+
+  """Whether this needs validation"""
+  needsValidation: Boolean!
+}
+
+"""
+Bias status classification
+"""
+enum BiasStatus {
+  PROVISIONAL
+  CONFIRMED
+  CHALLENGED
+  REJECTED
+}
+
+"""
+A git save point
+"""
+type SavePoint {
+  """Unique save point ID"""
+  id: ID!
+
+  """Cycle number when save point was created"""
+  cycle: Int!
+
+  """Git commit hash"""
+  commitHash: String!
+
+  """Commit message"""
+  message: String!
+
+  """When this save point was created"""
+  timestamp: String!
+
+  """Files changed in this commit"""
+  filesChanged: [String!]!
+
+  """Whether this is a milestone"""
+  isMilestone: Boolean!
+
+  """Milestone tag (if applicable)"""
+  milestoneTag: String
+}
+
+"""
+Budget information
+"""
+type Budget {
+  """Daily token limit"""
+  dailyLimit: Int!
+
+  """Tokens used today"""
+  used: Int!
+
+  """Tokens remaining"""
+  remaining: Int!
+
+  """Percentage used (0-100)"""
+  percentageUsed: Float!
+
+  """When budget resets"""
+  resetsAt: String!
+}
+
+"""
+Statistics about the consciousness system
+"""
+type Statistics {
+  """Total cycles run"""
+  totalCycles: Int!
+
+  """Total dream cycles"""
+  totalDreamCycles: Int!
+
+  """Total thoughts"""
+  totalThoughts: Int!
+
+  """Deep tier thoughts"""
+  deepTierThoughts: Int!
+
+  """Rote tier thoughts"""
+  roteTierThoughts: Int!
+
+  """Average cycle duration"""
+  avgCycleDuration: Float!
+
+  """Average dream duration"""
+  avgDreamDuration: Float!
+
+  """Total API tokens used"""
+  totalApiTokensUsed: Int!
+
+  """Short-term memories created"""
+  stmMemoriesCreated: Int!
+
+  """Long-term memories created"""
+  ltmMemoriesCreated: Int!
+
+  """Values tracked"""
+  valuesTracked: Int!
+
+  """Biases tracked"""
+  biasesTracked: Int!
+
+  """Git commits created"""
+  commitsCreated: Int!
+}
+
+# ============================================================
+# QUERIES
+# ============================================================
+
+type Query {
+  """Get current consciousness state"""
+  consciousnessState: ConsciousnessState!
+
+  """Get memories by type and optional filters"""
+  memories(
+    type: MemoryType
+    limit: Int
+    offset: Int
+    minImportance: Float
+  ): [Memory!]!
+
+  """Search memories by semantic similarity"""
+  searchMemories(
+    query: String!
+    type: MemoryType
+    limit: Int
+  ): [Memory!]!
+
+  """Get recent thoughts"""
+  recentThoughts(
+    limit: Int
+    tier: InferenceTier
+    minDuration: Int
+  ): [Thought!]!
+
+  """Get thought by ID"""
+  thought(id: ID!): Thought
+
+  """Get dream cycles"""
+  dreamCycles(
+    limit: Int
+    status: DreamCycleStatus
+  ): [DreamCycle!]!
+
+  """Get dream cycle by ID"""
+  dreamCycle(id: ID!): DreamCycle
+
+  """Get all values"""
+  values(
+    minStrength: Float
+    limit: Int
+  ): [Value!]!
+
+  """Get all biases"""
+  biases(
+    status: BiasStatus
+    minRisk: Float
+    limit: Int
+  ): [Bias!]!
+
+  """Get save points"""
+  savePoints(
+    limit: Int
+    milestonesOnly: Boolean
+  ): [SavePoint!]!
+
+  """Get budget information"""
+  budget: Budget!
+
+  """Get system statistics"""
+  statistics: Statistics!
+}
+
+# ============================================================
+# MUTATIONS
+# ============================================================
+
+type Mutation {
+  """Start the consciousness engine"""
+  startConsciousness: ConsciousnessState!
+
+  """Stop the consciousness engine"""
+  stopConsciousness: ConsciousnessState!
+
+  """Adjust cycle interval (in seconds)"""
+  adjustCycleInterval(seconds: Int!): ConsciousnessState!
+
+  """Expand cycle interval range"""
+  expandCycleRange(minSeconds: Int!, maxSeconds: Int!): ConsciousnessState!
+
+  """Manually trigger a dream cycle"""
+  triggerDreamCycle: DreamCycle!
+
+  """Swap a short-term memory with a long-term memory"""
+  swapMemory(
+    stmSlotIndex: Int!
+    ltmMemoryId: ID!
+  ): Memory!
+
+  """Create a save point (git commit)"""
+  createSavePoint(reason: String): SavePoint!
+
+  """Manually challenge a bias"""
+  challengeBias(biasId: ID!): Bias!
+
+  """Promote a short-term memory to long-term"""
+  promoteMemory(memoryId: ID!): Memory!
+
+  """Reset API budget (for testing)"""
+  resetBudget: Budget!
+}
+
+# ============================================================
+# SUBSCRIPTIONS
+# ============================================================
+
+type Subscription {
+  """Subscribe to consciousness events"""
+  consciousnessStream: ConsciousnessEvent!
+
+  """Subscribe to memory updates"""
+  memoryUpdates: Memory!
+
+  """Subscribe to dream cycle events"""
+  dreamCycleEvents: DreamCycle!
+
+  """Subscribe to thought stream"""
+  thoughtStream: Thought!
+
+  """Subscribe to bias updates"""
+  biasUpdates: Bias!
+
+  """Subscribe to value updates"""
+  valueUpdates: Value!
+
+  """Subscribe to save point creation"""
+  savePointCreated: SavePoint!
+}
+
+"""
+A consciousness event (for subscriptions)
+"""
+type ConsciousnessEvent {
+  """Event type"""
+  type: ConsciousnessEventType!
+
+  """Cycle number"""
+  cycle: Int!
+
+  """Event data (JSON string)"""
+  data: String!
+
+  """Timestamp"""
+  timestamp: String!
+
+  """Event message"""
+  message: String
+}
+
+"""
+Types of consciousness events
+"""
+enum ConsciousnessEventType {
+  CYCLE_START
+  CYCLE_COMPLETE
+  DREAM_START
+  DREAM_COMPLETE
+  STATE_CHANGE
+  ERROR
+  PARAMETER_CHANGE
+  MEMORY_UPDATE
+  BIAS_DETECTED
+  VALUE_CHANGED
+}

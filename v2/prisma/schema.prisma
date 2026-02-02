@@ -1,0 +1,124 @@
+// Forgekeeper v2 Database Schema
+// Supports SQLite (dev) and PostgreSQL (prod)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core session with workspace state
+model Session {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Workspace state (JSON serialized as string)
+  workspace String
+
+  // Configuration (JSON serialized as string)
+  config    String
+
+  // Status tracking
+  status    String   @default("active") // active, completed, failed
+
+  // Relationships
+  messages  Message[]
+  events    Event[]
+  metrics   MetricSnapshot[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Chat messages with token tracking
+model Message {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Message content
+  role      String   // user, assistant, system
+  content   String
+
+  // Source tracking
+  source    String?  // agent name (forge, loom, anvil, scout) or "user"
+
+  // Token counts
+  promptTokens     Int @default(0)
+  completionTokens Int @default(0)
+  totalTokens      Int @default(0)
+
+  // Cost tracking (USD)
+  cost      Float    @default(0.0)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// Workspace events and agent activity
+model Event {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Event classification
+  type      String   // workspace_update, agent_proposal, scout_challenge
+
+  // Event data (JSON serialized as string)
+  data      String
+
+  // Actor tracking
+  actor     String?  // agent name or "system"
+
+  // Iteration context
+  iteration Int?
+
+  @@index([sessionId, type])
+  @@index([createdAt])
+  @@index([iteration])
+}
+
+// GWT consciousness metrics snapshots
+model MetricSnapshot {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Integration score (0-100)
+  integrationScore Float
+
+  // Agent participation (JSON serialized as string)
+  agentParticipation String // {forge: count, loom: count, anvil: count, scout: count}
+
+  // Challenge/response activity
+  challengesIssued     Int @default(0)
+  responsesReceived    Int @default(0)
+  limitationsOverturned Int @default(0)
+
+  // Workspace metrics
+  tokenUsage           Int @default(0)
+  hypothesesCount      Int @default(0)
+  decisionsCount       Int @default(0)
+
+  // Performance
+  iterationCount       Int @default(0)
+  avgIterationDuration Float @default(0.0)
+
+  // Scout effectiveness
+  scoutChallenges      Int @default(0)
+  attemptsCatalyzed    Int @default(0)
+  successfulAttempts   Int @default(0)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}

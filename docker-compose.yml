@@ -90,10 +90,11 @@ services:
       - ./.forgekeeper/chromadb:/chroma/chroma
     networks: [forgekeeper-net]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s
 
   frontend:
     image: forgekeeper-frontend

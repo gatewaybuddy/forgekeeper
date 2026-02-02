@@ -9,11 +9,11 @@ from typing import Iterable, Optional
 from git import Repo
 
 from forgekeeper.config import AUTO_PUSH, DEBUG_MODE, RUN_COMMIT_CHECKS
-from forgekeeper.git import sandbox_checks
 from forgekeeper.memory.episodic import append_entry
 from . import checks as git_checks
 from . import commit_ops
 from . import pre_review
+from . import sandbox
 
 LOG = logging.getLogger("forgekeeper.core.git.committer")
 
@@ -37,15 +37,23 @@ def _commit_and_push_impl(
         return review_result
 
     files = review_result.get("files", [])
-    sandbox_result = sandbox_checks._run_sandbox_checks(
-        files,
-        commit_message,
-        task_id,
-        run_checks,
-        review_result["pre_review"],
-        review_result["diff_validation"],
-    )
+    # Run sandbox checks (inlined from legacy wrapper)
+    sandbox_result = sandbox.run_sandbox_checks(files, task_id=task_id, run_checks=run_checks)
+    sandbox_result.setdefault("files", files)
+    sandbox_result.setdefault("pre_review", review_result["pre_review"])
+    sandbox_result.setdefault("diff_validation", review_result["diff_validation"])
+
     if not sandbox_result.get("passed", False):
+        LOG.error("Sandbox checks failed; aborting commit")
+        append_entry(
+            task_id,
+            commit_message,
+            "sandbox-failed",
+            files,
+            "Sandbox checks failed",
+            [sandbox_result.get("artifacts_path")] if sandbox_result.get("artifacts_path") else [],
+        )
+        sandbox_result["aborted"] = True
         return sandbox_result
 
     check_result = {
@@ -143,9 +151,14 @@ def commit_and_push_changes(
         },
     }
 
-    from forgekeeper.git import outbox as git_outbox
+    # Run with outbox if enabled (inlined from legacy wrapper)
+    from forgekeeper.config import ENABLE_OUTBOX
+    from forgekeeper.outbox import pending_action
 
-    return git_outbox.run_with_outbox(action, _commit_and_push_impl, **action["kwargs"])
+    if ENABLE_OUTBOX:
+        with pending_action(action):
+            return _commit_and_push_impl(**action["kwargs"])
+    return _commit_and_push_impl(**action["kwargs"])
 
 
 __all__ = ["commit_and_push_changes"]

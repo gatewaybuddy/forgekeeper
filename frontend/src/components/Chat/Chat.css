@@ -1,0 +1,284 @@
+/**
+ * Chat Component Styles
+ * Specific styles for the main Chat component that aren't covered by layout.css
+ */
+
+/* Chat main container override for 'fill' prop */
+.chat-main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chat-main-wrapper.fill {
+  height: 100%;
+}
+
+/* Hamburger menu */
+.chat-hamburger-menu {
+  position: fixed;
+  top: var(--gap-md);
+  right: var(--gap-md);
+  z-index: var(--z-fixed);
+  display: flex;
+  gap: var(--gap-sm);
+}
+
+/* Tool status badge */
+.tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-xs);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.tool-status.success {
+  background: var(--accent-green-dark);
+  color: var(--accent-green);
+}
+
+.tool-status.error {
+  background: var(--accent-red-dark);
+  color: var(--accent-red);
+}
+
+.tool-status.pending {
+  background: var(--accent-blue-dark);
+  color: var(--accent-blue);
+}
+
+/* Continuation notice */
+.continuation-notice {
+  background: var(--accent-yellow-dark);
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-md);
+  padding: var(--padding-md);
+  margin: var(--gap-md) 0;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+.continuation-notice-header {
+  font-weight: var(--font-semibold);
+  color: var(--accent-yellow);
+  margin-bottom: var(--gap-xs);
+}
+
+/* Compaction notice */
+.compaction-notice {
+  background: var(--accent-blue-dark);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  padding: var(--padding-md);
+  margin: var(--gap-md) 0;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  gap: var(--gap-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--padding-xs);
+}
+
+.mode-toggle-button {
+  padding: var(--padding-sm) var(--padding-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-toggle-button.active {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.mode-toggle-button:hover:not(.active) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Progress indicator */
+.progress-indicator {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--padding-md);
+  margin: var(--gap-md) 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: var(--gap-sm);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  transition: width var(--transition-base);
+}
+
+/* Modal/drawer overlays (matching existing structure) */
+.chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+}
+
+.chat-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--padding-xl);
+  max-width: min(720px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-xl);
+}
+
+.chat-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--gap-md);
+  padding-bottom: var(--gap-md);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.chat-modal-title {
+  font-size: var(--font-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-bright);
+}
+
+/* Tool debugging section */
+.tool-debug-section {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--padding-md);
+  margin-top: var(--gap-md);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-sm);
+}
+
+.tool-debug-header {
+  font-weight: var(--font-semibold);
+  color: var(--text-bright);
+  margin-bottom: var(--gap-sm);
+}
+
+/* Repo editor section */
+.repo-editor {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--padding-lg);
+  margin-top: var(--gap-md);
+}
+
+.repo-editor-header {
+  font-weight: var(--font-semibold);
+  color: var(--text-bright);
+  margin-bottom: var(--gap-md);
+}
+
+.repo-editor-controls {
+  display: flex;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-md);
+  flex-wrap: wrap;
+}
+
+.repo-editor-textarea {
+  width: 100%;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-sm);
+  padding: var(--padding-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 200px;
+}
+
+.repo-editor-status {
+  font-size: var(--font-xs);
+  color: var(--accent-yellow);
+  margin-top: var(--gap-xs);
+}
+
+/* Rebuild helper section */
+.rebuild-helper {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--padding-md);
+  margin-top: var(--gap-md);
+}
+
+.rebuild-helper-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-bright);
+  margin-bottom: var(--gap-sm);
+}
+
+.rebuild-helper-code {
+  background: var(--bg-primary);
+  padding: var(--padding-md);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: var(--gap-sm) 0;
+}
+
+/* Quick suggestion buttons */
+.suggestion-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sm);
+  margin: var(--gap-md) 0;
+}
+
+.suggestion-button {
+  font-size: var(--font-xs);
+  padding: 4px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.suggestion-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-bright);
+}

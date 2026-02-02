@@ -1,0 +1,56 @@
+services:
+  # Ollama - Local LLM inference for Forgekeeper v2
+  forgekeeper-ollama:
+    image: ollama/ollama:latest
+    container_name: forgekeeper-ollama
+    ports:
+      - "11435:11434"  # Different port from night-arch (11434)
+    volumes:
+      - forgekeeper-ollama-data:/root/.ollama
+      - ./models:/models
+    networks:
+      - forgekeeper-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL - Production database (optional, can use SQLite)
+  forgekeeper-postgres:
+    image: postgres:15-alpine
+    container_name: forgekeeper-postgres
+    environment:
+      POSTGRES_USER: forgekeeper
+      POSTGRES_PASSWORD: forgekeeper_dev
+      POSTGRES_DB: forgekeeper_v2
+    ports:
+      - "5434:5432"  # Different from night-arch (5433)
+    volumes:
+      - forgekeeper-postgres-data:/var/lib/postgresql/data
+    networks:
+      - forgekeeper-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgekeeper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  forgekeeper-ollama-data:
+    name: forgekeeper-ollama-data
+  forgekeeper-postgres-data:
+    name: forgekeeper-postgres-data
+
+networks:
+  forgekeeper-net:
+    name: forgekeeper-net
+    driver: bridge

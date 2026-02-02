@@ -27,6 +27,19 @@ SESSION_SUMMARY_*.md
 *_DIAGNOSTIC.md
 *_PLAN.md
 
+# Additional working file patterns (added 2025-12-15)
+ACTION_PLAN_*.md
+CODE_REVIEW_*.md
+NEXT_SESSION_*.md
+STARTUP_FIX_*.md
+*_REDESIGN_*.md
+*_PROGRESS.md
+*_FIX_*.md
+*_SUMMARY.md
+*.implementation-status.json
+TEST_RESULTS_*.md
+INTEGRATION_TEST_*.md
+
 # Alternative .env files (keep .env.example only)
 .env.*
 !.env.example
