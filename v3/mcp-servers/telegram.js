@@ -169,12 +169,22 @@ bot.command('reject', async (ctx) => {
   ctx.reply(response.success ? `❌ Rejected: ${id}` : `❌ Failed: ${response.error}`);
 });
 
+// Helper to set reaction on a message
+async function react(ctx, emoji) {
+  try {
+    await ctx.react(emoji);
+  } catch (e) {
+    // Reactions may not be supported in all chats
+  }
+}
+
 // Handle regular messages
 bot.on('text', async (ctx) => {
   if (!isAllowed(ctx)) return;
 
   const text = ctx.message.text;
   const userId = ctx.from.id;
+  const messageId = ctx.message.message_id;
 
   // Check if this is a response to a pending request
   const pending = pendingRequests.find(r => r.userId === userId && r.status === 'waiting');
@@ -183,24 +193,53 @@ bot.on('text', async (ctx) => {
     pending.status = 'responded';
     savePendingRequests();
 
-    // Resolve the handler if waiting
     const handler = messageHandlers.get(pending.id);
     if (handler) {
       handler.resolve(text);
       messageHandlers.delete(pending.id);
     }
 
-    ctx.reply('Got it! Processing...');
+    await react(ctx, '👍');
     return;
   }
 
-  // Otherwise, treat as a chat message / task
-  ctx.reply('Processing your message...');
+  // Acknowledge with a reaction instead of a message
+  await react(ctx, '👀');
 
-  const response = await mcpCall('chat', { message: text, userId });
+  // Set up progress updates for long-running operations
+  let progressInterval;
+  let progressCount = 0;
+  const startTime = Date.now();
 
-  if (response.reply) {
-    ctx.reply(response.reply);
+  progressInterval = setInterval(async () => {
+    progressCount++;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    if (elapsed >= 60) {
+      // Only send updates after 1 minute
+      try {
+        await ctx.reply(`⏳ Still working... (${elapsed}s)`, { reply_to_message_id: messageId });
+      } catch (e) {}
+    }
+  }, 60000); // Check every minute
+
+  try {
+    const response = await mcpCall('chat', { message: text, userId });
+    clearInterval(progressInterval);
+
+    if (response.error) {
+      await react(ctx, '❌');
+      ctx.reply(`⚠️ Error: ${response.error}`);
+    } else if (response.reply) {
+      await react(ctx, '✅');
+      ctx.reply(response.reply);
+    } else {
+      await react(ctx, '❓');
+      ctx.reply("I processed your message but didn't get a response.");
+    }
+  } catch (error) {
+    clearInterval(progressInterval);
+    await react(ctx, '❌');
+    ctx.reply(`⚠️ Something went wrong: ${error.message || 'Unknown error'}`);
   }
 });
 
@@ -216,13 +255,13 @@ function mcpCall(method, params) {
     const request = { id, method, params };
     console.log(JSON.stringify(request));
 
-    // Timeout after 30 seconds
+    // Timeout after 5 minutes (matches Claude timeout)
     setTimeout(() => {
       if (mcpRequests.has(id)) {
         mcpRequests.delete(id);
-        resolve({ error: 'Request timed out' });
+        resolve({ error: 'Request timed out after 5 minutes' });
       }
-    }, 30000);
+    }, 300000);
   });
 }
 

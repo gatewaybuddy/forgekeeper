@@ -30,11 +30,9 @@ export async function execute(task, options = {}) {
     throw new Error(`Rate limit exceeded: ${config.guardrails.maxClaudeCallsPerHour} calls/hour`);
   }
 
-  // Build the prompt
-  const prompt = buildPrompt(task, options);
-
-  // Check guardrails before execution
-  const guardrailCheck = checkGuardrails(prompt);
+  // Check guardrails on task description only (not the full prompt with system text)
+  const taskText = task.description || (typeof task === 'string' ? task : '');
+  const guardrailCheck = checkGuardrails(taskText);
   if (!guardrailCheck.allowed) {
     return {
       success: false,
@@ -42,6 +40,9 @@ export async function execute(task, options = {}) {
       guardrailViolation: true,
     };
   }
+
+  // Build the prompt after guardrail check passes
+  const prompt = buildPrompt(task, options);
 
   recordCall();
 
@@ -227,7 +228,7 @@ function runClaudeCommand(message, options = {}) {
       .replace(/\n/g, ' ')
       .replace(/"/g, '`"')  // PowerShell escape for double quotes
       .replace(/'/g, "''")  // PowerShell escape for single quotes
-      .slice(0, 2000);
+      .slice(0, 4000); // Allow longer prompts
 
     // Use PowerShell on Windows
     const isWindows = process.platform === 'win32';
@@ -263,13 +264,15 @@ function runClaudeCommand(message, options = {}) {
     let stderr = '';
     let settled = false;
 
+    // Longer timeout for complex operations (3 minutes)
+    const timeoutMs = options.timeout || 180000;
     const timeout = setTimeout(() => {
       if (!settled) {
         settled = true;
         proc.kill();
-        resolve({ success: false, output: '', error: 'Query timed out after 60s' });
+        resolve({ success: false, output: '', error: `Query timed out after ${timeoutMs/1000}s` });
       }
-    }, 60000);
+    }, timeoutMs);
 
     proc.stdout.on('data', (data) => { stdout += data.toString(); });
     proc.stderr.on('data', (data) => { stderr += data.toString(); });

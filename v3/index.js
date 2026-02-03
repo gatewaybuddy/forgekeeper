@@ -245,20 +245,22 @@ async function handleTelegramRequest(request) {
 
         if (!result.success) {
           console.error('[Chat] Claude error:', result.error);
+          const errorMsg = result.error || 'Unknown error';
+          conversations.append(userId, { role: 'assistant', content: `Error: ${errorMsg}` });
+          return { error: errorMsg };
         }
 
-        const reply = result.success && result.output.trim()
-          ? result.output.trim()
-          : "I'm having trouble responding right now. Try again or use /task to create a task.";
+        if (!result.output?.trim()) {
+          return { error: 'Empty response from Claude' };
+        }
 
+        const reply = result.output.trim();
         conversations.append(userId, { role: 'assistant', content: reply });
         return { reply };
 
       } catch (error) {
         console.error('[Chat] Exception:', error.message);
-        const reply = "Sorry, I encountered an error. Try using /task to create a task instead.";
-        conversations.append(userId, { role: 'assistant', content: reply });
-        return { reply };
+        return { error: error.message || 'Unknown exception' };
       }
     }
 
