@@ -26,7 +26,21 @@ v3 is a radical simplification. Instead of 85,000+ lines trying to make local in
 
 ## Quick Start
 
-### Option A: Docker (Recommended)
+### Option A: Setup Wizard (Recommended)
+
+```bash
+cd v3
+npm run setup
+```
+
+The setup wizard will:
+1. Check prerequisites (Node.js 20+, Claude CLI)
+2. Create data directories
+3. Install dependencies
+4. Walk you through configuration
+5. Test the installation
+
+### Option B: Docker
 
 ```bash
 cd v3
@@ -43,20 +57,39 @@ docker compose up -d
 docker compose logs -f
 ```
 
-### Option B: Local
+### Option C: Manual
 
 ```bash
 # 1. Install dependencies
 cd v3
 npm install
 
-# 2. Configure
+# 2. Create data directories
+mkdir -p data/{tasks,goals,learnings,conversations}
+
+# 3. Configure
 cp .env.example .env
 # Edit .env with your Telegram bot token
 
-# 3. Run
+# 4. Run health check
+npm run health
+
+# 5. Start
 npm start
 ```
+
+## Getting Your Telegram Bot Token
+
+1. Open Telegram and message [@BotFather](https://t.me/botfather)
+2. Send `/newbot` and follow the prompts
+3. Copy the API token (looks like `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
+4. Message [@userinfobot](https://t.me/userinfobot) to get your user ID
+5. Add both to your `.env`:
+   ```
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+   TELEGRAM_ALLOWED_USERS=your_user_id
+   TELEGRAM_ADMIN_USERS=your_user_id
+   ```
 
 ## Architecture
 
@@ -125,7 +158,7 @@ See `.env.example` for all options. Key settings:
 ## CLI Usage
 
 ```bash
-# Start the loop
+# Start everything (loop + dashboard + Telegram)
 npm start
 
 # Create a task
@@ -137,9 +170,14 @@ node index.js goal "Implement user settings page"
 # Check status
 node index.js status
 
-# Start Telegram bot (separate terminal)
-npm run telegram
+# Show help
+node index.js help
 ```
+
+When you run `npm start`, Forgekeeper automatically:
+- Starts the task loop (checks every 10 seconds)
+- Starts the web dashboard (http://localhost:3000)
+- Connects to Telegram (if `TELEGRAM_BOT_TOKEN` is set)
 
 ## Security
 
@@ -183,6 +221,38 @@ export default {
 ### Add an Interface
 
 Create an MCP server in `mcp-servers/` that communicates via stdio JSON.
+
+## Testing & Health
+
+```bash
+# Run unit tests
+npm test
+
+# Run health check
+npm run health
+
+# Run setup wizard
+npm run setup
+```
+
+## Troubleshooting
+
+**"Claude CLI not found"**
+- Install Claude Code: https://claude.ai/code
+- Or set `FK_CLAUDE_CMD` to your claude binary path
+
+**"Task timed out"**
+- Increase `FK_CLAUDE_TIMEOUT_MS` (default: 5 minutes)
+- Check if Claude CLI is responsive: `claude --version`
+
+**"Rate limit exceeded"**
+- Wait for the hourly rate limit to reset
+- Or increase `FK_MAX_CALLS_PER_HOUR`
+
+**Telegram bot not responding**
+- Check your `TELEGRAM_BOT_TOKEN` is correct
+- Verify your user ID is in `TELEGRAM_ALLOWED_USERS`
+- Check the console for error messages
 
 ## License
 

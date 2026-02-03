@@ -1,5 +1,9 @@
 // Forgekeeper v3 Configuration
 // All settings in one place, environment-driven
+import dotenv from 'dotenv';
+
+// Load .env file
+dotenv.config({ quiet: true });
 
 export const config = {
   // Core loop
@@ -13,6 +17,7 @@ export const config = {
     command: process.env.FK_CLAUDE_CMD || 'claude',
     timeout: parseInt(process.env.FK_CLAUDE_TIMEOUT_MS || '300000'), // 5 minutes
     maxTokensPerTask: parseInt(process.env.FK_MAX_TOKENS_PER_TASK || '50000'),
+    skipPermissions: process.env.FK_CLAUDE_SKIP_PERMISSIONS === '1',
   },
 
   // Telegram interface

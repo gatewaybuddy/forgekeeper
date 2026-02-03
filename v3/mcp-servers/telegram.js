@@ -46,31 +46,65 @@ function savePendingRequests() {
 // Check if user is allowed
 function isAllowed(ctx) {
   const userId = ctx.from?.id?.toString();
+  const username = ctx.from?.username?.toLowerCase();
+
   if (ALLOWED_USERS.length === 0) return true; // No restrictions
-  return ALLOWED_USERS.includes(userId);
+
+  // Check by user ID or @username
+  return ALLOWED_USERS.some(allowed => {
+    const a = allowed.toLowerCase();
+    return a === userId || a === `@${username}` || a === username;
+  });
 }
 
 function isAdmin(ctx) {
   const userId = ctx.from?.id?.toString();
-  return ADMIN_USERS.includes(userId);
+  const username = ctx.from?.username?.toLowerCase();
+
+  // Check by user ID or @username
+  return ADMIN_USERS.some(allowed => {
+    const a = allowed.toLowerCase();
+    return a === userId || a === `@${username}` || a === username;
+  });
 }
 
 // Bot commands
 bot.command('start', (ctx) => {
+  const userId = ctx.from?.id;
+  const username = ctx.from?.username || 'none';
+
   if (!isAllowed(ctx)) {
-    return ctx.reply('Not authorized. Contact admin for access.');
+    return ctx.reply(
+      `Not authorized.\n\n` +
+      `Your user ID: ${userId}\n` +
+      `Your username: @${username}\n\n` +
+      `Add your ID or @username to TELEGRAM_ALLOWED_USERS in .env`
+    );
   }
   ctx.reply(`Welcome to Forgekeeper v3!
+
+Your user ID: ${userId}
+Your username: @${username}
 
 Commands:
 /task <description> - Create a new task
 /goal <description> - Create a new goal
 /status - Show current status
+/newsession - Start a fresh conversation
 /approve <id> - Approve a pending request
 /reject <id> - Reject a pending request
 /help - Show this help
 
 Just send a message to chat with me.`);
+});
+
+bot.command('newsession', async (ctx) => {
+  if (!isAllowed(ctx)) return;
+
+  const response = await mcpCall('reset_session', { userId: ctx.from.id });
+  ctx.reply(response.success
+    ? '🔄 Started a new conversation session. Previous context cleared.'
+    : '❌ Failed to reset session.');
 });
 
 bot.command('task', async (ctx) => {

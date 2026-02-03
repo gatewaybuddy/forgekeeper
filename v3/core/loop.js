@@ -291,4 +291,7 @@ export function status() {
   };
 }
 
-export default { start, stop, on, status, runTask, createAndRun, activateGoal };
+// Export emit for bridge.js to broadcast events
+export { emit };
+
+export default { start, stop, on, emit, status, runTask, createAndRun, activateGoal };
