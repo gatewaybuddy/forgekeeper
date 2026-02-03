@@ -4,6 +4,7 @@ import { tasks, goals, learnings, approvals } from './memory.js';
 import { execute, decomposeGoal, shouldContinue } from './claude.js';
 import { requiresApproval } from './guardrails.js';
 import { getSkill, listSkills } from '../skills/registry.js';
+import { planTask, checkParentCompletion } from './planner.js';
 
 // Event emitter for UI notifications
 const listeners = new Map();
@@ -34,6 +35,14 @@ export function start() {
   if (running) return;
   running = true;
   console.log(`[Loop] Starting with ${config.loop.intervalMs}ms interval`);
+
+  // Reset any tasks stuck in 'active' state from previous run
+  const activeTasks = tasks.list({ status: 'active' });
+  for (const task of activeTasks) {
+    console.log(`[Loop] Resetting stuck task to pending: ${task.id}`);
+    tasks.update(task.id, { status: 'pending' });
+  }
+
   emit('loop:started', {});
   tick(); // Initial tick
   loopInterval = setInterval(tick, config.loop.intervalMs);
@@ -138,6 +147,21 @@ async function processNextTask() {
     return;
   }
 
+  // Run task through planner if not yet analyzed
+  if (!task.analyzed) {
+    console.log(`[Loop] Running task ${task.id} through planner...`);
+    emit('task:planning', { task });
+
+    const planResult = await planTask(task);
+
+    if (planResult.decomposed) {
+      // Task was decomposed into subtasks, they'll be picked up in next tick
+      emit('task:decomposed', { task, subtasks: planResult.subtasks });
+      return;
+    }
+    // Task is ready for execution, continue below
+  }
+
   // Execute the task
   await executeTask(task);
 }
@@ -168,17 +192,22 @@ async function executeTask(task) {
 
     const elapsed = Date.now() - startTime;
 
-    // Record the attempt
-    tasks.addAttempt(task.id, {
+    // Record the attempt and get updated task
+    const updatedTask = tasks.addAttempt(task.id, {
       success: result.success,
       elapsed,
       output: result.output?.slice(0, 1000), // Truncate for storage
       error: result.error,
     });
 
+    const attemptCount = updatedTask.attempts.length;
+
     if (result.success) {
       tasks.update(task.id, { status: 'completed' });
-      emit('task:completed', { task, result, elapsed });
+      emit('task:completed', { task: updatedTask, result, elapsed });
+
+      // Check if this completes a parent task
+      checkParentCompletion(updatedTask);
 
       // Record learning
       if (config.learning.enabled) {
@@ -191,13 +220,18 @@ async function executeTask(task) {
         });
       }
     } else {
-      // Check if we should retry
-      if (task.attempts.length < 3) {
+      // Check if we should retry (max 3 attempts)
+      if (attemptCount < 3) {
         tasks.update(task.id, { status: 'pending' }); // Will retry
-        emit('task:retry', { task, result, attempt: task.attempts.length });
+        emit('task:retry', { task: updatedTask, result, attempt: attemptCount });
+        console.log(`[Loop] Task ${task.id} will retry (attempt ${attemptCount}/3)`);
       } else {
         tasks.update(task.id, { status: 'failed' });
-        emit('task:failed', { task, result });
+        emit('task:failed', { task: updatedTask, result });
+        console.log(`[Loop] Task ${task.id} failed after ${attemptCount} attempts`);
+
+        // Check parent status even on failure
+        checkParentCompletion(updatedTask);
       }
     }
 
@@ -291,4 +325,7 @@ export function status() {
   };
 }
 
-export default { start, stop, on, status, runTask, createAndRun, activateGoal };
+// Export emit for bridge.js to broadcast events
+export { emit };
+
+export default { start, stop, on, emit, status, runTask, createAndRun, activateGoal };

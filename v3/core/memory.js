@@ -104,6 +104,15 @@ export const tasks = {
     if (!task) throw new Error(`Task not found: ${taskId}`);
     const updated = { ...task, ...updates, updated: new Date().toISOString() };
     writeJson(this.getPath(taskId), updated);
+
+    // Also update the index if status changed
+    if (updates.status) {
+      const index = readJsonl(this.listPath());
+      const newIndex = index.map(entry =>
+        entry.id === taskId ? { ...entry, status: updates.status } : entry
+      );
+      writeJsonl(this.listPath(), newIndex);
+    }
     return updated;
   },
 
@@ -116,7 +125,8 @@ export const tasks = {
   },
 
   pending() {
-    return this.list({ status: 'pending' });
+    // Get pending tasks, excluding decomposed ones
+    return this.list({ status: 'pending' }).filter(t => t.status !== 'decomposed');
   },
 
   addAttempt(taskId, attempt) {

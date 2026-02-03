@@ -2,8 +2,53 @@
 // Forgekeeper v3 - Minimal AI Agent with Claude Code as the brain
 import { config } from './config.js';
 import loop from './core/loop.js';
-import { conversations, tasks, goals, approvals } from './core/memory.js';
+import { conversations, tasks, goals, approvals, learnings } from './core/memory.js';
+import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
+import { randomUUID } from 'crypto';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+
+// Store session IDs per user (persisted to file)
+const userSessions = new Map();
+const SESSIONS_FILE = './data/user_sessions.json';
+
+// Load saved sessions on startup
+function loadUserSessions() {
+  try {
+    if (existsSync(SESSIONS_FILE)) {
+      const data = JSON.parse(readFileSync(SESSIONS_FILE, 'utf-8'));
+      for (const [userId, sessionId] of Object.entries(data)) {
+        userSessions.set(userId, sessionId);
+        // Mark as existing so we use --resume instead of --session-id
+        createdSessions.add(sessionId);
+      }
+      console.log(`[Sessions] Loaded ${userSessions.size} user sessions`);
+    }
+  } catch (e) {
+    console.error('[Sessions] Failed to load:', e.message);
+  }
+}
+
+// Save sessions to file
+function saveUserSessions() {
+  try {
+    const data = Object.fromEntries(userSessions);
+    writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error('[Sessions] Failed to save:', e.message);
+  }
+}
+
+// Load sessions immediately
+loadUserSessions();
 import { loadSkills } from './skills/registry.js';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Track child processes for cleanup
+let telegramProcess = null;
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
@@ -47,12 +92,181 @@ async function init() {
     startDashboard();
   }
 
+  // Start Telegram bot if token is configured
+  if (config.telegram.botToken) {
+    console.log('[Init] Starting Telegram bot...');
+    await startTelegramBot();
+  }
+
   console.log('\n[Ready] Forgekeeper v3 is running.');
   if (config.dashboard.enabled) {
     console.log(`  - Dashboard: http://localhost:${config.dashboard.port}`);
   }
-  console.log('  - Start Telegram: npm run telegram');
+  if (config.telegram.botToken) {
+    console.log('  - Telegram: Connected');
+  } else {
+    console.log('  - Telegram: Not configured (set TELEGRAM_BOT_TOKEN)');
+  }
   console.log('  - Stop: Ctrl+C\n');
+}
+
+// Start Telegram bot as integrated process
+async function startTelegramBot() {
+  const telegramScript = join(__dirname, 'mcp-servers', 'telegram.js');
+
+  telegramProcess = spawn('node', [telegramScript], {
+    stdio: ['pipe', 'pipe', 'inherit'], // stdin/stdout for MCP, stderr to console
+    env: process.env,
+  });
+
+  // Handle MCP protocol communication
+  let buffer = '';
+  telegramProcess.stdout.on('data', async (data) => {
+    buffer += data.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop(); // Keep incomplete line
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const request = JSON.parse(line);
+        const response = await handleTelegramRequest(request);
+        telegramProcess.stdin.write(JSON.stringify({ id: request.id, result: response }) + '\n');
+      } catch (e) {
+        // Not JSON or parse error - might be log output
+      }
+    }
+  });
+
+  telegramProcess.on('close', (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`[Telegram] Bot exited with code ${code}`);
+    }
+    telegramProcess = null;
+  });
+
+  telegramProcess.on('error', (err) => {
+    console.error(`[Telegram] Failed to start: ${err.message}`);
+    telegramProcess = null;
+  });
+
+  // Give it a moment to start
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
+
+// Handle requests from Telegram bot
+async function handleTelegramRequest(request) {
+  const { method, params } = request;
+
+  switch (method) {
+    case 'create_task': {
+      const task = tasks.create({
+        description: params.description,
+        origin: 'telegram',
+        tags: params.tags || [],
+        metadata: { userId: params.userId },
+      });
+      return { success: true, taskId: task.id };
+    }
+
+    case 'create_goal': {
+      const goal = goals.create({
+        description: params.description,
+        origin: 'telegram',
+        metadata: { userId: params.userId },
+      });
+      return { success: true, goalId: goal.id };
+    }
+
+    case 'get_status': {
+      return loop.status();
+    }
+
+    case 'reset_session': {
+      const { userId } = params;
+      const oldSessionId = userSessions.get(String(userId));
+      if (oldSessionId) {
+        resetSessionState(oldSessionId); // Clear from created sessions tracking
+      }
+      const newSessionId = randomUUID();
+      userSessions.set(String(userId), newSessionId);
+      saveUserSessions();
+      conversations.clear(userId);
+      console.log(`[Chat] Reset session for user ${userId}: ${newSessionId}`);
+      return { success: true, sessionId: newSessionId };
+    }
+
+    case 'resolve_approval': {
+      const { id, decision, userId } = params;
+      const result = approvals.resolve(id, decision, `telegram:${userId}`);
+      if (result) {
+        if (decision === 'approved' && result.taskId) {
+          tasks.update(result.taskId, { approved: true });
+        }
+        return { success: true };
+      }
+      return { success: false, error: 'Approval not found' };
+    }
+
+    case 'chat': {
+      const { message, userId } = params;
+
+      // Store in conversation history
+      conversations.append(userId, { role: 'user', content: message });
+
+      const lowerMsg = message.toLowerCase();
+
+      // Check if it's a task request (imperative commands)
+      if (lowerMsg.match(/^(create|make|build|add|fix|update|deploy|run|test|install|write|implement|refactor)\s/)) {
+        const task = tasks.create({
+          description: message,
+          origin: 'telegram',
+          metadata: { userId },
+        });
+        const reply = `✅ Task created: ${task.id}\n\n${message}\n\nI'll work on this. Use /status to check progress.`;
+        conversations.append(userId, { role: 'assistant', content: reply });
+        return { reply };
+      }
+
+      // For everything else, chat with Claude using persistent session
+      try {
+        // Get or create session ID for this user
+        let sessionId = userSessions.get(String(userId));
+        if (!sessionId) {
+          sessionId = randomUUID();
+          userSessions.set(String(userId), sessionId);
+          saveUserSessions();
+          console.log(`[Chat] Created new session for user ${userId}: ${sessionId}`);
+        }
+
+        console.log('[Chat] Sending to Claude:', message.slice(0, 50), '(session:', sessionId.slice(0, 8) + '...)');
+        const result = await chat(message, sessionId);
+        console.log('[Chat] Claude response:', result.success ? 'success' : 'failed', result.error || '');
+
+        if (!result.success) {
+          console.error('[Chat] Claude error:', result.error);
+          const errorMsg = result.error || 'Unknown error';
+          conversations.append(userId, { role: 'assistant', content: `Error: ${errorMsg}` });
+          return { error: errorMsg };
+        }
+
+        if (!result.output?.trim()) {
+          return { error: 'Empty response from Claude' };
+        }
+
+        const reply = result.output.trim();
+        conversations.append(userId, { role: 'assistant', content: reply });
+        return { reply };
+
+      } catch (error) {
+        console.error('[Chat] Exception:', error.message);
+        return { error: error.message || 'Unknown exception' };
+      }
+    }
+
+    default:
+      return { error: `Unknown method: ${method}` };
+  }
 }
 
 // Set up event listeners
@@ -93,6 +307,14 @@ function setupEventListeners() {
 // Handle shutdown
 function shutdown() {
   console.log('\n[Shutdown] Stopping Forgekeeper...');
+
+  // Stop Telegram bot
+  if (telegramProcess) {
+    console.log('[Shutdown] Stopping Telegram bot...');
+    telegramProcess.kill('SIGTERM');
+    telegramProcess = null;
+  }
+
   loop.stop();
   process.exit(0);
 }
@@ -157,19 +379,27 @@ if (command === 'help') {
 Forgekeeper v3 CLI
 
 Commands:
-  node index.js              Start the agent loop
+  npm start                  Start everything (loop + dashboard + Telegram)
+  npm run setup              Run setup wizard
+  npm run health             Check system health
+  npm test                   Run tests
+
   node index.js task "..."   Create a new task
   node index.js goal "..."   Create a new goal
   node index.js status       Show current status
   node index.js help         Show this help
 
 Environment:
-  TELEGRAM_BOT_TOKEN         Telegram bot token
+  TELEGRAM_BOT_TOKEN         Telegram bot token (enables Telegram)
+  TELEGRAM_ALLOWED_USERS     Comma-separated user IDs
+  TELEGRAM_ADMIN_USERS       Users who can approve tasks
   FK_LOOP_INTERVAL_MS        Loop interval (default: 10000)
   FK_CLAUDE_CMD              Claude command (default: claude)
   FK_DATA_DIR                Data directory (default: ./data)
+  FK_DASHBOARD_ENABLED       Enable web dashboard (default: 1)
+  FK_DASHBOARD_PORT          Dashboard port (default: 3000)
 
-See config.js for all options.
+See .env.example for all options.
 `);
   process.exit(0);
 }

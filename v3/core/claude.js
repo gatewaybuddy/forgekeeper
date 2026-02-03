@@ -1,6 +1,6 @@
 // Claude Code headless wrapper
 // Executes tasks using Claude Code CLI with full tool access
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import { config } from '../config.js';
 import { learnings } from './memory.js';
 import { checkGuardrails, formatGuardrailsForPrompt } from './guardrails.js';
@@ -30,11 +30,9 @@ export async function execute(task, options = {}) {
     throw new Error(`Rate limit exceeded: ${config.guardrails.maxClaudeCallsPerHour} calls/hour`);
   }
 
-  // Build the prompt
-  const prompt = buildPrompt(task, options);
-
-  // Check guardrails before execution
-  const guardrailCheck = checkGuardrails(prompt);
+  // Check guardrails on task description only (not the full prompt with system text)
+  const taskText = task.description || (typeof task === 'string' ? task : '');
+  const guardrailCheck = checkGuardrails(taskText);
   if (!guardrailCheck.allowed) {
     return {
       success: false,
@@ -42,6 +40,9 @@ export async function execute(task, options = {}) {
       guardrailViolation: true,
     };
   }
+
+  // Build the prompt after guardrail check passes
+  const prompt = buildPrompt(task, options);
 
   recordCall();
 
@@ -59,7 +60,7 @@ export async function execute(task, options = {}) {
 
     const proc = spawn(config.claude.command, args, {
       cwd: options.cwd || process.cwd(),
-      timeout: config.claude.timeout,
+      shell: true, // Required on Windows for .cmd files
       env: { ...process.env },
     });
 
@@ -160,6 +161,7 @@ function extractTags(text) {
 }
 
 // Quick query - for simple questions that don't need full task treatment
+// Does NOT maintain conversation context (one-shot)
 export async function query(question, options = {}) {
   if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
     throw new Error(`Rate limit exceeded`);
@@ -167,26 +169,128 @@ export async function query(question, options = {}) {
 
   recordCall();
 
-  return new Promise((resolve, reject) => {
-    const args = ['--print', question];
+  return runClaudeCommand(question, options);
+}
 
-    const proc = spawn(config.claude.command, args, {
+// Track which sessions have been created (first message sent)
+// This is exported so index.js can mark loaded sessions as existing
+export const createdSessions = new Set();
+
+// Chat with persistent session - maintains conversation context
+// sessionId should be a UUID that persists across calls for the same user
+export async function chat(message, sessionId, options = {}) {
+  if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
+    throw new Error(`Rate limit exceeded`);
+  }
+
+  recordCall();
+
+  // First message to this session uses --session-id, subsequent use --resume
+  const isNewSession = !createdSessions.has(sessionId);
+
+  let result = await runClaudeCommand(message, {
+    ...options,
+    sessionId,
+    resumeSession: !isNewSession
+  });
+
+  // If resume failed (session doesn't exist in Claude), try creating new
+  if (!result.success && !isNewSession && result.error?.includes('session')) {
+    console.log(`[Claude] Session ${sessionId} not found, creating new...`);
+    createdSessions.delete(sessionId);
+    result = await runClaudeCommand(message, {
+      ...options,
+      sessionId,
+      resumeSession: false
+    });
+  }
+
+  // Mark session as created if successful
+  if (result.success) {
+    createdSessions.add(sessionId);
+  }
+
+  return result;
+}
+
+// Mark a session as new (for /newsession command)
+export function resetSessionState(sessionId) {
+  createdSessions.delete(sessionId);
+}
+
+// Internal function to run Claude CLI
+function runClaudeCommand(message, options = {}) {
+  return new Promise((resolve) => {
+    // Sanitize and escape the message for PowerShell
+    const sanitized = message
+      .replace(/\r\n/g, ' ')
+      .replace(/\r/g, ' ')
+      .replace(/\n/g, ' ')
+      .replace(/"/g, '`"')  // PowerShell escape for double quotes
+      .replace(/'/g, "''")  // PowerShell escape for single quotes
+      .slice(0, 4000); // Allow longer prompts
+
+    // Use PowerShell on Windows
+    const isWindows = process.platform === 'win32';
+    const shell = isWindows ? 'powershell.exe' : '/bin/sh';
+    const shellFlag = isWindows ? '-Command' : '-c';
+
+    // Build command flags
+    const flags = [];
+    if (config.claude.skipPermissions) {
+      flags.push('--dangerously-skip-permissions');
+    }
+    if (options.sessionId) {
+      if (options.resumeSession) {
+        // Resume existing session
+        flags.push(`--resume ${options.sessionId}`);
+      } else {
+        // Create new session with this ID
+        flags.push(`--session-id ${options.sessionId}`);
+      }
+    }
+    flags.push('-p');
+
+    const command = `claude ${flags.join(' ')} "${sanitized}"`;
+
+    const proc = spawn(shell, [shellFlag, command], {
       cwd: options.cwd || process.cwd(),
-      timeout: 60000, // 1 minute for queries
+      env: process.env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+
+    // Longer timeout for complex operations (3 minutes)
+    const timeoutMs = options.timeout || 180000;
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        proc.kill();
+        resolve({ success: false, output: '', error: `Query timed out after ${timeoutMs/1000}s` });
+      }
+    }, timeoutMs);
 
     proc.stdout.on('data', (data) => { stdout += data.toString(); });
     proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     proc.on('close', (code) => {
-      resolve({ success: code === 0, output: stdout, error: stderr || null });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve({ success: code === 0, output: stdout, error: stderr || null });
+      }
     });
 
     proc.on('error', (err) => {
-      resolve({ success: false, output: '', error: err.message });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve({ success: false, output: '', error: err.message });
+      }
     });
   });
 }
