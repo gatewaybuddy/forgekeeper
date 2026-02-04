@@ -25,6 +25,12 @@ export const config = {
     botToken: process.env.TELEGRAM_BOT_TOKEN || '',
     allowedUsers: (process.env.TELEGRAM_ALLOWED_USERS || '').split(',').filter(Boolean),
     adminUsers: (process.env.TELEGRAM_ADMIN_USERS || '').split(',').filter(Boolean),
+    // Resilience settings
+    launchTimeoutMs: parseInt(process.env.FK_TELEGRAM_LAUNCH_TIMEOUT_MS || '120000'), // 2 minutes
+    maxRetries: parseInt(process.env.FK_TELEGRAM_MAX_RETRIES || '5'),
+    retryDelayMs: parseInt(process.env.FK_TELEGRAM_RETRY_DELAY_MS || '5000'), // 5 seconds base delay
+    maxRetryDelayMs: parseInt(process.env.FK_TELEGRAM_MAX_RETRY_DELAY_MS || '60000'), // 1 minute max
+    healthCheckIntervalMs: parseInt(process.env.FK_TELEGRAM_HEALTH_CHECK_MS || '30000'), // 30 seconds
   },
 
   // Web dashboard
@@ -76,6 +82,13 @@ export const config = {
   // Topic Router (multi-topic message handling)
   topicRouter: {
     enabled: process.env.FK_TOPIC_ROUTER_ENABLED === '1',
+  },
+
+  // Autonomous behavior (self-directed actions when idle)
+  autonomous: {
+    enabled: process.env.FK_AUTONOMOUS_ENABLED === '1',
+    maxActionsPerHour: parseInt(process.env.FK_AUTONOMOUS_MAX_PER_HOUR || '10'),
+    personalityPath: process.env.FK_PERSONALITY_PATH || 'D:/Projects/forgekeeper_personality',
   },
 
   // PM2 Integration

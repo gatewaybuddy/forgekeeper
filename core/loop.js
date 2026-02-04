@@ -5,6 +5,7 @@ import { execute, decomposeGoal, shouldContinue } from './claude.js';
 import { requiresApproval } from './guardrails.js';
 import { getSkill, listSkills } from '../skills/registry.js';
 import { planTask, checkParentCompletion } from './planner.js';
+import { onIdle, autonomousStatus } from './autonomous.js';
 
 // Event emitter for UI notifications
 const listeners = new Map();
@@ -114,10 +115,20 @@ async function checkTriggers() {
   }
 }
 
-// Process the next pending task
+// Process the next pending task, or take autonomous action if idle
 async function processNextTask() {
   const pendingTasks = tasks.pending();
-  if (pendingTasks.length === 0) return;
+
+  // If no pending tasks, consider autonomous action
+  if (pendingTasks.length === 0) {
+    if (config.autonomous?.enabled) {
+      const result = await onIdle();
+      if (result.acted) {
+        emit('autonomous:action', { action: result.action, result: result.result });
+      }
+    }
+    return;
+  }
 
   // Sort by priority and creation date
   const sorted = pendingTasks.sort((a, b) => {
@@ -322,6 +333,7 @@ export function status() {
     pendingTasks: tasks.pending().length,
     activeGoals: goals.active().length,
     pendingApprovals: approvals.pending().length,
+    autonomous: autonomousStatus(),
   };
 }
 
