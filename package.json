@@ -1,9 +1,12 @@
 {
-  "name": "forgekeeper-v3",
+  "name": "forgekeeper",
   "version": "3.1.0",
   "description": "Minimal AI agent with Claude Code as the brain",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "forgekeeper": "./bin/forgekeeper.js"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
