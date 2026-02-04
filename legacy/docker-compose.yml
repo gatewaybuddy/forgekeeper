@@ -1,0 +1,159 @@
+services:
+  # Default inference core (llama.cpp C++ server, GPU/cuBLAS)
+  llama-core:
+    image: ${LLAMA_DOCKER_GPU_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    profiles: [inference]
+    env_file: ./.env
+    ports:
+      - "${LLAMA_PORT_CORE:-8001}:${LLAMA_CONTAINER_PORT:-8080}"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ${LLAMA_MODELS_HOST_DIR:-./models}:/models
+    networks: [forgekeeper-net]
+    command: [
+      "-m","${LLAMA_MODEL_CORE}",
+      "--host","0.0.0.0",
+      "--port","${LLAMA_CONTAINER_PORT:-8080}",
+      "-c","${LLAMA_N_CTX:-4096}",
+      "--n-gpu-layers","${LLAMA_N_GPU_LAYERS:--1}",
+      "--jinja"
+    ]
+
+  # CPU fallback (LocalAI) when GPU not available
+  llama-core-cpu:
+    image: ${LOCALAI_DOCKER_IMAGE:-localai/localai:latest}
+    profiles: [inference-cpu]
+    env_file: ./.env
+    environment:
+      MODELS_PATH: /models
+    ports:
+      - "${LLAMA_PORT_CORE:-8001}:${LLAMA_CONTAINER_PORT:-8080}"
+    ipc: host
+    volumes:
+      - ${LLAMA_MODELS_HOST_DIR:-./models}:/models
+    networks: [forgekeeper-net]
+
+  # Optional vLLM Core (kept for compatibility; not started by default)
+  vllm-core:
+    image: ${VLLM_DOCKER_IMAGE:-vllm/vllm-openai:latest}
+    profiles: [inference-vllm]
+    env_file: ./.env
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /root/.cache/huggingface
+      VLLM_LOG_DIR: /var/log/vllm
+    ports:
+      - "${VLLM_PORT_CORE:-8001}:${VLLM_CONTAINER_PORT:-8000}"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ${VLLM_HF_CACHE_HOST_DIR:-./volumes/vllm-cache}:/root/.cache/huggingface
+      - ${VLLM_MODELS_HOST_DIR:-./models}:/models
+      - ${VLLM_LOGS_HOST_DIR:-./volumes/vllm-logs}:/var/log/vllm
+    networks: [forgekeeper-net]
+    entrypoint: ["python3","-m","vllm.entrypoints.openai.api_server"]
+    command: [
+      "--host","0.0.0.0",
+      "--port","${VLLM_CONTAINER_PORT:-8000}",
+      "--dtype","${VLLM_DTYPE:-float16}",
+      "--model","${VLLM_MODEL_CORE}",
+      "--served-model-name","core",
+      "--tensor-parallel-size","${VLLM_TP:-1}",
+      "--max-model-len","${VLLM_MAX_MODEL_LEN:-32768}",
+      "--gpu-memory-utilization","${VLLM_GPU_MEMORY_UTILIZATION:-0.9}",
+      "--max-num-batched-tokens","${VLLM_MAX_NUM_BATCHED_TOKENS:-4096}"
+    ]
+
+  # ChromaDB - Vector memory storage for consciousness
+  chromadb:
+    image: chromadb/chroma:latest
+    profiles: [ui]
+    ports:
+      - "${CHROMADB_PORT:-8000}:8000"
+    environment:
+      IS_PERSISTENT: 1
+      ANONYMIZED_TELEMETRY: ${CHROMADB_TELEMETRY:-0}
+    volumes:
+      - ./.forgekeeper/chromadb:/chroma/chroma
+    networks: [forgekeeper-net]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  frontend:
+    image: forgekeeper-frontend
+    pull_policy: build
+    profiles: [ui]
+    build:
+      context: ./frontend
+      # Note: No build args needed - React app uses relative URLs
+      # API base and model are configured at runtime via /config.json
+    env_file: ./.env
+    environment:
+      # Match default to llama-core container port 8080 (host port still mapped via LLAMA_PORT_CORE)
+      FRONTEND_VLLM_API_BASE: ${FRONTEND_VLLM_API_BASE:-http://llama-core:8080/v1}
+      FRONTEND_VLLM_MODEL: ${FRONTEND_VLLM_MODEL:-core}
+      FRONTEND_ENABLE_POWERSHELL: ${FRONTEND_ENABLE_POWERSHELL:-1}
+      FRONTEND_ENABLE_BASH: ${FRONTEND_ENABLE_BASH:-1}
+      PWSH_PATH: ${PWSH_PATH:-/usr/bin/pwsh}
+      BASH_PATH: ${BASH_PATH:-/bin/bash}
+      # Default working directories for shell tools
+      PWSH_CWD: ${PWSH_CWD:-/workspace/sandbox}
+      BASH_CWD: ${BASH_CWD:-/workspace/sandbox}
+      # Persist tool sandbox writes to the bind-mounted repo directory
+      # Default to a dedicated folder under the mounted workspace
+      TOOLS_FS_ROOT: ${TOOLS_FS_ROOT:-/workspace/sandbox}
+      # Optional working directory for PowerShell tool
+      # PWSH_CWD: /workspace
+      # Optional working directory for Bash tool
+      # BASH_CWD: /workspace
+      # Enable dynamic tool reload/write endpoints (dev only)
+      FRONTEND_ENABLE_SELF_UPDATE: ${FRONTEND_ENABLE_SELF_UPDATE:-1}
+      FRONTEND_ENABLE_REPO_WRITE: ${FRONTEND_ENABLE_REPO_WRITE:-1}
+      REPO_ROOT: ${REPO_ROOT:-/workspace}
+      REPO_WRITE_MAX_BYTES: ${REPO_WRITE_MAX_BYTES:-131072}
+      REPO_WRITE_ALLOW: ${REPO_WRITE_ALLOW:-frontend/Dockerfile,docker-compose.yml}
+      # GitHub auth for SAPL (optional; supply a PAT with repo scope)
+      GH_TOKEN: ${GH_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Leave TOOL_ALLOW unset to allow all tools. Set to comma list to restrict.
+      # TOOL_ALLOW: "get_time,echo,read_dir"
+      PORT: 3000
+      # Consciousness configuration (disabled temporarily due to Apollo Server v3 API incompatibility)
+      CONSCIOUSNESS_ENABLED: ${CONSCIOUSNESS_ENABLED:-0}
+      CONSCIOUSNESS_AUTO_START: ${CONSCIOUSNESS_AUTO_START:-0}
+      CONSCIOUSNESS_CYCLE_INTERVAL: ${CONSCIOUSNESS_CYCLE_INTERVAL:-30000}
+      CONSCIOUSNESS_DAILY_API_BUDGET: ${CONSCIOUSNESS_DAILY_API_BUDGET:-1000000}
+      CHROMADB_URL: ${CHROMADB_URL:-http://chromadb:8000}
+      # API keys for deep reasoning
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks: [forgekeeper-net]
+    volumes:
+      - ./frontend/tools:/app/tools:rw
+      - ./:/workspace:rw
+      - ./.forgekeeper:/app/.forgekeeper:rw
+    depends_on:
+      - chromadb
+
+networks:
+  forgekeeper-net:
+    external: true

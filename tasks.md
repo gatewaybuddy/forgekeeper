@@ -61,6 +61,15 @@ Enable human-in-the-loop collaboration with approval workflows, decision checkpo
 - [x] T311 - Configuration, tuning, and documentation  (Phase 8.4: Integration & Polish) [Complete: 2025-11-23]
 - [x] T312 - Integration testing and validation  (Phase 8.4: Integration & Polish) [Complete: 2025-11-23]
 
+## M4 - Forgekeeper v3 Promotion & Agent Architecture (Owner: TBD; Target: TBD; Priority: HIGH)
+Promote v3 to the primary Forgekeeper version, add proactive task initiation, self-update capabilities, and improved agent/skill management.
+- [ ] T401 - Proactive task initiation and scheduling  (Phase 1: Task Autonomy)
+- [ ] T402 - Self-update and restart mechanism  (Phase 1: Task Autonomy)
+- [ ] T403 - Subagent manager skill and coordination patterns  (Phase 2: Agent Architecture) [Complete: 2025-02-02]
+- [ ] T404 - Promote v3 to root directory  (Phase 3: v3 Promotion)
+- [ ] T405 - Archive legacy v1/v2 code  (Phase 3: v3 Promotion)
+- [ ] T406 - Update documentation and entry points  (Phase 3: v3 Promotion)
+
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
 - Keep tasks discrete and shippable within 4 hours of focused work.
@@ -875,3 +884,114 @@ See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonic
 - [x] Harmony protocol summary doc (`forgekeeper/docs/harmony_protocol_summary.md`)  (Docs)
 
 - [x] T27 — Reorder roadmap phases around tool-ready chat (Docs) (Completed 2025-10-20)
+
+## M4 Detailed Task Cards
+
+### T401 — Proactive task initiation and scheduling
+- Goal: Enable v3 to initiate tasks independently based on triggers, schedules, and context without requiring external input.
+- Scope:
+  - Enhance `core/loop.js` to support scheduled task creation (cron-like patterns).
+  - Add event-driven task triggers (file changes, time-based, metric thresholds).
+  - Implement task queue prioritization with automatic scheduling.
+  - Add configuration for proactive behaviors in `config.js`.
+  - Create example trigger configurations for common use cases.
+- Out of Scope:
+  - Complex workflow orchestration (DAGs).
+  - External calendar or scheduling system integration.
+- Allowed Touches: `v3/core/loop.js`, `v3/core/memory.js`, `v3/config.js`, `v3/README.md`.
+- Done When:
+  - v3 creates a task automatically when a configured trigger fires.
+  - `npm start` with `FK_TRIGGERS_ENABLED=1` shows proactive task creation in logs.
+  - Scheduled tasks execute at configured intervals.
+- Test Level: unit + smoke.
+
+### T402 — Self-update and restart mechanism
+- Goal: Allow Forgekeeper v3 to update its own code and restart itself gracefully when running as a service.
+- Scope:
+  - Create `scripts/self-update.js` that pulls latest changes from git and restarts.
+  - Implement graceful shutdown with task state preservation.
+  - Add restart capability via child process spawning or process manager integration.
+  - Support both manual trigger and automated update checks.
+  - Document PM2/systemd integration for production restarts.
+- Out of Scope:
+  - Automatic rollback on failure (manual intervention acceptable).
+  - Blue-green deployment patterns.
+  - Docker container orchestration (separate concern).
+- Allowed Touches: `v3/scripts/self-update.js`, `v3/core/loop.js`, `v3/index.js`, `v3/README.md`, `v3/package.json`.
+- Done When:
+  - Running `npm run self-update` pulls changes and restarts the process.
+  - In-flight tasks are saved before shutdown and resumed after restart.
+  - Works with PM2: `pm2 start ecosystem.config.js` handles restarts.
+- Test Level: smoke (manual).
+
+### T403 — Subagent manager skill and coordination patterns
+- Goal: Provide skill documentation and patterns for effectively managing Claude Code subagents in parallel and sequential workflows.
+- Scope:
+  - Create `.claude/skills/subagent-manager/SKILL.md` with coordination patterns.
+  - Document all subagent types (Bash, general-purpose, Explore, Plan).
+  - Provide examples for parallel execution, background tasks, and result aggregation.
+  - Include best practices for minimizing context and maximizing efficiency.
+- Out of Scope:
+  - Code implementation of agent orchestration (skill is documentation-only).
+  - Custom subagent types beyond Claude Code defaults.
+- Allowed Touches: `.claude/skills/subagent-manager/SKILL.md`.
+- Done When:
+  - Skill file exists with complete documentation.
+  - Examples cover parallel, sequential, and background task patterns.
+  - Best practices section addresses common pitfalls.
+- Test Level: documentation.
+- Status: Complete (2025-02-02)
+
+### T404 — Promote v3 to root directory
+- Goal: Restructure the repository so v3 becomes the primary Forgekeeper implementation at the root level.
+- Scope:
+  - Move v3 contents to root (index.js, config.js, core/, skills/, etc.).
+  - Update package.json at root to reflect v3 dependencies and scripts.
+  - Update all relative paths and imports to work from root.
+  - Create `legacy/` directory structure for archived code.
+  - Update .gitignore for new structure.
+- Out of Scope:
+  - Changing v3 functionality or architecture.
+  - Removing legacy code (handled in T405).
+- Allowed Touches: Root directory, `v3/*`, `package.json`, `.gitignore`.
+- Done When:
+  - `npm start` at root launches v3.
+  - All v3 tests pass from root: `npm test`.
+  - No broken imports or path references.
+- Test Level: integration + smoke.
+
+### T405 — Archive legacy v1/v2 code
+- Goal: Move legacy Forgekeeper implementations to archive directories while preserving git history.
+- Scope:
+  - Move `forgekeeper/` (Python package) to `legacy/python-agent/`.
+  - Move `frontend/` to `legacy/frontend-v1/`.
+  - Move `v2/` to `legacy/v2/`.
+  - Update any cross-references in documentation.
+  - Add README to legacy/ explaining archive status.
+- Out of Scope:
+  - Maintaining or updating legacy code.
+  - Ensuring legacy code still runs (archive only).
+- Allowed Touches: `forgekeeper/`, `frontend/`, `v2/`, `legacy/`, `docs/`.
+- Done When:
+  - Legacy code moved to `legacy/` with clear README.
+  - Root directory contains only v3 and shared resources.
+  - Git history preserved (use git mv).
+- Test Level: smoke (verify moves complete).
+
+### T406 — Update documentation and entry points
+- Goal: Ensure all documentation reflects v3 as the primary implementation with clear guidance.
+- Scope:
+  - Update root README.md to focus on v3 quick start.
+  - Update CLAUDE.md to reflect new directory structure.
+  - Update any GitHub workflows to target new paths.
+  - Create migration guide for users of legacy versions.
+  - Update docker-compose.yml if needed for v3.
+- Out of Scope:
+  - Rewriting all legacy documentation.
+  - Creating new feature documentation (just structure updates).
+- Allowed Touches: `README.md`, `CLAUDE.md`, `docker-compose.yml`, `.github/workflows/*`, `docs/`.
+- Done When:
+  - README quick start works for new users.
+  - CLAUDE.md accurately describes current architecture.
+  - No broken documentation links.
+- Test Level: documentation.

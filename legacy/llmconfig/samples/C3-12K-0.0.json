@@ -1,0 +1,18 @@
+{
+  "name": "C3-12K-0.0",
+  "description": "12K context (+50%), temp=0.0 (deterministic)",
+  "phase": "3-context-deterministic",
+  "requires_restart": true,
+  "parameters": {
+    "temperature": 0.0,
+    "top_p": 0.4,
+    "top_k": 0,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.2,
+    "max_tokens": 3072
+  },
+  "env_context": {
+    "VLLM_MAX_MODEL_LEN": 12288,
+    "VLLM_MAX_NUM_BATCHED_TOKENS": 6144
+  }
+}

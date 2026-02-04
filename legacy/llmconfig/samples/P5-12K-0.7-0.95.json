@@ -1,0 +1,17 @@
+{
+  "name": "P5-12K-0.7-0.95",
+  "description": "12K context, temp=0.7, top_p=0.95 (maximum diversity)",
+  "phase": "5-top_p",
+  "requires_restart": false,
+  "parameters": {
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "top_k": 0,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.2,
+    "max_tokens": 3072
+  },
+  "env_context": {
+    "VLLM_MAX_MODEL_LEN": 12288
+  }
+}

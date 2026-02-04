@@ -1,0 +1,17 @@
+{
+  "name": "K3-12K-0.7-50",
+  "description": "12K context, temp=0.7, top_k=50 (moderate restriction)",
+  "phase": "6-top_k",
+  "requires_restart": false,
+  "parameters": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 50,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.2,
+    "max_tokens": 3072
+  },
+  "env_context": {
+    "VLLM_MAX_MODEL_LEN": 12288
+  }
+}

@@ -1,0 +1,46 @@
+# Codex Example Reasoning Policies (documentation-only)
+# Date: 2025-11-03
+
+version: 1
+defaults:
+  max_iterations: 50
+  reflection_max_tokens: 1500
+  planner_confidence_threshold: 0.5
+
+stall_breakers:
+  repeated_action_limit: 2          # same tool+args seen >=2 times → mark repetitive
+  tool_diversity_limit: 3           # same tool used >=3 times with varying args → force different tool
+  no_progress_limit: 3              # consecutive iterations flagged as stuck
+  on_trigger: repo_first_heuristics # next iteration uses repo-first plan when exploratory
+
+repo_first:
+  priority_files:
+    - README.md
+    - forgekeeper/README.md
+    - README_AUTONOMOUS.md
+    - Makefile
+    - pyproject.toml
+    - docker-compose.yml
+    - scripts/ensure_stack.sh
+  tests_dir: tests
+  success_artifact: docs/REPO_SUMMARY.md
+
+coverage_targets:
+  - area: core
+    must_touch: ["forgekeeper/README.md", "forgekeeper/Makefile"]
+  - area: tests
+    must_touch: ["tests/"]
+  - area: scripts
+    must_touch: ["scripts/ensure_stack.sh"]
+
+metrics:
+  emit:
+    - name: first_meaningful_read_ms
+    - name: stall_events_total
+    - name: tool_bounce_rate
+
+notes: |
+  This file documents suggested defaults for the reasoning loop. It is not
+  consumed by the application yet; use it as guidance for planner prompts and
+  heuristic branches.
+

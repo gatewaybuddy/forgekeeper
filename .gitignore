@@ -1,24 +1,60 @@
+# Dependencies
+node_modules/
+
+# Large model files
+*.gguf
+*.safetensors
+*.bin
+legacy/models/
+
+# Large database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Legacy sensitive files
+legacy/.forgekeeper/
+legacy/.forgekeeper-v2/
+
+# Environment (keep .env.example only)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Data directories
+data/
+logs/
+
+# Legacy code (tracked but can be pruned)
+# legacy/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python (for legacy)
 .venv/
-.forgekeeper/
-!.forgekeeper/*.example.json
-.forgekeeper-v2/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.egg-info/
-*.log
-logs/
-local/
-models/
-node_modules/
-frontend/dist/
-.env
-.DS_Store
-Thumbs.db
-sandbox/
 
-# Session transcripts and temporary files
+# Logs
+*.log
+
+# Temporary/scratch files
+*.tmp
+nul
+
+# Session transcripts
 2025-*.txt
 SESSION_SUMMARY_*.md
 *_FIXED.md
@@ -26,29 +62,8 @@ SESSION_SUMMARY_*.md
 *_STATUS.md
 *_DIAGNOSTIC.md
 *_PLAN.md
-
-# Additional working file patterns (added 2025-12-15)
 ACTION_PLAN_*.md
 CODE_REVIEW_*.md
 NEXT_SESSION_*.md
-STARTUP_FIX_*.md
-*_REDESIGN_*.md
 *_PROGRESS.md
-*_FIX_*.md
 *_SUMMARY.md
-*.implementation-status.json
-TEST_RESULTS_*.md
-INTEGRATION_TEST_*.md
-
-# Alternative .env files (keep .env.example only)
-.env.*
-!.env.example
-
-# Archive and scratch directories
-archive/
-codex_repo/
-docs/codex/
-docs/issues/
-
-# Duplicate/test markers
-frontend/frontend/

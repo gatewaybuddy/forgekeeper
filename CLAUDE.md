@@ -1,517 +1,193 @@
 # Forgekeeper Architecture Guide
 
-## Forgekeeper v3 (Recommended)
-
-**Location**: `v3/`
-
-v3 is a radical simplification (~2,000 lines vs 85,000+) that uses Claude Code as the brain instead of local inference. See `v3/README.md` for details.
-
-```
-Telegram/Discord → Task Loop → Claude Code (headless) → JSONL Memory
-```
-
-**Why v3?**
-- Claude Code has real tool usage and strong inference
-- Simple task/goal system with proactive triggers
-- Self-extension via MCP server generation
-- ~20 config options vs 140+
-
-**Quick start:**
-```bash
-cd v3 && npm install && cp .env.example .env
-# Edit .env with TELEGRAM_BOT_TOKEN
-npm start
-```
-
----
-
-## Forgekeeper v1/v2 (Legacy)
-
-The original architecture below is preserved for reference but is overcomplicated for most use cases.
-
 ## Overview
 
-Forgekeeper is a modular AI development platform with a **three-layer architecture**:
+Forgekeeper is a minimal AI agent that uses **Claude Code as the brain**. It's designed for autonomous operation with human oversight via Telegram.
 
-1. **Inference Core** (llama.cpp/vLLM, port 8001) — OpenAI-compatible LLM API
-2. **Frontend Node Server** (Express, port 3000) — Chat orchestration, tools, streaming
-3. **Frontend React/Vite** (port 5173) — Web UI for chat and system control
-4. **Python Agent & CLI** (optional) — Legacy scripts, demonstrations
+```
+Telegram → Topic Router → Agent Pool → Claude Code (headless) → JSONL Memory
+                              ↑
+                         PM2 (process management)
+```
 
-**Design Philosophy**:
-- **Capability First**: Maximum capability by default, guardrails optional
-- **Local development**: Minimal ops burden, config-driven
-- **No database**: Required for core flow
-- **Unrestricted access**: Full filesystem, unlimited execution, transparent logging (dev default)
-- **Configurable security**: Three-layer model (dev/team/production)
+## Quick Start
 
----
+```bash
+# Install dependencies
+npm install
 
-## Core Stack Quick Reference
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your TELEGRAM_BOT_TOKEN
 
-### Inference (Port 8001)
-- **Default**: llama.cpp (GPU via cuBLAS), OpenAI-compatible `/v1/chat/completions`
-- **Alternative**: vLLM (`FK_CORE_KIND=vllm`)
-- **Config**: `FK_CORE_API_BASE`, `LLAMA_MODEL_CORE`
+# Start with PM2 (recommended)
+npm install -g pm2
+npm run pm2:start
 
-### Frontend Server (Port 3000)
-**Location**: `forgekeeper/frontend/`
-
-**Key Files**:
-- `server.mjs` — Main Express app
-- `server/orchestration/orchestrator.mjs` — Tool-aware chat loop
-- `server/core/tools.mjs` — Tool registry and execution
-- `server/orchestration/harmony.mjs` — Reasoning/final protocol
-- `server/telemetry/contextlog.mjs` — Event logging
-- `server/core/finishers.mjs` — Continuation heuristics
-
-**Endpoints** (92+ total): Core chat (4), autonomous agent (18), tools (15), preferences/memory (9), TGT tasks (27), SAPL auto-PR (5), metrics (6), thought-world (6), MCP (1), ContextLog (4 including cleanup & stats), repo ops (2), health/config (6), auth (1).
-
-### Frontend UI (Port 5173 dev / 3000 prod)
-**Location**: `forgekeeper/frontend/src/`
-
-**Key Components**: `App.tsx`, `Chat.tsx`, `DiagnosticsDrawer.tsx`, `TasksDrawer.tsx`, `AutonomousPanel.tsx`, `PreferencesPanel.tsx`, `PRPreviewModal.tsx`, analytics/task components.
-
-**Tech**: Vite + TypeScript + React
-
-### Python Agent (Optional)
-**Location**: `forgekeeper/forgekeeper/`
-
-**Commands**: `chat [prompt]`, `ensure-stack [--build]`
-
-**CLI Architecture** (Refactored 2025-12-15):
-- `__main__.py` (136 lines) - Pure orchestration, delegates to CLI modules
-- `cli/commands.py` - Command implementations (chat, ensure-stack)
-- `cli/handlers.py` - Request handlers and routing
-- `cli/args.py` - Argument parsing and CLI structure
-- `cli/output.py` - Output formatting and display
-
-**Core Modules**: `core/`, `pipeline/`, `memory/`, `llm/`, `tools/`, `services/context_log/`
-
----
-
-## Request Lifecycle (Simplified)
-
-1. **UI → Server**: `POST /api/chat` with messages, model, tools
-2. **Mode Selection**: Auto-detection heuristics or manual selection (standard/review/chunked/combined)
-3. **Orchestrator**: Calls upstream LLM with tools (mode-specific logic)
-4. **Tool Loop**: Parse tool_calls → execute locally → append results → repeat
-5. **Quality/Chunking**: Review evaluation or chunk assembly if enabled
-6. **ContextLog**: Log to `.forgekeeper/context_log/ctx-YYYYMMDD-HH.jsonl`
-7. **Response**: Return final assistant message with debug info
-8. **UI**: Render content, store to localStorage, show diagnostics
-
----
-
-## Configuration & Environment
-
-**File**: `.env` (copy from `.env.example`)
-
-### Essential Variables
-
-**Core**:
-- `FK_CORE_KIND=llama|vllm` — Inference backend
-- `FK_CORE_API_BASE=http://localhost:8001/v1` — API endpoint
-
-**Ports**:
-- `FRONTEND_PORT=3000`, `LLAMA_PORT_CORE=8001`
-
-**Frontend**:
-- `FRONTEND_VLLM_MODEL=core` — Model name
-- `FRONTEND_MAX_TOKENS=8192`, `FRONTEND_TEMP=0.0`, `FRONTEND_TOP_P=0.4`
-- `FRONTEND_CONT_ATTEMPTS=2` — Auto-continuation tries
-- `FRONTEND_USE_HARMONY=1` — Reasoning protocol
-
-**M2 Orchestration Modes**:
-- `FRONTEND_ENABLE_REVIEW=1` — Self-review mode
-- `FRONTEND_REVIEW_THRESHOLD=0.7` — Quality threshold (0.0-1.0)
-- `FRONTEND_AUTO_REVIEW=1` — Auto-detection for review
-- `FRONTEND_ENABLE_CHUNKED=1` — Chunked reasoning mode
-- `FRONTEND_CHUNKED_MAX_CHUNKS=5` — Max chunks per response
-- `FRONTEND_AUTO_CHUNKED=1` — Auto-detection for chunked
-
-**Tools**:
-- `TOOL_ALLOW=...` — Comma-separated allowlist (default: all)
-- `TOOLS_FS_ROOT=/workspace` — Filesystem root (default: full access)
-- `FRONTEND_ENABLE_POWERSHELL=1`, `FRONTEND_ENABLE_BASH=1`
-
-**Capability-First Configuration (T301-T306)**:
-- `ENABLE_FS_SANDBOX=0` — Filesystem sandbox (0=disabled [default], 1=enabled)
-- `ENABLE_LOG_REDACTION=0` — Log redaction (0=disabled [default], 1=enabled)
-- `REDACTION_MODE=off` — Redaction level (off/minimal/standard/aggressive)
-- `REDACTION_CONTEXT=dev` — Context-aware redaction (dev/staging/production)
-- `RATE_LIMIT_ENABLED=0` — Rate limiting (0=disabled [default], 1=enabled)
-- `RESOURCE_QUOTAS_ENABLED=0` — Resource quotas (0=disabled [default], 1=enabled)
-
-**ContextLog**:
-- `FGK_CONTEXTLOG_DIR=.forgekeeper/context_log`
-- `FGK_CONTEXTLOG_MAX_BYTES=10485760` — 10MB rotation
-
-**MCP Integration (T401-T409)**:
-- `MCP_ENABLED=1` — Enable Model Context Protocol integration (1=enabled [default])
-- `MCP_SERVERS_CONFIG=.forgekeeper/mcp-servers.json` — Path to MCP servers config
-- `MCP_AUTO_RELOAD=1` — Hot-reload on config changes (1=enabled [default])
-- `MCP_HEALTH_CHECK_INTERVAL=60000` — Health check interval in ms (default: 60s)
-
-**Collaborative Intelligence (T308-T312, M3 - Phase 8)**:
-- `AUTONOMOUS_ENABLE_COLLABORATION=0` — Enable human-in-the-loop (0=disabled [default])
-- `AUTONOMOUS_APPROVAL_TIMEOUT_MS=300000` — Approval timeout (5 minutes)
-- `AUTONOMOUS_APPROVAL_REQUIRED=high` — Min risk for approval (low/medium/high/critical)
-- `AUTONOMOUS_CHECKPOINT_THRESHOLD=0.7` — Confidence threshold for checkpoints
-- `PREFERENCE_MIN_SAMPLES=5` — Min samples to detect patterns
-- `PREFERENCE_CONFIDENCE_THRESHOLD=0.6` — Min confidence to use patterns
-- `RECOMMENDATION_USE_PREFERENCES=1` — Use preferences in recommendations
-- `RECOMMENDATION_CONFIDENCE_BOOST=0.15` — Boost for preferred options (+15%)
-- `RECOMMENDATION_HISTORY_WEIGHT=0.3` — Weight of historical choices (30%)
-
-### Docker Compose
-
-**Services**: `llama-core`, `llama-core-cpu`, `vllm-core`, `frontend`
-**Profiles**: Determined by `FK_CORE_KIND` (inference/inference-cpu/inference-vllm + ui)
-**Network**: `forgekeeper-net` (external)
-
----
-
-## Key Architectural Patterns
-
-### 1. ContextLog (JSONL Event Store)
-- **Storage**: `.forgekeeper/context_log/ctx-YYYYMMDD-HH.jsonl`
-- **Rotation**: 10MB per file, hourly, 7-day retention
-- **Schema**: `{id, ts, actor, act, conv_id, trace_id, iter, name, status, elapsed_ms, args_preview, result_preview, bytes}`
-- **Readers**: Python `jsonl.tail()`, Node `tailEvents()`
-
-### 2. Harmony Protocol
-- **Purpose**: Reasoning + final split for models like o1
-- **Fields**: `reasoning_content` (hidden), `content` (displayed)
-- **Functions**: `extractHarmonyFinalStrict()`, `extractHarmonyAnalysisStrict()`
-
-### 3. Tool Orchestration
-- **Loop**: Call LLM → parse tool_calls → execute → append tool results → repeat
-- **Definitions**: `frontend/tools/*.mjs` (ESM modules)
-- **Registry**: `frontend/tools/index.mjs`
-
-### 4. Streaming
-- **Non-streaming**: `/api/chat` (full tool loop, return final)
-- **Streaming**: `/api/chat/stream` (SSE, stream final turn)
-- **Format**: `data: {"content": "token"}\ndata: [DONE]`
-
-### 5. Configuration-Driven
-- **Discovery**: `/config.json` exposes all capabilities
-- **UI**: Disables unavailable features dynamically
-
-### 6. Orchestration Modes (M2)
-- **Standard**: Base tool-enabled orchestration
-- **Review**: Iterative quality improvement with evaluation/regeneration
-- **Chunked**: Multi-chunk generation for comprehensive responses
-- **Combined**: Review + Chunked together
-- **Auto-Detection**: Heuristic-based mode selection
-
----
+# Or start directly
+npm start
+```
 
 ## Directory Structure
 
 ```
 forgekeeper/
-├── .env                        # Config
-├── .forgekeeper/               # Local state (gitignored)
-│   ├── context_log/            # Event logs
-│   ├── preferences/            # User preferences
-│   ├── playground/             # Episodic memory
-│   └── learning/               # Outcome tracking
-├── docker-compose.yml
-├── frontend/
-│   ├── src/                    # React app
-│   ├── tools/                  # Tool definitions
-│   ├── mcp/                    # Model Context Protocol integration
-│   ├── core/agent/             # Autonomous agent
-│   │   ├── autonomous.mjs      # Main orchestrator (3,149 lines)
-│   │   └── orchestrator/       # Modular architecture (refactored 2025-12-15)
-│   │       ├── llm-client.mjs      # LLM interactions, prompt building
-│   │       ├── memory-manager.mjs  # Memory coordination, checkpoints
-│   │       ├── tool-handler.mjs    # Tool planning, inference, execution
-│   │       └── reflector.mjs       # Self-evaluation, meta-cognition
-│   ├── server.mjs              # Main server
-│   ├── server/                 # Server modules (refactored 2025-12-15)
-│   │   ├── orchestration/      # Request flow (8 files)
-│   │   ├── agents/             # Multi-agent system (9 files)
-│   │   ├── conversations/      # Message infrastructure (5 files)
-│   │   ├── collaborative/      # Human-AI collaboration (9 files)
-│   │   ├── telemetry/          # Logging & metrics (5 files)
-│   │   ├── automation/         # Task/PR automation (3 files)
-│   │   └── core/               # Foundational utilities (9 files)
-│   └── package.json
-├── forgekeeper/                # Python package
-│   ├── __main__.py             # CLI orchestrator (136 lines, refactored 2025-12-15)
-│   ├── cli/                    # CLI modules (refactored 2025-12-15)
-│   │   ├── commands.py         # Command implementations
-│   │   ├── handlers.py         # Request handlers
-│   │   ├── args.py             # Argument parsing
-│   │   └── output.py           # Output formatting
-│   ├── services/context_log/
-│   ├── core/, pipeline/, memory/, llm/, tools/
-├── scripts/                    # Setup/test scripts
-├── docs/                       # Documentation
-│   ├── features/               # Feature-specific docs
-│   ├── releases/               # Release notes
-│   └── setup/                  # Setup guides
-├── archive/                    # Archived session files
-│   └── sessions/2025/          # Session transcripts and working docs
-└── tasks.md                    # Task cards
+├── index.js              # Main entry point
+├── config.js             # Configuration (env-driven)
+├── ecosystem.config.cjs  # PM2 configuration
+├── package.json          # Dependencies
+├── .env.example          # Environment template
+│
+├── core/                 # Core modules
+│   ├── loop.js           # Main task loop (10s ticks)
+│   ├── planner.js        # LLM-driven task decomposition
+│   ├── claude.js         # Claude Code CLI wrapper
+│   ├── memory.js         # JSONL storage
+│   ├── guardrails.js     # Security controls
+│   ├── agent-pool.js     # Parallel task execution
+│   ├── agent-worker.js   # Worker thread for tasks
+│   └── topic-router.js   # Multi-topic message handling
+│
+├── skills/               # High-level task handlers
+│   ├── registry.js       # Skill loader
+│   ├── code.js           # Code writing/editing
+│   ├── git.js            # Git operations
+│   ├── research.js       # Web research
+│   ├── restart.js        # Self-restart via PM2
+│   └── self-extend.js    # Create new skills
+│
+├── mcp-servers/          # MCP protocol servers
+│   └── telegram.js       # Telegram bot
+│
+├── interface/            # User interfaces
+│   └── dashboard.js      # Web dashboard
+│
+├── scripts/              # Utility scripts
+│   └── health-check.js   # Health check
+│
+├── tests/                # Unit tests
+│   └── unit/
+│
+├── data/                 # Runtime data (gitignored)
+│   ├── tasks/            # Task JSONL files
+│   ├── goals/            # Goal JSONL files
+│   ├── learnings/        # Learning JSONL files
+│   ├── conversations/    # Conversation history
+│   └── user_sessions.json
+│
+├── logs/                 # PM2 logs (gitignored)
+│
+├── docs/                 # Documentation
+│
+└── legacy/               # v1/v2 code (reference only)
+    ├── frontend/         # Old React frontend
+    ├── forgekeeper/      # Old Python package
+    └── ...
 ```
 
----
+## Key Concepts
 
-## Iterative Reasoning Philosophy
+### 1. Task Loop
+The main loop runs every 10 seconds:
+1. Check pending tasks
+2. Run through planner (decompose if complex)
+3. Execute via Claude Code CLI
+4. Record results to JSONL
 
-**Core Principle**: Local inference = **unlimited iterations at no cost**
+### 2. Planner Agent
+All tasks go through the planner first:
+- **Simple tasks** → Execute directly
+- **Complex tasks** → Decompose into 2-5 subtasks
 
-| Traditional (API) | Local (Forgekeeper) |
-|------------------|---------------------|
-| Minimize calls | Unlimited iterations |
-| Large responses | Small, focused steps |
-| Pack into one turn | Build through many turns |
-| Verbose | Concise, clear |
+### 3. Agent Pool
+Optional parallel execution (enable with `FK_AGENT_POOL_ENABLED=1`):
+- Configurable number of workers
+- Tasks run in parallel across workers
+- Queue when all workers busy
 
-**Tenets**:
-1. Small steps (one focused thing per iteration)
-2. Unlimited turns (no total limit)
-3. Build up reasoning (many small → well-reasoned)
-4. Memory is key (each adds to understanding)
-5. Favor clarity (short over verbose)
-6. Think → plan → execute → assess → repeat
+### 4. Topic Router
+Handles multiple topics in one message (enable with `FK_TOPIC_ROUTER_ENABLED=1`):
+- LLM-driven topic detection
+- Routes tasks, questions, info separately
+- Enables natural conversation with context switching
 
----
+### 5. Skills
+High-level task handlers that match patterns:
+- `code.js` - write/edit/refactor code
+- `git.js` - git operations
+- `research.js` - web research
+- `restart.js` - self-restart via PM2
+- `self-extend.js` - create new skills
 
-## Advanced Features
+### 6. Memory (JSONL)
+All state is stored in append-only JSONL files:
+- Tasks: `data/tasks/{id}.json` + `_index.jsonl`
+- Goals: `data/goals/{id}.json`
+- Learnings: `data/learnings/learnings.jsonl`
+- Conversations: `data/conversations/{userId}.jsonl`
 
-### Autonomous Agent (All 8 Phases Complete)
+### 7. Guardrails
+Security controls:
+- Destructive operations require confirmation
+- Self-extension requires approval
+- Rate limiting on Claude calls
+- Path/command denylists
 
-**Progress**: 100% (8/8 phases) ✅
+## Commands
 
-| Phase | Status | Key Features |
-|-------|--------|--------------|
-| 1: Recursive Feedback | ✅ | Self-reflection, 10-iter history |
-| 2: Meta-Cognition | ✅ | Confidence calibration, bias detection |
-| 3: Cross-Session Learning | ✅ | Tool effectiveness tracking |
-| 4: Error Recovery | ✅ | "5 Whys" analysis, 85-90% recovery |
-| 5: Advanced Learning | ✅ | Episodic memory, user preferences |
-| 6: Proactive Planning | ✅ | Multi-alternative evaluation |
-| 7: Multi-Step Lookahead | ✅ | 2-3 step graphs, adaptive weights |
-| 8: Collaborative Intelligence | ✅ | Risk assessment, approval, checkpoints, feedback (2025-12-15) |
-
-**Impact**: Failure rate 35%→12%, iterations 12→8, recovery 40%→85%
-
-**Architecture** (Refactored 2025-12-15):
-
-The autonomous agent uses a modular **orchestrator pattern** for clean separation of concerns:
-
-**Main Orchestrator**: `autonomous.mjs` (3,149 lines)
-- Pure orchestration logic
-- Coordinates 4 specialized modules
-- Main execution loop: reflect → execute → evaluate → repeat
-
-**Orchestrator Modules** (`frontend/core/agent/orchestrator/`):
-
-1. **LLMClient** (`llm-client.mjs`, 744 lines)
-   - All LLM interactions and prompt building
-   - Reflection parsing and validation
-   - Task type detection and guidance
-   - Diagnostic reflection (5 Whys analysis)
-
-2. **MemoryManager** (`memory-manager.mjs`, 232 lines)
-   - Coordinates all memory systems (session, episodic, preferences, tool effectiveness)
-   - Checkpoint save/load
-   - Session recording for learning
-
-3. **ToolHandler** (`tool-handler.mjs`, 686 lines)
-   - Tool planning and execution
-   - Heuristic tool inference (200+ lines)
-   - Argument inference for tool calls
-   - Recovery strategy execution
-
-4. **Reflector** (`reflector.mjs`, 513 lines)
-   - Self-evaluation and meta-cognition
-   - Accuracy scoring (prediction vs reality)
-   - Stopping criteria logic
-   - Result building and summary generation
-
-**Supporting Modules**: `self-evaluator.mjs`, `episodic-memory.mjs`, `diagnostic-reflection.mjs`, `alternative-generator.mjs`, `effort-estimator.mjs`, `task-graph-builder.mjs`, `outcome-tracker.mjs`, `weight-learner.mjs`
-
-**Benefits**:
-- ✅ Improved testability (modules can be unit tested in isolation)
-- ✅ Enhanced reusability (modules can be used by other agents)
-- ✅ Better maintainability (clear boundaries, focused responsibilities)
-- ✅ Reduced complexity (3,937 → 3,149 lines main file, -20%)
-
-**Env Vars**:
-- `AUTONOMOUS_ENABLE_ALTERNATIVES=1`, `AUTONOMOUS_ENABLE_LOOKAHEAD=1`
-- `AUTONOMOUS_LOOKAHEAD_DEPTH=3`, `AUTONOMOUS_MIN_ALTERNATIVES=3`
-- `AUTONOMOUS_EFFORT_WEIGHT=0.4`, `AUTONOMOUS_RISK_WEIGHT=0.3`, `AUTONOMOUS_ALIGNMENT_WEIGHT=0.3`
-
-### TGT: Telemetry-Driven Task Generation
-
-**Status**: ✅ Complete (Weeks 1-8)
-
-**Purpose**: Auto-generate task cards from telemetry (continuations, errors, perf, docs gaps, UX issues)
-
-**Heuristics**: High continuation rate (>15%), error spikes, missing docs, perf degradation, UX friction
-
-**Endpoints**: 28 total (suggest, list, approve/dismiss, batch ops, analytics, funnel, templates, dependencies, priority, scheduler, stream)
-
-**Env Vars**:
-- `TASKGEN_ENABLED=1`, `TASKGEN_WINDOW_MIN=60`, `TASKGEN_MIN_CONFIDENCE=0.7`
-- `TASKGEN_CONT_MIN=5`, `TASKGEN_CONT_RATIO_THRESHOLD=0.15`
-- `TASKGEN_AUTO_APPROVE=0`, `TASKGEN_AUTO_APPROVE_CONFIDENCE=0.9`
-
-**Docs**: `docs/autonomous/tgt/`
-
-### SAPL: Safe Auto-PR Loop
-
-**Status**: ✅ Complete
-
-**Purpose**: Automated PR creation with safety controls
-
-**Safety**: Allowlist-only (docs/tests/examples), dry-run default, kill-switch, full audit
-
-**Workflow**: TGT suggests → user proposes PR → preview diff → validate → create PR
-
-**Env Vars**:
-- `AUTO_PR_ENABLED=0` (kill-switch), `AUTO_PR_DRYRUN=1` (safe default)
-- `AUTO_PR_ALLOW=README.md,docs/**/*.md,*.example,tests/**/*.mjs`
-- `AUTO_PR_AUTOMERGE=0` (safe default)
-
-**Prerequisites**: GitHub CLI (`gh`) installed and authenticated
-
-**Docs**: `docs/sapl/README.md`
-
-### MIP: Metrics-Informed Prompting
-
-**Status**: ✅ Complete, integrated
-
-**Purpose**: Inject data-driven hints to reduce incomplete responses
-
-**Process**: Analyze ContextLog → detect patterns (fence, punct, short, length) → generate hints → inject into prompts
-
-**Env Vars**:
-- `PROMPTING_HINTS_ENABLED=1`, `PROMPTING_HINTS_MINUTES=10`
-- `PROMPTING_HINTS_THRESHOLD=0.15`, `PROMPTING_HINTS_MIN_SAMPLES=5`
-
-**Implementation**: `frontend/server.prompting-hints.mjs`
-
-### Episodic Memory
-
-**Storage**: `.forgekeeper/playground/.episodic_memory.jsonl`
-**Embeddings**: Lightweight TF-IDF (fast, local)
-**Search**: Top 3 similar successful sessions
-**Integration**: Auto-injected into agent reflection prompts
-
-### User Preferences
-
-**Storage**: `.forgekeeper/preferences/*.jsonl`
-**Categories**: Code style, tools, workflow, docs
-**Inference**: Auto-detect from codebase
-**Integration**: Injected into agent prompts
-
-### Thought World Mode
-
-**Purpose**: Isolated simulation for counterfactual reasoning
-**Endpoints**: 6 (start, stream, tools, human-input)
-**Env**: `THOUGHT_WORLD_ENABLED=1`, `THOUGHT_WORLD_MAX_DEPTH=5`
-
-### Scout Metrics
-
-**Purpose**: Performance monitoring
-**Tracked**: Request rates, response times (p50/p95/p99), errors, tool times, continuations
-**Env**: `SCOUT_ENABLED=1`, `SCOUT_RETENTION_HOURS=24`
-
----
-
-## Quick Start
-
+### NPM Scripts
 ```bash
-# 1. Ensure core
-bash forgekeeper/scripts/ensure_llama_core.sh
+npm start           # Start directly
+npm run dev         # Start with watch mode
+npm run setup       # Interactive setup wizard
+npm run health      # Run health check
+npm test            # Run unit tests
 
-# 2. Start stack
-python -m forgekeeper ensure-stack --build
-# Or: bash scripts/ensure_stack.sh (Linux/macOS)
-# Or: pwsh scripts/ensure_stack.ps1 (Windows)
-
-# 3. Access UI
-http://localhost:5173 (dev) or http://localhost:3000 (prod)
+# PM2 commands
+npm run pm2:start   # Start with PM2
+npm run pm2:stop    # Stop
+npm run pm2:restart # Restart
+npm run pm2:logs    # View logs
+npm run pm2:status  # Status
+npm run pm2:monit   # Monitor dashboard
 ```
 
----
+### Telegram Commands
+- `/start` - Welcome message
+- `/help` - Available commands
+- `/status` - Current status
+- `/tasks` - List pending tasks
+- `/goals` - List active goals
+- `/task <description>` - Create a task
+- `/goal <description>` - Create a goal
+- `/approve <id>` - Approve pending request
+- `/reject <id>` - Reject pending request
+- `/newsession` - Reset conversation context
 
-## Useful Commands
+## Environment Variables
 
-```bash
-# Dev server
-npm --prefix forgekeeper/frontend run dev
+See `.env.example` for all options. Key variables:
 
-# Build
-npm --prefix forgekeeper/frontend run build
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | (required) |
+| `TELEGRAM_ALLOWED_USERS` | Allowed user IDs | (all) |
+| `FK_CLAUDE_SKIP_PERMISSIONS` | Skip permission prompts | 0 |
+| `FK_AGENT_POOL_ENABLED` | Enable parallel execution | 0 |
+| `FK_AGENT_POOL_SIZE` | Number of workers | 3 |
+| `FK_TOPIC_ROUTER_ENABLED` | Enable topic routing | 0 |
 
-# Python CLI
-python -m forgekeeper chat -p "Hello"
+## Legacy Code
 
-# Tests
-pytest -q tests/
-npm --prefix forgekeeper/frontend run test
+The `legacy/` directory contains the original v1/v2 codebase:
+- Complex multi-service architecture
+- React frontend
+- Python CLI
+- Local inference support
 
-# Linting
-npm --prefix forgekeeper/frontend run lint
-
-# Task validation
-make -C forgekeeper task-sanity
-```
-
----
-
-## Guardrails & Conventions
-
-**Commits**: Conventional (`feat:`, `fix:`, `chore:`, `docs:`), small and focused
-
-**Code Style**:
-- Python: PEP 8, 4-space, snake_case, type hints
-- TypeScript: camelCase (vars), PascalCase (components), ESLint
-
-**PRs**: Include `Task ID: T#`, screenshots for UI, run tests locally
-
-**Testing**: Default to unit/smoke, integration only when task card requires
-
-**Feature Gates**: Off by default, gated via env vars
+This is kept for reference but is not actively maintained. All new development should use the v3 architecture.
 
 ---
 
-## Key Files for Developers
-
-**Chat flow**: `frontend/server.mjs`, `server.orchestrator.mjs`, `src/components/Chat.tsx`
-
-**Add tool**: Create `frontend/tools/mytool.mjs` → export from `index.mjs` → test via `/config.json`
-
-**MCP Integration**: `frontend/mcp/client.mjs`, `mcp/registry.mjs`, `mcp/tool-adapter.mjs`, `docs/mcp/README.md`
-
-**ContextLog**: `forgekeeper/services/context_log/jsonl.py`, `frontend/server.contextlog.mjs`, `docs/adr/adr-0001-contextlog.md`
-
-**Add task**: Edit `forgekeeper/tasks.md` → create PR with `Task ID: T#` → CI validates
-
----
-
-## References
-
-- **ADRs**: `docs/adr/` (Architecture Decision Records including ContextLog schema/design, collaborative-intelligence)
-- **API Docs**: `docs/api/`
-- **Task Cards**: `tasks.md`
-- **Contributing**: `CONTRIBUTING.md`
-- **Autonomous Phases**: `docs/autonomous/phases/`
-- **TGT**: `docs/autonomous/tgt/`
-- **SAPL**: `docs/sapl/`
-- **MCP**: `docs/mcp/` (Model Context Protocol integration)
-- **Collaborative Intelligence**: `docs/autonomous/collaborative-intelligence.md` (Human-in-the-loop, T308-T312)
-
----
-
-**Last updated**: 2025-11-21
-**Branch**: claude/code-review-tasks-01G9fy6vMN6zVp25RmcYRCtE
-**Size**: ~430 lines with MCP and Collaborative Intelligence
+**Last updated**: 2025-02-03
+**Version**: 3.1.0
