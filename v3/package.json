@@ -1,6 +1,6 @@
 {
   "name": "forgekeeper-v3",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Minimal AI agent with Claude Code as the brain",
   "type": "module",
   "main": "index.js",
@@ -12,13 +12,22 @@
     "telegram:standalone": "node mcp-servers/telegram.js",
     "test": "node --test ./tests/unit/*.test.js",
     "test:unit": "node --test ./tests/unit/*.test.js",
-    "health": "node scripts/health-check.js"
+    "health": "node scripts/health-check.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop forgekeeper",
+    "pm2:restart": "pm2 restart forgekeeper",
+    "pm2:logs": "pm2 logs forgekeeper",
+    "pm2:status": "pm2 status",
+    "pm2:monit": "pm2 monit"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "telegraf": "^4.16.0",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "pm2": "^5.3.0"
   },
   "engines": {
     "node": ">=20.0.0"

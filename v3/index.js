@@ -1,11 +1,16 @@
 #!/usr/bin/env node
-// Forgekeeper v3 - Minimal AI Agent with Claude Code as the brain
+// Forgekeeper v3.1 - Minimal AI Agent with Claude Code as the brain
 import { config } from './config.js';
 import loop from './core/loop.js';
 import { conversations, tasks, goals, approvals, learnings } from './core/memory.js';
 import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
+import { routeMessage, analyzeTopics, TOPIC_TYPES } from './core/topic-router.js';
+import { createAgentPool } from './core/agent-pool.js';
 import { randomUUID } from 'crypto';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+
+// Agent pool for parallel task execution
+let agentPool = null;
 
 // Store session IDs per user (persisted to file)
 const userSessions = new Map();
@@ -40,6 +45,19 @@ function saveUserSessions() {
 
 // Load sessions immediately
 loadUserSessions();
+
+// Helper to get or create a session for a user
+function getOrCreateSession(userId) {
+  let sessionId = userSessions.get(String(userId));
+  if (!sessionId) {
+    sessionId = randomUUID();
+    userSessions.set(String(userId), sessionId);
+    saveUserSessions();
+    console.log(`[Chat] Created new session for user ${userId}: ${sessionId}`);
+  }
+  return sessionId;
+}
+
 import { loadSkills } from './skills/registry.js';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -71,6 +89,14 @@ async function init() {
   console.log('[Init] Loading skills...');
   const skills = await loadSkills();
   console.log(`  - Loaded ${skills.length} skills`);
+
+  // Initialize agent pool if enabled
+  if (config.agentPool?.enabled) {
+    console.log('[Init] Starting agent pool...');
+    agentPool = createAgentPool({ poolSize: config.agentPool.size || 3 });
+    await agentPool.initialize();
+    setupAgentPoolListeners(agentPool);
+  }
 
   // Set up event listeners for logging
   setupEventListeners();
@@ -214,6 +240,35 @@ async function handleTelegramRequest(request) {
       // Store in conversation history
       conversations.append(userId, { role: 'user', content: message });
 
+      // Check if message has multiple topics (sentences, questions, tasks mixed)
+      const hasMultipleTopics = message.split(/[.!?]/).filter(s => s.trim()).length > 1 ||
+                                (message.includes('?') && message.match(/^(create|make|build|add|fix|update)/i));
+
+      // Use topic router for complex multi-topic messages
+      if (hasMultipleTopics && config.topicRouter?.enabled) {
+        console.log('[Chat] Routing multi-topic message...');
+        try {
+          const chatFn = async (msg, uid) => {
+            const sessionId = getOrCreateSession(uid);
+            const result = await chat(msg, sessionId);
+            return { reply: result.success ? result.output?.trim() : null };
+          };
+
+          const routeResult = await routeMessage(message, userId, {
+            agentPool,
+            chat: chatFn,
+          });
+
+          if (routeResult.response) {
+            conversations.append(userId, { role: 'assistant', content: routeResult.response });
+            return { reply: routeResult.response };
+          }
+        } catch (error) {
+          console.error('[Chat] Topic routing error:', error.message);
+          // Fall through to standard chat
+        }
+      }
+
       const lowerMsg = message.toLowerCase();
 
       // Check if it's a task request (imperative commands)
@@ -230,14 +285,7 @@ async function handleTelegramRequest(request) {
 
       // For everything else, chat with Claude using persistent session
       try {
-        // Get or create session ID for this user
-        let sessionId = userSessions.get(String(userId));
-        if (!sessionId) {
-          sessionId = randomUUID();
-          userSessions.set(String(userId), sessionId);
-          saveUserSessions();
-          console.log(`[Chat] Created new session for user ${userId}: ${sessionId}`);
-        }
+        const sessionId = getOrCreateSession(userId);
 
         console.log('[Chat] Sending to Claude:', message.slice(0, 50), '(session:', sessionId.slice(0, 8) + '...)');
         const result = await chat(message, sessionId);
@@ -304,9 +352,46 @@ function setupEventListeners() {
   });
 }
 
+// Set up agent pool event listeners
+function setupAgentPoolListeners(pool) {
+  pool.on('task:started', ({ agentId, taskId }) => {
+    console.log(`[AgentPool] Agent ${agentId} started task ${taskId}`);
+  });
+
+  pool.on('task:completed', ({ agentId, taskId, elapsed }) => {
+    console.log(`[AgentPool] Agent ${agentId} completed task ${taskId} in ${elapsed}ms`);
+    // Update task in memory
+    try {
+      tasks.update(taskId, { status: 'completed' });
+    } catch (e) {}
+  });
+
+  pool.on('task:failed', ({ agentId, taskId, error }) => {
+    console.log(`[AgentPool] Agent ${agentId} failed task ${taskId}: ${error}`);
+    try {
+      tasks.addAttempt(taskId, { success: false, error });
+    } catch (e) {}
+  });
+
+  pool.on('task:queued', ({ taskId, position }) => {
+    console.log(`[AgentPool] Task ${taskId} queued at position ${position}`);
+  });
+
+  pool.on('worker:error', ({ agentId, error }) => {
+    console.error(`[AgentPool] Worker ${agentId} error:`, error.message);
+  });
+}
+
 // Handle shutdown
-function shutdown() {
+async function shutdown() {
   console.log('\n[Shutdown] Stopping Forgekeeper...');
+
+  // Stop agent pool
+  if (agentPool) {
+    console.log('[Shutdown] Stopping agent pool...');
+    await agentPool.shutdown();
+    agentPool = null;
+  }
 
   // Stop Telegram bot
   if (telegramProcess) {
@@ -316,6 +401,12 @@ function shutdown() {
   }
 
   loop.stop();
+
+  // Signal PM2 we're ready for restart (if running under PM2)
+  if (process.send) {
+    process.send('ready');
+  }
+
   process.exit(0);
 }
 

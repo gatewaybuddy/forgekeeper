@@ -66,6 +66,23 @@ export const config = {
     enabled: process.env.FK_LEARNING_ENABLED !== '0',
     minConfidence: parseFloat(process.env.FK_LEARNING_MIN_CONFIDENCE || '0.6'),
   },
+
+  // Agent Pool (parallel task execution)
+  agentPool: {
+    enabled: process.env.FK_AGENT_POOL_ENABLED === '1',
+    size: parseInt(process.env.FK_AGENT_POOL_SIZE || '3'),
+  },
+
+  // Topic Router (multi-topic message handling)
+  topicRouter: {
+    enabled: process.env.FK_TOPIC_ROUTER_ENABLED === '1',
+  },
+
+  // PM2 Integration
+  pm2: {
+    enabled: process.env.PM2_HOME || process.env.pm_id ? true : false,
+    appName: process.env.FK_PM2_APP_NAME || 'forgekeeper',
+  },
 };
 
 export default config;
