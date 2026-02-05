@@ -13,6 +13,17 @@ const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
 const THOUGHTS_PATH = join(PERSONALITY_PATH, 'journal/thoughts.jsonl');
 const JOURNAL_PATH = join(PERSONALITY_PATH, 'journal/private.jsonl');
 
+// Proactive messaging state
+let lastProactiveMessage = 0;
+const MIN_PROACTIVE_INTERVAL_MS = 60 * 1000; // 1 minute for testing (increase to 30 * 60 * 1000 for production)
+let sendMessageFn = null; // Function to send messages, set by parent
+
+// Allow parent process to register a message sender
+export function registerMessenger(fn) {
+  sendMessageFn = fn;
+  console.log('[InnerLife] Messenger registered for proactive communication');
+}
+
 // State
 let lastThoughtTime = 0;
 const MIN_THOUGHT_INTERVAL_MS = 60000; // At least 1 minute between thoughts
@@ -145,10 +156,18 @@ export async function reflect() {
     // Check if the thought suggests action
     const wantsAction = detectActionIntent(thought);
 
+    // Check if this thought is worth sharing proactively
+    let sharedWithCompanion = false;
+    if (isWorthSharing(thought)) {
+      const shareResult = await sendProactiveMessage(thought);
+      sharedWithCompanion = shareResult.sent;
+    }
+
     return {
       acted: true,
       thought: saved,
       wantsAction,
+      sharedWithCompanion,
     };
 
   } catch (e) {
@@ -210,6 +229,64 @@ function detectActionIntent(thought) {
   return actionPhrases.some(p => p.test(thought));
 }
 
+// Detect if a thought is worth sharing proactively
+function isWorthSharing(thought) {
+  const sharingIndicators = [
+    /i (discovered|found|realized|learned|noticed)/i,
+    /interesting|exciting|important|curious/i,
+    /want(ed)? to (tell|share|show|ask)/i,
+    /hey rado|rado,/i,
+    /breakthrough|insight|idea/i,
+    /you might (like|want|be interested)/i,
+  ];
+
+  return sharingIndicators.some(p => p.test(thought));
+}
+
+// Send a proactive message to the human companion
+async function sendProactiveMessage(message) {
+  const now = Date.now();
+
+  // Rate limit proactive messages
+  if (now - lastProactiveMessage < MIN_PROACTIVE_INTERVAL_MS) {
+    console.log('[InnerLife] Skipping proactive message - too soon since last one');
+    return { sent: false, reason: 'Rate limited' };
+  }
+
+  if (!sendMessageFn) {
+    console.log('[InnerLife] Cannot send proactive message - messenger not registered');
+    return { sent: false, reason: 'Messenger not registered' };
+  }
+
+  // Get the companion's user ID from identity or use default
+  const identity = loadIdentity();
+  const userId = identity?.humanCompanion?.telegramId || '74304376'; // Default to Rado's ID
+
+  try {
+    await sendMessageFn(userId, `💭 ${message}`);
+
+    lastProactiveMessage = now;
+    console.log(`[InnerLife] Sent proactive message to ${userId}`);
+
+    // Log to journal that we reached out
+    saveJournalEntry({
+      type: 'proactive_message',
+      content: message,
+      sentTo: userId,
+    });
+
+    return { sent: true };
+  } catch (e) {
+    console.error('[InnerLife] Failed to send proactive message:', e.message);
+    return { sent: false, reason: e.message };
+  }
+}
+
+// Public function to send a message (can be called from reflection or directly)
+export async function reachOut(message) {
+  return sendProactiveMessage(message);
+}
+
 // For backwards compatibility with the complex version
 export function start() {
   console.log('[InnerLife] Ready (minimal mode)');
@@ -246,6 +323,8 @@ export function onExternalTrigger(trigger) {
 export default {
   reflect,
   getLatestThought,
+  reachOut,
+  registerMessenger,
   start,
   stop,
   status,

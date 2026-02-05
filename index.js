@@ -248,6 +248,19 @@ async function startTelegramBot() {
 
   // Give it a moment to start
   await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // Register messenger with inner life for proactive communication
+  innerLife.registerMessenger(async (userId, text) => {
+    if (telegramProcess && telegramProcess.stdin.writable) {
+      const request = {
+        method: 'send_message',
+        params: { userId, text }
+      };
+      telegramProcess.stdin.write(JSON.stringify(request) + '\n');
+      return true;
+    }
+    throw new Error('Telegram process not available');
+  });
 }
 
 // Handle requests from Telegram bot
