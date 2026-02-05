@@ -64,11 +64,14 @@ Enable human-in-the-loop collaboration with approval workflows, decision checkpo
 ## M4 - Forgekeeper v3 Promotion & Agent Architecture (Owner: TBD; Target: TBD; Priority: HIGH)
 Promote v3 to the primary Forgekeeper version, add proactive task initiation, self-update capabilities, and improved agent/skill management.
 - [ ] T401 - Proactive task initiation and scheduling  (Phase 1: Task Autonomy)
-- [ ] T402 - Self-update and restart mechanism  (Phase 1: Task Autonomy)
+- [x] T402 - Self-update and restart mechanism  (Phase 1: Task Autonomy) [Complete: 2025-02-05]
 - [ ] T403 - Subagent manager skill and coordination patterns  (Phase 2: Agent Architecture) [Complete: 2025-02-02]
 - [ ] T404 - Promote v3 to root directory  (Phase 3: v3 Promotion)
 - [ ] T405 - Archive legacy v1/v2 code  (Phase 3: v3 Promotion)
 - [ ] T406 - Update documentation and entry points  (Phase 3: v3 Promotion)
+- [x] T407 - Progress tracking and task completion notifications  (Phase 1: Task Autonomy) [Complete: 2025-02-05]
+- [x] T408 - Intent translator for autonomous task creation  (Phase 1: Task Autonomy) [Complete: 2025-02-05]
+- [ ] T409 - MCP server setup documentation  (Phase 2: Agent Architecture)
 
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
@@ -995,3 +998,69 @@ See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonic
   - CLAUDE.md accurately describes current architecture.
   - No broken documentation links.
 - Test Level: documentation.
+
+### T407 — Progress tracking and task completion notifications
+- Goal: Enable real-time progress tracking and notifications when tasks complete or require attention, enhancing visibility into autonomous operations.
+- Scope:
+  - Add progress event emitters to core task execution loop.
+  - Implement notification system for task state changes (started, progress, completed, failed).
+  - Create configurable notification channels (console, file, webhook).
+  - Add progress percentage and ETA estimation where applicable.
+  - Store progress history in memory for status queries.
+  - Expose progress data via `/api/tasks/progress` endpoint.
+- Out of Scope:
+  - Push notifications to mobile devices.
+  - Email notification integration.
+  - Real-time WebSocket streaming (polling endpoint is sufficient for MVP).
+  - Historical progress analytics or dashboards.
+- Allowed Touches: `v3/core/loop.js`, `v3/core/tasks.js`, `v3/core/notifications.js`, `v3/api/routes/tasks.js`, `v3/config.js`, `v3/README.md`.
+- Done When:
+  - Task execution emits progress events at start, during, and completion.
+  - `npm start` with `FK_NOTIFICATIONS_ENABLED=1` shows progress updates in console.
+  - `/api/tasks/progress` returns current task states and recent completions.
+  - Webhook notification fires on task completion when `FK_WEBHOOK_URL` is configured.
+  - Progress history is queryable for last 100 tasks.
+- Test Level: unit + smoke.
+
+### T408 — Intent translator for autonomous task creation
+- Goal: Convert reflective thoughts into concrete, executable tasks that bridge the gap between autonomous reflection and actionable work.
+- Scope:
+  - Create `core/intent-translator.js` module with `translateIntent()` and `translateAndCreate()` functions.
+  - Build translator prompts that evaluate thought actionability, check for duplicates, and respect scope constraints.
+  - Parse LLM responses to extract task descriptions, priorities, and tags.
+  - Integrate with memory system to create tasks with proper origin and metadata tracking.
+  - Load identity/imperatives for context-aware decision making.
+- Out of Scope:
+  - Multi-step task decomposition (single thought → single task only).
+  - Automatic task execution (creates task, doesn't run it).
+  - Custom priority algorithms beyond low/medium/high.
+- Allowed Touches: `core/intent-translator.js`, `core/inner-life.js`, `config.js`, `tests/test-intent-translator.js`.
+- Done When:
+  - `translateIntent(thought)` returns `{ shouldCreateTask, task, reasoning }` structure.
+  - Duplicate detection prevents creating tasks that match pending items.
+  - `translateAndCreate(thought)` creates task in memory system with proper metadata.
+  - `node tests/test-intent-translator.js` passes all cases.
+- Test Level: unit + smoke.
+
+### T409 — MCP server setup documentation
+- Goal: Provide comprehensive documentation for setting up and configuring MCP (Model Context Protocol) servers with Forgekeeper, enabling users to extend tool capabilities through standardized integrations.
+- Scope:
+  - Create `docs/mcp/INTEGRATION_GUIDE.md` with complete MCP setup instructions.
+  - Document `.forgekeeper/mcp-servers.json` configuration format and all supported options.
+  - Provide step-by-step guides for official MCP servers (GitHub, Postgres, Filesystem, Puppeteer, Slack).
+  - Include troubleshooting section for common connection issues, timeouts, and authentication errors.
+  - Document environment variable requirements and security best practices for token management.
+  - Add example workflows showing MCP tools in action with Forgekeeper orchestrator.
+- Out of Scope:
+  - Implementing MCP client code (covered by T402-T405).
+  - Creating custom MCP servers (covered by T410-T413).
+  - Video tutorials or interactive demos.
+- Allowed Touches: `docs/mcp/INTEGRATION_GUIDE.md`, `docs/mcp/SERVER_REFERENCE.md`, `docs/mcp/TROUBLESHOOTING.md`, `.forgekeeper/mcp-servers.example.json`, `README.md`.
+- Done When:
+  - `docs/mcp/INTEGRATION_GUIDE.md` exists with complete setup instructions.
+  - Configuration reference documents all JSON schema fields with examples.
+  - At least 5 official MCP servers have documented setup guides.
+  - Troubleshooting guide covers connection failures, authentication errors, and timeout issues.
+  - Example configuration file `.forgekeeper/mcp-servers.example.json` is valid JSON with inline comments.
+  - README.md links to MCP documentation in appropriate section.
+- Test Level: documentation (validate JSON examples, verify markdown renders correctly).
