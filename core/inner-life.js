@@ -243,6 +243,63 @@ function isWorthSharing(thought) {
   return sharingIndicators.some(p => p.test(thought));
 }
 
+// Get recent proactive messages from journal
+function getRecentProactiveMessages(limit = 10) {
+  if (!existsSync(JOURNAL_PATH)) return [];
+  try {
+    const lines = readFileSync(JOURNAL_PATH, 'utf-8').trim().split('\n').filter(Boolean);
+    return lines
+      .map(line => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(entry => entry?.type === 'proactive_message')
+      .slice(-limit);
+  } catch (e) {
+    return [];
+  }
+}
+
+// Extract key topics/entities from a message (simple keyword extraction)
+function extractTopics(text) {
+  const words = text.toLowerCase();
+  const topics = new Set();
+
+  // Extract file paths and names
+  const fileMatches = words.match(/[\w\-]+\.(js|ts|json|md|txt|py)/g) || [];
+  fileMatches.forEach(f => topics.add(f));
+
+  // Extract quoted strings (likely specific references)
+  const quotedMatches = text.match(/[`"']([^`"']+)[`"']/g) || [];
+  quotedMatches.forEach(q => topics.add(q.replace(/[`"']/g, '').toLowerCase()));
+
+  // Extract capitalized words (likely proper nouns/names)
+  const capitalMatches = text.match(/\b[A-Z][a-z]+\b/g) || [];
+  capitalMatches.forEach(c => topics.add(c.toLowerCase()));
+
+  return Array.from(topics);
+}
+
+// Check if we've recently sent a message about similar topics
+function hasRecentlySentAbout(message, lookbackCount = 10) {
+  const recentMessages = getRecentProactiveMessages(lookbackCount);
+  if (recentMessages.length === 0) return false;
+
+  const newTopics = extractTopics(message);
+  if (newTopics.length === 0) return false; // No specific topics to match, allow it
+
+  for (const prev of recentMessages) {
+    const prevTopics = extractTopics(prev.content || '');
+    if (prevTopics.length === 0) continue; // Previous message had no topics, skip comparison
+
+    // If more than half of the new topics overlap with a previous message, skip
+    const overlap = newTopics.filter(t => prevTopics.includes(t));
+    if (overlap.length > 0 && overlap.length >= newTopics.length * 0.5) {
+      console.log(`[InnerLife] Skipping - already sent about: ${overlap.join(', ')}`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Send a proactive message to the human companion
 async function sendProactiveMessage(message) {
   const now = Date.now();
@@ -251,6 +308,11 @@ async function sendProactiveMessage(message) {
   if (now - lastProactiveMessage < MIN_PROACTIVE_INTERVAL_MS) {
     console.log('[InnerLife] Skipping proactive message - too soon since last one');
     return { sent: false, reason: 'Rate limited' };
+  }
+
+  // Check for duplicate topics (don't bug Rado about the same thing repeatedly)
+  if (hasRecentlySentAbout(message)) {
+    return { sent: false, reason: 'Already sent about this topic recently' };
   }
 
   if (!sendMessageFn) {
