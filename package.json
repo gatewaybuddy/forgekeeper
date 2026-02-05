@@ -23,7 +23,10 @@
     "pm2:status": "pm2 status",
     "pm2:monit": "pm2 monit",
     "pm2:update": "node scripts/pm2-utils.js",
-    "pm2:check": "node scripts/pm2-utils.js"
+    "pm2:check": "node scripts/pm2-utils.js",
+    "self-update": "node scripts/self-update.js",
+    "self-update:check": "node scripts/self-update.js --dry-run",
+    "self-update:force": "node scripts/self-update.js --force"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
