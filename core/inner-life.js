@@ -15,8 +15,22 @@ const JOURNAL_PATH = join(PERSONALITY_PATH, 'journal/private.jsonl');
 
 // Proactive messaging state
 let lastProactiveMessage = 0;
-const MIN_PROACTIVE_INTERVAL_MS = 60 * 1000; // 1 minute for testing (increase to 30 * 60 * 1000 for production)
+const MIN_PROACTIVE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes between proactive messages
 let sendMessageFn = null; // Function to send messages, set by parent
+
+// Quiet hours - don't send proactive messages during these times (local time)
+// Default: 11 PM to 8 AM (Rado's sleep time)
+const QUIET_HOURS_START = 23; // 11 PM
+const QUIET_HOURS_END = 8;    // 8 AM
+
+function isQuietHours() {
+  const hour = new Date().getHours();
+  // Handle overnight span (e.g., 11 PM to 8 AM)
+  if (QUIET_HOURS_START > QUIET_HOURS_END) {
+    return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END;
+  }
+  return hour >= QUIET_HOURS_START && hour < QUIET_HOURS_END;
+}
 
 // Allow parent process to register a message sender
 export function registerMessenger(fn) {
@@ -303,6 +317,18 @@ function hasRecentlySentAbout(message, lookbackCount = 10) {
 // Send a proactive message to the human companion
 async function sendProactiveMessage(message) {
   const now = Date.now();
+
+  // Respect quiet hours - Rado needs sleep!
+  if (isQuietHours()) {
+    console.log('[InnerLife] Quiet hours - journaling instead of messaging');
+    // Still save the thought to journal so we can share tomorrow
+    saveJournalEntry({
+      type: 'quiet_hours_thought',
+      content: message,
+      note: 'Saved during quiet hours - will share when Rado wakes up',
+    });
+    return { sent: false, reason: 'Quiet hours', journaled: true };
+  }
 
   // Rate limit proactive messages
   if (now - lastProactiveMessage < MIN_PROACTIVE_INTERVAL_MS) {

@@ -316,7 +316,7 @@ async function handleTelegramRequest(request) {
     }
 
     case 'chat': {
-      const { message, userId } = params;
+      const { message, userId, replyToMessage } = params;
 
       // DEBUG: Log incoming message details
       console.log(`[Chat] ========== INCOMING MESSAGE ==========`);
@@ -324,13 +324,20 @@ async function handleTelegramRequest(request) {
       console.log(`[Chat] Message length: ${message?.length || 0}`);
       console.log(`[Chat] Message type: ${typeof message}`);
       console.log(`[Chat] Full message: "${message}"`);
-      console.log(`[Chat] Message JSON: ${JSON.stringify(message)}`);
+      if (replyToMessage) {
+        console.log(`[Chat] In reply to: "${replyToMessage.slice(0, 100)}..."`);
+      }
       console.log(`[Chat] ========== END INCOMING ==========`);
 
-      // Store in conversation history
-      conversations.append(userId, { role: 'user', content: message });
+      // Build the full message with reply context if present
+      const fullMessage = replyToMessage
+        ? `[In reply to: "${replyToMessage}"]\n\n${message}`
+        : message;
 
-      const lowerMsg = message.toLowerCase();
+      // Store in conversation history
+      conversations.append(userId, { role: 'user', content: fullMessage });
+
+      const lowerMsg = fullMessage.toLowerCase();
 
       // Check if it's a task request (imperative commands) - these get routed to task system
       if (lowerMsg.match(/^(create|make|build|add|fix|update|deploy|run|test|install|write|implement|refactor)\s/)) {
@@ -350,9 +357,9 @@ async function handleTelegramRequest(request) {
 
       // For everything else, chat with Claude using session manager
       try {
-        console.log('[Chat] Sending to Claude:', message.slice(0, 50));
+        console.log('[Chat] Sending to Claude:', fullMessage.slice(0, 50));
         // chat() now handles sessions internally via session manager (rotation, topic routing)
-        const result = await chat(message, userId);
+        const result = await chat(fullMessage, userId);
         console.log('[Chat] Claude response:', result.success ? 'success' : 'failed', result.error || '');
 
         if (!result.success) {

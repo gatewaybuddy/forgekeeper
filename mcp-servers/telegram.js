@@ -235,7 +235,9 @@ ${statusResponse.currentTask ? `\n⚡ Current: ${statusResponse.currentTask}` : 
   }, 30000);
 
   try {
-    const response = await mcpCall('chat', { message: text, userId });
+    // Include reply context if this is a reply to a previous message
+    const replyContext = ctx.message.reply_to_message?.text || null;
+    const response = await mcpCall('chat', { message: text, userId, replyToMessage: replyContext });
     clearInterval(progressInterval);
 
     if (isShuttingDown) return;
