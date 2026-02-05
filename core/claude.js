@@ -257,8 +257,10 @@ export async function chat(message, userId, options = {}) {
   console.log(`[Claude] Built context (${contextualMessage.length} chars)`);
 
   // Decide whether to use --session-id (new) or --resume (existing)
-  // Always use --resume if session is in createdSessions, even if isNew
-  const useResume = createdSessions.has(sessionId);
+  // IMPORTANT: Only use --resume if messageCount > 0 (isNew=false), meaning we've
+  // successfully sent messages on this session. We can't rely on createdSessions alone
+  // because sessions loaded from file at startup may no longer exist in Claude CLI.
+  const useResume = !isNew && createdSessions.has(sessionId);
 
   let result = await runClaudeCommand(contextualMessage, {
     ...options,
@@ -307,14 +309,29 @@ export async function chat(message, userId, options = {}) {
   }
 
   // If resume failed (session doesn't exist in Claude), try creating new
-  if (!result.success && useResume && result.error?.includes('session')) {
-    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... not found, creating new...`);
+  // This catches: explicit session errors, exit code 1 with no output, or any resume failure
+  const resumeFailed = !result.success && useResume && (
+    result.error?.includes('session') ||
+    result.error?.includes('Exit code 1') ||
+    (result.error && !result.output?.trim())  // Any error with no useful output
+  );
+  if (resumeFailed) {
+    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... resume failed (${result.error}), creating fresh session...`);
     createdSessions.delete(sessionId);
+    // Rotate to a new session since the old one is broken
+    const newSessionId = rotateSession(userId, topic);
     result = await runClaudeCommand(contextualMessage, {
       ...options,
-      sessionId,
+      sessionId: newSessionId,
       resumeSession: false
     });
+    // If this succeeds, the sessionId variable is now stale, but that's OK
+    // because recordMessage below will use the sessionId from the successful call
+    if (result.success) {
+      createdSessions.add(newSessionId);
+      recordMessage(userId, newSessionId);
+      return result; // Return early to avoid double-recording
+    }
   }
 
   // Mark session as created and record message if successful
