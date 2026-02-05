@@ -15,6 +15,7 @@ export const config = {
   // Claude Code integration
   claude: {
     command: process.env.FK_CLAUDE_CMD || 'claude',
+    model: process.env.FK_CLAUDE_MODEL || 'opus', // opus, sonnet, haiku
     timeout: parseInt(process.env.FK_CLAUDE_TIMEOUT_MS || '300000'), // 5 minutes
     maxTokensPerTask: parseInt(process.env.FK_MAX_TOKENS_PER_TASK || '50000'),
     skipPermissions: process.env.FK_CLAUDE_SKIP_PERMISSIONS === '1',
@@ -91,11 +92,23 @@ export const config = {
     personalityPath: process.env.FK_PERSONALITY_PATH || 'D:/Projects/forgekeeper_personality',
   },
 
+  // Session Manager (rotation, topic routing, stuck detection)
+  sessionManager: {
+    maxMessagesPerSession: parseInt(process.env.FK_SESSION_MAX_MESSAGES || '50'),
+    maxSessionAgeHours: parseInt(process.env.FK_SESSION_MAX_AGE_HOURS || '24'),
+    enableTopicRouting: process.env.FK_TOPIC_ROUTING_ENABLED === '1',
+    resumeTimeoutMs: parseInt(process.env.FK_RESUME_TIMEOUT_MS || '60000'), // 60s - fail fast on slow resume
+    smartRoutingMinutes: parseInt(process.env.FK_SMART_ROUTING_MINUTES || '60'), // Reconnect to sessions active in last hour
+  },
+
   // PM2 Integration
   pm2: {
     enabled: process.env.PM2_HOME || process.env.pm_id ? true : false,
     appName: process.env.FK_PM2_APP_NAME || 'forgekeeper',
   },
+
+  // Convenience: data directory at top level
+  dataDir: process.env.FK_DATA_DIR || './data',
 };
 
 export default config;

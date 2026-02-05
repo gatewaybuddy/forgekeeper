@@ -6,6 +6,7 @@ import { requiresApproval } from './guardrails.js';
 import { getSkill, listSkills } from '../skills/registry.js';
 import { planTask, checkParentCompletion } from './planner.js';
 import { onIdle, autonomousStatus } from './autonomous.js';
+import innerLife from './inner-life.js';
 
 // Event emitter for UI notifications
 const listeners = new Map();
@@ -119,12 +120,13 @@ async function checkTriggers() {
 async function processNextTask() {
   const pendingTasks = tasks.pending();
 
-  // If no pending tasks, consider autonomous action
+  // If no pending tasks, reflect (inner life)
   if (pendingTasks.length === 0) {
     if (config.autonomous?.enabled) {
-      const result = await onIdle();
+      // Use inner life reflection instead of old autonomous actions
+      const result = await innerLife.reflect();
       if (result.acted) {
-        emit('autonomous:action', { action: result.action, result: result.result });
+        emit('innerlife:thought', { thought: result.thought, wantsAction: result.wantsAction });
       }
     }
     return;
@@ -217,6 +219,9 @@ async function executeTask(task) {
       tasks.update(task.id, { status: 'completed' });
       emit('task:completed', { task: updatedTask, result, elapsed });
 
+      // Notify inner life
+      innerLife.onTaskCompleted(updatedTask);
+
       // Check if this completes a parent task
       checkParentCompletion(updatedTask);
 
@@ -240,6 +245,9 @@ async function executeTask(task) {
         tasks.update(task.id, { status: 'failed' });
         emit('task:failed', { task: updatedTask, result });
         console.log(`[Loop] Task ${task.id} failed after ${attemptCount} attempts`);
+
+        // Notify inner life
+        innerLife.onTaskFailed(updatedTask, result.error);
 
         // Check parent status even on failure
         checkParentCompletion(updatedTask);
@@ -321,6 +329,9 @@ export async function activateGoal(goalId) {
 
   goals.update(goalId, { status: 'active' });
   emit('goal:activated', { goal, tasks: createdTasks });
+
+  // Notify inner life
+  innerLife.onGoalActivated(goal);
 
   return { goal, tasks: createdTasks };
 }

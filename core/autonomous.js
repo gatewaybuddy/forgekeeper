@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execute } from './claude.js';
 import { learnings } from './memory.js';
+import { organizeConversations, archiveOldSessions } from './conversation-organizer.js';
 
 // Personality repo paths
 const PERSONALITY_PATH = 'D:/Projects/forgekeeper_personality';
@@ -13,7 +14,11 @@ const SHARED_JOURNAL = join(PERSONALITY_PATH, 'journal/shared.jsonl');
 // State tracking
 let lastAutonomousAction = null;
 let autonomousActionCount = 0;
+let isRunning = false; // Prevent concurrent autonomous actions
 const MAX_AUTONOMOUS_PER_HOUR = 10; // Rate limit
+
+// Import chat state from shared module (avoids circular dependency with claude.js)
+import { isChatActive, notifyChatActivity } from './chat-state.js';
 
 // Load imperatives from personality repo
 export function loadImperatives() {
@@ -159,6 +164,32 @@ Summarize key takeaways.`;
       }, { allowedTools: ['Read', 'Write'] });
     },
   },
+  {
+    name: 'organize',
+    description: 'Organize and summarize conversations for faster routing',
+    weight: 1, // Lower weight - runs less frequently
+    async execute(context) {
+      console.log('[Autonomous] Organizing conversations...');
+
+      try {
+        // Archive old sessions first
+        archiveOldSessions('74304376', 24); // Default user, 24 hour archive
+
+        // Run full organization (summarization)
+        const organized = await organizeConversations();
+
+        return {
+          success: true,
+          output: `Organized ${organized} conversations`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    },
+  },
 ];
 
 // Choose an autonomous action based on weighted random selection
@@ -176,6 +207,16 @@ function chooseAction() {
 
 // Main function - called when loop is idle
 export async function onIdle() {
+  // Prevent concurrent autonomous actions - one at a time
+  if (isRunning) {
+    return { acted: false, reason: 'Autonomous action already running' };
+  }
+
+  // Pause during active chat to avoid resource contention
+  if (isChatActive()) {
+    return { acted: false, reason: 'Paused - chat activity detected' };
+  }
+
   // Check if autonomous behavior is enabled
   const imperatives = loadImperatives();
   if (!imperatives) {
@@ -198,6 +239,7 @@ export async function onIdle() {
 
   console.log(`[Autonomous] Executing: ${action.name} - ${action.description}`);
 
+  isRunning = true;
   try {
     const result = await action.execute({ imperatives });
     recordAction();
@@ -213,6 +255,8 @@ export async function onIdle() {
       acted: false,
       reason: `Action failed: ${error.message}`,
     };
+  } finally {
+    isRunning = false;
   }
 }
 
@@ -226,4 +270,7 @@ export function autonomousStatus() {
   };
 }
 
-export default { onIdle, loadImperatives, loadPersonalGoals, isAutonomousAllowed, autonomousStatus };
+// Re-export notifyChatActivity for convenience
+export { notifyChatActivity };
+
+export default { onIdle, loadImperatives, loadPersonalGoals, isAutonomousAllowed, autonomousStatus, notifyChatActivity };

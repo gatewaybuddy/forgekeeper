@@ -62,11 +62,19 @@ import { loadSkills } from './skills/registry.js';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
+import { processChat as planChat, isLikelyComplex } from './core/chat-planner.js';
+import innerLife from './core/inner-life.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Track child processes for cleanup
 let telegramProcess = null;
+let telegramRestartCount = 0;
+let telegramLastRestartTime = 0;
+let isShuttingDown = false;
+const TELEGRAM_MAX_RESTARTS = 5;
+const TELEGRAM_RESTART_WINDOW_MS = 300000; // 5 minutes
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗
@@ -80,6 +88,15 @@ console.log(`
 
 // Initialize
 async function init() {
+  // Check and update PM2 if running under PM2 and there's a version mismatch
+  if (isRunningUnderPM2()) {
+    console.log('[Init] Running under PM2, checking version...');
+    const pm2Result = await checkAndUpdatePM2();
+    if (pm2Result.updated) {
+      console.log('[Init] PM2 was updated - process will be managed by new daemon');
+    }
+  }
+
   console.log('[Init] Loading configuration...');
   console.log(`  - Loop interval: ${config.loop.intervalMs}ms`);
   console.log(`  - Max concurrent: ${config.loop.maxConcurrentTasks}`);
@@ -104,6 +121,12 @@ async function init() {
   // Start the loop
   console.log('[Init] Starting main loop...');
   loop.start();
+
+  // Start inner life (autonomous consciousness)
+  if (config.autonomous?.enabled) {
+    console.log('[Init] Starting inner life...');
+    innerLife.start();
+  }
 
   // Show initial status
   const status = loop.status();
@@ -133,12 +156,34 @@ async function init() {
   } else {
     console.log('  - Telegram: Not configured (set TELEGRAM_BOT_TOKEN)');
   }
+  if (config.autonomous?.enabled) {
+    console.log('  - Inner Life: Active');
+  }
   console.log('  - Stop: Ctrl+C\n');
 }
 
-// Start Telegram bot as integrated process
+// Start Telegram bot as integrated process with auto-restart
 async function startTelegramBot() {
+  if (isShuttingDown) return;
+
   const telegramScript = join(__dirname, 'mcp-servers', 'telegram.js');
+
+  // Check if we're in a restart loop
+  const now = Date.now();
+  if (now - telegramLastRestartTime < TELEGRAM_RESTART_WINDOW_MS) {
+    telegramRestartCount++;
+    if (telegramRestartCount > TELEGRAM_MAX_RESTARTS) {
+      console.error(`[Telegram] Too many restarts (${TELEGRAM_MAX_RESTARTS}) in ${TELEGRAM_RESTART_WINDOW_MS / 1000}s, stopping auto-restart`);
+      console.error('[Telegram] Manual intervention required. Check logs and restart with: pm2 restart forgekeeper');
+      return;
+    }
+  } else {
+    // Reset counter if outside the window
+    telegramRestartCount = 1;
+  }
+  telegramLastRestartTime = now;
+
+  console.log(`[Telegram] Starting bot process (attempt ${telegramRestartCount})...`);
 
   telegramProcess = spawn('node', [telegramScript], {
     stdio: ['pipe', 'pipe', 'inherit'], // stdin/stdout for MCP, stderr to console
@@ -157,7 +202,9 @@ async function startTelegramBot() {
       try {
         const request = JSON.parse(line);
         const response = await handleTelegramRequest(request);
-        telegramProcess.stdin.write(JSON.stringify({ id: request.id, result: response }) + '\n');
+        if (telegramProcess && telegramProcess.stdin.writable) {
+          telegramProcess.stdin.write(JSON.stringify({ id: request.id, result: response }) + '\n');
+        }
       } catch (e) {
         // Not JSON or parse error - might be log output
       }
@@ -165,15 +212,38 @@ async function startTelegramBot() {
   });
 
   telegramProcess.on('close', (code) => {
+    const wasRunning = telegramProcess !== null;
+    telegramProcess = null;
+
+    if (isShuttingDown) {
+      console.log('[Telegram] Bot stopped (shutdown)');
+      return;
+    }
+
     if (code !== 0 && code !== null) {
       console.error(`[Telegram] Bot exited with code ${code}`);
+
+      // Auto-restart on unexpected exit
+      if (wasRunning && config.telegram.botToken) {
+        const delay = Math.min(5000 * telegramRestartCount, 30000); // 5s, 10s, 15s... max 30s
+        console.log(`[Telegram] Scheduling restart in ${delay}ms...`);
+        setTimeout(() => startTelegramBot(), delay);
+      }
+    } else {
+      console.log('[Telegram] Bot exited normally');
     }
-    telegramProcess = null;
   });
 
   telegramProcess.on('error', (err) => {
     console.error(`[Telegram] Failed to start: ${err.message}`);
     telegramProcess = null;
+
+    // Try to restart on spawn error
+    if (!isShuttingDown && config.telegram.botToken) {
+      const delay = Math.min(5000 * telegramRestartCount, 30000);
+      console.log(`[Telegram] Scheduling restart in ${delay}ms...`);
+      setTimeout(() => startTelegramBot(), delay);
+    }
   });
 
   // Give it a moment to start
@@ -209,16 +279,14 @@ async function handleTelegramRequest(request) {
     }
 
     case 'reset_session': {
-      const { userId } = params;
-      const oldSessionId = userSessions.get(String(userId));
-      if (oldSessionId) {
-        resetSessionState(oldSessionId); // Clear from created sessions tracking
-      }
-      const newSessionId = randomUUID();
+      const { userId, topic } = params;
+      // resetSessionState now handles everything via session manager
+      const newSessionId = resetSessionState(userId, topic || 'default');
+      // Keep legacy map in sync for backwards compat
       userSessions.set(String(userId), newSessionId);
       saveUserSessions();
       conversations.clear(userId);
-      console.log(`[Chat] Reset session for user ${userId}: ${newSessionId}`);
+      console.log(`[Chat] Reset session for user ${userId}: ${newSessionId.slice(0, 8)}...`);
       return { success: true, sessionId: newSessionId };
     }
 
@@ -237,41 +305,21 @@ async function handleTelegramRequest(request) {
     case 'chat': {
       const { message, userId } = params;
 
+      // DEBUG: Log incoming message details
+      console.log(`[Chat] ========== INCOMING MESSAGE ==========`);
+      console.log(`[Chat] User: ${userId}`);
+      console.log(`[Chat] Message length: ${message?.length || 0}`);
+      console.log(`[Chat] Message type: ${typeof message}`);
+      console.log(`[Chat] Full message: "${message}"`);
+      console.log(`[Chat] Message JSON: ${JSON.stringify(message)}`);
+      console.log(`[Chat] ========== END INCOMING ==========`);
+
       // Store in conversation history
       conversations.append(userId, { role: 'user', content: message });
 
-      // Check if message has multiple topics (sentences, questions, tasks mixed)
-      const hasMultipleTopics = message.split(/[.!?]/).filter(s => s.trim()).length > 1 ||
-                                (message.includes('?') && message.match(/^(create|make|build|add|fix|update)/i));
-
-      // Use topic router for complex multi-topic messages
-      if (hasMultipleTopics && config.topicRouter?.enabled) {
-        console.log('[Chat] Routing multi-topic message...');
-        try {
-          const chatFn = async (msg, uid) => {
-            const sessionId = getOrCreateSession(uid);
-            const result = await chat(msg, sessionId);
-            return { reply: result.success ? result.output?.trim() : null };
-          };
-
-          const routeResult = await routeMessage(message, userId, {
-            agentPool,
-            chat: chatFn,
-          });
-
-          if (routeResult.response) {
-            conversations.append(userId, { role: 'assistant', content: routeResult.response });
-            return { reply: routeResult.response };
-          }
-        } catch (error) {
-          console.error('[Chat] Topic routing error:', error.message);
-          // Fall through to standard chat
-        }
-      }
-
       const lowerMsg = message.toLowerCase();
 
-      // Check if it's a task request (imperative commands)
+      // Check if it's a task request (imperative commands) - these get routed to task system
       if (lowerMsg.match(/^(create|make|build|add|fix|update|deploy|run|test|install|write|implement|refactor)\s/)) {
         const task = tasks.create({
           description: message,
@@ -283,12 +331,15 @@ async function handleTelegramRequest(request) {
         return { reply };
       }
 
-      // For everything else, chat with Claude using persistent session
-      try {
-        const sessionId = getOrCreateSession(userId);
+      // SIMPLIFIED: Skip all complex routing for now - just send to Claude
+      // The topic router and chat planner were causing confusion
+      // TODO: Re-enable when personality issues are resolved
 
-        console.log('[Chat] Sending to Claude:', message.slice(0, 50), '(session:', sessionId.slice(0, 8) + '...)');
-        const result = await chat(message, sessionId);
+      // For everything else, chat with Claude using session manager
+      try {
+        console.log('[Chat] Sending to Claude:', message.slice(0, 50));
+        // chat() now handles sessions internally via session manager (rotation, topic routing)
+        const result = await chat(message, userId);
         console.log('[Chat] Claude response:', result.success ? 'success' : 'failed', result.error || '');
 
         if (!result.success) {
@@ -383,20 +434,51 @@ function setupAgentPoolListeners(pool) {
 }
 
 // Handle shutdown
-async function shutdown() {
-  console.log('\n[Shutdown] Stopping Forgekeeper...');
+async function shutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`\n[Shutdown] Stopping Forgekeeper (${signal || 'unknown'})...`);
 
   // Stop agent pool
   if (agentPool) {
     console.log('[Shutdown] Stopping agent pool...');
-    await agentPool.shutdown();
+    try {
+      await agentPool.shutdown();
+    } catch (e) {
+      console.error('[Shutdown] Agent pool error:', e.message);
+    }
     agentPool = null;
   }
 
-  // Stop Telegram bot
+  // Stop Telegram bot gracefully
   if (telegramProcess) {
     console.log('[Shutdown] Stopping Telegram bot...');
-    telegramProcess.kill('SIGTERM');
+    try {
+      // Send SIGTERM and wait up to 5 seconds
+      telegramProcess.kill('SIGTERM');
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (telegramProcess) {
+            console.log('[Shutdown] Force killing Telegram bot...');
+            telegramProcess.kill('SIGKILL');
+          }
+          resolve();
+        }, 5000);
+
+        if (telegramProcess) {
+          telegramProcess.once('close', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+        } else {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    } catch (e) {
+      console.error('[Shutdown] Telegram bot error:', e.message);
+    }
     telegramProcess = null;
   }
 
@@ -407,11 +489,22 @@ async function shutdown() {
     process.send('ready');
   }
 
+  console.log('[Shutdown] Complete');
   process.exit(0);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  console.error('[Fatal] Uncaught exception:', err);
+  shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Warning] Unhandled rejection:', reason);
+});
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // CLI commands (for testing without Telegram)
 const args = process.argv.slice(2);

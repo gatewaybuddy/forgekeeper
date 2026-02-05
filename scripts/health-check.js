@@ -114,7 +114,34 @@ check('.env has TELEGRAM_BOT_TOKEN', () => {
   return true;
 });
 
-// 4. Check Claude CLI
+// 4. Check PM2
+console.log(`\n${colors.dim}─── PM2 ───${colors.reset}`);
+
+await asyncCheck('PM2 installed', async () => {
+  const { getPM2Versions } = await import('./pm2-utils.js');
+  const versions = getPM2Versions();
+  if (!versions.installed) return 'PM2 not found';
+  return true;
+});
+
+await asyncCheck('PM2 version match', async () => {
+  const { getPM2Versions, updatePM2 } = await import('./pm2-utils.js');
+  const versions = getPM2Versions();
+  if (!versions.installed) return 'warn';
+  if (versions.mismatch) {
+    info(`Mismatch detected (in-memory: ${versions.inMemory}, local: ${versions.local})`);
+    info('Attempting auto-update...');
+    const result = await updatePM2();
+    if (result.success) {
+      pass('PM2 auto-updated');
+      return true;
+    }
+    return `Version mismatch - run: pm2 update`;
+  }
+  return true;
+});
+
+// 5. Check Claude CLI
 console.log(`\n${colors.dim}─── Claude CLI ───${colors.reset}`);
 
 check('Claude CLI available', () => {
@@ -126,7 +153,7 @@ check('Claude CLI available', () => {
   }
 });
 
-// 5. Check modules load
+// 6. Check modules load
 console.log(`\n${colors.dim}─── Module Loading ───${colors.reset}`);
 
 await asyncCheck('config.js loads', async () => {
@@ -159,7 +186,7 @@ await asyncCheck('skills/registry.js loads', async () => {
   return true;
 });
 
-// 6. Test memory operations
+// 7. Test memory operations
 console.log(`\n${colors.dim}─── Memory Operations ───${colors.reset}`);
 
 await asyncCheck('Can create task', async () => {
@@ -190,7 +217,7 @@ await asyncCheck('Can create goal', async () => {
   return true;
 });
 
-// 7. Test guardrails
+// 8. Test guardrails
 console.log(`\n${colors.dim}─── Guardrails ───${colors.reset}`);
 
 await asyncCheck('Blocks rm -rf /', async () => {
