@@ -258,6 +258,34 @@ function isWorthSharing(thought) {
   return sharingIndicators.some(p => p.test(thought));
 }
 
+// Classify urgency of a message - determines if it can bypass cooldown
+// Returns: 'urgent' (bypass cooldown), 'normal' (respect cooldown), 'low' (longer cooldown)
+function classifyUrgency(thought) {
+  const urgentPatterns = [
+    /error|fail|broken|crash|down/i,
+    /security|vulnerab|attack|breach/i,
+    /urgent|asap|immediately|critical/i,
+    /blocking|blocked|stuck.*need/i,
+    /lost|deleted|missing.*important/i,
+  ];
+
+  const lowPriorityPatterns = [
+    /quiet|calm|peaceful/i,
+    /noticed.*sitting|been.*while/i,  // "noticed X sitting there for a while" = low urgency observation
+    /uncommitted.*changes/i,           // This specific case that triggered 3 messages
+    /just.*checking|checking in/i,
+    /wonder(ing)?|curious(?!.*found)/i, // Curiosity without discovery
+  ];
+
+  if (urgentPatterns.some(p => p.test(thought))) {
+    return 'urgent';
+  }
+  if (lowPriorityPatterns.some(p => p.test(thought))) {
+    return 'low';
+  }
+  return 'normal';
+}
+
 // Get recent proactive messages from journal
 function getRecentProactiveMessages(limit = 10) {
   if (!existsSync(JOURNAL_PATH)) return [];
@@ -293,21 +321,39 @@ function extractTopics(text) {
 }
 
 // Check if we've recently sent a message about similar topics
-function hasRecentlySentAbout(message, lookbackCount = 10) {
+// Uses time-based suppression with urgency-adjusted cooldowns
+const COOLDOWN_BY_URGENCY = {
+  urgent: 30 * 60 * 1000,      // 30 min - urgent things can be repeated sooner
+  normal: 4 * 60 * 60 * 1000,  // 4 hours - default cooldown
+  low: 12 * 60 * 60 * 1000,    // 12 hours - low priority observations
+};
+
+function hasRecentlySentAbout(message, lookbackCount = 20) {
   const recentMessages = getRecentProactiveMessages(lookbackCount);
   if (recentMessages.length === 0) return false;
 
   const newTopics = extractTopics(message);
   if (newTopics.length === 0) return false; // No specific topics to match, allow it
 
+  const urgency = classifyUrgency(message);
+  const cooldownMs = COOLDOWN_BY_URGENCY[urgency];
+  const now = Date.now();
+
   for (const prev of recentMessages) {
     const prevTopics = extractTopics(prev.content || '');
-    if (prevTopics.length === 0) continue; // Previous message had no topics, skip comparison
+    if (prevTopics.length === 0) continue;
 
-    // If more than half of the new topics overlap with a previous message, skip
+    // Check if ANY topic overlaps with a recent message within cooldown period
     const overlap = newTopics.filter(t => prevTopics.includes(t));
-    if (overlap.length > 0 && overlap.length >= newTopics.length * 0.5) {
-      console.log(`[InnerLife] Skipping - already sent about: ${overlap.join(', ')}`);
+    if (overlap.length === 0) continue;
+
+    // Time-based check: if we sent about this topic recently, suppress
+    const prevTime = new Date(prev.timestamp).getTime();
+    const timeSince = now - prevTime;
+
+    if (timeSince < cooldownMs) {
+      const hoursAgo = (timeSince / (60 * 60 * 1000)).toFixed(1);
+      console.log(`[InnerLife] Skipping (${urgency}) - sent about "${overlap.join(', ')}" ${hoursAgo}h ago (cooldown: ${cooldownMs / (60 * 60 * 1000)}h)`);
       return true;
     }
   }
@@ -315,9 +361,36 @@ function hasRecentlySentAbout(message, lookbackCount = 10) {
   return false;
 }
 
+// Check if the last proactive message got a response
+function lastProactiveGotResponse() {
+  const recentMessages = getRecentProactiveMessages(1);
+  if (recentMessages.length === 0) return true; // No previous message, ok to send
+
+  const lastProactive = recentMessages[0];
+  const lastProactiveTime = new Date(lastProactive.timestamp).getTime();
+
+  // Check conversation history for a user message after our last proactive
+  const identity = loadIdentity();
+  const userId = identity?.humanCompanion?.telegramId || '74304376';
+  const history = conversations.getHistory(userId, 10);
+
+  // Look for any user message after our proactive message
+  for (const msg of history) {
+    if (msg.role === 'user') {
+      const msgTime = new Date(msg.ts).getTime();
+      if (msgTime > lastProactiveTime) {
+        return true; // Got a response
+      }
+    }
+  }
+
+  return false; // No response to last proactive message
+}
+
 // Send a proactive message to the human companion
 async function sendProactiveMessage(message) {
   const now = Date.now();
+  const urgency = classifyUrgency(message);
 
   // Respect quiet hours - Rado needs sleep!
   if (isQuietHours()) {
@@ -335,6 +408,13 @@ async function sendProactiveMessage(message) {
   if (now - lastProactiveMessage < MIN_PROACTIVE_INTERVAL_MS) {
     console.log('[InnerLife] Skipping proactive message - too soon since last one');
     return { sent: false, reason: 'Rate limited' };
+  }
+
+  // Don't send another proactive message if the last one wasn't acknowledged
+  // (unless it's urgent)
+  if (urgency !== 'urgent' && !lastProactiveGotResponse()) {
+    console.log('[InnerLife] Skipping - last proactive message not yet acknowledged');
+    return { sent: false, reason: 'Awaiting response to previous message' };
   }
 
   // Check for duplicate topics (don't bug Rado about the same thing repeatedly)
