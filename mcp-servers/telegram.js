@@ -211,10 +211,13 @@ ${statusResponse.currentTask ? `\n⚡ Current: ${statusResponse.currentTask}` : 
   await ctx.react('👀');
 
   // Set up progress updates for long-running operations
+  // Now handled by the onProgress callback from claude.js - this is a fallback
   let progressInterval;
   let lastProgressUpdate = 0;
   const startTime = Date.now();
 
+  // Fallback progress indicator - only triggers if no progress callbacks come through
+  // The main progress updates come from claude.js via the onProgress callback
   progressInterval = setInterval(async () => {
     if (isShuttingDown) {
       clearInterval(progressInterval);
@@ -222,12 +225,13 @@ ${statusResponse.currentTask ? `\n⚡ Current: ${statusResponse.currentTask}` : 
     }
 
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    if ((elapsed >= 60 && elapsed < 120 && lastProgressUpdate < 60) ||
-        (elapsed >= 120 && elapsed < 180 && lastProgressUpdate < 120) ||
+    // Only send fallback messages at longer intervals (90s, 180s, then every 120s)
+    // The main progress updates are handled by claude.js at 30s intervals
+    if ((elapsed >= 90 && elapsed < 180 && lastProgressUpdate < 90) ||
         (elapsed >= 180 && elapsed - lastProgressUpdate >= 120)) {
       lastProgressUpdate = elapsed;
       try {
-        await bot.sendMessage(ctx.chat.id, `⏳ Still working... (${elapsed}s)`);
+        await bot.sendMessage(ctx.chat.id, `⏳ Still working... (${elapsed}s) - this is taking longer than expected`);
       } catch (e) {
         // Ignore
       }

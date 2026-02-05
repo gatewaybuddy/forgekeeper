@@ -503,12 +503,48 @@ export function status() {
 }
 
 // Event handlers (simplified - just log them)
-export function onTaskCompleted(task) {
+export async function onTaskCompleted(task) {
   console.log(`[InnerLife] Noted: Task completed - ${task.description?.slice(0, 50)}`);
+
+  // If task has a userId in metadata and we have a messenger, send the result
+  const userId = task.metadata?.userId;
+  if (userId && sendMessageFn) {
+    try {
+      // Get the latest attempt output
+      const lastAttempt = task.attempts?.[task.attempts.length - 1];
+      const output = lastAttempt?.output || 'Task completed (no output recorded)';
+
+      // Format the completion message
+      const message = `✅ **Task Completed**\n\n` +
+        `*${task.description}*\n\n` +
+        `${output.slice(0, 1500)}${output.length > 1500 ? '...' : ''}`;
+
+      await sendMessageFn(userId, message);
+      console.log(`[InnerLife] Sent task completion to user ${userId}`);
+    } catch (e) {
+      console.error(`[InnerLife] Failed to send task completion:`, e.message);
+    }
+  }
 }
 
-export function onTaskFailed(task, error) {
+export async function onTaskFailed(task, error) {
   console.log(`[InnerLife] Noted: Task failed - ${task.description?.slice(0, 50)}`);
+
+  // Notify user of task failure if they created it
+  const userId = task.metadata?.userId;
+  if (userId && sendMessageFn) {
+    try {
+      const message = `❌ **Task Failed**\n\n` +
+        `*${task.description}*\n\n` +
+        `Error: ${error || 'Unknown error'}\n\n` +
+        `Attempted ${task.attempts?.length || 0} time(s)`;
+
+      await sendMessageFn(userId, message);
+      console.log(`[InnerLife] Sent task failure notification to user ${userId}`);
+    } catch (e) {
+      console.error(`[InnerLife] Failed to send task failure notification:`, e.message);
+    }
+  }
 }
 
 export function onGoalActivated(goal) {

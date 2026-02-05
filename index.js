@@ -369,8 +369,46 @@ async function handleTelegramRequest(request) {
       // For everything else, chat with Claude using session manager
       try {
         console.log('[Chat] Sending to Claude:', fullMessage.slice(0, 50));
+
+        // Progress callback to notify user during long waits
+        let lastProgressNotify = Date.now();
+        const progressNotifyInterval = 30000; // Send update every 30s
+        const onProgress = async (progress) => {
+          const now = Date.now();
+          // Only send progress updates periodically to avoid spam
+          if (now - lastProgressNotify >= progressNotifyInterval) {
+            lastProgressNotify = now;
+            const elapsed = Math.round(progress.elapsed / 1000);
+            let statusMsg = `⏳ ${progress.message || `Processing (${elapsed}s)...`}`;
+
+            // Add more context based on what's happening
+            if (progress.status === 'working (no output)') {
+              statusMsg = `⏳ Working in background (${elapsed}s)...`;
+            } else if (progress.tool) {
+              statusMsg = `🔧 Using ${progress.tool} (${elapsed}s)...`;
+            } else if (progress.status === 'writing') {
+              statusMsg = `✍️ Composing response (${elapsed}s)...`;
+            } else if (progress.status === 'waiting') {
+              statusMsg = `⏳ ${progress.message}`;
+            }
+
+            console.log(`[Chat] Progress update for user ${userId}: ${statusMsg}`);
+            // Send progress via MCP if telegram process is available
+            if (telegramProcess && telegramProcess.stdin.writable) {
+              try {
+                telegramProcess.stdin.write(JSON.stringify({
+                  method: 'send_message',
+                  params: { userId, text: statusMsg }
+                }) + '\n');
+              } catch (e) {
+                // Ignore - best effort progress updates
+              }
+            }
+          }
+        };
+
         // chat() now handles sessions internally via session manager (rotation, topic routing)
-        const result = await chat(fullMessage, userId);
+        const result = await chat(fullMessage, userId, { onProgress });
         console.log('[Chat] Claude response:', result.success ? 'success' : 'failed', result.error || '');
 
         if (!result.success) {
