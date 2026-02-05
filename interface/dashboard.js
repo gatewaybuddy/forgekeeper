@@ -208,8 +208,20 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Start server
+// Start server with error handling for port conflicts
 export function startDashboard(port = config.dashboard.port) {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`[Dashboard] Port ${port} in use, trying ${port + 1}...`);
+      setTimeout(() => {
+        server.close();
+        server.listen(port + 1);
+      }, 1000);
+    } else {
+      console.error('[Dashboard] Server error:', err.message);
+    }
+  });
+
   server.listen(port, () => {
     console.log(`[Dashboard] Running at http://localhost:${port}`);
   });

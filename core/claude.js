@@ -292,7 +292,7 @@ export async function chat(message, userId, options = {}) {
     return {
       success: false,
       output: '',
-      error: 'Claude is slow to respond right now. I\'ve reset the session - please try your message again.',
+      error: 'I got a bit stuck there (might be hitting rate limits or the API is slow). Fresh session ready - just send your message again!',
       timedOut: true,
       rotatedSession: newSessionId,
     };
@@ -503,7 +503,7 @@ function runClaudeCommand(message, options = {}) {
       resolve({ success: false, output: stdout, error: err.message });
     });
 
-    // Handle timeout
+    // Handle timeout (rate limits, slow API, etc.)
     const timeoutHandle = setTimeout(() => {
       if (settled) return;
       settled = true;
@@ -511,8 +511,9 @@ function runClaudeCommand(message, options = {}) {
 
       const isSessionCall = !!options.sessionId;
       const timeoutError = isSessionCall
-        ? `Session timed out after ${timeoutMs/1000}s - will auto-rotate to fresh session`
-        : `Query timed out after ${timeoutMs/1000}s`;
+        ? `Response took too long (${timeoutMs/1000}s) - possibly rate limited`
+        : `Query took too long (${timeoutMs/1000}s)`;
+      console.log(`[Claude] Timeout: ${timeoutError}`);
       resolve({
         success: false,
         output: stdout,
