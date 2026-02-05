@@ -330,8 +330,9 @@ async function handleTelegramRequest(request) {
       console.log(`[Chat] ========== END INCOMING ==========`);
 
       // Build the full message with reply context if present
+      // Format makes it clear this is a reply to a specific previous message
       const fullMessage = replyToMessage
-        ? `[In reply to: "${replyToMessage}"]\n\n${message}`
+        ? `[Rado is replying to your previous message: "${replyToMessage.slice(0, 500)}"]\n\nRado's reply: ${message}`
         : message;
 
       // Store in conversation history

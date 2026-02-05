@@ -119,16 +119,63 @@ export async function execute(task, options = {}) {
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    let lastActivityTime = Date.now();
+    const startTime = Date.now();
+    const idleTimeoutMs = 60000;  // 60s idle = probably stuck
+    const maxTimeoutMs = config.claude.timeout || 300000;
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString();
+      lastActivityTime = Date.now();
     });
 
     proc.stderr.on('data', (data) => {
       stderr += data.toString();
+      lastActivityTime = Date.now();
     });
 
+    // Activity-based timeout check
+    const checkIntervalMs = 5000;
+    const timeoutCheck = setInterval(() => {
+      if (settled) {
+        clearInterval(timeoutCheck);
+        return;
+      }
+
+      const now = Date.now();
+      const idleTime = now - lastActivityTime;
+      const totalTime = now - startTime;
+
+      if (totalTime >= maxTimeoutMs) {
+        settled = true;
+        clearInterval(timeoutCheck);
+        proc.kill('SIGTERM');
+        resolve({
+          success: false,
+          output: stdout,
+          error: `Task exceeded maximum time (${maxTimeoutMs/1000}s)`,
+          exitCode: -1,
+          timedOut: true,
+        });
+      } else if (idleTime >= idleTimeoutMs) {
+        settled = true;
+        clearInterval(timeoutCheck);
+        proc.kill('SIGTERM');
+        resolve({
+          success: false,
+          output: stdout,
+          error: `Task idle for ${idleTimeoutMs/1000}s - possibly stuck`,
+          exitCode: -1,
+          timedOut: true,
+        });
+      }
+    }, checkIntervalMs);
+
     proc.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timeoutCheck);
       resolve({
         success: code === 0,
         output: stdout,
@@ -138,6 +185,9 @@ export async function execute(task, options = {}) {
     });
 
     proc.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timeoutCheck);
       resolve({
         success: false,
         output: stdout,
@@ -145,18 +195,6 @@ export async function execute(task, options = {}) {
         exitCode: -1,
       });
     });
-
-    // Handle timeout
-    setTimeout(() => {
-      proc.kill('SIGTERM');
-      resolve({
-        success: false,
-        output: stdout,
-        error: 'Task timed out',
-        exitCode: -1,
-        timedOut: true,
-      });
-    }, config.claude.timeout);
   });
 }
 
@@ -449,15 +487,20 @@ function runClaudeCommand(message, options = {}) {
     console.log(`[Claude] Quoted for shell: ${quotedMessage.slice(0, 80)}${quotedMessage.length > 80 ? '...' : ''}`);
     console.log(`[Claude] Session: ${options.sessionId ? (options.resumeSession ? 'resume ' : 'new ') + options.sessionId.slice(0, 8) : 'none'}`);
 
-    // Use shorter timeout for chat operations, longer for explicit tasks
-    const chatTimeoutMs = config.sessionManager?.resumeTimeoutMs || 60000;
-    const taskTimeoutMs = config.claude.timeout || 300000;
-    // Use chat timeout by default for session-based calls, task timeout for explicit options.timeout
-    const timeoutMs = options.timeout || (options.sessionId ? chatTimeoutMs : taskTimeoutMs);
+    // Timeout configuration:
+    // - idleTimeoutMs: Kill if no output for this long (activity-based)
+    // - maxTimeoutMs: Absolute maximum time regardless of activity
+    const idleTimeoutMs = config.sessionManager?.resumeTimeoutMs || 60000;  // 60s idle = probably stuck
+    const maxTimeoutMs = config.claude.timeout || 300000;  // 5 min absolute max
+    // Allow explicit timeout override
+    const effectiveIdleTimeout = options.timeout || idleTimeoutMs;
+    const effectiveMaxTimeout = Math.max(options.timeout || 0, maxTimeoutMs);
 
     let settled = false;
     let stdout = '';
     let stderr = '';
+    let lastActivityTime = Date.now();
+    const startTime = Date.now();
 
     // Use spawn with stdin ignored - this fixes Claude CLI hanging on Windows
     // When stdin is piped, Claude CLI waits for input indefinitely
@@ -471,20 +514,70 @@ function runClaudeCommand(message, options = {}) {
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString();
+      lastActivityTime = Date.now();  // Reset idle timer on output
     });
 
     proc.stderr.on('data', (data) => {
       stderr += data.toString();
+      lastActivityTime = Date.now();  // Reset idle timer on output
     });
+
+    // Activity-based timeout: check periodically for idle or max timeout
+    // This allows long-running tasks to continue as long as there's output
+    const checkIntervalMs = 5000; // Check every 5 seconds
+    const timeoutCheck = setInterval(() => {
+      if (settled) {
+        clearInterval(timeoutCheck);
+        return;
+      }
+
+      const now = Date.now();
+      const idleTime = now - lastActivityTime;
+      const totalTime = now - startTime;
+
+      // Check absolute maximum timeout first
+      if (totalTime >= effectiveMaxTimeout) {
+        settled = true;
+        clearInterval(timeoutCheck);
+        proc.kill('SIGTERM');
+        console.log(`[Claude] Max timeout reached (${effectiveMaxTimeout/1000}s total)`);
+        resolve({
+          success: false,
+          output: stdout,
+          error: `Task exceeded maximum time (${effectiveMaxTimeout/1000}s)`,
+          stuckResume: !!options.sessionId
+        });
+        return;
+      }
+
+      // Check idle timeout (no output for too long)
+      if (idleTime >= effectiveIdleTimeout) {
+        settled = true;
+        clearInterval(timeoutCheck);
+        proc.kill('SIGTERM');
+        const isSessionCall = !!options.sessionId;
+        const timeoutError = isSessionCall
+          ? `No output for ${effectiveIdleTimeout/1000}s - possibly stuck or rate limited`
+          : `Query idle for ${effectiveIdleTimeout/1000}s`;
+        console.log(`[Claude] Idle timeout: ${timeoutError} (was active for ${(totalTime - idleTime)/1000}s)`);
+        resolve({
+          success: false,
+          output: stdout,
+          error: timeoutError,
+          stuckResume: isSessionCall // Flag for auto-rotation
+        });
+      }
+    }, checkIntervalMs);
 
     proc.on('close', (code) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeoutHandle);
+      clearInterval(timeoutCheck);
 
       // DEBUG: Log response
+      const totalTime = Date.now() - startTime;
       console.log(`[Claude] ========== RESPONSE DEBUG ==========`);
-      console.log(`[Claude] Exit code: ${code}`);
+      console.log(`[Claude] Exit code: ${code}, completed in ${(totalTime/1000).toFixed(1)}s`);
       console.log(`[Claude] Stdout (${stdout.length} chars): "${stdout.slice(0, 500)}${stdout.length > 500 ? '...' : ''}"`);
       if (stderr) console.log(`[Claude] Stderr: "${stderr.slice(0, 200)}"`);
       console.log(`[Claude] ========== RESPONSE END ==========`);
@@ -499,28 +592,9 @@ function runClaudeCommand(message, options = {}) {
     proc.on('error', (err) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeoutHandle);
+      clearInterval(timeoutCheck);
       resolve({ success: false, output: stdout, error: err.message });
     });
-
-    // Handle timeout (rate limits, slow API, etc.)
-    const timeoutHandle = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      proc.kill('SIGTERM');
-
-      const isSessionCall = !!options.sessionId;
-      const timeoutError = isSessionCall
-        ? `Response took too long (${timeoutMs/1000}s) - possibly rate limited`
-        : `Query took too long (${timeoutMs/1000}s)`;
-      console.log(`[Claude] Timeout: ${timeoutError}`);
-      resolve({
-        success: false,
-        output: stdout,
-        error: timeoutError,
-        stuckResume: isSessionCall // Flag for auto-rotation
-      });
-    }, timeoutMs);
   });
 }
 

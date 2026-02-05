@@ -20,8 +20,9 @@ let sendMessageFn = null; // Function to send messages, set by parent
 
 // Quiet hours - don't send proactive messages during these times (local time)
 // Default: 11 PM to 8 AM (Rado's sleep time)
-const QUIET_HOURS_START = 23; // 11 PM
-const QUIET_HOURS_END = 8;    // 8 AM
+// Configurable via FK_QUIET_HOURS_START and FK_QUIET_HOURS_END env vars
+const QUIET_HOURS_START = parseInt(process.env.FK_QUIET_HOURS_START || '23', 10); // 11 PM
+const QUIET_HOURS_END = parseInt(process.env.FK_QUIET_HOURS_END || '8', 10);       // 8 AM
 
 function isQuietHours() {
   const hour = new Date().getHours();
