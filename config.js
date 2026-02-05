@@ -101,6 +101,27 @@ export const config = {
     smartRoutingMinutes: parseInt(process.env.FK_SMART_ROUTING_MINUTES || '60'), // Reconnect to sessions active in last hour
   },
 
+  // Timeout configuration (all in milliseconds)
+  // Idle timeout = no output for this long triggers timeout
+  // Max timeout = absolute maximum regardless of activity
+  timeouts: {
+    // Quick queries (one-shot, no session)
+    queryIdleMs: parseInt(process.env.FK_TIMEOUT_QUERY_IDLE_MS || '60000'),      // 60s
+    queryMaxMs: parseInt(process.env.FK_TIMEOUT_QUERY_MAX_MS || '120000'),       // 2 min
+
+    // Chat messages (conversational, session-based)
+    chatIdleMs: parseInt(process.env.FK_TIMEOUT_CHAT_IDLE_MS || '90000'),        // 90s
+    chatMaxMs: parseInt(process.env.FK_TIMEOUT_CHAT_MAX_MS || '180000'),         // 3 min
+
+    // Complex tasks (exploration, multi-step work)
+    taskIdleMs: parseInt(process.env.FK_TIMEOUT_TASK_IDLE_MS || '120000'),       // 2 min
+    taskMaxMs: parseInt(process.env.FK_TIMEOUT_TASK_MAX_MS || '300000'),         // 5 min
+
+    // Background/autonomous tasks (can run longer)
+    backgroundIdleMs: parseInt(process.env.FK_TIMEOUT_BG_IDLE_MS || '180000'),   // 3 min
+    backgroundMaxMs: parseInt(process.env.FK_TIMEOUT_BG_MAX_MS || '600000'),     // 10 min
+  },
+
   // PM2 Integration
   pm2: {
     enabled: process.env.PM2_HOME || process.env.pm_id ? true : false,

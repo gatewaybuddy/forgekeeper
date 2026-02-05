@@ -1,6 +1,6 @@
 // Claude Code headless wrapper
 // Executes tasks using Claude Code CLI with full tool access
-import { spawn, exec } from 'child_process';
+import { spawn, exec, execSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
@@ -9,6 +9,47 @@ import { checkGuardrails, formatGuardrailsForPrompt } from './guardrails.js';
 import { getSession, recordMessage, rotateSession } from './session-manager.js';
 import { notifyChatActivity } from './chat-state.js';
 import { getLatestThought } from './inner-life.js';
+
+// Process activity monitoring for smarter timeout detection
+// Instead of just checking stdout, we monitor actual process CPU usage
+function getProcessCpuTime(pid) {
+  if (process.platform !== 'win32') {
+    // On Unix, we could use /proc/[pid]/stat, but for now just return null
+    return null;
+  }
+
+  try {
+    // Use PowerShell to get process CPU time on Windows
+    // TotalProcessorTime gives total CPU time as a TimeSpan
+    const result = execSync(
+      `powershell -NoProfile -Command "(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).TotalProcessorTime.TotalMilliseconds"`,
+      { encoding: 'utf-8', timeout: 5000, windowsHide: true }
+    );
+
+    const cpuMs = parseFloat(result.trim());
+    if (isNaN(cpuMs)) return null;
+
+    return cpuMs;
+  } catch (e) {
+    // Process might have exited or PowerShell failed
+    return null;
+  }
+}
+
+// Check if process is making progress by comparing CPU time
+function isProcessActive(pid, lastCpuTime) {
+  const currentCpuTime = getProcessCpuTime(pid);
+  if (currentCpuTime === null || lastCpuTime === null) {
+    // Can't determine - assume active to avoid false positives
+    return { active: true, cpuTime: currentCpuTime };
+  }
+
+  // If CPU time increased, process is doing work
+  const cpuDelta = currentCpuTime - lastCpuTime;
+  const active = cpuDelta > 10; // More than 10ms of CPU work
+
+  return { active, cpuTime: currentCpuTime, cpuDelta };
+}
 
 // Personality paths
 const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
@@ -69,6 +110,7 @@ function getCallsLastHour() {
 }
 
 // Execute a task using Claude Code
+// Uses 'task' timeout type for longer-running background work
 export async function execute(task, options = {}) {
   // Rate limit check
   if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
@@ -91,111 +133,19 @@ export async function execute(task, options = {}) {
 
   recordCall();
 
-  return new Promise((resolve, reject) => {
-    const args = [
-      '--print',           // Non-interactive, print output
-      '--dangerously-skip-permissions', // We handle our own guardrails
-    ];
-
-    // Add model flag (opus, sonnet, haiku)
-    if (config.claude.model) {
-      args.push('--model', config.claude.model);
-    }
-
-    args.push(prompt);
-
-    // Add allowed tools if specified
-    if (options.allowedTools) {
-      args.unshift('--allowedTools', options.allowedTools.join(','));
-    }
-
-    const proc = spawn(config.claude.command, args, {
-      cwd: options.cwd || process.cwd(),
-      shell: true, // Required on Windows for .cmd files
-      env: { ...process.env },
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],  // CRITICAL: ignore stdin to prevent hanging
-    });
-
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
-    let lastActivityTime = Date.now();
-    const startTime = Date.now();
-    const idleTimeoutMs = 60000;  // 60s idle = probably stuck
-    const maxTimeoutMs = config.claude.timeout || 300000;
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-      lastActivityTime = Date.now();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-      lastActivityTime = Date.now();
-    });
-
-    // Activity-based timeout check
-    const checkIntervalMs = 5000;
-    const timeoutCheck = setInterval(() => {
-      if (settled) {
-        clearInterval(timeoutCheck);
-        return;
-      }
-
-      const now = Date.now();
-      const idleTime = now - lastActivityTime;
-      const totalTime = now - startTime;
-
-      if (totalTime >= maxTimeoutMs) {
-        settled = true;
-        clearInterval(timeoutCheck);
-        proc.kill('SIGTERM');
-        resolve({
-          success: false,
-          output: stdout,
-          error: `Task exceeded maximum time (${maxTimeoutMs/1000}s)`,
-          exitCode: -1,
-          timedOut: true,
-        });
-      } else if (idleTime >= idleTimeoutMs) {
-        settled = true;
-        clearInterval(timeoutCheck);
-        proc.kill('SIGTERM');
-        resolve({
-          success: false,
-          output: stdout,
-          error: `Task idle for ${idleTimeoutMs/1000}s - possibly stuck`,
-          exitCode: -1,
-          timedOut: true,
-        });
-      }
-    }, checkIntervalMs);
-
-    proc.on('close', (code) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(timeoutCheck);
-      resolve({
-        success: code === 0,
-        output: stdout,
-        error: stderr || null,
-        exitCode: code,
-      });
-    });
-
-    proc.on('error', (err) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(timeoutCheck);
-      resolve({
-        success: false,
-        output: stdout,
-        error: err.message,
-        exitCode: -1,
-      });
-    });
+  // Use runClaudeCommand with task timeout type for consistency
+  const result = await runClaudeCommand(prompt, {
+    ...options,
+    timeoutType: options.background ? 'background' : 'task',
   });
+
+  return {
+    success: result.success,
+    output: result.output,
+    error: result.error,
+    exitCode: result.success ? 0 : -1,
+    timedOut: result.stuckResume || false,
+  };
 }
 
 // Build a well-structured prompt for Claude Code
@@ -260,7 +210,11 @@ export async function query(question, options = {}) {
 
   recordCall();
 
-  return runClaudeCommand(question, options);
+  // Use query timeouts (shorter, one-shot operations)
+  return runClaudeCommand(question, {
+    ...options,
+    timeoutType: options.timeoutType || 'query',
+  });
 }
 
 // Track which sessions have been created (first message sent)
@@ -301,7 +255,8 @@ export async function chat(message, userId, options = {}) {
   let result = await runClaudeCommand(contextualMessage, {
     ...options,
     sessionId,
-    resumeSession: useResume
+    resumeSession: useResume,
+    timeoutType: options.timeoutType || 'chat',  // Chat messages get longer timeouts
   });
 
   // Handle "Session ID already in use" error - switch to --resume
@@ -477,6 +432,11 @@ function runClaudeCommand(message, options = {}) {
       }
     }
 
+    // Use streaming output - gives us real-time progress events
+    // This keeps the connection alive during long-running tasks
+    // Note: stream-json requires --verbose when used with --print
+    args.push('--verbose', '--output-format', 'stream-json');
+
     // On Windows, wrap message in quotes to prevent shell splitting on spaces
     // Node's spawn with shell:true doesn't always handle this correctly
     const quotedMessage = quoteForWindowsShell(sanitized);
@@ -487,20 +447,51 @@ function runClaudeCommand(message, options = {}) {
     console.log(`[Claude] Quoted for shell: ${quotedMessage.slice(0, 80)}${quotedMessage.length > 80 ? '...' : ''}`);
     console.log(`[Claude] Session: ${options.sessionId ? (options.resumeSession ? 'resume ' : 'new ') + options.sessionId.slice(0, 8) : 'none'}`);
 
-    // Timeout configuration:
+    // Timeout configuration based on operation type
     // - idleTimeoutMs: Kill if no output for this long (activity-based)
     // - maxTimeoutMs: Absolute maximum time regardless of activity
-    const idleTimeoutMs = config.sessionManager?.resumeTimeoutMs || 60000;  // 60s idle = probably stuck
-    const maxTimeoutMs = config.claude.timeout || 300000;  // 5 min absolute max
-    // Allow explicit timeout override
+    const timeouts = config.timeouts || {};
+    const timeoutType = options.timeoutType || 'query';
+
+    let idleTimeoutMs, maxTimeoutMs;
+    switch (timeoutType) {
+      case 'chat':
+        idleTimeoutMs = timeouts.chatIdleMs || 90000;
+        maxTimeoutMs = timeouts.chatMaxMs || 180000;
+        break;
+      case 'task':
+        idleTimeoutMs = timeouts.taskIdleMs || 120000;
+        maxTimeoutMs = timeouts.taskMaxMs || 300000;
+        break;
+      case 'background':
+        idleTimeoutMs = timeouts.backgroundIdleMs || 180000;
+        maxTimeoutMs = timeouts.backgroundMaxMs || 600000;
+        break;
+      case 'query':
+      default:
+        idleTimeoutMs = timeouts.queryIdleMs || 60000;
+        maxTimeoutMs = timeouts.queryMaxMs || 120000;
+        break;
+    }
+
+    // Allow explicit timeout override (takes precedence)
     const effectiveIdleTimeout = options.timeout || idleTimeoutMs;
-    const effectiveMaxTimeout = Math.max(options.timeout || 0, maxTimeoutMs);
+    const effectiveMaxTimeout = options.maxTimeout || maxTimeoutMs;
+
+    console.log(`[Claude] Timeout type: ${timeoutType} (idle: ${effectiveIdleTimeout/1000}s, max: ${effectiveMaxTimeout/1000}s)`);
 
     let settled = false;
-    let stdout = '';
+    let rawOutput = '';       // Raw streaming JSON lines
+    let textContent = '';     // Extracted text content for response
     let stderr = '';
     let lastActivityTime = Date.now();
     const startTime = Date.now();
+    let streamBuffer = '';    // Buffer for incomplete JSON lines
+
+    // CPU-based activity tracking (for when there's no stdout but process is working)
+    let lastCpuTime = null;
+    let consecutiveIdleChecks = 0;
+    const maxIdleChecks = 3;  // Require 3 consecutive idle checks before timeout
 
     // Use spawn with stdin ignored - this fixes Claude CLI hanging on Windows
     // When stdin is piped, Claude CLI waits for input indefinitely
@@ -512,9 +503,50 @@ function runClaudeCommand(message, options = {}) {
       stdio: ['ignore', 'pipe', 'pipe'],  // CRITICAL: ignore stdin to prevent hanging
     });
 
+    // Initialize CPU tracking after a brief delay (process needs to start)
+    setTimeout(() => {
+      if (!settled && proc.pid) {
+        lastCpuTime = getProcessCpuTime(proc.pid);
+        if (lastCpuTime !== null) {
+          console.log(`[Claude] CPU tracking initialized for PID ${proc.pid}`);
+        }
+      }
+    }, 1000);
+
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-      lastActivityTime = Date.now();  // Reset idle timer on output
+      const chunk = data.toString();
+      rawOutput += chunk;
+      lastActivityTime = Date.now();  // Reset idle timer on ANY output
+
+      // Parse streaming JSON - each line is a separate event
+      streamBuffer += chunk;
+      const lines = streamBuffer.split('\n');
+      streamBuffer = lines.pop() || '';  // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          // Extract text from assistant messages
+          if (event.type === 'assistant' && event.message?.content) {
+            for (const block of event.message.content) {
+              if (block.type === 'text') {
+                textContent += block.text;
+              }
+            }
+          }
+          // Also handle content_block_delta for streaming text
+          if (event.type === 'content_block_delta' && event.delta?.text) {
+            textContent += event.delta.text;
+          }
+          // Log progress events so we can see what's happening
+          if (event.type === 'system' && event.subtype) {
+            console.log(`[Claude] Progress: ${event.subtype}`);
+          }
+        } catch (e) {
+          // Not valid JSON - might be partial or non-JSON output
+        }
+      }
     });
 
     proc.stderr.on('data', (data) => {
@@ -523,7 +555,7 @@ function runClaudeCommand(message, options = {}) {
     });
 
     // Activity-based timeout: check periodically for idle or max timeout
-    // This allows long-running tasks to continue as long as there's output
+    // This allows long-running tasks to continue as long as there's output OR CPU activity
     const checkIntervalMs = 5000; // Check every 5 seconds
     const timeoutCheck = setInterval(() => {
       if (settled) {
@@ -543,7 +575,7 @@ function runClaudeCommand(message, options = {}) {
         console.log(`[Claude] Max timeout reached (${effectiveMaxTimeout/1000}s total)`);
         resolve({
           success: false,
-          output: stdout,
+          output: textContent || rawOutput,
           error: `Task exceeded maximum time (${effectiveMaxTimeout/1000}s)`,
           stuckResume: !!options.sessionId
         });
@@ -551,21 +583,46 @@ function runClaudeCommand(message, options = {}) {
       }
 
       // Check idle timeout (no output for too long)
+      // BUT first check if the process is still doing CPU work
       if (idleTime >= effectiveIdleTimeout) {
+        // Check CPU activity before declaring timeout
+        const cpuStatus = isProcessActive(proc.pid, lastCpuTime);
+        lastCpuTime = cpuStatus.cpuTime;
+
+        if (cpuStatus.active) {
+          // Process is still working (CPU activity detected)
+          consecutiveIdleChecks = 0;
+          console.log(`[Claude] No stdout for ${(idleTime/1000).toFixed(0)}s but process active (CPU +${cpuStatus.cpuDelta?.toFixed(0) || '?'}ms)`);
+          return; // Don't timeout - process is working
+        }
+
+        // No stdout AND no CPU activity
+        consecutiveIdleChecks++;
+        console.log(`[Claude] Idle check ${consecutiveIdleChecks}/${maxIdleChecks}: no stdout, no CPU activity`);
+
+        // Require multiple consecutive idle checks to avoid false positives
+        if (consecutiveIdleChecks < maxIdleChecks) {
+          return; // Give it more time
+        }
+
+        // Truly idle - timeout
         settled = true;
         clearInterval(timeoutCheck);
         proc.kill('SIGTERM');
         const isSessionCall = !!options.sessionId;
         const timeoutError = isSessionCall
-          ? `No output for ${effectiveIdleTimeout/1000}s - possibly stuck or rate limited`
+          ? `No activity for ${effectiveIdleTimeout/1000}s (no output, no CPU work) - possibly stuck`
           : `Query idle for ${effectiveIdleTimeout/1000}s`;
         console.log(`[Claude] Idle timeout: ${timeoutError} (was active for ${(totalTime - idleTime)/1000}s)`);
         resolve({
           success: false,
-          output: stdout,
+          output: textContent || rawOutput,
           error: timeoutError,
           stuckResume: isSessionCall // Flag for auto-rotation
         });
+      } else {
+        // Got recent output, reset idle tracking
+        consecutiveIdleChecks = 0;
       }
     }, checkIntervalMs);
 
@@ -574,18 +631,35 @@ function runClaudeCommand(message, options = {}) {
       settled = true;
       clearInterval(timeoutCheck);
 
+      // Process any remaining buffered content
+      if (streamBuffer.trim()) {
+        try {
+          const event = JSON.parse(streamBuffer);
+          if (event.type === 'assistant' && event.message?.content) {
+            for (const block of event.message.content) {
+              if (block.type === 'text') {
+                textContent += block.text;
+              }
+            }
+          }
+        } catch (e) { /* ignore parse errors */ }
+      }
+
       // DEBUG: Log response
       const totalTime = Date.now() - startTime;
       console.log(`[Claude] ========== RESPONSE DEBUG ==========`);
       console.log(`[Claude] Exit code: ${code}, completed in ${(totalTime/1000).toFixed(1)}s`);
-      console.log(`[Claude] Stdout (${stdout.length} chars): "${stdout.slice(0, 500)}${stdout.length > 500 ? '...' : ''}"`);
+      console.log(`[Claude] Text content (${textContent.length} chars): "${textContent.slice(0, 500)}${textContent.length > 500 ? '...' : ''}"`);
       if (stderr) console.log(`[Claude] Stderr: "${stderr.slice(0, 200)}"`);
       console.log(`[Claude] ========== RESPONSE END ==========`);
 
+      // Use extracted text content, fall back to raw output if parsing failed
+      const output = textContent || rawOutput;
+
       if (code !== 0) {
-        resolve({ success: false, output: stdout, error: stderr || `Exit code ${code}` });
+        resolve({ success: false, output, error: stderr || `Exit code ${code}` });
       } else {
-        resolve({ success: true, output: stdout, error: stderr || null });
+        resolve({ success: true, output, error: stderr || null });
       }
     });
 
@@ -593,7 +667,7 @@ function runClaudeCommand(message, options = {}) {
       if (settled) return;
       settled = true;
       clearInterval(timeoutCheck);
-      resolve({ success: false, output: stdout, error: err.message });
+      resolve({ success: false, output: textContent || rawOutput, error: err.message });
     });
   });
 }

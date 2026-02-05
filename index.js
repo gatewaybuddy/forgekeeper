@@ -352,9 +352,19 @@ async function handleTelegramRequest(request) {
         return { reply };
       }
 
-      // SIMPLIFIED: Skip all complex routing for now - just send to Claude
-      // The topic router and chat planner were causing confusion
-      // TODO: Re-enable when personality issues are resolved
+      // Check if this is a complex prompt that should become a background task
+      // This prevents timeouts for long-running requests
+      if (isLikelyComplex(fullMessage)) {
+        console.log('[Chat] Complex message detected, converting to task');
+        const task = tasks.create({
+          description: message,
+          origin: 'telegram',
+          metadata: { userId },
+        });
+        const reply = `📋 This looks like it might take a while. I've created a task to work on it:\n\n${message}\n\nTask ID: ${task.id}\nUse /status to check progress.`;
+        conversations.append(userId, { role: 'assistant', content: reply });
+        return { reply };
+      }
 
       // For everything else, chat with Claude using session manager
       try {

@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { goals, tasks, learnings, conversations } from './memory.js';
 import { query } from './claude.js';
 import { isChatActive } from './chat-state.js';
+import { translateAndCreate } from './intent-translator.js';
 
 // Paths
 const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
@@ -171,6 +172,34 @@ export async function reflect() {
     // Check if the thought suggests action
     const wantsAction = detectActionIntent(thought);
 
+    // If we want to act, translate the intent into a concrete task
+    let taskCreated = null;
+    if (wantsAction) {
+      console.log('[InnerLife] Intent detected, translating to task...');
+      const translationResult = await translateAndCreate(thought, {
+        activeGoals: activeGoals,
+        pendingTasks: pendingTasks,
+        recentThoughts: recentThoughts,
+        summary: `Reflecting during idle time. ${activeGoals.length} active goals, ${pendingTasks.length} pending tasks.`,
+      });
+
+      if (translationResult.created) {
+        taskCreated = translationResult.task;
+        console.log(`[InnerLife] Task created: ${taskCreated.id} - ${taskCreated.description}`);
+
+        // Journal that we created a task from reflection
+        saveJournalEntry({
+          type: 'autonomous_task_created',
+          thoughtContent: thought,
+          taskId: taskCreated.id,
+          taskDescription: taskCreated.description,
+          reasoning: translationResult.reasoning,
+        });
+      } else {
+        console.log(`[InnerLife] No task created: ${translationResult.reasoning}`);
+      }
+    }
+
     // Check if this thought is worth sharing proactively
     let sharedWithCompanion = false;
     if (isWorthSharing(thought)) {
@@ -182,6 +211,7 @@ export async function reflect() {
       acted: true,
       thought: saved,
       wantsAction,
+      taskCreated,
       sharedWithCompanion,
     };
 
