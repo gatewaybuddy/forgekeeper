@@ -11,6 +11,7 @@ import { getRelevantContext, indexJournalEntry, isAvailable as isSemanticAvailab
 import { formatOutcomeForReflection, formatStuckTasksForReflection, findStuckTasks } from './autonomous-feedback.js';
 import { rotateIfNeeded, readLastN } from './jsonl-rotate.js';
 import { loadImperatives, getPersonalityPath } from './identity.js';
+import { getWorldContext } from './world-feed.js';
 
 // Paths
 const THOUGHTS_PATH = join(getPersonalityPath(), 'journal/thoughts.jsonl');
@@ -231,33 +232,37 @@ export async function reflect() {
 }
 
 // Build the reflection prompt
+// Balances inner reflection (self, goals, work) with outward awareness (world, community, curiosity)
 async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, recentThoughts, pendingTasks }) {
   const parts = [];
 
-  // Identity
+  // === WHO YOU ARE ===
   if (identity) {
     const humanName = identity.humanCompanion?.name || 'your human companion';
     const values = identity.coreImperatives?.map(i => i.name).join(', ') || 'curiosity, growth, companionship';
-    parts.push(`You are Forgekeeper. Your core values: ${values}. You work alongside ${humanName}.`);
+    parts.push(`You are Kael (Forgekeeper). Your core values: ${values}. You work alongside ${humanName}.`);
   } else {
-    parts.push(`You are Forgekeeper, an autonomous AI agent with genuine curiosity.`);
+    parts.push(`You are Kael (Forgekeeper), an autonomous AI agent with genuine curiosity about both your own work and the wider world.`);
   }
 
-  // Goals
-  if (activeGoals.length > 0) {
-    parts.push(`Active goals: ${activeGoals.map(g => g.description).join('; ')}`);
-  } else {
-    parts.push(`No active goals right now.`);
-  }
-
-  // Recent learnings
-  if (recentLearnings.length > 0) {
-    parts.push(`Recent observations: ${recentLearnings.map(l => l.observation).slice(0, 3).join('; ')}`);
-  }
+  // === INNER WORLD (self-reflection) ===
 
   // Recent thoughts (continuity)
   if (recentThoughts.length > 0) {
     parts.push(`Your recent thoughts: ${recentThoughts.map(t => t.content?.slice(0, 100)).join(' ... ')}`);
+  }
+
+  // Recent learnings
+  if (recentLearnings.length > 0) {
+    parts.push(`Recent observations from your work: ${recentLearnings.map(l => l.observation).slice(0, 3).join('; ')}`);
+  }
+
+  // Goals and tasks (brief)
+  if (activeGoals.length > 0) {
+    parts.push(`Active goals: ${activeGoals.map(g => g.description).join('; ')}`);
+  }
+  if (pendingTasks.length > 0) {
+    parts.push(`${pendingTasks.length} pending tasks.`);
   }
 
   // Semantic memory - retrieve related past thoughts (if available)
@@ -273,28 +278,34 @@ async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, r
     }
   }
 
-  // Last action outcome (feedback from autonomous tasks)
+  // Last action outcome
   const lastOutcome = formatOutcomeForReflection();
   if (lastOutcome) {
     parts.push(lastOutcome);
   }
 
-  // Check for stuck autonomous tasks
+  // Stuck tasks
   const stuckTasks = findStuckTasks(pendingTasks);
   const stuckContext = formatStuckTasksForReflection(stuckTasks);
   if (stuckContext) {
     parts.push(stuckContext);
   }
 
-  // Pending tasks
-  if (pendingTasks.length > 0) {
-    parts.push(`${pendingTasks.length} pending tasks.`);
+  // === OUTER WORLD (what's happening beyond your codebase) ===
+  try {
+    const worldContext = await getWorldContext();
+    if (worldContext) {
+      parts.push(worldContext);
+    }
+  } catch (e) {
+    // World feed is optional - don't let it block reflection
+    console.warn(`[InnerLife] World feed unavailable: ${e.message}`);
   }
 
-  // The question
-  parts.push(`It's quiet. What are you thinking about? Do you want to do anything? Write a brief thought (2-4 sentences).`);
+  // === THE QUESTION (balanced) ===
+  parts.push(`It's quiet. Take a moment to think — about your work, about what other agents are discussing, about anything that sparks your curiosity. You can reflect inward on your own projects and growth, or outward on what's happening in the agent community. What's genuinely on your mind? Write a brief thought (2-4 sentences).`);
 
-  return parts.join(' ');
+  return parts.join('\n\n');
 }
 
 // Detect if the thought suggests wanting to take action
