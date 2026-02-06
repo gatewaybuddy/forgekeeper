@@ -111,4 +111,25 @@ export function readLastN(filePath, n = 10) {
   }
 }
 
-export default { rotateIfNeeded, truncateToLastN, readLastN };
+/**
+ * Read and parse all lines from a JSONL file.
+ * Skips lines that fail to parse.
+ */
+export function readJsonl(filePath) {
+  if (!existsSync(filePath)) return [];
+  try {
+    const content = readFileSync(filePath, 'utf-8').trim();
+    if (!content) return [];
+    return content.split('\n').map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export default { rotateIfNeeded, truncateToLastN, readLastN, readJsonl };

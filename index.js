@@ -1,15 +1,26 @@
 #!/usr/bin/env node
 // Forgekeeper v3.1 - Minimal AI Agent with Claude Code as the brain
+
+// Node.js built-ins
+import { randomUUID } from 'crypto';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Config and core modules
 import { config } from './config.js';
 import loop from './core/loop.js';
 import { conversations, tasks, goals, approvals, learnings } from './core/memory.js';
 import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
-import { routeMessage, analyzeTopics, TOPIC_TYPES } from './core/topic-router.js';
 import { createAgentPool } from './core/agent-pool.js';
 import { wrapExternalContent, detectInjectionPatterns } from './core/security/external-content.js';
 import { initHooks, fireEvent } from './core/hooks.js';
-import { randomUUID } from 'crypto';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import innerLife from './core/inner-life.js';
+
+// Skills and utilities
+import { loadSkills } from './skills/registry.js';
+import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
 
 // Content security configuration
 const CONTENT_SECURITY_ENABLED = process.env.FK_CONTENT_SECURITY_ENABLED !== '0';
@@ -63,14 +74,6 @@ function getOrCreateSession(userId) {
   }
   return sessionId;
 }
-
-import { loadSkills } from './skills/registry.js';
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
-import { processChat as planChat } from './core/chat-planner.js';
-import innerLife from './core/inner-life.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -219,7 +222,10 @@ async function startTelegramBot() {
           telegramProcess.stdin.write(JSON.stringify({ id: request.id, result: response }) + '\n');
         }
       } catch (e) {
-        // Not JSON or parse error - might be log output
+        // Only warn if it looks like it should be JSON
+        if (line.startsWith('{') || line.startsWith('[')) {
+          console.warn(`[Telegram] Failed to parse MCP message: ${e.message}`);
+        }
       }
     }
   });

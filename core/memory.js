@@ -3,21 +3,7 @@ import { readFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { atomicWriteFileSync } from './atomic-write.js';
-import { rotateIfNeeded } from './jsonl-rotate.js';
-
-// Generic JSONL operations
-function readJsonl(filePath) {
-  if (!existsSync(filePath)) return [];
-  const content = readFileSync(filePath, 'utf-8').trim();
-  if (!content) return [];
-  return content.split('\n').map(line => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
-}
+import { rotateIfNeeded, readJsonl } from './jsonl-rotate.js';
 
 function appendJsonl(filePath, record) {
   appendFileSync(filePath, JSON.stringify(record) + '\n');

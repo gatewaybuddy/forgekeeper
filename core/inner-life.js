@@ -269,7 +269,7 @@ async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, r
         parts.push(semanticContext.prompt);
       }
     } catch (e) {
-      // Silently ignore semantic memory errors
+      console.warn(`[InnerLife] Semantic memory lookup failed: ${e.message}`);
     }
   }
 

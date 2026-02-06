@@ -637,7 +637,11 @@ function runClaudeCommand(message, options = {}) {
             onProgress({ status: event.subtype, elapsed: Date.now() - startTime });
           }
         } catch (e) {
-          // Not valid JSON - might be partial or non-JSON output
+          // Non-JSON line (e.g. raw log output from Claude CLI) — skip silently
+          // Only warn on lines that look like they should be JSON
+          if (line.startsWith('{') || line.startsWith('[')) {
+            console.warn(`[Claude] Failed to parse JSON stream line: ${e.message} (${line.slice(0, 80)})`);
+          }
         }
       }
     });
@@ -767,7 +771,9 @@ function runClaudeCommand(message, options = {}) {
               }
             }
           }
-        } catch (e) { /* ignore parse errors */ }
+        } catch (e) {
+          console.warn(`[Claude] Failed to parse final stream buffer: ${e.message}`);
+        }
       }
 
       // DEBUG: Log response

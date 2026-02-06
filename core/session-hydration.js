@@ -15,7 +15,7 @@
 
 import { existsSync, mkdirSync, readFileSync, appendFileSync, readdirSync, unlinkSync, rmdirSync, statSync } from 'fs';
 import { atomicWriteFileSync } from './atomic-write.js';
-import { rotateIfNeeded } from './jsonl-rotate.js';
+import { rotateIfNeeded, readJsonl as sharedReadJsonl } from './jsonl-rotate.js';
 import { join, dirname } from 'path';
 import { config } from '../config.js';
 
@@ -104,21 +104,8 @@ function getSummaryPath(sessionId) {
   return join(getSessionDir(sessionId), 'summary.json');
 }
 
-/**
- * Read JSONL file
- */
-function readJsonl(filePath) {
-  if (!existsSync(filePath)) return [];
-  const content = readFileSync(filePath, 'utf-8').trim();
-  if (!content) return [];
-  return content.split('\n').map(line => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
-}
+// readJsonl imported from jsonl-rotate.js as sharedReadJsonl
+const readJsonl = sharedReadJsonl;
 
 /**
  * Append to JSONL file
