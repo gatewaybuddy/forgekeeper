@@ -196,11 +196,12 @@ async function triggerRestart() {
     console.log('[Self-Update] Not running under PM2. Attempting pm2 restart...');
     if (!config.dryRun) {
       try {
-        const pm2Cmd = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+        const isWindows = process.platform === 'win32';
+        const pm2Cmd = isWindows ? 'pm2.cmd' : 'pm2';
         spawn(pm2Cmd, ['restart', 'forgekeeper'], {
           detached: true,
           stdio: 'ignore',
-          shell: false,
+          shell: isWindows,
         }).unref();
 
         setTimeout(() => process.exit(0), config.restartDelayMs);

@@ -74,13 +74,14 @@ function showHelp() {
 
 function pm2(...args) {
   return new Promise((resolve, reject) => {
-    // Use shell: false to prevent command injection.
-    // On Windows, resolve the full path to pm2 cmd script.
-    const pm2Cmd = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+    // On Windows, .cmd files are batch scripts that need the shell interpreter.
+    // All args are hardcoded literals so shell is safe here.
+    const isWindows = process.platform === 'win32';
+    const pm2Cmd = isWindows ? 'pm2.cmd' : 'pm2';
     const proc = spawn(pm2Cmd, args, {
       cwd: ROOT,
       stdio: 'inherit',
-      shell: false,
+      shell: isWindows,
     });
     proc.on('close', resolve);
     proc.on('error', (err) => {
@@ -101,9 +102,10 @@ function runNode(script) {
       console.error(`Error: Script not found: ${script}`);
       process.exit(1);
     }
-    const proc = spawn('node', [scriptPath], {
+    const proc = spawn(process.execPath, [scriptPath], {
       cwd: ROOT,
       stdio: 'inherit',
+      shell: false,
     });
     proc.on('close', resolve);
   });

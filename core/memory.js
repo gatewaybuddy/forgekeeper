@@ -67,7 +67,7 @@ export const conversations = {
 
   clear(userId) {
     const path = this.getPath(userId);
-    if (existsSync(path)) writeFileSync(path, '');
+    if (existsSync(path)) atomicWriteFileSync(path, '');
   },
 };
 

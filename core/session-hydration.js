@@ -13,7 +13,7 @@
  *     ...
  */
 
-import { existsSync, mkdirSync, readFileSync, appendFileSync, readdirSync, unlinkSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, appendFileSync, readdirSync, unlinkSync, rmdirSync, statSync } from 'fs';
 import { atomicWriteFileSync } from './atomic-write.js';
 import { rotateIfNeeded } from './jsonl-rotate.js';
 import { join, dirname } from 'path';
@@ -400,7 +400,7 @@ export function pruneOldSessions() {
             unlinkSync(join(sessionDir, file));
           }
           // Remove directory
-          require('fs').rmdirSync(sessionDir);
+          rmdirSync(sessionDir);
           pruned++;
         }
       } catch {

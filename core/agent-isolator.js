@@ -11,6 +11,7 @@ import { spawn } from 'child_process';
 import { config } from '../config.js';
 import { randomUUID } from 'crypto';
 import { rotateIfNeeded } from './jsonl-rotate.js';
+import { resolveClaudeCommand } from './claude.js';
 
 // Configuration
 const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
@@ -145,10 +146,10 @@ export async function spawnIsolatedAgent(task) {
 
   try {
     // Spawn Claude Code as child process
-    const claudeCmd = config.claude?.command || 'claude';
+    const resolved = resolveClaudeCommand();
 
-    const child = spawn(claudeCmd, ['--print', prompt], {
-      shell: false,
+    const child = spawn(resolved.cmd, [...resolved.prependArgs, '--print', prompt], {
+      shell: resolved.shell,
       timeout: AGENT_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

@@ -12,9 +12,10 @@ const connectedServers = new Map();
 export function startInterface(name, scriptPath) {
   console.log(`[Bridge] Starting interface: ${name}`);
 
-  const proc = spawn('node', [scriptPath], {
+  const proc = spawn(process.execPath, [scriptPath], {
     stdio: ['pipe', 'pipe', 'inherit'],
     env: process.env,
+    shell: false,
   });
 
   let buffer = '';

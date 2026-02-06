@@ -60,10 +60,11 @@ function pm2Command(command, target = '') {
 
     console.log(`[Restart] Running: pm2 ${args.join(' ')}`);
 
-    const pm2Cmd = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+    const isWindows = process.platform === 'win32';
+    const pm2Cmd = isWindows ? 'pm2.cmd' : 'pm2';
     const proc = spawn(pm2Cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
+      shell: isWindows,
     });
 
     let output = '';
@@ -126,11 +127,12 @@ export function scheduleRestart(delayMs = 1000) {
       process.exit(0);
     } else {
       // Fallback: try pm2 restart anyway
-      const pm2Cmd = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+      const isWindows = process.platform === 'win32';
+      const pm2Cmd = isWindows ? 'pm2.cmd' : 'pm2';
       spawn(pm2Cmd, ['restart', 'forgekeeper'], {
         detached: true,
         stdio: 'ignore',
-        shell: false,
+        shell: isWindows,
       }).unref();
 
       process.exit(0);

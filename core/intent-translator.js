@@ -8,7 +8,7 @@ import { join } from 'path';
 import { config } from '../config.js';
 
 // Load identity for context
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
+const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
 const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
 
 function loadIdentity() {

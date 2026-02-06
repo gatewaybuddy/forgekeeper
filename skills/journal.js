@@ -1,9 +1,10 @@
 // Journal skill - write entries to shared or private journal
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { config } from '../config.js';
 
 // Personality repo location
-const PERSONALITY_PATH = 'D:/Projects/forgekeeper_personality';
+const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
 const SHARED_JOURNAL = join(PERSONALITY_PATH, 'journal/shared.jsonl');
 const PRIVATE_JOURNAL = join(PERSONALITY_PATH, 'journal/private.jsonl');
 

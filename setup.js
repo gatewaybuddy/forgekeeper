@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Forgekeeper v3 Setup & Configuration Wizard
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createInterface } from 'readline';
@@ -130,11 +130,12 @@ async function installDependencies() {
 
   return new Promise((resolve, reject) => {
     info('Running npm install...');
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const isWindows = process.platform === 'win32';
+    const npmCmd = isWindows ? 'npm.cmd' : 'npm';
     const proc = spawn(npmCmd, ['install'], {
       cwd: __dirname,
       stdio: 'inherit',
-      shell: false,
+      shell: isWindows,
     });
 
     proc.on('close', (code) => {
@@ -154,7 +155,6 @@ async function configureEnvironment() {
   header('Configuring Environment...');
 
   const envPath = join(__dirname, '.env');
-  const envExamplePath = join(__dirname, '.env.example');
 
   // Load existing config or start fresh
   let config = {};
@@ -167,9 +167,6 @@ async function configureEnvironment() {
       }
     }
     info('Loaded existing .env configuration');
-  } else if (existsSync(envExamplePath)) {
-    copyFileSync(envExamplePath, envPath);
-    info('Created .env from .env.example');
   }
 
   console.log('');

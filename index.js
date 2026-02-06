@@ -197,9 +197,10 @@ async function startTelegramBot() {
 
   console.log(`[Telegram] Starting bot process (attempt ${telegramRestartCount})...`);
 
-  telegramProcess = spawn('node', [telegramScript], {
+  telegramProcess = spawn(process.execPath, [telegramScript], {
     stdio: ['pipe', 'pipe', 'inherit'], // stdin/stdout for MCP, stderr to console
     env: process.env,
+    shell: false,
   });
 
   // Handle MCP protocol communication
@@ -417,7 +418,7 @@ async function handleTelegramRequest(request) {
           origin: 'telegram',
           metadata: { userId },
         });
-        const reply = `📋 This looks like it might take a while. I've created a task to work on it:\n\n${message}\n\nTask ID: ${task.id}\nUse /status to check progress.`;
+        const reply = `📋 On it! (task ${task.id})`;
         conversations.append(userId, { role: 'assistant', content: reply });
         return { reply };
       }
@@ -708,7 +709,7 @@ Environment:
   FK_DASHBOARD_ENABLED       Enable web dashboard (default: 1)
   FK_DASHBOARD_PORT          Dashboard port (default: 3000)
 
-See .env.example for all options.
+Set these in your .env file or run: forgekeeper setup
 `);
   process.exit(0);
 }

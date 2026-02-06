@@ -13,6 +13,7 @@ import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { getAgentConfig } from './agent-router.js';
+import { resolveClaudeCommand } from './claude.js';
 import { applyThinkingBudget } from './thinking-levels.js';
 import { rotateIfNeeded } from './jsonl-rotate.js';
 
@@ -220,10 +221,10 @@ export async function spawnSubagent(options) {
   // Execute function
   const execute = async () => {
     try {
-      const claudeCmd = config.claude?.command || 'claude';
+      const resolved = resolveClaudeCommand();
 
-      const child = spawn(claudeCmd, ['--print', prompt], {
-        shell: false,
+      const child = spawn(resolved.cmd, [...resolved.prependArgs, '--print', prompt], {
+        shell: resolved.shell,
         timeout,
         stdio: ['pipe', 'pipe', 'pipe'],
       });

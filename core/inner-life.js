@@ -12,7 +12,7 @@ import { formatOutcomeForReflection, formatStuckTasksForReflection, findStuckTas
 import { rotateIfNeeded, readLastN } from './jsonl-rotate.js';
 
 // Paths
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
+const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
 const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
 const THOUGHTS_PATH = join(PERSONALITY_PATH, 'journal/thoughts.jsonl');
 const JOURNAL_PATH = join(PERSONALITY_PATH, 'journal/private.jsonl');
@@ -557,9 +557,11 @@ export async function onTaskCompleted(task) {
       const output = lastAttempt?.output || 'Task completed (no output recorded)';
 
       // Format the completion message
-      const message = `✅ **Task Completed**\n\n` +
-        `*${task.description}*\n\n` +
-        `${output.slice(0, 1500)}${output.length > 1500 ? '...' : ''}`;
+      const desc = task.description?.length > 80
+        ? task.description.slice(0, 80) + '...'
+        : task.description;
+      const message = `✅ Done: ${desc}\n\n` +
+        `${output.slice(0, 500)}${output.length > 500 ? '...' : ''}`;
 
       await sendMessageFn(userId, message);
       console.log(`[InnerLife] Sent task completion to user ${userId}`);
@@ -576,10 +578,11 @@ export async function onTaskFailed(task, error) {
   const userId = task.metadata?.userId;
   if (userId && sendMessageFn) {
     try {
-      const message = `❌ **Task Failed**\n\n` +
-        `*${task.description}*\n\n` +
-        `Error: ${error || 'Unknown error'}\n\n` +
-        `Attempted ${task.attempts?.length || 0} time(s)`;
+      const desc = task.description?.length > 80
+        ? task.description.slice(0, 80) + '...'
+        : task.description;
+      const message = `❌ Task failed: ${desc}\n` +
+        `Error: ${error || 'Unknown error'}`;
 
       await sendMessageFn(userId, message);
       console.log(`[InnerLife] Sent task failure notification to user ${userId}`);

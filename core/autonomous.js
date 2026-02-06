@@ -1,12 +1,13 @@
 // Autonomous behavior - what to do when idle
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { config } from '../config.js';
 import { execute } from './claude.js';
 import { learnings } from './memory.js';
 import { organizeConversations, archiveOldSessions } from './conversation-organizer.js';
 
 // Personality repo paths
-const PERSONALITY_PATH = 'D:/Projects/forgekeeper_personality';
+const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
 const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
 const GOALS_PATH = join(PERSONALITY_PATH, 'identity/goals.json');
 const SHARED_JOURNAL = join(PERSONALITY_PATH, 'journal/shared.jsonl');

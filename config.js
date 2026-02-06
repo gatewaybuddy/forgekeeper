@@ -208,7 +208,7 @@ export const config = {
   autonomous: {
     enabled: process.env.FK_AUTONOMOUS_ENABLED === '1',
     maxActionsPerHour: parseInt(process.env.FK_AUTONOMOUS_MAX_PER_HOUR || '10'),
-    personalityPath: process.env.FK_PERSONALITY_PATH || 'D:/Projects/forgekeeper_personality',
+    personalityPath: process.env.FK_PERSONALITY_PATH || 'forgekeeper_personality',
   },
 
   // Autonomous Feedback (task outcome tracking)

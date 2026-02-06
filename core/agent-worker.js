@@ -2,6 +2,7 @@
 import { parentPort, workerData } from 'worker_threads';
 import { spawn } from 'child_process';
 import { config } from '../config.js';
+import { resolveClaudeCommand } from './claude.js';
 
 const { agentId } = workerData;
 
@@ -81,11 +82,11 @@ function runClaude(task) {
     let output = '';
     let errorOutput = '';
 
-    // Use shell: false to prevent command injection via task descriptions
-    const proc = spawn('claude', args, {
+    const resolved = resolveClaudeCommand();
+    const proc = spawn(resolved.cmd, [...resolved.prependArgs, ...args], {
       cwd: process.cwd(),
       env: { ...process.env },
-      shell: false,
+      shell: resolved.shell,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

@@ -2,13 +2,62 @@
 // Executes tasks using Claude Code CLI with full tool access
 import { spawn, exec, execSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { config } from '../config.js';
 import { learnings, conversations } from './memory.js';
 import { checkGuardrails, formatGuardrailsForPrompt } from './guardrails.js';
 import { getSession, recordMessage, rotateSession } from './session-manager.js';
 import { notifyChatActivity } from './chat-state.js';
 import { getLatestThought } from './inner-life.js';
+
+/**
+ * Resolve the Claude CLI command for spawning.
+ *
+ * On Windows, claude is installed as claude.cmd (a batch script wrapper).
+ * Spawning .cmd files requires shell: true, but that causes cmd.exe to
+ * interpret prompt text as shell commands (breaking on quotes, pipes, etc.).
+ *
+ * Instead, we find the actual JS entry point that claude.cmd wraps and
+ * spawn it directly with process.execPath — no shell needed.
+ *
+ * Returns { cmd, args, shell } where args should be prepended to spawn args.
+ */
+let _cachedClaudeResolve = null;
+
+export function resolveClaudeCommand() {
+  if (_cachedClaudeResolve) return _cachedClaudeResolve;
+
+  if (process.platform !== 'win32') {
+    _cachedClaudeResolve = { cmd: 'claude', prependArgs: [], shell: false };
+    return _cachedClaudeResolve;
+  }
+
+  // On Windows, find the JS entry point to bypass the .cmd wrapper
+  try {
+    const wherePath = execSync('where claude.cmd', { encoding: 'utf-8', timeout: 5000, windowsHide: true })
+      .trim().split('\n')[0].trim();
+
+    if (wherePath) {
+      // claude.cmd lives in the npm bin dir; the JS entry is at:
+      // <npm-bin>/node_modules/@anthropic-ai/claude-code/cli.js
+      const binDir = dirname(wherePath);
+      const cliPath = join(binDir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js');
+
+      if (existsSync(cliPath)) {
+        console.log(`[Claude] Resolved CLI entry point: ${cliPath}`);
+        _cachedClaudeResolve = { cmd: process.execPath, prependArgs: [cliPath], shell: false };
+        return _cachedClaudeResolve;
+      }
+    }
+  } catch (e) {
+    console.warn(`[Claude] Could not resolve claude.cmd path: ${e.message}`);
+  }
+
+  // Fallback: use claude.cmd with shell (may fail on complex prompts)
+  console.warn('[Claude] Falling back to claude.cmd with shell — complex prompts may fail');
+  _cachedClaudeResolve = { cmd: 'claude.cmd', prependArgs: [], shell: true };
+  return _cachedClaudeResolve;
+}
 
 // Process activity monitoring for smarter timeout detection
 // Instead of just checking stdout, we monitor actual process CPU usage
@@ -52,7 +101,7 @@ function isProcessActive(pid, lastCpuTime) {
 }
 
 // Personality paths
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
+const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
 const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
 
 // Cache personality to avoid repeated file reads
@@ -526,12 +575,12 @@ function runClaudeCommand(message, options = {}) {
     // Progress callback for status updates
     const onProgress = options.onProgress || (() => {});
 
-    // Use spawn with shell: false to prevent command injection.
-    // Arguments are passed as an array, so no shell interpretation occurs.
+    // Resolve claude CLI — on Windows, bypasses .cmd wrapper to avoid shell arg interpretation.
     // stdin is ignored to prevent Claude CLI hanging on Windows.
-    const proc = spawn('claude', args, {
+    const resolved = resolveClaudeCommand();
+    const proc = spawn(resolved.cmd, [...resolved.prependArgs, ...args], {
       cwd: options.cwd || process.cwd(),
-      shell: false,
+      shell: resolved.shell,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
