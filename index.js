@@ -6,8 +6,14 @@ import { conversations, tasks, goals, approvals, learnings } from './core/memory
 import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
 import { routeMessage, analyzeTopics, TOPIC_TYPES } from './core/topic-router.js';
 import { createAgentPool } from './core/agent-pool.js';
+import { wrapExternalContent, detectInjectionPatterns } from './core/security/external-content.js';
+import { initHooks, fireEvent } from './core/hooks.js';
 import { randomUUID } from 'crypto';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+
+// Content security configuration
+const CONTENT_SECURITY_ENABLED = process.env.FK_CONTENT_SECURITY_ENABLED !== '0';
+const HOOKS_ENABLED = process.env.FK_HOOKS_ENABLED !== '0';
 
 // Agent pool for parallel task execution
 let agentPool = null;
@@ -106,6 +112,12 @@ async function init() {
   console.log('[Init] Loading skills...');
   const skills = await loadSkills();
   console.log(`  - Loaded ${skills.length} skills`);
+
+  // Initialize hooks system
+  if (HOOKS_ENABLED) {
+    console.log('[Init] Initializing hooks system...');
+    await initHooks();
+  }
 
   // Initialize agent pool if enabled
   if (config.agentPool?.enabled) {
@@ -329,14 +341,57 @@ async function handleTelegramRequest(request) {
       }
       console.log(`[Chat] ========== END INCOMING ==========`);
 
+      // Security: Wrap external content with safety markers
+      let securedMessage = message;
+      if (CONTENT_SECURITY_ENABLED) {
+        const patterns = detectInjectionPatterns(message);
+        if (patterns.length > 0) {
+          console.log(`[Security] Detected ${patterns.length} injection pattern(s): ${patterns.join(', ')}`);
+        }
+        securedMessage = wrapExternalContent(message, {
+          source: 'telegram',
+          senderId: userId,
+          logPatterns: true,
+        });
+        console.log(`[Security] Message wrapped with security markers`);
+      }
+
       // Build the full message with reply context if present
-      // Format makes it clear this is a reply to a specific previous message
+      // Both the reply-to content AND the current message must be security-wrapped
+      // to prevent prompt injection via replying to a malicious message
+      const securedReplyTo = replyToMessage && CONTENT_SECURITY_ENABLED
+        ? wrapExternalContent(replyToMessage.slice(0, 500), {
+            source: 'telegram-reply',
+            senderId: userId,
+          })
+        : replyToMessage?.slice(0, 500);
       const fullMessage = replyToMessage
-        ? `[Rado is replying to your previous message: "${replyToMessage.slice(0, 500)}"]\n\nRado's reply: ${message}`
-        : message;
+        ? `[Rado is replying to your previous message: "${securedReplyTo}"]\n\nRado's reply: ${securedMessage}`
+        : securedMessage;
 
       // Store in conversation history
       conversations.append(userId, { role: 'user', content: fullMessage });
+
+      // Fire message:received event for hooks
+      // Get last assistant message for context (to detect proactive replies)
+      const recentHistory = conversations.get(userId, 5) || [];
+      const lastAssistantMsg = recentHistory
+        .filter(m => m.role === 'assistant')
+        .pop()?.content;
+
+      const hookMods = HOOKS_ENABLED
+        ? await fireEvent('message:received', {
+            message,
+            fullMessage,
+            userId,
+            lastAssistantMessage: lastAssistantMsg,
+            replyToMessage,
+          })
+        : {};
+
+      if (hookMods.skipComplexityCheck) {
+        console.log(`[Hooks] Skipping complexity check: ${hookMods.routingReason || 'hook decision'}`);
+      }
 
       const lowerMsg = fullMessage.toLowerCase();
 
@@ -354,7 +409,8 @@ async function handleTelegramRequest(request) {
 
       // Check if this is a complex prompt that should become a background task
       // This prevents timeouts for long-running requests
-      if (isLikelyComplex(fullMessage)) {
+      // BUT skip if hooks said to (e.g., for proactive replies)
+      if (!hookMods.skipComplexityCheck && isLikelyComplex(fullMessage)) {
         console.log('[Chat] Complex message detected, converting to task');
         const task = tasks.create({
           description: message,

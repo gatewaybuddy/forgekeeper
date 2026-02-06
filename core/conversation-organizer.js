@@ -1,8 +1,9 @@
 // Conversation Organizer - Summarizes and indexes conversations for quick routing
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { query } from './claude.js';
+import { atomicWriteFileSync } from './atomic-write.js';
 
 const SUMMARIES_FILE = join(config.dataDir, 'conversation_summaries.json');
 const CONVERSATIONS_DIR = join(config.dataDir, 'conversations');
@@ -39,7 +40,7 @@ function loadSummaries() {
 // Save summaries
 function saveSummaries(summaries) {
   try {
-    writeFileSync(SUMMARIES_FILE, JSON.stringify(summaries, null, 2));
+    atomicWriteFileSync(SUMMARIES_FILE, JSON.stringify(summaries, null, 2));
   } catch (error) {
     console.error('[Organizer] Failed to save summaries:', error.message);
   }

@@ -13,7 +13,38 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+
+// Authentication: require FK_DASHBOARD_TOKEN to access the dashboard.
+// If not set, the dashboard binds to localhost only and logs a warning.
+const DASHBOARD_TOKEN = process.env.FK_DASHBOARD_TOKEN || '';
+
+function authMiddleware(req, res, next) {
+  if (!DASHBOARD_TOKEN) return next(); // No token = localhost-only (enforced at bind)
+  const token = req.headers['x-dashboard-token'] || req.query.token;
+  if (token !== DASHBOARD_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized. Set X-Dashboard-Token header or ?token= query param.' });
+  }
+  next();
+}
+
+function authWebSocket(req) {
+  if (!DASHBOARD_TOKEN) return true;
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  return url.searchParams.get('token') === DASHBOARD_TOKEN;
+}
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  if (!authWebSocket(req)) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
 
 // Track connected clients
 const clients = new Set();
@@ -107,6 +138,9 @@ function getLearnings() {
 // Serve static files
 app.use(express.static(join(__dirname, 'public')));
 app.use(express.json());
+
+// Apply auth middleware to all API routes
+app.use('/api', authMiddleware);
 
 // API Routes
 app.get('/api/status', (req, res) => {
@@ -210,20 +244,29 @@ wss.on('connection', (ws) => {
 
 // Start server with error handling for port conflicts
 export function startDashboard(port = config.dashboard.port) {
+  // If no auth token, bind to localhost only to prevent remote access
+  const host = DASHBOARD_TOKEN ? '0.0.0.0' : '127.0.0.1';
+
+  if (!DASHBOARD_TOKEN) {
+    console.warn('[Dashboard] WARNING: No FK_DASHBOARD_TOKEN set. Dashboard bound to localhost only.');
+    console.warn('[Dashboard] Set FK_DASHBOARD_TOKEN=<secret> to enable remote access with authentication.');
+  }
+
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`[Dashboard] Port ${port} in use, trying ${port + 1}...`);
+      const nextPort = port + 1;
+      console.log(`[Dashboard] Port ${port} in use, trying ${nextPort}...`);
       setTimeout(() => {
         server.close();
-        server.listen(port + 1);
+        server.listen(nextPort, host);
       }, 1000);
     } else {
       console.error('[Dashboard] Server error:', err.message);
     }
   });
 
-  server.listen(port, () => {
-    console.log(`[Dashboard] Running at http://localhost:${port}`);
+  server.listen(port, host, () => {
+    console.log(`[Dashboard] Running at http://${host}:${port}`);
   });
   return server;
 }

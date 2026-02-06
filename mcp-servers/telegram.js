@@ -2,6 +2,8 @@
 // Telegram MCP Server for Forgekeeper v3
 // Uses custom polling implementation for Node 23 compatibility
 import { TelegramPoller } from './telegram-polling.js';
+import { sendChunkedMessage } from '../core/telegram-chunker.js';
+import { config } from '../config.js';
 import { createInterface } from 'readline';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -15,6 +17,7 @@ const PENDING_FILE = join(DATA_DIR, 'telegram_pending.json');
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '').split(',').filter(Boolean);
 const ADMIN_USERS = (process.env.TELEGRAM_ADMIN_USERS || '').split(',').filter(Boolean);
+const MAX_MESSAGE_LENGTH = config.telegram.maxLength;
 
 // Resilience configuration
 const MAX_RETRIES = parseInt(process.env.FK_TELEGRAM_MAX_RETRIES || '5');
@@ -252,15 +255,14 @@ ${statusResponse.currentTask ? `\n⚡ Current: ${statusResponse.currentTask}` : 
       await ctx.reply(`⚠️ Error: ${errorMsg}`);
     } else if (response.reply) {
       await ctx.react('✅');
-      const reply = response.reply;
-      if (reply.length > 4000) {
-        const chunks = reply.match(/.{1,4000}/gs) || [reply];
-        for (const chunk of chunks) {
-          await ctx.reply(chunk);
-        }
-      } else {
-        await ctx.reply(reply);
-      }
+      // Use smart chunking that respects natural boundaries (paragraphs, sentences, code blocks)
+      await sendChunkedMessage(
+        (chatId, text, options) => bot.sendMessage(chatId, text, options),
+        ctx.chat.id,
+        response.reply,
+        {},
+        MAX_MESSAGE_LENGTH
+      );
     } else {
       await ctx.react('❓');
       await ctx.reply("I processed your message but didn't get a response.");
@@ -329,7 +331,13 @@ async function handleLoopRequest(request) {
     case 'send_message': {
       const { userId, text, options } = params;
       try {
-        await bot.sendMessage(userId, text, options);
+        await sendChunkedMessage(
+          (chatId, msgText, opts) => bot.sendMessage(chatId, msgText, opts),
+          userId,
+          text,
+          options || {},
+          MAX_MESSAGE_LENGTH
+        );
         return { success: true };
       } catch (e) {
         return { success: false, error: e.message };
@@ -340,7 +348,13 @@ async function handleLoopRequest(request) {
       const { userId, prompt, timeout = 300000 } = params;
       const reqId = `input-${Date.now()}`;
 
-      await bot.sendMessage(userId, prompt);
+      await sendChunkedMessage(
+        (chatId, msgText, opts) => bot.sendMessage(chatId, msgText, opts),
+        userId,
+        prompt,
+        {},
+        MAX_MESSAGE_LENGTH
+      );
 
       const pendingReq = {
         id: reqId,
@@ -375,7 +389,13 @@ async function handleLoopRequest(request) {
       }
       message += `\n\nReply:\n/approve ${approvalId}\n/reject ${approvalId}`;
 
-      await bot.sendMessage(userId, message);
+      await sendChunkedMessage(
+        (chatId, msgText, opts) => bot.sendMessage(chatId, msgText, opts),
+        userId,
+        message,
+        {},
+        MAX_MESSAGE_LENGTH
+      );
       return { success: true, notified: true };
     }
 
@@ -385,7 +405,13 @@ async function handleLoopRequest(request) {
 
       for (const userId of targets) {
         try {
-          await bot.sendMessage(userId, text);
+          await sendChunkedMessage(
+            (chatId, msgText, opts) => bot.sendMessage(chatId, msgText, opts),
+            userId,
+            text,
+            {},
+            MAX_MESSAGE_LENGTH
+          );
         } catch (e) {
           console.error(`[Telegram] Failed to send to ${userId}:`, e.message);
         }

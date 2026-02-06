@@ -54,6 +54,9 @@ __pycache__/
 *.tmp
 nul
 
+# Runtime lock files (keep directory, ignore locks)
+.forgekeeper/agent-locks.json
+
 # Session transcripts
 2025-*.txt
 SESSION_SUMMARY_*.md

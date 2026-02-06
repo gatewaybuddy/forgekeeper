@@ -1,5 +1,11 @@
 // Security guardrails for Forgekeeper v3
 import { config } from '../config.js';
+import {
+  scoreAction,
+  isAceEnabled,
+  hasHardCeiling,
+  TIERS,
+} from './ace/index.js';
 
 // Patterns that indicate destructive operations
 const DESTRUCTIVE_PATTERNS = [
@@ -85,17 +91,19 @@ export function checkGuardrails(content) {
 }
 
 // Check if an action requires approval
+// When ACE is enabled, delegates to the Action Confidence Engine for graduated trust scoring.
+// Falls back to legacy pattern matching when ACE is disabled.
 export function requiresApproval(action) {
-  // Self-extension always requires approval
+  // Self-extension always requires approval (regardless of ACE)
   if (action.type === 'self_extension') {
     return {
       required: true,
       reason: 'Self-extension requires user approval',
-      level: 'review', // review = show code, confirm = yes/no, notify = FYI
+      level: 'review',
     };
   }
 
-  // Check content for risky patterns
+  // Check content for risky patterns (legacy guardrails - always run as defense-in-depth)
   const guardrailCheck = checkGuardrails(action.content || action.description || '');
   if (!guardrailCheck.allowed && guardrailCheck.requiresApproval) {
     return {
@@ -105,10 +113,46 @@ export function requiresApproval(action) {
     };
   }
 
-  // High complexity tasks
+  // ACE integration: use graduated trust scoring when enabled
+  if (isAceEnabled() && action.actionClass) {
+    try {
+      const score = scoreAction({
+        actionClass: action.actionClass,
+        trustSource: action.trustSource,
+        isFirstOccurrence: action.isFirstOccurrence,
+      });
+
+      if (score.tier === TIERS.ESCALATE) {
+        return {
+          required: true,
+          reason: `ACE: ${score.reason} (score: ${score.composite.toFixed(2)})`,
+          level: hasHardCeiling(action.actionClass) ? 'review' : 'confirm',
+          aceScore: score,
+        };
+      }
+
+      if (score.tier === TIERS.DELIBERATE) {
+        return {
+          required: false,
+          recommended: true,
+          reason: `ACE: ${score.reason} (score: ${score.composite.toFixed(2)})`,
+          level: 'notify',
+          aceScore: score,
+        };
+      }
+
+      // ACT tier — no approval needed
+      return { required: false, aceScore: score };
+    } catch (err) {
+      // ACE error should not block operation — fall through to legacy
+      console.error(`[ACE] Scoring error for ${action.actionClass}: ${err.message}`);
+    }
+  }
+
+  // High complexity tasks (legacy fallback)
   if (action.estimated_complexity === 'high') {
     return {
-      required: false, // Not required but recommended
+      required: false,
       recommended: true,
       reason: 'High complexity task - consider reviewing',
       level: 'notify',

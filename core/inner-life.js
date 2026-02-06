@@ -7,6 +7,9 @@ import { goals, tasks, learnings, conversations } from './memory.js';
 import { query } from './claude.js';
 import { isChatActive } from './chat-state.js';
 import { translateAndCreate } from './intent-translator.js';
+import { getRelevantContext, indexJournalEntry, isAvailable as isSemanticAvailable } from './semantic-memory.js';
+import { formatOutcomeForReflection, formatStuckTasksForReflection, findStuckTasks } from './autonomous-feedback.js';
+import { rotateIfNeeded, readLastN } from './jsonl-rotate.js';
 
 // Paths
 const PERSONALITY_PATH = config.autonomous?.personalityPath || 'D:/Projects/forgekeeper_personality';
@@ -55,17 +58,9 @@ function loadIdentity() {
   }
 }
 
-// Get recent thoughts (for context)
+// Get recent thoughts (for context) — uses efficient tail read instead of loading entire file
 function getRecentThoughts(limit = 3) {
-  if (!existsSync(THOUGHTS_PATH)) return [];
-  try {
-    const lines = readFileSync(THOUGHTS_PATH, 'utf-8').trim().split('\n').filter(Boolean);
-    return lines.slice(-limit).map(line => {
-      try { return JSON.parse(line); } catch { return null; }
-    }).filter(Boolean);
-  } catch (e) {
-    return [];
-  }
+  return readLastN(THOUGHTS_PATH, limit);
 }
 
 // Get the latest thought (for "what's on your mind?")
@@ -78,10 +73,23 @@ export function getLatestThought() {
 function saveThought(thought) {
   try {
     const entry = {
+      id: `thought-${Date.now()}`,
       timestamp: new Date().toISOString(),
       ...thought,
     };
     appendFileSync(THOUGHTS_PATH, JSON.stringify(entry) + '\n');
+
+    // Rotate if file exceeds 2MB
+    rotateIfNeeded(THOUGHTS_PATH);
+
+    // Index in semantic memory (async, non-blocking)
+    indexJournalEntry({
+      id: entry.id,
+      type: 'thought',
+      ts: entry.timestamp,
+      thought: entry.content,
+    }, THOUGHTS_PATH);
+
     return entry;
   } catch (e) {
     console.error('[InnerLife] Failed to save thought:', e.message);
@@ -92,10 +100,23 @@ function saveThought(thought) {
 // Save journal entry
 function saveJournalEntry(entry) {
   try {
-    appendFileSync(JOURNAL_PATH, JSON.stringify({
+    const journalEntry = {
+      id: `journal-${Date.now()}`,
       timestamp: new Date().toISOString(),
       ...entry,
-    }) + '\n');
+    };
+    appendFileSync(JOURNAL_PATH, JSON.stringify(journalEntry) + '\n');
+
+    // Rotate if file exceeds 2MB
+    rotateIfNeeded(JOURNAL_PATH);
+
+    // Index in semantic memory (async, non-blocking)
+    indexJournalEntry({
+      id: journalEntry.id,
+      type: journalEntry.type || 'journal',
+      ts: journalEntry.timestamp,
+      content: journalEntry.content,
+    }, JOURNAL_PATH);
   } catch (e) {
     console.error('[InnerLife] Failed to save journal:', e.message);
   }
@@ -134,7 +155,7 @@ export async function reflect() {
   const pendingTasks = tasks.pending();
 
   // Build the reflection prompt
-  const prompt = buildReflectionPrompt({
+  const prompt = await buildReflectionPrompt({
     identity,
     activeGoals,
     recentLearnings,
@@ -222,7 +243,7 @@ export async function reflect() {
 }
 
 // Build the reflection prompt
-function buildReflectionPrompt({ identity, activeGoals, recentLearnings, recentThoughts, pendingTasks }) {
+async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, recentThoughts, pendingTasks }) {
   const parts = [];
 
   // Identity
@@ -249,6 +270,32 @@ function buildReflectionPrompt({ identity, activeGoals, recentLearnings, recentT
   // Recent thoughts (continuity)
   if (recentThoughts.length > 0) {
     parts.push(`Your recent thoughts: ${recentThoughts.map(t => t.content?.slice(0, 100)).join(' ... ')}`);
+  }
+
+  // Semantic memory - retrieve related past thoughts (if available)
+  if (isSemanticAvailable() && recentThoughts.length > 0) {
+    try {
+      const latestThought = recentThoughts[recentThoughts.length - 1]?.content || '';
+      const semanticContext = await getRelevantContext(latestThought);
+      if (semanticContext.prompt) {
+        parts.push(semanticContext.prompt);
+      }
+    } catch (e) {
+      // Silently ignore semantic memory errors
+    }
+  }
+
+  // Last action outcome (feedback from autonomous tasks)
+  const lastOutcome = formatOutcomeForReflection();
+  if (lastOutcome) {
+    parts.push(lastOutcome);
+  }
+
+  // Check for stuck autonomous tasks
+  const stuckTasks = findStuckTasks(pendingTasks);
+  const stuckContext = formatStuckTasksForReflection(stuckTasks);
+  if (stuckContext) {
+    parts.push(stuckContext);
   }
 
   // Pending tasks
@@ -317,17 +364,12 @@ function classifyUrgency(thought) {
 }
 
 // Get recent proactive messages from journal
+// Uses readLastN with a larger window then post-filters, since proactive messages are sparse
 function getRecentProactiveMessages(limit = 10) {
-  if (!existsSync(JOURNAL_PATH)) return [];
-  try {
-    const lines = readFileSync(JOURNAL_PATH, 'utf-8').trim().split('\n').filter(Boolean);
-    return lines
-      .map(line => { try { return JSON.parse(line); } catch { return null; } })
-      .filter(entry => entry?.type === 'proactive_message')
-      .slice(-limit);
-  } catch (e) {
-    return [];
-  }
+  const recentEntries = readLastN(JOURNAL_PATH, 200);
+  return recentEntries
+    .filter(entry => entry?.type === 'proactive_message')
+    .slice(-limit);
 }
 
 // Extract key topics/entities from a message (simple keyword extraction)
@@ -402,7 +444,7 @@ function lastProactiveGotResponse() {
   // Check conversation history for a user message after our last proactive
   const identity = loadIdentity();
   const userId = identity?.humanCompanion?.telegramId || '74304376';
-  const history = conversations.getHistory(userId, 10);
+  const history = conversations.get(userId, 10);
 
   // Look for any user message after our proactive message
   for (const msg of history) {

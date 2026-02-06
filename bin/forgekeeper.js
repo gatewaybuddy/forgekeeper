@@ -73,11 +73,14 @@ function showHelp() {
 }
 
 function pm2(...args) {
-  return new Promise((resolve) => {
-    const proc = spawn('pm2', args, {
+  return new Promise((resolve, reject) => {
+    // Use shell: false to prevent command injection.
+    // On Windows, resolve the full path to pm2 cmd script.
+    const pm2Cmd = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+    const proc = spawn(pm2Cmd, args, {
       cwd: ROOT,
       stdio: 'inherit',
-      shell: true,
+      shell: false,
     });
     proc.on('close', resolve);
     proc.on('error', (err) => {
@@ -86,7 +89,7 @@ function pm2(...args) {
         console.error('Install it with: npm install -g pm2');
         process.exit(1);
       }
-      throw err;
+      reject(err);
     });
   });
 }

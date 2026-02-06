@@ -428,14 +428,8 @@ export function resetSessionState(userId, topic = 'default') {
   return newSessionId;
 }
 
-// Quote a string for Windows cmd.exe shell
-// On Windows with shell:true, Node.js doesn't always properly quote arguments with spaces
-// We need to wrap in quotes and escape internal quotes by doubling them
-function quoteForWindowsShell(str) {
-  if (process.platform !== 'win32') return str;
-  // Escape internal double quotes by doubling them, then wrap in quotes
-  return `"${str.replace(/"/g, '""')}"`;
-}
+// No shell quoting needed - we pass arguments as an array with shell: false
+// This eliminates command injection risks entirely
 
 // Internal function to run Claude CLI
 function runClaudeCommand(message, options = {}) {
@@ -473,14 +467,11 @@ function runClaudeCommand(message, options = {}) {
     // Note: stream-json requires --verbose when used with --print
     args.push('--verbose', '--output-format', 'stream-json');
 
-    // On Windows, wrap message in quotes to prevent shell splitting on spaces
-    // Node's spawn with shell:true doesn't always handle this correctly
-    const quotedMessage = quoteForWindowsShell(sanitized);
-    args.push('-p', quotedMessage);
+    // Pass message directly as array argument - no shell quoting needed
+    args.push('-p', sanitized);
 
-    // DEBUG: Log message being sent
+    // Log message being sent (truncated for privacy)
     console.log(`[Claude] Message (${sanitized.length} chars): "${sanitized.slice(0, 80)}${sanitized.length > 80 ? '...' : ''}"`);
-    console.log(`[Claude] Quoted for shell: ${quotedMessage.slice(0, 80)}${quotedMessage.length > 80 ? '...' : ''}`);
     console.log(`[Claude] Session: ${options.sessionId ? (options.resumeSession ? 'resume ' : 'new ') + options.sessionId.slice(0, 8) : 'none'}`);
 
     // Timeout configuration based on operation type
@@ -535,14 +526,14 @@ function runClaudeCommand(message, options = {}) {
     // Progress callback for status updates
     const onProgress = options.onProgress || (() => {});
 
-    // Use spawn with stdin ignored - this fixes Claude CLI hanging on Windows
-    // When stdin is piped, Claude CLI waits for input indefinitely
+    // Use spawn with shell: false to prevent command injection.
+    // Arguments are passed as an array, so no shell interpretation occurs.
+    // stdin is ignored to prevent Claude CLI hanging on Windows.
     const proc = spawn('claude', args, {
       cwd: options.cwd || process.cwd(),
-      shell: true,
+      shell: false,
       windowsHide: true,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],  // CRITICAL: ignore stdin to prevent hanging
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     // Initialize CPU tracking after a brief delay (process needs to start)
