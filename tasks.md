@@ -72,6 +72,8 @@ Promote v3 to the primary Forgekeeper version, add proactive task initiation, se
 - [x] T407 - Progress tracking and task completion notifications  (Phase 1: Task Autonomy) [Complete: 2025-02-05]
 - [x] T408 - Intent translator for autonomous task creation  (Phase 1: Task Autonomy) [Complete: 2025-02-05]
 - [ ] T409 - MCP server setup documentation  (Phase 2: Agent Architecture)
+- [ ] T410 - Persist conversation summary (stored and loaded on startup)  (Phase 1: Task Autonomy)
+- [ ] T411 - Last N conversations summarizer with configurable depth  (Phase 1: Task Autonomy)
 
 ## Task Guidelines (Guardrails)
 See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonical guidance. Highlights specific to task cards:
@@ -1064,3 +1066,51 @@ See [`docs/policies/guardrails.md`](docs/policies/guardrails.md) for the canonic
   - Example configuration file `.forgekeeper/mcp-servers.example.json` is valid JSON with inline comments.
   - README.md links to MCP documentation in appropriate section.
 - Test Level: documentation (validate JSON examples, verify markdown renders correctly).
+
+### T410 — Persist conversation summary (stored and loaded on startup)
+- Goal: Store a summary of recent conversation and automatically load it on startup, enabling Forgekeeper to maintain context continuity across sessions without loading full message history.
+- Scope:
+  - Create `core/conversation-summarizer.js` module with `summarize()`, `save()`, `load()`, and `getContextString()` functions.
+  - Build prompt templates that extract key topics, decisions, action items, and open questions from message history.
+  - Store summaries in `forgekeeper_personality/memory/conversation_summary.json` with timestamp and metadata.
+  - **Startup integration**: Load last summary during initialization and inject into system context.
+  - Add automatic save trigger on conversation end or graceful shutdown.
+  - Support `FK_SUMMARY_ENABLED` (default: true) and `FK_SUMMARY_DEPTH` (default: 50 messages) env variables.
+  - Include summary age and staleness check (warn if summary is older than 7 days).
+- Out of Scope:
+  - Multi-conversation threading (single rolling summary only).
+  - Real-time streaming summarization during conversation.
+  - Summary editing UI or manual override.
+  - Vector embeddings or semantic search.
+- Allowed Touches: `core/conversation-summarizer.js`, `core/memory.js`, `core/loop.js`, `index.js`, `config.js`, `forgekeeper_personality/memory/conversation_summary.json`, `.env.example`, `tests/test-conversation-summarizer.js`.
+- Done When:
+  - On startup, Forgekeeper logs "Loaded conversation context from [timestamp]" when summary file exists.
+  - `summarize(messages)` returns structured JSON with topics, decisions, action items, and open questions.
+  - `save()` persists summary to `forgekeeper_personality/memory/conversation_summary.json`.
+  - `load()` retrieves last saved summary or returns null if none exists.
+  - `getContextString()` formats summary for system prompt injection.
+  - Summary auto-saves on process SIGINT/SIGTERM or explicit shutdown.
+  - `node tests/test-conversation-summarizer.js` passes all cases.
+- Test Level: unit + smoke.
+
+### T411 — Last N conversations summarizer with configurable depth
+- Goal: Provide a rolling summary of the last N conversations, configurable via environment variables, to maintain long-term context and relationship continuity.
+- Scope:
+  - Create `core/multi-conversation-summarizer.js` module with `summarizeRecentConversations()` function.
+  - Add `FK_SUMMARY_CONVERSATION_COUNT` environment variable (default: 5) to control how many conversations to summarize.
+  - Implement hierarchical summarization: detailed for recent, condensed for older conversations.
+  - Build meta-summary that identifies patterns, ongoing topics, and user preferences across conversations.
+  - Store rolling summary in memory with automatic updates after each conversation.
+  - Add summary retrieval API for system prompt injection.
+- Out of Scope:
+  - Selective conversation inclusion/exclusion.
+  - Per-topic or per-project filtering.
+  - Summary visualization or analytics dashboard.
+- Allowed Touches: `core/multi-conversation-summarizer.js`, `core/memory.js`, `core/loop.js`, `config.js`, `.env.example`, `tests/test-multi-conversation-summarizer.js`.
+- Done When:
+  - `summarizeRecentConversations(n)` returns meta-summary of last N conversations.
+  - `FK_SUMMARY_CONVERSATION_COUNT` is respected and documented in `.env.example`.
+  - Rolling summary updates automatically after conversation completion.
+  - Meta-summary identifies cross-conversation patterns and ongoing topics.
+  - `node tests/test-multi-conversation-summarizer.js` passes all cases.
+- Test Level: unit + smoke.
