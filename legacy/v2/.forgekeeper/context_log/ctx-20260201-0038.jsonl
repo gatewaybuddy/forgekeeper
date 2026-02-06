@@ -1,2 +1,0 @@
-{"id":"a2f31b17-9eb0-46fb-a854-88a35bfe7b45","timestamp":1769924314995,"sessionId":"session_1769924308895_kcxs8j5","actor":"scout","action":"workspace_update","data":{"type":"hypothesis","score":0.4496428571428571,"proposalCount":3},"iteration":0}
-{"id":"2e59d46a-38a0-404e-9d51-c83dd7531d61","timestamp":1769924319427,"sessionId":"session_1769924308895_kcxs8j5","actor":"scout","action":"workspace_update","data":{"type":"decision","score":0.3625,"proposalCount":3},"iteration":1}

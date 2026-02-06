@@ -97,10 +97,6 @@ npm run pm2:logs    # View logs
 npm run pm2:monit   # Monitor dashboard
 ```
 
-## Legacy
-
-The `legacy/` directory contains the original v1/v2 codebase for reference. It includes a more complex multi-service architecture with local inference support. All new development uses the streamlined v3 architecture.
-
 ## License
 
 MIT
