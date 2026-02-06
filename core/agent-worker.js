@@ -71,20 +71,21 @@ function runClaude(task) {
     // Build the prompt
     const prompt = buildPrompt(task);
 
-    // Build command
-    const isWindows = process.platform === 'win32';
-    const shell = isWindows ? 'powershell.exe' : '/bin/sh';
-    const skipFlag = config.claude?.skipPermissions ? '--dangerously-skip-permissions ' : '';
-
-    const claudeCmd = `claude -p ${skipFlag}"${escapeForShell(prompt)}"`;
-    const args = isWindows ? ['-Command', claudeCmd] : ['-c', claudeCmd];
+    // Build command arguments as an array - no shell needed
+    const args = ['-p'];
+    if (config.claude?.skipPermissions) {
+      args.unshift('--dangerously-skip-permissions');
+    }
+    args.push(prompt);
 
     let output = '';
     let errorOutput = '';
 
-    const proc = spawn(shell, args, {
+    // Use shell: false to prevent command injection via task descriptions
+    const proc = spawn('claude', args, {
       cwd: process.cwd(),
       env: { ...process.env },
+      shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -147,14 +148,4 @@ INSTRUCTIONS:
 Do NOT over-engineer. Complete the specific task and stop.`;
 }
 
-/**
- * Escape string for shell
- */
-function escapeForShell(str) {
-  return str
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\$/g, '\\$')
-    .replace(/`/g, '\\`')
-    .replace(/\n/g, ' ');
-}
+// escapeForShell removed - no longer needed with shell: false

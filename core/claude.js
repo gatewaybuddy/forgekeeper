@@ -134,8 +134,10 @@ export async function execute(task, options = {}) {
   recordCall();
 
   // Use runClaudeCommand with task timeout type for consistency
+  // Enable tools if the skill requests specific tools (allowedTools option)
   const result = await runClaudeCommand(prompt, {
     ...options,
+    enableTools: options.allowedTools?.length > 0 || options.enableTools,
     timeoutType: options.background ? 'background' : 'task',
   });
 
@@ -173,6 +175,11 @@ function buildPrompt(task, options = {}) {
   // Additional context
   if (options.additionalContext) {
     parts.push(`## Additional Context\n${options.additionalContext}`);
+  }
+
+  // Available tools (when skill specifies them)
+  if (options.allowedTools && options.allowedTools.length > 0) {
+    parts.push(`## Available Tools\nYou have access to these tools for this task: ${options.allowedTools.join(', ')}\nUse them as needed to complete the task.`);
   }
 
   // Guardrails reminder
@@ -223,6 +230,7 @@ export const createdSessions = new Set();
 
 // Chat with persistent session - uses session manager for rotation and topic routing
 // userId is required for session management
+// options.onProgress: callback for status updates (useful for sending "typing" indicators)
 export async function chat(message, userId, options = {}) {
   console.log(`[Claude] ========== CHAT ENTRY ==========`);
   console.log(`[Claude] User ID: ${userId}`);
@@ -249,8 +257,10 @@ export async function chat(message, userId, options = {}) {
   console.log(`[Claude] Built context (${contextualMessage.length} chars)`);
 
   // Decide whether to use --session-id (new) or --resume (existing)
-  // Always use --resume if session is in createdSessions, even if isNew
-  const useResume = createdSessions.has(sessionId);
+  // IMPORTANT: Only use --resume if messageCount > 0 (isNew=false), meaning we've
+  // successfully sent messages on this session. We can't rely on createdSessions alone
+  // because sessions loaded from file at startup may no longer exist in Claude CLI.
+  const useResume = !isNew && createdSessions.has(sessionId);
 
   let result = await runClaudeCommand(contextualMessage, {
     ...options,
@@ -282,24 +292,46 @@ export async function chat(message, userId, options = {}) {
     console.log(`[Claude] Rotated to fresh session ${newSessionId.slice(0, 8)}... - please retry`);
 
     // Return a user-friendly error - don't retry (would double wait time)
+    // Include context about what happened
+    const timeSpent = result.elapsed ? ` after ${Math.round(result.elapsed / 1000)}s` : '';
+    const partialOutput = result.output?.trim();
+    const hasPartialWork = partialOutput && partialOutput.length > 50;
+
     return {
       success: false,
-      output: '',
-      error: 'I got a bit stuck there (might be hitting rate limits or the API is slow). Fresh session ready - just send your message again!',
+      output: partialOutput || '',
+      error: hasPartialWork
+        ? `Response timed out${timeSpent}, but here's what I had so far. Fresh session ready - send your message again to continue.`
+        : `I got a bit stuck there${timeSpent} (might be hitting rate limits or the API is slow). Fresh session ready - just send your message again!`,
       timedOut: true,
       rotatedSession: newSessionId,
     };
   }
 
   // If resume failed (session doesn't exist in Claude), try creating new
-  if (!result.success && useResume && result.error?.includes('session')) {
-    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... not found, creating new...`);
+  // This catches: explicit session errors, exit code 1 with no output, or any resume failure
+  const resumeFailed = !result.success && useResume && (
+    result.error?.includes('session') ||
+    result.error?.includes('Exit code 1') ||
+    (result.error && !result.output?.trim())  // Any error with no useful output
+  );
+  if (resumeFailed) {
+    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... resume failed (${result.error}), creating fresh session...`);
     createdSessions.delete(sessionId);
+    // Rotate to a new session since the old one is broken
+    const newSessionId = rotateSession(userId, topic);
     result = await runClaudeCommand(contextualMessage, {
       ...options,
-      sessionId,
+      sessionId: newSessionId,
       resumeSession: false
     });
+    // If this succeeds, the sessionId variable is now stale, but that's OK
+    // because recordMessage below will use the sessionId from the successful call
+    if (result.success) {
+      createdSessions.add(newSessionId);
+      recordMessage(userId, newSessionId);
+      return result; // Return early to avoid double-recording
+    }
   }
 
   // Mark session as created and record message if successful
@@ -396,14 +428,8 @@ export function resetSessionState(userId, topic = 'default') {
   return newSessionId;
 }
 
-// Quote a string for Windows cmd.exe shell
-// On Windows with shell:true, Node.js doesn't always properly quote arguments with spaces
-// We need to wrap in quotes and escape internal quotes by doubling them
-function quoteForWindowsShell(str) {
-  if (process.platform !== 'win32') return str;
-  // Escape internal double quotes by doubling them, then wrap in quotes
-  return `"${str.replace(/"/g, '""')}"`;
-}
+// No shell quoting needed - we pass arguments as an array with shell: false
+// This eliminates command injection risks entirely
 
 // Internal function to run Claude CLI
 function runClaudeCommand(message, options = {}) {
@@ -417,9 +443,13 @@ function runClaudeCommand(message, options = {}) {
 
     // Build command arguments
     const args = [];
-    if (config.claude.skipPermissions) {
+
+    // For task execution with tools, we need to skip permissions
+    // Either globally via config, or per-call via options.enableTools
+    if (config.claude.skipPermissions || options.enableTools) {
       args.push('--dangerously-skip-permissions');
     }
+
     // Add model flag (opus, sonnet, haiku)
     if (config.claude.model) {
       args.push('--model', config.claude.model);
@@ -437,14 +467,11 @@ function runClaudeCommand(message, options = {}) {
     // Note: stream-json requires --verbose when used with --print
     args.push('--verbose', '--output-format', 'stream-json');
 
-    // On Windows, wrap message in quotes to prevent shell splitting on spaces
-    // Node's spawn with shell:true doesn't always handle this correctly
-    const quotedMessage = quoteForWindowsShell(sanitized);
-    args.push('-p', quotedMessage);
+    // Pass message directly as array argument - no shell quoting needed
+    args.push('-p', sanitized);
 
-    // DEBUG: Log message being sent
+    // Log message being sent (truncated for privacy)
     console.log(`[Claude] Message (${sanitized.length} chars): "${sanitized.slice(0, 80)}${sanitized.length > 80 ? '...' : ''}"`);
-    console.log(`[Claude] Quoted for shell: ${quotedMessage.slice(0, 80)}${quotedMessage.length > 80 ? '...' : ''}`);
     console.log(`[Claude] Session: ${options.sessionId ? (options.resumeSession ? 'resume ' : 'new ') + options.sessionId.slice(0, 8) : 'none'}`);
 
     // Timeout configuration based on operation type
@@ -487,20 +514,26 @@ function runClaudeCommand(message, options = {}) {
     let lastActivityTime = Date.now();
     const startTime = Date.now();
     let streamBuffer = '';    // Buffer for incomplete JSON lines
+    let lastProgressReport = Date.now(); // Track when we last reported progress
+    let currentStatus = 'starting'; // Track what Claude is doing
+    let toolsInProgress = [];  // Track tools being used
 
     // CPU-based activity tracking (for when there's no stdout but process is working)
     let lastCpuTime = null;
     let consecutiveIdleChecks = 0;
     const maxIdleChecks = 3;  // Require 3 consecutive idle checks before timeout
 
-    // Use spawn with stdin ignored - this fixes Claude CLI hanging on Windows
-    // When stdin is piped, Claude CLI waits for input indefinitely
+    // Progress callback for status updates
+    const onProgress = options.onProgress || (() => {});
+
+    // Use spawn with shell: false to prevent command injection.
+    // Arguments are passed as an array, so no shell interpretation occurs.
+    // stdin is ignored to prevent Claude CLI hanging on Windows.
     const proc = spawn('claude', args, {
       cwd: options.cwd || process.cwd(),
-      shell: true,
+      shell: false,
       windowsHide: true,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],  // CRITICAL: ignore stdin to prevent hanging
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     // Initialize CPU tracking after a brief delay (process needs to start)
@@ -529,19 +562,40 @@ function runClaudeCommand(message, options = {}) {
           const event = JSON.parse(line);
           // Extract text from assistant messages
           if (event.type === 'assistant' && event.message?.content) {
+            currentStatus = 'responding';
             for (const block of event.message.content) {
               if (block.type === 'text') {
                 textContent += block.text;
+              }
+              // Track tool use
+              if (block.type === 'tool_use') {
+                const toolName = block.name || 'unknown tool';
+                if (!toolsInProgress.includes(toolName)) {
+                  toolsInProgress.push(toolName);
+                  currentStatus = `using ${toolName}`;
+                  console.log(`[Claude] Tool started: ${toolName}`);
+                  onProgress({ status: currentStatus, tool: toolName, elapsed: Date.now() - startTime });
+                }
               }
             }
           }
           // Also handle content_block_delta for streaming text
           if (event.type === 'content_block_delta' && event.delta?.text) {
             textContent += event.delta.text;
+            currentStatus = 'writing';
+          }
+          // Handle tool results
+          if (event.type === 'tool_result' || event.type === 'tool_output') {
+            const toolName = toolsInProgress.pop() || 'tool';
+            currentStatus = `finished ${toolName}`;
+            console.log(`[Claude] Tool finished: ${toolName}`);
+            onProgress({ status: currentStatus, elapsed: Date.now() - startTime });
           }
           // Log progress events so we can see what's happening
           if (event.type === 'system' && event.subtype) {
+            currentStatus = event.subtype;
             console.log(`[Claude] Progress: ${event.subtype}`);
+            onProgress({ status: event.subtype, elapsed: Date.now() - startTime });
           }
         } catch (e) {
           // Not valid JSON - might be partial or non-JSON output
@@ -557,6 +611,7 @@ function runClaudeCommand(message, options = {}) {
     // Activity-based timeout: check periodically for idle or max timeout
     // This allows long-running tasks to continue as long as there's output OR CPU activity
     const checkIntervalMs = 5000; // Check every 5 seconds
+    const progressReportIntervalMs = 15000; // Report progress every 15 seconds
     const timeoutCheck = setInterval(() => {
       if (settled) {
         clearInterval(timeoutCheck);
@@ -567,17 +622,35 @@ function runClaudeCommand(message, options = {}) {
       const idleTime = now - lastActivityTime;
       const totalTime = now - startTime;
 
+      // Emit periodic progress updates so the user knows we're still working
+      if (now - lastProgressReport >= progressReportIntervalMs) {
+        lastProgressReport = now;
+        const statusMessage = currentStatus !== 'starting'
+          ? `Still working (${currentStatus})...`
+          : `Processing (${Math.round(totalTime/1000)}s)...`;
+        console.log(`[Claude] Progress update: ${statusMessage}`);
+        onProgress({
+          status: currentStatus,
+          elapsed: totalTime,
+          idleTime,
+          message: statusMessage,
+          toolsUsed: toolsInProgress.length
+        });
+      }
+
       // Check absolute maximum timeout first
       if (totalTime >= effectiveMaxTimeout) {
         settled = true;
         clearInterval(timeoutCheck);
         proc.kill('SIGTERM');
         console.log(`[Claude] Max timeout reached (${effectiveMaxTimeout/1000}s total)`);
+        onProgress({ status: 'timeout', elapsed: totalTime, message: 'Maximum time exceeded' });
         resolve({
           success: false,
           output: textContent || rawOutput,
           error: `Task exceeded maximum time (${effectiveMaxTimeout/1000}s)`,
-          stuckResume: !!options.sessionId
+          stuckResume: !!options.sessionId,
+          elapsed: totalTime
         });
         return;
       }
@@ -593,6 +666,12 @@ function runClaudeCommand(message, options = {}) {
           // Process is still working (CPU activity detected)
           consecutiveIdleChecks = 0;
           console.log(`[Claude] No stdout for ${(idleTime/1000).toFixed(0)}s but process active (CPU +${cpuStatus.cpuDelta?.toFixed(0) || '?'}ms)`);
+          onProgress({
+            status: 'working (no output)',
+            elapsed: totalTime,
+            cpuDelta: cpuStatus.cpuDelta,
+            message: 'Working in background...'
+          });
           return; // Don't timeout - process is working
         }
 
@@ -602,6 +681,11 @@ function runClaudeCommand(message, options = {}) {
 
         // Require multiple consecutive idle checks to avoid false positives
         if (consecutiveIdleChecks < maxIdleChecks) {
+          onProgress({
+            status: 'waiting',
+            elapsed: totalTime,
+            message: `Waiting for response (check ${consecutiveIdleChecks}/${maxIdleChecks})...`
+          });
           return; // Give it more time
         }
 
@@ -614,11 +698,13 @@ function runClaudeCommand(message, options = {}) {
           ? `No activity for ${effectiveIdleTimeout/1000}s (no output, no CPU work) - possibly stuck`
           : `Query idle for ${effectiveIdleTimeout/1000}s`;
         console.log(`[Claude] Idle timeout: ${timeoutError} (was active for ${(totalTime - idleTime)/1000}s)`);
+        onProgress({ status: 'timeout', elapsed: totalTime, message: 'Connection timed out' });
         resolve({
           success: false,
           output: textContent || rawOutput,
           error: timeoutError,
-          stuckResume: isSessionCall // Flag for auto-rotation
+          stuckResume: isSessionCall, // Flag for auto-rotation
+          elapsed: totalTime
         });
       } else {
         // Got recent output, reset idle tracking

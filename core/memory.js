@@ -1,7 +1,9 @@
 // Memory system - JSONL-based storage for conversations, tasks, goals, learnings
-import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
+import { atomicWriteFileSync } from './atomic-write.js';
+import { rotateIfNeeded } from './jsonl-rotate.js';
 
 // Generic JSONL operations
 function readJsonl(filePath) {
@@ -19,10 +21,11 @@ function readJsonl(filePath) {
 
 function appendJsonl(filePath, record) {
   appendFileSync(filePath, JSON.stringify(record) + '\n');
+  rotateIfNeeded(filePath);
 }
 
 function writeJsonl(filePath, records) {
-  writeFileSync(filePath, records.map(r => JSON.stringify(r)).join('\n') + '\n');
+  atomicWriteFileSync(filePath, records.map(r => JSON.stringify(r)).join('\n') + '\n');
 }
 
 function readJson(filePath) {
@@ -31,7 +34,7 @@ function readJson(filePath) {
 }
 
 function writeJson(filePath, data) {
-  writeFileSync(filePath, JSON.stringify(data, null, 2));
+  atomicWriteFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
 // ID generation
@@ -99,6 +102,8 @@ export const tasks = {
     return readJson(this.getPath(taskId));
   },
 
+  // Note: read-modify-write is safe here because all ops are synchronous.
+  // If this ever becomes async, use withLock from ./file-lock.js
   update(taskId, updates) {
     const task = this.get(taskId);
     if (!task) throw new Error(`Task not found: ${taskId}`);
@@ -253,6 +258,8 @@ export const approvals = {
     return readJsonl(this.path()).filter(a => a.status === 'pending');
   },
 
+  // Note: read-modify-write is safe here because all ops are synchronous.
+  // If this ever becomes async, use withLock from ./file-lock.js
   resolve(approvalId, decision, resolvedBy) {
     const all = readJsonl(this.path());
     const updated = all.map(a => {

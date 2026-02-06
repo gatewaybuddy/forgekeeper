@@ -50,10 +50,10 @@ function runUpdateScript({ dryRun, force, skipRestart }) {
 
     console.log(`[Self-Update] Running: node ${args.join(' ')}`);
 
-    const proc = spawn('node', args, {
+    const proc = spawn(process.execPath, args, {
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
+      shell: false,
     });
 
     let output = '';

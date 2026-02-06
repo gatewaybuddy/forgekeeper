@@ -1,6 +1,7 @@
 // Session Manager - Handles session rotation, topic routing, and stuck detection
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
+import { atomicWriteFileSync } from './atomic-write.js';
 import { join } from 'path';
 import { config } from '../config.js';
 
@@ -71,7 +72,7 @@ function loadTopics() {
 // Save topics config
 function saveTopics(topics) {
   try {
-    writeFileSync(TOPICS_FILE, JSON.stringify(topics, null, 2));
+    atomicWriteFileSync(TOPICS_FILE, JSON.stringify(topics, null, 2));
     console.log('[SessionManager] Saved topics config');
   } catch (error) {
     console.error('[SessionManager] Failed to save topics:', error.message);
@@ -155,7 +156,7 @@ function loadMetadata() {
 // Save session metadata
 function saveMetadata(metadata) {
   try {
-    writeFileSync(SESSION_META_FILE, JSON.stringify(metadata, null, 2));
+    atomicWriteFileSync(SESSION_META_FILE, JSON.stringify(metadata, null, 2));
   } catch (error) {
     console.error('[SessionManager] Failed to save metadata:', error.message);
   }
@@ -176,7 +177,7 @@ function loadLegacySessions() {
 // Save to legacy sessions file (for backwards compatibility)
 function saveLegacySessions(sessions) {
   try {
-    writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+    atomicWriteFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
   } catch (error) {
     console.error('[SessionManager] Failed to save sessions:', error.message);
   }

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "description": "Forgekeeper hook configuration - maps events to hook files",
+  "hooks": {
+    "message:received": [
+      "route-proactive-reply.js"
+    ]
+  }
+}

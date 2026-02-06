@@ -7,6 +7,14 @@ import { getSkill, listSkills } from '../skills/registry.js';
 import { planTask, checkParentCompletion } from './planner.js';
 import { onIdle, autonomousStatus } from './autonomous.js';
 import innerLife from './inner-life.js';
+import {
+  prioritizeTasks,
+  recordOutcome,
+  findStuckTasks,
+  buildCompletionNotification,
+  isAutonomousTask,
+} from './autonomous-feedback.js';
+import { checkDigestDue } from './self-improvement.js';
 
 // Event emitter for UI notifications
 const listeners = new Map();
@@ -70,6 +78,9 @@ async function tick() {
     // 1. Check for pending approvals that might unblock tasks
     await checkApprovals();
 
+    // 1.5. Check if self-improvement digest is due
+    checkSelfImprovementDigest();
+
     // 2. Check triggers (time-based, condition-based)
     await checkTriggers();
 
@@ -79,6 +90,19 @@ async function tick() {
   } catch (error) {
     console.error('[Loop] Tick error:', error);
     emit('loop:error', { error: error.message });
+  }
+}
+
+// Check if self-improvement digest is due
+function checkSelfImprovementDigest() {
+  if (!config.selfImprovement?.enabled) return;
+  try {
+    const { due, digest } = checkDigestDue();
+    if (due && digest) {
+      emit('self-improvement:digest', { digest });
+    }
+  } catch (err) {
+    console.error('[Loop] Self-improvement digest check error:', err.message);
   }
 }
 
@@ -132,14 +156,14 @@ async function processNextTask() {
     return;
   }
 
-  // Sort by priority and creation date
-  const sorted = pendingTasks.sort((a, b) => {
-    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-    const aPriority = priorityOrder[a.priority] ?? 2;
-    const bPriority = priorityOrder[b.priority] ?? 2;
-    if (aPriority !== bPriority) return aPriority - bPriority;
-    return new Date(a.created) - new Date(b.created);
-  });
+  // Check for stuck autonomous tasks and emit event
+  const stuckTasks = findStuckTasks(pendingTasks);
+  if (stuckTasks.length > 0) {
+    emit('tasks:stuck', { tasks: stuckTasks });
+  }
+
+  // Use prioritizeTasks for smart ordering (autonomous tasks get priority when no user tasks)
+  const sorted = prioritizeTasks(pendingTasks);
 
   const task = sorted[0];
 
@@ -219,6 +243,17 @@ async function executeTask(task) {
       tasks.update(task.id, { status: 'completed' });
       emit('task:completed', { task: updatedTask, result, elapsed });
 
+      // Record outcome for learning
+      recordOutcome(updatedTask, { success: true, output: result.output, elapsed });
+
+      // Send proactive notification for autonomous tasks
+      if (isAutonomousTask(updatedTask)) {
+        const notification = buildCompletionNotification(updatedTask, result);
+        if (notification) {
+          emit('autonomous:completed', { task: updatedTask, notification });
+        }
+      }
+
       // Notify inner life
       innerLife.onTaskCompleted(updatedTask);
 
@@ -245,6 +280,9 @@ async function executeTask(task) {
         tasks.update(task.id, { status: 'failed' });
         emit('task:failed', { task: updatedTask, result });
         console.log(`[Loop] Task ${task.id} failed after ${attemptCount} attempts`);
+
+        // Record outcome for learning
+        recordOutcome(updatedTask, { success: false, error: result.error, elapsed });
 
         // Notify inner life
         innerLife.onTaskFailed(updatedTask, result.error);

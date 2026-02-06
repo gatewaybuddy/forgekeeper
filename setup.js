@@ -130,10 +130,11 @@ async function installDependencies() {
 
   return new Promise((resolve, reject) => {
     info('Running npm install...');
-    const proc = spawn('npm', ['install'], {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const proc = spawn(npmCmd, ['install'], {
       cwd: __dirname,
       stdio: 'inherit',
-      shell: true,
+      shell: false,
     });
 
     proc.on('close', (code) => {
