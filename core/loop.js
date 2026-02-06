@@ -38,6 +38,7 @@ function emit(event, data) {
 // State
 let running = false;
 let currentTask = null;
+let tickInProgress = false;
 let loopInterval = null;
 
 // Start the main loop
@@ -72,7 +73,8 @@ export function stop() {
 // Main tick - runs every interval
 async function tick() {
   if (!running) return;
-  if (currentTask) return; // Already working on something
+  if (tickInProgress) return; // Prevent overlapping async ticks
+  tickInProgress = true;
 
   try {
     // 1. Check for pending approvals that might unblock tasks
@@ -90,6 +92,8 @@ async function tick() {
   } catch (error) {
     console.error('[Loop] Tick error:', error);
     emit('loop:error', { error: error.message });
+  } finally {
+    tickInProgress = false;
   }
 }
 

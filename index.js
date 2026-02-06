@@ -69,7 +69,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
-import { processChat as planChat, isLikelyComplex } from './core/chat-planner.js';
+import { processChat as planChat } from './core/chat-planner.js';
 import innerLife from './core/inner-life.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -276,6 +276,18 @@ async function startTelegramBot() {
   });
 }
 
+// Parse Claude's response for background task directives
+function parseTaskDirectives(text) {
+  const taskPattern = /^\[BACKGROUND_TASK:\s*(.+?)\]\s*$/gim;
+  const taskDescriptions = [];
+  let match;
+  while ((match = taskPattern.exec(text)) !== null) {
+    taskDescriptions.push(match[1].trim());
+  }
+  const cleanReply = text.replace(taskPattern, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { cleanReply, taskDescriptions };
+}
+
 // Handle requests from Telegram bot
 async function handleTelegramRequest(request) {
   const { method, params } = request;
@@ -390,40 +402,7 @@ async function handleTelegramRequest(request) {
           })
         : {};
 
-      if (hookMods.skipComplexityCheck) {
-        console.log(`[Hooks] Skipping complexity check: ${hookMods.routingReason || 'hook decision'}`);
-      }
-
-      const lowerMsg = fullMessage.toLowerCase();
-
-      // Check if it's a task request (imperative commands) - these get routed to task system
-      if (lowerMsg.match(/^(create|make|build|add|fix|update|deploy|run|test|install|write|implement|refactor)\s/)) {
-        const task = tasks.create({
-          description: message,
-          origin: 'telegram',
-          metadata: { userId },
-        });
-        const reply = `✅ Task created: ${task.id}\n\n${message}\n\nI'll work on this. Use /status to check progress.`;
-        conversations.append(userId, { role: 'assistant', content: reply });
-        return { reply };
-      }
-
-      // Check if this is a complex prompt that should become a background task
-      // This prevents timeouts for long-running requests
-      // BUT skip if hooks said to (e.g., for proactive replies)
-      if (!hookMods.skipComplexityCheck && isLikelyComplex(fullMessage)) {
-        console.log('[Chat] Complex message detected, converting to task');
-        const task = tasks.create({
-          description: message,
-          origin: 'telegram',
-          metadata: { userId },
-        });
-        const reply = `📋 On it! (task ${task.id})`;
-        conversations.append(userId, { role: 'assistant', content: reply });
-        return { reply };
-      }
-
-      // For everything else, chat with Claude using session manager
+      // All messages go to chat() — Claude decides if background work is needed
       try {
         console.log('[Chat] Sending to Claude:', fullMessage.slice(0, 50));
 
@@ -479,7 +458,24 @@ async function handleTelegramRequest(request) {
           return { error: 'Empty response from Claude' };
         }
 
-        const reply = result.output.trim();
+        const rawReply = result.output.trim();
+        const { cleanReply, taskDescriptions } = parseTaskDirectives(rawReply);
+
+        // Create background tasks if Claude requested them
+        for (const desc of taskDescriptions) {
+          const task = tasks.create({
+            description: desc,
+            origin: 'telegram',
+            metadata: { userId },
+          });
+          console.log(`[Chat] Background task created from directive: ${task.id} - ${desc.slice(0, 60)}`);
+        }
+
+        let reply = cleanReply;
+        if (taskDescriptions.length > 0 && !reply.includes('background')) {
+          reply += '\n\n(Working on this in the background — I\'ll report back when done)';
+        }
+
         conversations.append(userId, { role: 'assistant', content: reply });
         return { reply };
 

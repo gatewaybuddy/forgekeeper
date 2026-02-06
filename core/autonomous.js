@@ -1,16 +1,9 @@
 // Autonomous behavior - what to do when idle
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import { config } from '../config.js';
 import { execute } from './claude.js';
 import { learnings } from './memory.js';
 import { organizeConversations, archiveOldSessions } from './conversation-organizer.js';
-
-// Personality repo paths
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
-const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
-const GOALS_PATH = join(PERSONALITY_PATH, 'identity/goals.json');
-const SHARED_JOURNAL = join(PERSONALITY_PATH, 'journal/shared.jsonl');
+import { loadImperatives, loadPersonalGoals } from './identity.js';
 
 // State tracking
 let lastAutonomousAction = null;
@@ -19,32 +12,7 @@ let isRunning = false; // Prevent concurrent autonomous actions
 const MAX_AUTONOMOUS_PER_HOUR = 10; // Rate limit
 
 // Import chat state from shared module (avoids circular dependency with claude.js)
-import { isChatActive, notifyChatActivity } from './chat-state.js';
-
-// Load imperatives from personality repo
-export function loadImperatives() {
-  if (!existsSync(IMPERATIVES_PATH)) {
-    console.log('[Autonomous] No imperatives found at', IMPERATIVES_PATH);
-    return null;
-  }
-  try {
-    return JSON.parse(readFileSync(IMPERATIVES_PATH, 'utf-8'));
-  } catch (error) {
-    console.error('[Autonomous] Failed to load imperatives:', error.message);
-    return null;
-  }
-}
-
-// Load personal goals
-export function loadPersonalGoals() {
-  if (!existsSync(GOALS_PATH)) return null;
-  try {
-    return JSON.parse(readFileSync(GOALS_PATH, 'utf-8'));
-  } catch (error) {
-    console.error('[Autonomous] Failed to load goals:', error.message);
-    return null;
-  }
-}
+import { isChatActive } from './chat-state.js';
 
 // Check if an action is allowed autonomously
 export function isAutonomousAllowed(actionType, imperatives) {
@@ -173,8 +141,12 @@ Summarize key takeaways.`;
       console.log('[Autonomous] Organizing conversations...');
 
       try {
-        // Archive old sessions first
-        archiveOldSessions('74304376', 24); // Default user, 24 hour archive
+        // Archive old sessions for the companion user
+        const identity = loadImperatives();
+        const companionId = identity?.humanCompanion?.telegramId;
+        if (companionId) {
+          archiveOldSessions(companionId, 24);
+        }
 
         // Run full organization (summarization)
         const organized = await organizeConversations();
@@ -271,7 +243,4 @@ export function autonomousStatus() {
   };
 }
 
-// Re-export notifyChatActivity for convenience
-export { notifyChatActivity };
-
-export default { onIdle, loadImperatives, loadPersonalGoals, isAutonomousAllowed, autonomousStatus, notifyChatActivity };
+export default { onIdle, isAutonomousAllowed, autonomousStatus };

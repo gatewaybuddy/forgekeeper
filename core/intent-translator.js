@@ -3,22 +3,7 @@
 
 import { query } from './claude.js';
 import { tasks } from './memory.js';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { config } from '../config.js';
-
-// Load identity for context
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
-const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
-
-function loadIdentity() {
-  if (!existsSync(IMPERATIVES_PATH)) return null;
-  try {
-    return JSON.parse(readFileSync(IMPERATIVES_PATH, 'utf-8'));
-  } catch (e) {
-    return null;
-  }
-}
+import { loadImperatives } from './identity.js';
 
 /**
  * Translate a raw thought/intent into a concrete task
@@ -28,7 +13,7 @@ function loadIdentity() {
  * @returns {object} - { shouldCreateTask, task, reasoning }
  */
 export async function translateIntent(thought, context = {}) {
-  const identity = loadIdentity();
+  const identity = loadImperatives();
 
   const prompt = buildTranslatorPrompt(thought, context, identity);
 

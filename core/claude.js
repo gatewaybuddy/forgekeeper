@@ -1,7 +1,7 @@
 // Claude Code headless wrapper
 // Executes tasks using Claude Code CLI with full tool access
-import { spawn, exec, execSync } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
+import { spawn, execSync } from 'child_process';
+import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { config } from '../config.js';
 import { learnings, conversations } from './memory.js';
@@ -100,44 +100,27 @@ function isProcessActive(pid, lastCpuTime) {
   return { active, cpuTime: currentCpuTime, cpuDelta };
 }
 
-// Personality paths
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
-const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
-
-// Cache personality to avoid repeated file reads
-let cachedPersonality = null;
-let personalityLoadedAt = 0;
-const PERSONALITY_CACHE_MS = 60000; // Refresh every minute
-
-function loadPersonality() {
-  const now = Date.now();
-  if (cachedPersonality && (now - personalityLoadedAt) < PERSONALITY_CACHE_MS) {
-    return cachedPersonality;
-  }
-
-  if (!existsSync(IMPERATIVES_PATH)) {
-    console.log('[Claude] No personality found at', IMPERATIVES_PATH);
-    return null;
-  }
-
-  try {
-    cachedPersonality = JSON.parse(readFileSync(IMPERATIVES_PATH, 'utf-8'));
-    personalityLoadedAt = now;
-    return cachedPersonality;
-  } catch (error) {
-    console.error('[Claude] Failed to load personality:', error.message);
-    return null;
-  }
-}
+// Identity loading (shared utility - cached internally)
+import { loadImperatives } from './identity.js';
 
 // Build chat context - KEEP IT SIMPLE
 // CLAUDE.md handles all personality and identity
 // We just pass the message, maybe with a thought hint
 function buildChatContext(userId, message) {
-  // For now: just pass the message through unchanged
-  // CLAUDE.md should handle personality
-  // If this works, we can add thought context more carefully later
-  return message;
+  const taskInstruction = `[SYSTEM NOTE — Task Routing]
+If this message requires extended work (code review, multi-file changes, research, debugging, deployment, etc.) that would take more than a quick response, do BOTH:
+1. Reply conversationally — acknowledge, share initial thoughts, set expectations
+2. Include one or more task directives on their own line: [BACKGROUND_TASK: clear description of what to do]
+
+Only use BACKGROUND_TASK for work that genuinely needs tool access and will take significant time. Simple questions, conversation, quick answers — just respond normally.
+
+Examples of when to use BACKGROUND_TASK:
+- "Do a code review" → reply conversationally + [BACKGROUND_TASK: Review codebase for issues and report findings]
+- "Fix the login bug" → reply conversationally + [BACKGROUND_TASK: Investigate and fix login bug]
+- "How are you?" → just reply, no task needed
+- "What does this function do?" → just explain, no task needed`;
+
+  return taskInstruction + '\n\n' + message;
 }
 
 // Track call rate
@@ -602,6 +585,13 @@ function runClaudeCommand(message, options = {}) {
 
       // Parse streaming JSON - each line is a separate event
       streamBuffer += chunk;
+
+      // Guard against unbounded buffer growth (e.g., if newlines never arrive)
+      if (streamBuffer.length > 1024 * 1024) {
+        console.warn(`[Claude] Stream buffer exceeded 1MB (${streamBuffer.length} bytes), discarding`);
+        streamBuffer = '';
+      }
+
       const lines = streamBuffer.split('\n');
       streamBuffer = lines.pop() || '';  // Keep incomplete line in buffer
 

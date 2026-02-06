@@ -1,6 +1,6 @@
 // Inner Life - Minimal viable autonomous consciousness
 // When idle: reflect, think, journal. Store thoughts for "what's on your mind?"
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'fs';
+import { appendFileSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { goals, tasks, learnings, conversations } from './memory.js';
@@ -10,12 +10,11 @@ import { translateAndCreate } from './intent-translator.js';
 import { getRelevantContext, indexJournalEntry, isAvailable as isSemanticAvailable } from './semantic-memory.js';
 import { formatOutcomeForReflection, formatStuckTasksForReflection, findStuckTasks } from './autonomous-feedback.js';
 import { rotateIfNeeded, readLastN } from './jsonl-rotate.js';
+import { loadImperatives, getPersonalityPath } from './identity.js';
 
 // Paths
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
-const IMPERATIVES_PATH = join(PERSONALITY_PATH, 'identity/imperatives.json');
-const THOUGHTS_PATH = join(PERSONALITY_PATH, 'journal/thoughts.jsonl');
-const JOURNAL_PATH = join(PERSONALITY_PATH, 'journal/private.jsonl');
+const THOUGHTS_PATH = join(getPersonalityPath(), 'journal/thoughts.jsonl');
+const JOURNAL_PATH = join(getPersonalityPath(), 'journal/private.jsonl');
 
 // Proactive messaging state
 let lastProactiveMessage = 0;
@@ -46,17 +45,6 @@ export function registerMessenger(fn) {
 // State
 let lastThoughtTime = 0;
 const MIN_THOUGHT_INTERVAL_MS = 60000; // At least 1 minute between thoughts
-
-// Load identity document
-function loadIdentity() {
-  if (!existsSync(IMPERATIVES_PATH)) return null;
-  try {
-    return JSON.parse(readFileSync(IMPERATIVES_PATH, 'utf-8'));
-  } catch (e) {
-    console.error('[InnerLife] Failed to load identity:', e.message);
-    return null;
-  }
-}
 
 // Get recent thoughts (for context) — uses efficient tail read instead of loading entire file
 function getRecentThoughts(limit = 3) {
@@ -148,7 +136,7 @@ export async function reflect() {
   console.log('[InnerLife] Reflecting...');
 
   // Gather context
-  const identity = loadIdentity();
+  const identity = loadImperatives();
   const activeGoals = goals.active();
   const recentLearnings = learnings.all().slice(-5);
   const recentThoughts = getRecentThoughts(3);
@@ -442,7 +430,7 @@ function lastProactiveGotResponse() {
   const lastProactiveTime = new Date(lastProactive.timestamp).getTime();
 
   // Check conversation history for a user message after our last proactive
-  const identity = loadIdentity();
+  const identity = loadImperatives();
   const userId = identity?.humanCompanion?.telegramId || '74304376';
   const history = conversations.get(userId, 10);
 
@@ -500,7 +488,7 @@ async function sendProactiveMessage(message) {
   }
 
   // Get the companion's user ID from identity or use default
-  const identity = loadIdentity();
+  const identity = loadImperatives();
   const userId = identity?.humanCompanion?.telegramId || '74304376'; // Default to Rado's ID
 
   try {

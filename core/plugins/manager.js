@@ -5,7 +5,7 @@
  * Enforces security requirements and approval workflow.
  */
 
-import { existsSync, writeFileSync, mkdirSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { config } from '../../config.js';
 import { rotateIfNeeded } from '../jsonl-rotate.js';
@@ -13,11 +13,11 @@ import { atomicWriteFileSync } from '../atomic-write.js';
 import { scanPlugins, getPlugin, getAllPlugins, isApproved, approvePlugin, revokeApproval, getStats as getRegistryStats } from './registry.js';
 import { analyzePlugin, generateReport, RISK_LEVELS } from './analyzer.js';
 import { loadPluginInSandbox, createPluginApi, validatePluginInterface } from './sandbox.js';
+import { getPersonalityPath } from '../identity.js';
 
 // Configuration
-const PERSONALITY_PATH = config.autonomous?.personalityPath || 'forgekeeper_personality';
-const PLUGINS_DIR = join(PERSONALITY_PATH, 'plugins');
-const JOURNAL_DIR = join(PERSONALITY_PATH, 'journal');
+const PLUGINS_DIR = join(getPersonalityPath(), 'plugins');
+const JOURNAL_DIR = join(getPersonalityPath(), 'journal');
 const SECURITY_LOG_PATH = join(JOURNAL_DIR, 'plugin_security.jsonl');
 
 // Settings
@@ -214,7 +214,7 @@ export function approvePluginByName(name, options = {}) {
   // Create .approved file
   const approvedPath = join(plugin.path, '.approved');
   try {
-    writeFileSync(approvedPath, '');
+    atomicWriteFileSync(approvedPath, '');
   } catch (err) {
     console.warn('[PluginManager] Could not create .approved file:', err.message);
   }
