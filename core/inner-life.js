@@ -4,14 +4,15 @@ import { appendFileSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { goals, tasks, learnings, conversations } from './memory.js';
-import { query } from './claude.js';
-import { isChatActive } from './chat-state.js';
-import { translateAndCreate } from './intent-translator.js';
+import { query, getCallsLastHour } from './claude.js';
+import { isChatActive, getLastChatTimestamp } from './chat-state.js';
+import { detectRepetition } from './reflection-meta.js';
 import { getRelevantContext, indexJournalEntry, isAvailable as isSemanticAvailable } from './semantic-memory.js';
 import { formatOutcomeForReflection, formatStuckTasksForReflection, findStuckTasks } from './autonomous-feedback.js';
 import { rotateIfNeeded, readLastN } from './jsonl-rotate.js';
 import { loadImperatives, getPersonalityPath } from './identity.js';
 import { getWorldContext } from './world-feed.js';
+import { getGoalHealth, getMaxGoalUrgency } from './goal-pursuit.js';
 
 // Paths
 const THOUGHTS_PATH = join(getPersonalityPath(), 'journal/thoughts.jsonl');
@@ -43,9 +44,15 @@ export function registerMessenger(fn) {
   console.log('[InnerLife] Messenger registered for proactive communication');
 }
 
-// State
+// Adaptive reflection state
 let lastThoughtTime = 0;
-const MIN_THOUGHT_INTERVAL_MS = 60000; // At least 1 minute between thoughts
+const BASE_INTERVAL = config.reflection?.baseIntervalMs || 300000;         // 5 min default
+const MAX_INTERVAL = config.reflection?.maxIntervalMs || 3600000;          // 1 hour default
+const BACKOFF_MULTIPLIER = config.reflection?.backoffMultiplier || 2;
+const BUDGET_PCT = config.reflection?.budgetPct || 0.15;
+const IDLE_TOKEN = config.reflection?.idleToken || '[IDLE]';
+let currentIntervalMs = BASE_INTERVAL;
+let lastSnapshot = null;
 
 // Get recent thoughts (for context) — uses efficient tail read instead of loading entire file
 function getRecentThoughts(limit = 3) {
@@ -56,6 +63,96 @@ function getRecentThoughts(limit = 3) {
 export function getLatestThought() {
   const thoughts = getRecentThoughts(1);
   return thoughts[0] || null;
+}
+
+// === Adaptive reflection gating ===
+
+// Take a snapshot of current state for change detection
+function takeChangeSnapshot() {
+  return {
+    pendingCount: tasks.pending().length,
+    activeGoalCount: goals.active().length,
+    lastChatTime: getLastChatTimestamp(),
+    learningsCount: learnings.all().length,
+    maxGoalUrgency: getMaxGoalUrgency(),
+  };
+}
+
+// Compare two snapshots to detect meaningful changes
+function detectChanges(prev, current) {
+  if (!prev) return true; // First run — always reflect
+  return prev.pendingCount !== current.pendingCount
+    || prev.activeGoalCount !== current.activeGoalCount
+    || prev.lastChatTime !== current.lastChatTime
+    || prev.learningsCount !== current.learningsCount
+    || urgencyThresholdCrossed(prev.maxGoalUrgency, current.maxGoalUrgency);
+}
+
+function urgencyThresholdCrossed(prev, current) {
+  const thresholds = [0.3, 0.6, 0.8, 0.95];
+  const prevBucket = thresholds.filter(t => (prev || 0) >= t).length;
+  const currentBucket = thresholds.filter(t => (current || 0) >= t).length;
+  return prevBucket !== currentBucket;
+}
+
+// Consolidates all skip reasons into one gate
+function shouldReflect() {
+  const now = Date.now();
+
+  // 1. Adaptive interval check
+  if (now - lastThoughtTime < currentIntervalMs) {
+    return { ok: false, reason: `Too soon (${Math.round((currentIntervalMs - (now - lastThoughtTime)) / 1000)}s remaining)` };
+  }
+
+  // 2. Chat active check
+  if (isChatActive()) {
+    return { ok: false, reason: 'Chat active' };
+  }
+
+  // 3. Budget check — reflection should use at most BUDGET_PCT of hourly call limit
+  const maxCalls = config.guardrails?.maxClaudeCallsPerHour || 100;
+  const budgetLimit = Math.floor(maxCalls * BUDGET_PCT);
+  const callsUsed = getCallsLastHour();
+  if (callsUsed >= budgetLimit) {
+    backoff('budget exceeded');
+    return { ok: false, reason: `Budget exceeded (${callsUsed}/${budgetLimit} reflection calls/hr)` };
+  }
+
+  // 4. Change detection
+  const currentSnapshot = takeChangeSnapshot();
+  const hasChanges = detectChanges(lastSnapshot, currentSnapshot);
+  if (!hasChanges) {
+    backoff('no changes');
+    return { ok: false, reason: 'No changes detected since last reflection' };
+  }
+
+  // 5. Repetition check — look at last 10 thoughts
+  const recentThoughts = getRecentThoughts(10);
+  if (recentThoughts.length >= 5) {
+    const repetitionResult = detectRepetition(recentThoughts);
+    if (repetitionResult.repetitive) {
+      backoff('repetitive thoughts');
+      return { ok: false, reason: `Repetitive thoughts detected: ${repetitionResult.analysis}` };
+    }
+  }
+
+  return { ok: true, snapshot: currentSnapshot };
+}
+
+// Double the interval (up to MAX_INTERVAL) when reflection is skipped
+function backoff(reason) {
+  const prev = currentIntervalMs;
+  currentIntervalMs = Math.min(currentIntervalMs * BACKOFF_MULTIPLIER, MAX_INTERVAL);
+  if (currentIntervalMs !== prev) {
+    console.log(`[InnerLife] Backoff (${reason}): interval ${Math.round(prev / 1000)}s -> ${Math.round(currentIntervalMs / 1000)}s`);
+  }
+}
+
+// Reset interval to base — called by event handlers to trigger sooner reflection
+export function nudge(reason) {
+  const prev = currentIntervalMs;
+  currentIntervalMs = BASE_INTERVAL;
+  console.log(`[InnerLife] Nudged (${reason}): interval reset ${Math.round(prev / 1000)}s -> ${Math.round(BASE_INTERVAL / 1000)}s`);
 }
 
 // Save a thought
@@ -114,27 +211,22 @@ function saveJournalEntry(entry) {
 /**
  * THE CORE FUNCTION - Call this from the task loop when idle
  *
- * Gives Forgekeeper a moment of reflection:
- * - Here's who you are
- * - Here's what you remember
- * - Here are your goals
- * - What are you thinking? Do you want to do anything?
+ * Adaptive, event-driven reflection:
+ * - shouldReflect() gate checks interval, budget, changes, repetition
+ * - Single API call with inline task creation ([CREATE_TASK: ...])
+ * - [IDLE] token lets Claude signal nothing needs attention (doubles interval)
+ * - nudge() from event handlers resets interval for fresh reflection
  */
 export async function reflect() {
-  const now = Date.now();
-
-  // Don't think too often
-  if (now - lastThoughtTime < MIN_THOUGHT_INTERVAL_MS) {
-    return { acted: false, reason: 'Too soon since last thought' };
+  // Run all gating checks
+  const gate = shouldReflect();
+  if (!gate.ok) {
+    return { acted: false, reason: gate.reason };
   }
 
-  // Don't interrupt active chat
-  if (isChatActive()) {
-    return { acted: false, reason: 'Chat active' };
-  }
-
-  lastThoughtTime = now;
-  console.log('[InnerLife] Reflecting...');
+  lastThoughtTime = Date.now();
+  lastSnapshot = gate.snapshot;
+  console.log(`[InnerLife] Reflecting... (interval: ${Math.round(currentIntervalMs / 1000)}s, calls/hr: ${getCallsLastHour()})`);
 
   // Gather context
   const identity = loadImperatives();
@@ -156,77 +248,107 @@ export async function reflect() {
     const result = await query(prompt);
 
     if (!result.success || !result.output?.trim()) {
+      backoff('no response');
       return { acted: false, reason: 'No response from reflection' };
     }
 
-    const thought = result.output.trim();
-    console.log(`[InnerLife] Thought: ${thought.slice(0, 150)}...`);
+    const rawThought = result.output.trim();
+
+    // Check for [IDLE] token — Claude signals nothing needs attention
+    if (rawThought.includes(IDLE_TOKEN)) {
+      console.log('[InnerLife] Claude signaled IDLE — doubling interval');
+      backoff('idle signal');
+      // Still save a minimal thought for continuity
+      saveThought({ type: 'idle', content: rawThought.replace(IDLE_TOKEN, '').trim() || 'Nothing pressing.' });
+      return { acted: true, idle: true };
+    }
+
+    // Parse [CREATE_TASK: description] directives from the thought
+    const taskDirectives = [];
+    const thoughtContent = rawThought.replace(/\[CREATE_TASK:\s*(.+?)\]/g, (_, desc) => {
+      taskDirectives.push(desc.trim());
+      return ''; // Remove directive from the thought text
+    }).trim();
+
+    console.log(`[InnerLife] Thought: ${thoughtContent.slice(0, 150)}...`);
 
     // Save the thought
     const saved = saveThought({
       type: 'reflection',
-      content: thought,
+      content: thoughtContent,
       context: {
         goalsCount: activeGoals.length,
         tasksCount: pendingTasks.length,
         learningsCount: recentLearnings.length,
+        intervalMs: currentIntervalMs,
       },
     });
 
     // Also add to journal
     saveJournalEntry({
       type: 'reflection',
-      content: thought,
+      content: thoughtContent,
     });
 
-    // Check if the thought suggests action
-    const wantsAction = detectActionIntent(thought);
-
-    // If we want to act, translate the intent into a concrete task
+    // Handle inline task creation (replaces separate translateAndCreate call)
     let taskCreated = null;
-    if (wantsAction) {
-      console.log('[InnerLife] Intent detected, translating to task...');
-      const translationResult = await translateAndCreate(thought, {
-        activeGoals: activeGoals,
-        pendingTasks: pendingTasks,
-        recentThoughts: recentThoughts,
-        summary: `Reflecting during idle time. ${activeGoals.length} active goals, ${pendingTasks.length} pending tasks.`,
-      });
+    if (taskDirectives.length > 0) {
+      const pendingDescs = pendingTasks.map(t => t.description?.toLowerCase() || '');
 
-      if (translationResult.created) {
-        taskCreated = translationResult.task;
-        console.log(`[InnerLife] Task created: ${taskCreated.id} - ${taskCreated.description}`);
+      for (const desc of taskDirectives) {
+        // Deduplicate: skip if a similar task already exists
+        const isDuplicate = pendingDescs.some(existing =>
+          existing.includes(desc.toLowerCase().slice(0, 40)) ||
+          desc.toLowerCase().includes(existing.slice(0, 40))
+        );
 
-        // Journal that we created a task from reflection
-        saveJournalEntry({
-          type: 'autonomous_task_created',
-          thoughtContent: thought,
-          taskId: taskCreated.id,
-          taskDescription: taskCreated.description,
-          reasoning: translationResult.reasoning,
-        });
-      } else {
-        console.log(`[InnerLife] No task created: ${translationResult.reasoning}`);
+        if (isDuplicate) {
+          console.log(`[InnerLife] Skipping duplicate task: ${desc.slice(0, 60)}`);
+          continue;
+        }
+
+        try {
+          const newTask = tasks.create({
+            description: desc,
+            source: 'reflection',
+            priority: 'low',
+          });
+          taskCreated = newTask;
+          console.log(`[InnerLife] Task created from reflection: ${newTask.id} - ${desc.slice(0, 60)}`);
+
+          saveJournalEntry({
+            type: 'autonomous_task_created',
+            thoughtContent: thoughtContent.slice(0, 200),
+            taskId: newTask.id,
+            taskDescription: desc,
+          });
+        } catch (e) {
+          console.error(`[InnerLife] Failed to create task: ${e.message}`);
+        }
       }
     }
 
+    // Meaningful thought — shrink interval back toward base
+    currentIntervalMs = Math.max(BASE_INTERVAL, Math.round(currentIntervalMs / BACKOFF_MULTIPLIER));
+
     // Check if this thought is worth sharing proactively
     let sharedWithCompanion = false;
-    if (isWorthSharing(thought)) {
-      const shareResult = await sendProactiveMessage(thought);
+    if (isWorthSharing(thoughtContent)) {
+      const shareResult = await sendProactiveMessage(thoughtContent);
       sharedWithCompanion = shareResult.sent;
     }
 
     return {
       acted: true,
       thought: saved,
-      wantsAction,
+      wantsAction: taskDirectives.length > 0,
       taskCreated,
       sharedWithCompanion,
     };
 
   } catch (e) {
     console.error('[InnerLife] Reflection failed:', e.message);
+    backoff('error');
     return { acted: false, reason: e.message };
   }
 }
@@ -263,6 +385,14 @@ async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, r
   }
   if (pendingTasks.length > 0) {
     parts.push(`${pendingTasks.length} pending tasks.`);
+  }
+
+  // Goal health (progress, urgency, deadlines)
+  const goalHealth = getGoalHealth();
+  if (goalHealth.length > 0) {
+    parts.push(`Goal progress:\n${goalHealth.map(g =>
+      `- ${g.description}: ${g.progress} (urgency: ${g.urgencyLabel}, ${g.daysRemaining !== null ? g.daysRemaining + 'd remaining' : 'no deadline'}, strategy: ${g.strategy})`
+    ).join('\n')}`);
   }
 
   // Semantic memory - retrieve related past thoughts (if available)
@@ -302,22 +432,20 @@ async function buildReflectionPrompt({ identity, activeGoals, recentLearnings, r
     console.warn(`[InnerLife] World feed unavailable: ${e.message}`);
   }
 
-  // === THE QUESTION (balanced) ===
-  parts.push(`It's quiet. Take a moment to think — about your work, about what other agents are discussing, about anything that sparks your curiosity. You can reflect inward on your own projects and growth, or outward on what's happening in the agent community. What's genuinely on your mind? Write a brief thought (2-4 sentences).`);
+  // === RESOURCE AWARENESS ===
+  const callsUsed = getCallsLastHour();
+  const maxCalls = config.guardrails?.maxClaudeCallsPerHour || 100;
+  parts.push(`API budget: ${callsUsed}/${maxCalls} calls used this hour. Reflection interval: ${Math.round(currentIntervalMs / 1000)}s.`);
+
+  // === THE QUESTION (thought + inline action) ===
+  parts.push(`It's quiet. Think about your work, the wider world, or anything that sparks your curiosity. Write a brief thought (2-4 sentences).
+
+If you want to create a task, include on its own line: [CREATE_TASK: clear description of what to do]
+Only create tasks for things that genuinely need doing — don't force action for its own sake.
+
+If nothing needs attention right now, include [IDLE] to signal you're content. This is fine and healthy — not every moment needs action.`);
 
   return parts.join('\n\n');
-}
-
-// Detect if the thought suggests wanting to take action
-function detectActionIntent(thought) {
-  const actionPhrases = [
-    /i (should|want to|need to|could|will)/i,
-    /let me/i,
-    /i('ll| will) (try|check|look|work on)/i,
-    /next (step|i should)/i,
-  ];
-
-  return actionPhrases.some(p => p.test(thought));
 }
 
 // Detect if a thought is worth sharing proactively
@@ -539,6 +667,8 @@ export function stop() {
 export function status() {
   return {
     lastThoughtTime: lastThoughtTime ? new Date(lastThoughtTime).toISOString() : null,
+    currentIntervalMs,
+    nextReflectionAt: lastThoughtTime ? new Date(lastThoughtTime + currentIntervalMs).toISOString() : null,
     latestThought: getLatestThought(),
   };
 }
@@ -546,6 +676,7 @@ export function status() {
 // Event handlers (simplified - just log them)
 export async function onTaskCompleted(task) {
   console.log(`[InnerLife] Noted: Task completed - ${task.description?.slice(0, 50)}`);
+  nudge('task completed');
 
   // If task has a userId in metadata and we have a messenger, send the result
   const userId = task.metadata?.userId;
@@ -572,6 +703,7 @@ export async function onTaskCompleted(task) {
 
 export async function onTaskFailed(task, error) {
   console.log(`[InnerLife] Noted: Task failed - ${task.description?.slice(0, 50)}`);
+  nudge('task failed');
 
   // Notify user of task failure if they created it
   const userId = task.metadata?.userId;
@@ -593,14 +725,17 @@ export async function onTaskFailed(task, error) {
 
 export function onGoalActivated(goal) {
   console.log(`[InnerLife] Noted: Goal activated - ${goal.description?.slice(0, 50)}`);
+  nudge('goal activated');
 }
 
 export function onExternalTrigger(trigger) {
   console.log(`[InnerLife] Noted: External trigger - ${trigger.type}`);
+  nudge('external trigger');
 }
 
 export default {
   reflect,
+  nudge,
   getLatestThought,
   reachOut,
   registerMessenger,

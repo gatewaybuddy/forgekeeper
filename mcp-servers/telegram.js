@@ -147,6 +147,31 @@ Just send a message to chat with me.`);
         await ctx.reply(`Goal created: ${goalResponse.goalId}\n${argText}`);
         return;
 
+      case '/progress': {
+        if (!argText) {
+          await ctx.reply('Usage: /progress <goal-id> <value> [note]\nExample: /progress goal-abc123 2000 landed freelance contract');
+          return;
+        }
+        const progressParts = argText.split(/\s+/);
+        const progressGoalId = progressParts[0];
+        const progressValue = parseFloat(progressParts[1]);
+        const progressNote = progressParts.slice(2).join(' ') || undefined;
+        if (!progressGoalId || isNaN(progressValue)) {
+          await ctx.reply('Usage: /progress <goal-id> <value> [note]');
+          return;
+        }
+        const progressResponse = await mcpCall('update_progress', {
+          goalId: progressGoalId,
+          value: progressValue,
+          note: progressNote,
+          userId,
+        });
+        await ctx.reply(progressResponse.success
+          ? `📊 Progress updated: ${progressResponse.progress}`
+          : `❌ ${progressResponse.error}`);
+        return;
+      }
+
       case '/status':
         const statusResponse = await mcpCall('get_status', {});
         await ctx.reply(`📊 Forgekeeper Status

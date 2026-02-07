@@ -17,6 +17,7 @@ import { createAgentPool } from './core/agent-pool.js';
 import { wrapExternalContent, detectInjectionPatterns } from './core/security/external-content.js';
 import { initHooks, fireEvent } from './core/hooks.js';
 import innerLife from './core/inner-life.js';
+import { updateProgress } from './core/goal-pursuit.js';
 
 // Skills and utilities
 import { loadSkills } from './skills/registry.js';
@@ -318,6 +319,20 @@ async function handleTelegramRequest(request) {
       return { success: true, goalId: goal.id };
     }
 
+    case 'update_progress': {
+      try {
+        const updated = updateProgress(params.goalId, params.value, params.note);
+        const p = updated.progress;
+        return {
+          success: true,
+          goalId: params.goalId,
+          progress: `${p.current}/${p.target || '?'} ${p.unit || ''}`.trim(),
+        };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
     case 'get_status': {
       return loop.status();
     }
@@ -456,6 +471,12 @@ async function handleTelegramRequest(request) {
         if (!result.success) {
           console.error('[Chat] Claude error:', result.error);
           const errorMsg = result.error || 'Unknown error';
+          // Rate limit errors should be sent as a friendly reply, not a raw error
+          if (result.rateLimited) {
+            const friendlyMsg = errorMsg.startsWith('⏳') ? errorMsg : `⏳ ${errorMsg}`;
+            conversations.append(userId, { role: 'assistant', content: friendlyMsg });
+            return { reply: friendlyMsg };
+          }
           conversations.append(userId, { role: 'assistant', content: `Error: ${errorMsg}` });
           return { error: errorMsg };
         }

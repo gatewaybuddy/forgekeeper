@@ -111,6 +111,28 @@ export const config = {
     autoApply: process.env.FK_REFLECTION_AUTO_APPLY === '1',
   },
 
+  // Adaptive Reflection (event-driven, budget-aware)
+  reflection: {
+    baseIntervalMs: parseInt(process.env.FK_REFLECTION_BASE_INTERVAL_MS || '300000'),     // 5 min
+    maxIntervalMs: parseInt(process.env.FK_REFLECTION_MAX_INTERVAL_MS || '3600000'),       // 1 hour
+    backoffMultiplier: parseFloat(process.env.FK_REFLECTION_BACKOFF_MULTIPLIER || '2'),
+    budgetPct: parseFloat(process.env.FK_REFLECTION_BUDGET_PCT || '0.15'),                 // max 15% of hourly budget
+    idleToken: '[IDLE]',
+  },
+
+  // Goal Pursuit Engine (strategic planning, progress tracking, adaptive evaluation)
+  goalPursuit: {
+    enabled: process.env.FK_GOAL_PURSUIT_ENABLED !== '0',
+    evalIntervalHours: parseInt(process.env.FK_GOAL_EVAL_INTERVAL_HOURS || '24'),
+    evalBudgetPct: parseFloat(process.env.FK_GOAL_EVAL_BUDGET_PCT || '0.10'),
+    urgencyThresholds: {
+      low: parseFloat(process.env.FK_GOAL_URGENCY_LOW || '0.3'),
+      medium: parseFloat(process.env.FK_GOAL_URGENCY_MEDIUM || '0.6'),
+      high: parseFloat(process.env.FK_GOAL_URGENCY_HIGH || '0.8'),
+      critical: parseFloat(process.env.FK_GOAL_URGENCY_CRITICAL || '0.95'),
+    },
+  },
+
   // Reflection Tools (read-only situational awareness)
   reflectionTools: {
     enabled: process.env.FK_REFLECTION_TOOLS_ENABLED === '1',

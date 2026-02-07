@@ -150,7 +150,16 @@ export const goals = {
       updated: new Date().toISOString(),
       tasks: [],
       context: {},
-      ...goal,
+      // Goal pursuit fields (optional, backward-compatible)
+      deadline: null,
+      recurring: null,
+      progress: null,
+      progressPattern: 'linear', // 'linear' or 'lumpy' — lumpy dampens urgency escalation
+      strategy: null,
+      evaluations: [],
+      urgency: 0,
+      resourcePool: null, // e.g. 'rado-time' — goals sharing a pool compete for the same resource
+      ...goal,  // Caller overrides
     };
     writeJson(this.getPath(record.id), record);
     appendJsonl(this.listPath(), { id: record.id, status: record.status, description: record.description });
@@ -179,6 +188,26 @@ export const goals = {
 
   active() {
     return this.list({ status: 'active' });
+  },
+
+  complete(goalId, summary) {
+    return this.update(goalId, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      completionSummary: summary,
+    });
+  },
+
+  fail(goalId, reason) {
+    return this.update(goalId, {
+      status: 'failed',
+      failedAt: new Date().toISOString(),
+      failureReason: reason,
+    });
+  },
+
+  withDeadlines() {
+    return this.active().filter(g => g.deadline || g.recurring);
   },
 
   addTask(goalId, taskId) {
