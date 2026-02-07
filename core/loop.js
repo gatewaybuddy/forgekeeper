@@ -1,7 +1,7 @@
 // Main task loop - the heart of Forgekeeper v3
 import { config } from '../config.js';
 import { tasks, goals, learnings, approvals } from './memory.js';
-import { execute, decomposeGoal, shouldContinue } from './claude.js';
+import { execute, decomposeGoal, shouldContinue, isApiRateLimited, getApiRateLimitResetTime } from './claude.js';
 import { requiresApproval } from './guardrails.js';
 import { getSkill, listSkills } from '../skills/registry.js';
 import { planTask, checkParentCompletion } from './planner.js';
@@ -15,6 +15,7 @@ import {
   isAutonomousTask,
 } from './autonomous-feedback.js';
 import { checkDigestDue } from './self-improvement.js';
+import { checkGoalEvaluations, onGoalTaskCompleted } from './goal-pursuit.js';
 
 // Event emitter for UI notifications
 const listeners = new Map();
@@ -48,10 +49,25 @@ export function start() {
   console.log(`[Loop] Starting with ${config.loop.intervalMs}ms interval`);
 
   // Reset any tasks stuck in 'active' state from previous run
+  // Track reset count to prevent infinite restart loops (e.g. restart skill
+  // kills process before task can complete, loop resets to pending, repeat forever)
   const activeTasks = tasks.list({ status: 'active' });
   for (const task of activeTasks) {
-    console.log(`[Loop] Resetting stuck task to pending: ${task.id}`);
-    tasks.update(task.id, { status: 'pending' });
+    const resetCount = (task.metadata?.resetCount || 0) + 1;
+    const MAX_RESETS = 3;
+
+    if (resetCount > MAX_RESETS) {
+      console.log(`[Loop] Task ${task.id} has been reset ${resetCount - 1} times — marking as failed to prevent infinite loop`);
+      tasks.update(task.id, { status: 'failed', metadata: { ...task.metadata, resetCount, failReason: 'max resets exceeded' } });
+      tasks.addAttempt(task.id, {
+        success: false,
+        error: `Task reset from active→pending ${MAX_RESETS} times — likely infinite loop (e.g. restart task). Failing to break the cycle.`,
+        elapsed: 0,
+      });
+    } else {
+      console.log(`[Loop] Resetting stuck task to pending: ${task.id} (reset #${resetCount}/${MAX_RESETS})`);
+      tasks.update(task.id, { status: 'pending', metadata: { ...task.metadata, resetCount } });
+    }
   }
 
   emit('loop:started', {});
@@ -85,6 +101,9 @@ async function tick() {
 
     // 2. Check triggers (time-based, condition-based)
     await checkTriggers();
+
+    // 2.5. Check goal evaluations (periodic progress checks + retrospectives)
+    await checkGoalEvaluations();
 
     // 3. Process next pending task
     await processNextTask();
@@ -146,6 +165,11 @@ async function checkTriggers() {
 
 // Process the next pending task, or take autonomous action if idle
 async function processNextTask() {
+  // Don't process anything if API rate limited — just wait for reset
+  if (isApiRateLimited()) {
+    return;
+  }
+
   const pendingTasks = tasks.pending();
 
   // If no pending tasks, reflect (inner life)
@@ -264,6 +288,11 @@ async function executeTask(task) {
       // Check if this completes a parent task
       checkParentCompletion(updatedTask);
 
+      // Check if completed task advances a goal
+      if (updatedTask.goal_id) {
+        onGoalTaskCompleted(updatedTask);
+      }
+
       // Record learning
       if (config.learning.enabled) {
         learnings.add({
@@ -293,6 +322,11 @@ async function executeTask(task) {
 
         // Check parent status even on failure
         checkParentCompletion(updatedTask);
+
+        // Check if failed task affects a goal
+        if (updatedTask.goal_id) {
+          onGoalTaskCompleted(updatedTask);
+        }
       }
     }
 

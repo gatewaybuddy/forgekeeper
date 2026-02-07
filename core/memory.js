@@ -3,21 +3,7 @@ import { readFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { atomicWriteFileSync } from './atomic-write.js';
-import { rotateIfNeeded } from './jsonl-rotate.js';
-
-// Generic JSONL operations
-function readJsonl(filePath) {
-  if (!existsSync(filePath)) return [];
-  const content = readFileSync(filePath, 'utf-8').trim();
-  if (!content) return [];
-  return content.split('\n').map(line => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
-}
+import { rotateIfNeeded, readJsonl } from './jsonl-rotate.js';
 
 function appendJsonl(filePath, record) {
   appendFileSync(filePath, JSON.stringify(record) + '\n');
@@ -164,7 +150,16 @@ export const goals = {
       updated: new Date().toISOString(),
       tasks: [],
       context: {},
-      ...goal,
+      // Goal pursuit fields (optional, backward-compatible)
+      deadline: null,
+      recurring: null,
+      progress: null,
+      progressPattern: 'linear', // 'linear' or 'lumpy' — lumpy dampens urgency escalation
+      strategy: null,
+      evaluations: [],
+      urgency: 0,
+      resourcePool: null, // e.g. 'rado-time' — goals sharing a pool compete for the same resource
+      ...goal,  // Caller overrides
     };
     writeJson(this.getPath(record.id), record);
     appendJsonl(this.listPath(), { id: record.id, status: record.status, description: record.description });
@@ -193,6 +188,26 @@ export const goals = {
 
   active() {
     return this.list({ status: 'active' });
+  },
+
+  complete(goalId, summary) {
+    return this.update(goalId, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      completionSummary: summary,
+    });
+  },
+
+  fail(goalId, reason) {
+    return this.update(goalId, {
+      status: 'failed',
+      failedAt: new Date().toISOString(),
+      failureReason: reason,
+    });
+  },
+
+  withDeadlines() {
+    return this.active().filter(g => g.deadline || g.recurring);
   },
 
   addTask(goalId, taskId) {
