@@ -103,9 +103,9 @@ function isProcessActive(pid, lastCpuTime) {
 // Identity loading (shared utility - cached internally)
 import { loadImperatives } from './identity.js';
 
-// Build chat context - KEEP IT SIMPLE
+// Build chat context with conversation history for continuity
 // CLAUDE.md handles all personality and identity
-// We just pass the message, maybe with a thought hint
+// We inject recent history so Claude has context even after session rotation
 function buildChatContext(userId, message) {
   const taskInstruction = `[SYSTEM NOTE — Task Routing]
 If this message requires extended work (code review, multi-file changes, research, debugging, deployment, etc.) that would take more than a quick response, do BOTH:
@@ -118,9 +118,50 @@ Examples of when to use BACKGROUND_TASK:
 - "Do a code review" → reply conversationally + [BACKGROUND_TASK: Review codebase for issues and report findings]
 - "Fix the login bug" → reply conversationally + [BACKGROUND_TASK: Investigate and fix login bug]
 - "How are you?" → just reply, no task needed
-- "What does this function do?" → just explain, no task needed`;
+- "What does this function do?" → just explain, no task needed
 
-  return taskInstruction + '\n\n' + message;
+IMPORTANT: You are running in a non-interactive environment (Telegram bot). Do NOT use EnterPlanMode, ExitPlanMode, or AskUserQuestion — these require terminal interaction and will cause timeouts. Instead, just respond directly or use BACKGROUND_TASK directives.`;
+
+  // Inject recent conversation history for continuity
+  // This ensures context survives session rotations and short messages like "yes please" make sense
+  const historyContext = buildHistoryContext(userId);
+
+  const parts = [taskInstruction];
+  if (historyContext) {
+    parts.push(historyContext);
+  }
+  parts.push(message);
+
+  return parts.join('\n\n');
+}
+
+// Build a compact conversation history string from recent messages
+// Keeps it short to avoid bloating the prompt — last 3 exchanges (6 messages max)
+const HISTORY_PAIRS = 3;
+
+function buildHistoryContext(userId) {
+  try {
+    // Get recent messages. Note: the current user message has already been appended
+    // by index.js before chat() is called, so we grab one extra and drop the last one
+    const recent = conversations.get(userId, HISTORY_PAIRS * 2 + 1);
+    if (!recent || recent.length <= 1) return null;
+
+    // Drop the last message — it's the current user message (already in the prompt)
+    const history = recent.slice(0, -1);
+
+    // Format as a compact conversation recap
+    const lines = history.map(msg => {
+      const role = msg.role === 'user' ? 'Rado' : 'Kael';
+      // Truncate long messages to keep context compact
+      const content = (msg.content || '').slice(0, 300);
+      return `${role}: ${content}${msg.content?.length > 300 ? '...' : ''}`;
+    });
+
+    return `[Recent conversation for context — use this to understand references like "yes", "do that", "the second one", etc.]\n${lines.join('\n')}`;
+  } catch (e) {
+    console.warn(`[Claude] Failed to build history context: ${e.message}`);
+    return null;
+  }
 }
 
 // Track call rate
@@ -141,10 +182,67 @@ function getCallsLastHour() {
   return callHistory.filter(t => t >= hourAgo).length;
 }
 
+// External API rate limit tracking
+// When Claude CLI returns "You've hit your limit", we stop all calls until the reset time
+let apiRateLimitUntil = 0;
+
+function isApiRateLimited() {
+  return Date.now() < apiRateLimitUntil;
+}
+
+function getApiRateLimitResetTime() {
+  if (!isApiRateLimited()) return null;
+  return new Date(apiRateLimitUntil).toLocaleTimeString();
+}
+
+/**
+ * Detect and handle API rate limit responses from Claude CLI.
+ * Returns a user-friendly error string if rate-limited, null otherwise.
+ */
+function detectApiRateLimit(output) {
+  if (!output) return null;
+  // Match patterns like "You've hit your limit · resets 9pm (America/New_York)"
+  const rateLimitMatch = output.match(/hit your limit|rate limit|usage limit/i);
+  if (!rateLimitMatch) return null;
+
+  // Try to parse reset time from the message
+  const resetMatch = output.match(/resets?\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  if (resetMatch) {
+    // Parse the reset hour and set cooldown
+    const resetStr = resetMatch[1].toLowerCase();
+    const now = new Date();
+    const isPM = resetStr.includes('pm');
+    const hourMatch = resetStr.match(/(\d{1,2})/);
+    if (hourMatch) {
+      let hour = parseInt(hourMatch[1]);
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+      const resetTime = new Date(now);
+      resetTime.setHours(hour, 0, 0, 0);
+      if (resetTime <= now) resetTime.setDate(resetTime.getDate() + 1);
+      apiRateLimitUntil = resetTime.getTime();
+      console.log(`[Claude] API rate limit detected. Cooldown until ${resetTime.toLocaleString()}`);
+    }
+  } else {
+    // No reset time found — cooldown for 30 minutes as a safe default
+    apiRateLimitUntil = Date.now() + 30 * 60 * 1000;
+    console.log(`[Claude] API rate limit detected. Cooldown for 30 minutes.`);
+  }
+
+  return output.trim();
+}
+
+export { isApiRateLimited, getApiRateLimitResetTime, getCallsLastHour };
+
 // Execute a task using Claude Code
 // Uses 'task' timeout type for longer-running background work
 export async function execute(task, options = {}) {
-  // Rate limit check
+  // API rate limit check (external — Claude CLI reported we hit the limit)
+  if (isApiRateLimited()) {
+    const resetTime = getApiRateLimitResetTime();
+    return { success: false, error: `API rate limit active — resets at ${resetTime}. Waiting.`, rateLimited: true };
+  }
+  // Internal rate limit check
   if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
     throw new Error(`Rate limit exceeded: ${config.guardrails.maxClaudeCallsPerHour} calls/hour`);
   }
@@ -243,6 +341,9 @@ function extractTags(text) {
 // Quick query - for simple questions that don't need full task treatment
 // Does NOT maintain conversation context (one-shot)
 export async function query(question, options = {}) {
+  if (isApiRateLimited()) {
+    return { success: false, error: `API rate limit active — resets at ${getApiRateLimitResetTime()}`, rateLimited: true };
+  }
   if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
     throw new Error(`Rate limit exceeded`);
   }
@@ -269,6 +370,10 @@ export async function chat(message, userId, options = {}) {
   console.log(`[Claude] Incoming message (${message.length} chars): "${message}"`);
   console.log(`[Claude] Message bytes:`, Buffer.from(message).toString('hex').match(/.{1,2}/g)?.slice(0, 50).join(' '));
 
+  if (isApiRateLimited()) {
+    const resetTime = getApiRateLimitResetTime();
+    return { success: false, error: `⏳ I've hit my API usage limit — it resets at ${resetTime}. Please try again after that!`, rateLimited: true };
+  }
   if (getCallsLastHour() >= config.guardrails.maxClaudeCallsPerHour) {
     throw new Error(`Rate limit exceeded`);
   }
@@ -280,36 +385,49 @@ export async function chat(message, userId, options = {}) {
 
   // Get session from session manager (handles rotation and topic routing)
   const sessionInfo = getSession(userId, message);
-  const { sessionId, topic, isNew } = sessionInfo;
+  const { sessionId, topic, isNew, cliConfirmed } = sessionInfo;
 
-  console.log(`[Claude] Using session ${sessionId.slice(0, 8)}... (topic: ${topic}, new: ${isNew})`);
+  console.log(`[Claude] Using session ${sessionId.slice(0, 8)}... (topic: ${topic}, new: ${isNew}, cliConfirmed: ${cliConfirmed})`);
 
   // Build context-rich prompt with personality and conversation history
   const contextualMessage = buildChatContext(userId, message);
   console.log(`[Claude] Built context (${contextualMessage.length} chars)`);
 
   // Decide whether to use --session-id (new) or --resume (existing)
-  // IMPORTANT: Only use --resume if messageCount > 0 (isNew=false), meaning we've
-  // successfully sent messages on this session. We can't rely on createdSessions alone
-  // because sessions loaded from file at startup may no longer exist in Claude CLI.
-  const useResume = !isNew && createdSessions.has(sessionId);
+  // Use cliConfirmed from persisted metadata OR the in-memory Set (fast cache).
+  // cliConfirmed survives process restarts; createdSessions is populated during runtime.
+  const useResume = !isNew && (cliConfirmed || createdSessions.has(sessionId));
+
+  // Block interactive tools that hang without a terminal (plan mode requires user approval)
+  const nonInteractiveTools = ['EnterPlanMode', 'ExitPlanMode'];
 
   let result = await runClaudeCommand(contextualMessage, {
     ...options,
     sessionId,
     resumeSession: useResume,
     timeoutType: options.timeoutType || 'chat',  // Chat messages get longer timeouts
+    disallowedTools: options.disallowedTools || nonInteractiveTools,
   });
 
-  // Handle "Session ID already in use" error - switch to --resume
+  // Handle "Session ID already in use" error - session exists in Claude CLI from a previous
+  // process lifetime. Rotating to a fresh session is safer than resuming a stale one, which
+  // often hangs or times out because the old context is out of date.
   if (!result.success && result.error?.includes('already in use')) {
-    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... already exists, switching to resume`);
-    createdSessions.add(sessionId); // Mark as created
+    console.log(`[Claude] Session ${sessionId.slice(0, 8)}... already in use (stale from previous run), rotating to fresh session`);
+    createdSessions.add(sessionId); // Mark old one as known
+    const freshSessionId = rotateSession(userId, topic);
     result = await runClaudeCommand(contextualMessage, {
       ...options,
-      sessionId,
-      resumeSession: true
+      sessionId: freshSessionId,
+      resumeSession: false,
+      timeoutType: options.timeoutType || 'chat',
+      disallowedTools: options.disallowedTools || nonInteractiveTools,
     });
+    if (result.success) {
+      createdSessions.add(freshSessionId);
+      recordMessage(userId, freshSessionId);
+      return result;
+    }
   }
 
   // Handle stuck/timeout - rotate session and return error (don't retry - it doubles wait time)
@@ -355,7 +473,8 @@ export async function chat(message, userId, options = {}) {
     result = await runClaudeCommand(contextualMessage, {
       ...options,
       sessionId: newSessionId,
-      resumeSession: false
+      resumeSession: false,
+      timeoutType: options.timeoutType || 'chat',
     });
     // If this succeeds, the sessionId variable is now stale, but that's OK
     // because recordMessage below will use the sessionId from the successful call
@@ -492,6 +611,11 @@ function runClaudeCommand(message, options = {}) {
       } else {
         args.push('--session-id', options.sessionId);
       }
+    }
+
+    // Block tools that require interactive terminal input (e.g., plan mode approval)
+    if (options.disallowedTools?.length) {
+      args.push('--disallowedTools', ...options.disallowedTools);
     }
 
     // Use streaming output - gives us real-time progress events
@@ -788,7 +912,13 @@ function runClaudeCommand(message, options = {}) {
       const output = textContent || rawOutput;
 
       if (code !== 0) {
-        resolve({ success: false, output, error: stderr || `Exit code ${code}` });
+        // Check if the output contains an API rate limit message
+        const rateLimitMsg = detectApiRateLimit(output);
+        if (rateLimitMsg) {
+          resolve({ success: false, output, error: rateLimitMsg, rateLimited: true });
+        } else {
+          resolve({ success: false, output, error: stderr || output || `Exit code ${code}` });
+        }
       } else {
         resolve({ success: true, output, error: stderr || null });
       }
@@ -859,4 +989,4 @@ Reply with ONLY one of: CONTINUE, STOP, ASK_USER`;
   return 'ask_user';
 }
 
-export default { execute, query, decomposeGoal, shouldContinue, getCallsLastHour };
+export default { execute, query, decomposeGoal, shouldContinue, getCallsLastHour, isApiRateLimited, getApiRateLimitResetTime };

@@ -1,5 +1,6 @@
 // Restart skill - Allows Forgekeeper to restart itself via PM2
 import { spawn } from 'child_process';
+import { tasks } from '../core/memory.js';
 
 export default {
   name: 'restart',
@@ -18,12 +19,25 @@ export default {
     console.log(`[Restart] Initiating ${action}...`);
 
     try {
+      // For restart/reload: mark task completed BEFORE restarting,
+      // because the process will be killed and can never update status after.
+      // Without this, the loop resets "active" tasks to "pending" on startup,
+      // creating an infinite restart loop.
+      if (action === 'restart' || action === 'reload') {
+        console.log(`[Restart] Pre-completing task ${task.id} before ${action}`);
+        tasks.update(task.id, { status: 'completed' });
+        tasks.addAttempt(task.id, {
+          success: true,
+          output: `Pre-completed before ${action}`,
+          elapsed: 0,
+        });
+      }
+
       switch (action) {
         case 'restart':
           return await pm2Command('restart', 'forgekeeper');
 
         case 'reload':
-          // Graceful reload (zero-downtime if in cluster mode)
           return await pm2Command('reload', 'forgekeeper');
 
         case 'stop':

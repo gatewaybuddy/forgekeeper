@@ -1,5 +1,5 @@
 // Memory system - JSONL-based storage for conversations, tasks, goals, learnings
-import { readFileSync, appendFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, appendFileSync, existsSync, readdirSync, renameSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { atomicWriteFileSync } from './atomic-write.js';
@@ -53,7 +53,11 @@ export const conversations = {
 
   clear(userId) {
     const path = this.getPath(userId);
-    if (existsSync(path)) atomicWriteFileSync(path, '');
+    if (existsSync(path)) {
+      // Archive instead of delete — preserves relationship context
+      const archivePath = path.replace('.jsonl', `.${Date.now()}.jsonl`);
+      renameSync(path, archivePath);
+    }
   },
 };
 

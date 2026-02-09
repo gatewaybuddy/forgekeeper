@@ -12,6 +12,7 @@ import { appendFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { config } from '../../config.js';
 import { rotateIfNeeded } from '../jsonl-rotate.js';
+import { fireEvent } from '../hooks.js';
 
 // Security event log path
 const SECURITY_LOG_PATH = join(
@@ -251,6 +252,16 @@ export function wrapExternalContent(content, options = {}) {
     });
 
     console.error(`[Security] Detected ${detectedPatterns.length} injection pattern(s) from ${source}: ${detectedPatterns.join(', ')}`);
+
+    // Fire event for immune system auto-activation
+    fireEvent('security:injection-detected', {
+      patterns: detectedPatterns,
+      source,
+      senderId,
+      content: content.slice(0, 5000),
+    }).catch(err => {
+      console.error(`[Security] Failed to fire injection event: ${err.message}`);
+    });
   }
 
   // Sanitize content to prevent marker escaping

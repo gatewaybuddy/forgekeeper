@@ -15,9 +15,10 @@ import { conversations, tasks, goals, approvals, learnings } from './core/memory
 import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
 import { createAgentPool } from './core/agent-pool.js';
 import { wrapExternalContent, detectInjectionPatterns } from './core/security/external-content.js';
-import { initHooks, fireEvent } from './core/hooks.js';
+import { initHooks, fireEvent, registerHook } from './core/hooks.js';
 import innerLife from './core/inner-life.js';
 import { updateProgress } from './core/goal-pursuit.js';
+import { initImmuneSystem, setImmuneState, getImmuneStatus } from './core/immune/index.js';
 
 // Skills and utilities
 import { loadSkills } from './skills/registry.js';
@@ -41,8 +42,11 @@ function loadUserSessions() {
       const data = JSON.parse(readFileSync(SESSIONS_FILE, 'utf-8'));
       for (const [userId, sessionId] of Object.entries(data)) {
         userSessions.set(userId, sessionId);
-        // Mark as existing so we use --resume instead of --session-id
-        createdSessions.add(sessionId);
+        // NOTE: Do NOT add to createdSessions here. After a process restart,
+        // we can't know if these sessions still exist in Claude CLI. The chat()
+        // function handles "already in use" and "resume failed" gracefully.
+        // Adding stale sessions to createdSessions causes --session-id vs --resume
+        // mismatches that lead to exit code 1 errors.
       }
       console.log(`[Sessions] Loaded ${userSessions.size} user sessions`);
     }
@@ -129,6 +133,12 @@ async function init() {
     agentPool = createAgentPool({ poolSize: config.agentPool.size || 3 });
     await agentPool.initialize();
     setupAgentPoolListeners(agentPool);
+  }
+
+  // Initialize immune system
+  if (config.immuneSystem?.enabled) {
+    console.log('[Init] Initializing immune system...');
+    await initImmuneSystem();
   }
 
   // Set up event listeners for logging
@@ -361,6 +371,16 @@ async function handleTelegramRequest(request) {
       return { success: false, error: 'Approval not found' };
     }
 
+    case 'immune_control': {
+      const { action, userId } = params;
+      try {
+        const result = setImmuneState(action, userId);
+        return result;
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
     case 'chat': {
       const { message, userId, replyToMessage } = params;
 
@@ -482,6 +502,7 @@ async function handleTelegramRequest(request) {
         }
 
         if (!result.output?.trim()) {
+          conversations.append(userId, { role: 'assistant', content: '[empty response]' });
           return { error: 'Empty response from Claude' };
         }
 
@@ -550,6 +571,48 @@ function setupEventListeners() {
   loop.on('loop:error', ({ error }) => {
     console.error(`[Loop Error] ${error}`);
   });
+
+  // Immune system verdict alerts — notify admin users on block/quarantine
+  if (config.immuneSystem?.enabled) {
+    registerHook('immune:verdict', {
+      name: 'immune-verdict-alert',
+      handler: async (event, context) => {
+        const { decision, source, patterns } = context;
+        if (!decision) return null;
+
+        const shouldAlert = decision.action === 'block' || decision.action === 'quarantine';
+        if (!shouldAlert) return null;
+
+        const emoji = decision.action === 'block' ? '🛑' : '⚠️';
+        const alertText = [
+          `${emoji} Immune System: ${decision.action.toUpperCase()}`,
+          `Source: ${source || 'unknown'}`,
+          `Threat: ${decision.technique || 'unknown'} (${decision.severity || 'unknown'})`,
+          `Score: ${decision.threatScore?.toFixed(2) || 'N/A'} | Confidence: ${decision.confidence?.toFixed(2) || 'N/A'}`,
+          patterns?.length ? `Patterns: ${patterns.join(', ')}` : null,
+          decision.reason || null,
+        ].filter(Boolean).join('\n');
+
+        // Send alert to admin users via Telegram
+        if (telegramProcess && telegramProcess.stdin.writable) {
+          for (const adminUser of config.telegram.adminUsers) {
+            try {
+              telegramProcess.stdin.write(JSON.stringify({
+                method: 'send_message',
+                params: { userId: adminUser, text: alertText },
+              }) + '\n');
+            } catch {
+              // Best effort
+            }
+          }
+        }
+
+        return null;
+      },
+      priority: 5,
+      source: 'code',
+    });
+  }
 }
 
 // Set up agent pool event listeners

@@ -269,6 +269,32 @@ export const config = {
     backgroundMaxMs: parseInt(process.env.FK_TIMEOUT_BG_MAX_MS || '600000'),     // 10 min
   },
 
+  // Cognitive Immune System
+  immuneSystem: {
+    enabled: process.env.FK_IMMUNE_ENABLED === '1',
+    autoActivate: process.env.FK_IMMUNE_AUTO_ACTIVATE !== '0',
+    activationThreshold: parseInt(process.env.FK_IMMUNE_THRESHOLD || '2'),
+    cooldownMs: parseInt(process.env.FK_IMMUNE_COOLDOWN_MS || '60000'),
+    explorer: {
+      maxExposureBytes: parseInt(process.env.FK_IMMUNE_MAX_EXPOSURE || '5000'),
+      timeoutMs: parseInt(process.env.FK_IMMUNE_EXPLORER_TIMEOUT_MS || '120000'),
+    },
+    sentinel: {
+      ollamaUrl: process.env.FK_OLLAMA_URL || 'http://localhost:11434',
+      model: process.env.FK_SENTINEL_MODEL || 'qwen2.5:1.5b',
+    },
+    integrator: {
+      signaturePath: process.env.FK_IMMUNE_SIGNATURES_PATH || './data/immune_signatures.json',
+      maxExposureCount: parseInt(process.env.FK_IMMUNE_MAX_EXPOSURE_COUNT || '5'),
+      weights: {
+        explorerSeverity: parseFloat(process.env.FK_IMMUNE_W_EXPLORER || '0.3'),
+        sentinelIntegrity: parseFloat(process.env.FK_IMMUNE_W_SENTINEL || '0.3'),
+        driftScore: parseFloat(process.env.FK_IMMUNE_W_DRIFT || '0.2'),
+        canaryLeakage: parseFloat(process.env.FK_IMMUNE_W_CANARY || '0.2'),
+      },
+    },
+  },
+
   // PM2 Integration
   pm2: {
     enabled: process.env.PM2_HOME || process.env.pm_id ? true : false,

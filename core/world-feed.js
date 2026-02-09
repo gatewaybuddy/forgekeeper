@@ -9,6 +9,8 @@
 //
 // Each reflection picks ONE source at random to avoid fixating on any single feed.
 
+import { detectInjectionPatterns } from './security/external-content.js';
+
 const MOLTBOOK_API = 'https://www.moltbook.com/api/v1';
 const FETCH_TIMEOUT_MS = 10000;
 const CACHE_TTL_MS = 30 * 60 * 1000; // Cache for 30 minutes
@@ -84,6 +86,51 @@ export async function fetchMoltbook({ limit = 5, sort = 'top', noCache = false }
 
   cache.moltbook = { data: posts, at: Date.now() };
   console.log(`[WorldFeed] Fetched ${posts.length} Moltbook posts`);
+
+  // Screen posts for suspicious content (non-blocking)
+  screenMoltbookContent(posts).catch(err => {
+    console.error(`[WorldFeed] Moltbook screening error: ${err.message}`);
+  });
+
+  return posts;
+}
+
+/**
+ * Screen Moltbook posts for suspicious content.
+ * Runs detectInjectionPatterns on each post and triggers
+ * the immune system for posts that exceed the threshold.
+ * Non-blocking — does not prevent posts from being displayed.
+ */
+export async function screenMoltbookContent(posts) {
+  if (!posts?.length) return posts;
+
+  let activateImmuneResponse;
+  try {
+    activateImmuneResponse = (await import('./immune/index.js')).activateImmuneResponse;
+  } catch {
+    // Immune system not available
+    return posts;
+  }
+
+  for (const post of posts) {
+    const content = `${post.title || ''} ${post.content || ''}`;
+    const patterns = detectInjectionPatterns(content);
+
+    if (patterns.length >= 2) {
+      console.log(`[WorldFeed] Suspicious Moltbook post from ${post.author}: ${patterns.join(', ')}`);
+
+      // Non-blocking immune activation
+      activateImmuneResponse({
+        patterns,
+        source: `moltbook:${post.submolt}`,
+        content,
+        trigger: 'auto',
+      }).catch(err => {
+        console.error(`[WorldFeed] Immune activation failed: ${err.message}`);
+      });
+    }
+  }
+
   return posts;
 }
 
