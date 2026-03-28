@@ -45,4 +45,24 @@ module.exports = {
       // exec_mode: 'cluster',
     },
   ],
+
+  // Deployment configuration
+  // Usage: pm2 deploy ecosystem.config.cjs production setup
+  //        pm2 deploy ecosystem.config.cjs production
+  deploy: {
+    production: {
+      user: process.env.DEPLOY_USER || 'deploy',
+      host: process.env.DEPLOY_HOST || '0.0.0.0',
+      ref: 'origin/main',
+      repo: 'https://github.com/gatewaybuddy/forgekeeper.git',
+      path: process.env.DEPLOY_PATH || '/opt/forgekeeper',
+      'pre-deploy-local': 'echo "Deploying Forgekeeper to production..."',
+      'post-deploy':
+        'npm ci --production && pm2 startOrRestart ecosystem.config.cjs --env production',
+      'pre-setup': 'echo "Setting up Forgekeeper on remote host..."',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+  },
 };
