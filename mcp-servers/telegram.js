@@ -12,6 +12,8 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.FK_DATA_DIR || join(__dirname, '..', 'data');
 const PENDING_FILE = join(DATA_DIR, 'telegram_pending.json');
+const OFFSET_FILE = join(DATA_DIR, 'telegram_offset.json');
+const SEEN_MESSAGES_FILE = join(DATA_DIR, 'telegram_seen_messages.json');
 
 // Configuration
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,13 +26,39 @@ const MAX_RETRIES = parseInt(process.env.FK_TELEGRAM_MAX_RETRIES || '5');
 const RETRY_DELAY_MS = parseInt(process.env.FK_TELEGRAM_RETRY_DELAY_MS || '5000');
 const MAX_RETRY_DELAY_MS = parseInt(process.env.FK_TELEGRAM_MAX_RETRY_DELAY_MS || '60000');
 
+// Message dedup: skip messages already processed or too old at startup
+const STARTUP_TIME = Date.now();
+const STARTUP_MAX_AGE_S = 60; // Skip messages older than 60s at startup
+const SEEN_MESSAGES_MAX = 200; // Max seen message_ids to track
+
 if (!BOT_TOKEN) {
   console.error('[Telegram] Missing TELEGRAM_BOT_TOKEN');
   process.exit(1);
 }
 
-// Initialize bot with custom poller (works with Node 23)
-const bot = new TelegramPoller(BOT_TOKEN);
+// Initialize bot with custom poller — persist offset to survive restarts
+const bot = new TelegramPoller(BOT_TOKEN, { stateFile: OFFSET_FILE });
+
+// Load previously seen message IDs for dedup across restarts
+const seenMessageIds = loadSeenMessages();
+
+function loadSeenMessages() {
+  try {
+    if (existsSync(SEEN_MESSAGES_FILE)) {
+      const data = JSON.parse(readFileSync(SEEN_MESSAGES_FILE, 'utf-8'));
+      return new Set(Array.isArray(data) ? data : []);
+    }
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+function saveSeenMessages() {
+  try {
+    // Keep only the most recent entries to prevent unbounded growth
+    const ids = [...seenMessageIds].slice(-SEEN_MESSAGES_MAX);
+    writeFileSync(SEEN_MESSAGES_FILE, JSON.stringify(ids));
+  } catch { /* ignore */ }
+}
 
 // Track connection state
 let isConnected = false;
@@ -94,6 +122,31 @@ bot.on('message', async (ctx) => {
   }
   if (isShuttingDown) return;
 
+  const messageId = ctx.message.message_id;
+  const messageDate = ctx.message.date; // Unix timestamp (seconds)
+
+  // Dedup: skip messages we've already processed (survives restarts via file)
+  if (seenMessageIds.has(messageId)) {
+    console.error(`[Telegram] Skipping already-processed message ${messageId}`);
+    return;
+  }
+
+  // Startup age filter: skip messages that are too old when we first start up.
+  // This prevents replaying stale messages after a restart, even if offset
+  // persistence failed. Only applies during the first 30s after startup.
+  const isStartupWindow = (Date.now() - STARTUP_TIME) < 30000;
+  const messageAgeS = Math.floor(Date.now() / 1000) - messageDate;
+  if (isStartupWindow && messageAgeS > STARTUP_MAX_AGE_S) {
+    console.error(`[Telegram] Skipping stale message ${messageId} (${messageAgeS}s old, startup filter)`);
+    seenMessageIds.add(messageId);
+    saveSeenMessages();
+    return;
+  }
+
+  // Mark as seen immediately to prevent re-processing on crash/restart
+  seenMessageIds.add(messageId);
+  saveSeenMessages();
+
   const text = ctx.message.text || '';
   const userId = ctx.from.id;
 
@@ -117,6 +170,7 @@ Commands:
 /newsession - Start a fresh conversation
 /approve <id> - Approve a pending request
 /reject <id> - Reject a pending request
+/immune [on|off|status] - Control immune system (admin)
 /help - Show this help
 
 Just send a message to chat with me.`);
@@ -147,6 +201,31 @@ Just send a message to chat with me.`);
         await ctx.reply(`Goal created: ${goalResponse.goalId}\n${argText}`);
         return;
 
+      case '/progress': {
+        if (!argText) {
+          await ctx.reply('Usage: /progress <goal-id> <value> [note]\nExample: /progress goal-abc123 2000 landed freelance contract');
+          return;
+        }
+        const progressParts = argText.split(/\s+/);
+        const progressGoalId = progressParts[0];
+        const progressValue = parseFloat(progressParts[1]);
+        const progressNote = progressParts.slice(2).join(' ') || undefined;
+        if (!progressGoalId || isNaN(progressValue)) {
+          await ctx.reply('Usage: /progress <goal-id> <value> [note]');
+          return;
+        }
+        const progressResponse = await mcpCall('update_progress', {
+          goalId: progressGoalId,
+          value: progressValue,
+          note: progressNote,
+          userId,
+        });
+        await ctx.reply(progressResponse.success
+          ? `📊 Progress updated: ${progressResponse.progress}`
+          : `❌ ${progressResponse.error}`);
+        return;
+      }
+
       case '/status':
         const statusResponse = await mcpCall('get_status', {});
         await ctx.reply(`📊 Forgekeeper Status
@@ -157,6 +236,21 @@ Just send a message to chat with me.`);
 ✅ Pending Approvals: ${statusResponse.pendingApprovals}
 ${statusResponse.currentTask ? `\n⚡ Current: ${statusResponse.currentTask}` : ''}`);
         return;
+
+      case '/immune': {
+        if (!isAdmin(ctx)) {
+          await ctx.reply('Only admins can control the immune system.');
+          return;
+        }
+        const immuneAction = argText || 'status';
+        const immuneResponse = await mcpCall('immune_control', { action: immuneAction, userId });
+        if (immuneResponse.error) {
+          await ctx.reply(`❌ ${immuneResponse.error}`);
+        } else {
+          await ctx.reply(immuneResponse.message || JSON.stringify(immuneResponse, null, 2));
+        }
+        return;
+      }
 
       case '/approve':
         if (!isAdmin(ctx)) {

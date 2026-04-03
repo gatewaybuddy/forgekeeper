@@ -237,6 +237,7 @@ function createSessionMeta(topic = 'general') {
   return {
     sessionId: randomUUID(),
     messageCount: 0,
+    cliConfirmed: false,  // Set true after first successful Claude CLI response
     createdAt: new Date().toISOString(),
     lastUsed: new Date().toISOString(),
     topic,
@@ -274,6 +275,7 @@ export function getSession(userId, message) {
     topic: 'default',
     messageCount: sessionMeta.messageCount,
     isNew: sessionMeta.messageCount === 0,
+    cliConfirmed: sessionMeta.cliConfirmed || false,
   };
 }
 
@@ -287,9 +289,10 @@ export function recordMessage(userId, sessionId) {
   for (const [key, meta] of Object.entries(metadata[userId])) {
     if (meta.sessionId === sessionId) {
       meta.messageCount++;
+      meta.cliConfirmed = true;  // Session exists in Claude CLI
       meta.lastUsed = new Date().toISOString();
       saveMetadata(metadata);
-      console.log(`[SessionManager] Session ${sessionId.slice(0, 8)}... message count: ${meta.messageCount}`);
+      console.log(`[SessionManager] Session ${sessionId.slice(0, 8)}... message count: ${meta.messageCount}, cliConfirmed: true`);
       return;
     }
   }

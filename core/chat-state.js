@@ -14,4 +14,9 @@ export function isChatActive() {
   return Date.now() < chatActiveUntil;
 }
 
-export default { notifyChatActivity, isChatActive };
+// Get raw timestamp of last chat activity (for change detection)
+export function getLastChatTimestamp() {
+  return chatActiveUntil > 0 ? chatActiveUntil - CHAT_COOLDOWN_MS : 0;
+}
+
+export default { notifyChatActivity, isChatActive, getLastChatTimestamp };

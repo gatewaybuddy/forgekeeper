@@ -12,6 +12,7 @@
  *   message:received, message:proactive-reply
  *   session:started, session:ended
  *   security:injection-detected
+ *   immune:activated, immune:threat-detected, immune:verdict, immune:state-change
  */
 
 import { existsSync, readFileSync, mkdirSync, appendFileSync, readdirSync } from 'fs';

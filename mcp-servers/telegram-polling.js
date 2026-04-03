@@ -1,5 +1,7 @@
 // Custom polling implementation that works with Node 23
 // Uses native fetch instead of Telegraf's internal HTTP client
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 
 export class TelegramPoller {
   constructor(token, options = {}) {
@@ -9,6 +11,7 @@ export class TelegramPoller {
     this.running = false;
     this.timeout = options.timeout || 30;
     this.limit = options.limit || 100;
+    this.stateFile = options.stateFile || null; // Path to persist poll offset
     this.handlers = {
       message: [],
       error: [],
@@ -79,10 +82,40 @@ export class TelegramPoller {
     return this.callApi('getMe');
   }
 
+  // Load persisted offset from state file
+  loadOffset() {
+    if (!this.stateFile) return;
+    try {
+      if (existsSync(this.stateFile)) {
+        const data = JSON.parse(readFileSync(this.stateFile, 'utf-8'));
+        if (data.offset && typeof data.offset === 'number') {
+          this.offset = data.offset;
+          console.error(`[TelegramPoller] Restored offset: ${this.offset}`);
+        }
+      }
+    } catch (e) {
+      console.error(`[TelegramPoller] Failed to load offset: ${e.message}`);
+    }
+  }
+
+  // Save offset to state file
+  saveOffset() {
+    if (!this.stateFile) return;
+    try {
+      mkdirSync(dirname(this.stateFile), { recursive: true });
+      writeFileSync(this.stateFile, JSON.stringify({ offset: this.offset, updated: new Date().toISOString() }));
+    } catch (e) {
+      console.error(`[TelegramPoller] Failed to save offset: ${e.message}`);
+    }
+  }
+
   async start(options = {}) {
     if (this.running) return;
 
     console.error('[TelegramPoller] Starting...');
+
+    // Restore persisted offset before polling
+    this.loadOffset();
 
     // Clear any webhook and optionally drop pending updates
     if (options.dropPendingUpdates) {
@@ -124,6 +157,11 @@ export class TelegramPoller {
               }
             }
           }
+        }
+
+        // Persist offset after processing each batch
+        if (updates.length > 0) {
+          this.saveOffset();
         }
       } catch (err) {
         console.error('[TelegramPoller] Poll error:', err.message);

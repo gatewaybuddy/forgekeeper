@@ -1,15 +1,28 @@
 #!/usr/bin/env node
 // Forgekeeper v3.1 - Minimal AI Agent with Claude Code as the brain
+
+// Node.js built-ins
+import { randomUUID } from 'crypto';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Config and core modules
 import { config } from './config.js';
 import loop from './core/loop.js';
 import { conversations, tasks, goals, approvals, learnings } from './core/memory.js';
 import { query, chat, resetSessionState, createdSessions } from './core/claude.js';
-import { routeMessage, analyzeTopics, TOPIC_TYPES } from './core/topic-router.js';
 import { createAgentPool } from './core/agent-pool.js';
 import { wrapExternalContent, detectInjectionPatterns } from './core/security/external-content.js';
-import { initHooks, fireEvent } from './core/hooks.js';
-import { randomUUID } from 'crypto';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { initHooks, fireEvent, registerHook } from './core/hooks.js';
+import innerLife from './core/inner-life.js';
+import { updateProgress } from './core/goal-pursuit.js';
+import { initImmuneSystem, setImmuneState, getImmuneStatus } from './core/immune/index.js';
+
+// Skills and utilities
+import { loadSkills } from './skills/registry.js';
+import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
 
 // Content security configuration
 const CONTENT_SECURITY_ENABLED = process.env.FK_CONTENT_SECURITY_ENABLED !== '0';
@@ -29,8 +42,11 @@ function loadUserSessions() {
       const data = JSON.parse(readFileSync(SESSIONS_FILE, 'utf-8'));
       for (const [userId, sessionId] of Object.entries(data)) {
         userSessions.set(userId, sessionId);
-        // Mark as existing so we use --resume instead of --session-id
-        createdSessions.add(sessionId);
+        // NOTE: Do NOT add to createdSessions here. After a process restart,
+        // we can't know if these sessions still exist in Claude CLI. The chat()
+        // function handles "already in use" and "resume failed" gracefully.
+        // Adding stale sessions to createdSessions causes --session-id vs --resume
+        // mismatches that lead to exit code 1 errors.
       }
       console.log(`[Sessions] Loaded ${userSessions.size} user sessions`);
     }
@@ -63,14 +79,6 @@ function getOrCreateSession(userId) {
   }
   return sessionId;
 }
-
-import { loadSkills } from './skills/registry.js';
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { checkAndUpdatePM2, isRunningUnderPM2 } from './scripts/pm2-utils.js';
-import { processChat as planChat } from './core/chat-planner.js';
-import innerLife from './core/inner-life.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -125,6 +133,12 @@ async function init() {
     agentPool = createAgentPool({ poolSize: config.agentPool.size || 3 });
     await agentPool.initialize();
     setupAgentPoolListeners(agentPool);
+  }
+
+  // Initialize immune system
+  if (config.immuneSystem?.enabled) {
+    console.log('[Init] Initializing immune system...');
+    await initImmuneSystem();
   }
 
   // Set up event listeners for logging
@@ -219,7 +233,10 @@ async function startTelegramBot() {
           telegramProcess.stdin.write(JSON.stringify({ id: request.id, result: response }) + '\n');
         }
       } catch (e) {
-        // Not JSON or parse error - might be log output
+        // Only warn if it looks like it should be JSON
+        if (line.startsWith('{') || line.startsWith('[')) {
+          console.warn(`[Telegram] Failed to parse MCP message: ${e.message}`);
+        }
       }
     }
   });
@@ -312,6 +329,20 @@ async function handleTelegramRequest(request) {
       return { success: true, goalId: goal.id };
     }
 
+    case 'update_progress': {
+      try {
+        const updated = updateProgress(params.goalId, params.value, params.note);
+        const p = updated.progress;
+        return {
+          success: true,
+          goalId: params.goalId,
+          progress: `${p.current}/${p.target || '?'} ${p.unit || ''}`.trim(),
+        };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
     case 'get_status': {
       return loop.status();
     }
@@ -338,6 +369,16 @@ async function handleTelegramRequest(request) {
         return { success: true };
       }
       return { success: false, error: 'Approval not found' };
+    }
+
+    case 'immune_control': {
+      const { action, userId } = params;
+      try {
+        const result = setImmuneState(action, userId);
+        return result;
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     }
 
     case 'chat': {
@@ -450,11 +491,18 @@ async function handleTelegramRequest(request) {
         if (!result.success) {
           console.error('[Chat] Claude error:', result.error);
           const errorMsg = result.error || 'Unknown error';
+          // Rate limit errors should be sent as a friendly reply, not a raw error
+          if (result.rateLimited) {
+            const friendlyMsg = errorMsg.startsWith('⏳') ? errorMsg : `⏳ ${errorMsg}`;
+            conversations.append(userId, { role: 'assistant', content: friendlyMsg });
+            return { reply: friendlyMsg };
+          }
           conversations.append(userId, { role: 'assistant', content: `Error: ${errorMsg}` });
           return { error: errorMsg };
         }
 
         if (!result.output?.trim()) {
+          conversations.append(userId, { role: 'assistant', content: '[empty response]' });
           return { error: 'Empty response from Claude' };
         }
 
@@ -523,6 +571,48 @@ function setupEventListeners() {
   loop.on('loop:error', ({ error }) => {
     console.error(`[Loop Error] ${error}`);
   });
+
+  // Immune system verdict alerts — notify admin users on block/quarantine
+  if (config.immuneSystem?.enabled) {
+    registerHook('immune:verdict', {
+      name: 'immune-verdict-alert',
+      handler: async (event, context) => {
+        const { decision, source, patterns } = context;
+        if (!decision) return null;
+
+        const shouldAlert = decision.action === 'block' || decision.action === 'quarantine';
+        if (!shouldAlert) return null;
+
+        const emoji = decision.action === 'block' ? '🛑' : '⚠️';
+        const alertText = [
+          `${emoji} Immune System: ${decision.action.toUpperCase()}`,
+          `Source: ${source || 'unknown'}`,
+          `Threat: ${decision.technique || 'unknown'} (${decision.severity || 'unknown'})`,
+          `Score: ${decision.threatScore?.toFixed(2) || 'N/A'} | Confidence: ${decision.confidence?.toFixed(2) || 'N/A'}`,
+          patterns?.length ? `Patterns: ${patterns.join(', ')}` : null,
+          decision.reason || null,
+        ].filter(Boolean).join('\n');
+
+        // Send alert to admin users via Telegram
+        if (telegramProcess && telegramProcess.stdin.writable) {
+          for (const adminUser of config.telegram.adminUsers) {
+            try {
+              telegramProcess.stdin.write(JSON.stringify({
+                method: 'send_message',
+                params: { userId: adminUser, text: alertText },
+              }) + '\n');
+            } catch {
+              // Best effort
+            }
+          }
+        }
+
+        return null;
+      },
+      priority: 5,
+      source: 'code',
+    });
+  }
 }
 
 // Set up agent pool event listeners

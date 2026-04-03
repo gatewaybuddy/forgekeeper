@@ -433,6 +433,38 @@ export function createInternalSource(component) {
   });
 }
 
+/**
+ * Convert an immune system decision to a trust source tag.
+ * Bridges the immune system verdicts into the ACE trust hierarchy.
+ *
+ * @param {Object} decision - Integrator decision
+ * @param {string} decision.action - block|quarantine|flag_review|allow
+ * @param {string} [decision.source] - Content source
+ * @param {number} [decision.confidence] - Decision confidence
+ * @returns {Object} Trust source tag
+ */
+export function immuneVerdictToTrustSource(decision) {
+  if (!decision) {
+    return tagContent({ type: SOURCE_TYPES.UNKNOWN, level: TRUST_LEVELS.UNTRUSTED });
+  }
+
+  const actionToLevel = {
+    block: TRUST_LEVELS.HOSTILE,
+    quarantine: TRUST_LEVELS.HOSTILE,
+    flag_review: TRUST_LEVELS.UNTRUSTED,
+    allow: TRUST_LEVELS.VERIFIED,
+  };
+
+  const level = actionToLevel[decision.action] || TRUST_LEVELS.UNTRUSTED;
+
+  return tagContent({
+    type: SOURCE_TYPES.AGENT,
+    level,
+    origin: `immune:${decision.source || 'unknown'}`,
+    chain: [`immune:integrator`, `immune:verdict:${decision.action}`],
+  });
+}
+
 export default {
   TRUST_LEVELS,
   SOURCE_TYPES,
@@ -452,4 +484,5 @@ export default {
   createWebSource,
   createPluginSource,
   createInternalSource,
+  immuneVerdictToTrustSource,
 };

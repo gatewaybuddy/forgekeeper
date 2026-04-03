@@ -22,6 +22,7 @@ export const HARD_CEILING_CLASSES = [
   'skill:load:external',
   'plugin:load:external',
   '*:credentials:*',
+  'immune:override:sentinel',
 ];
 
 /**
@@ -39,6 +40,7 @@ export const DELIBERATE_MINIMUM_CLASSES = [
   'self:improve:skill',
   'self:improve:plugin',
   'self:improve:config',
+  'content:process:flagged',
 ];
 
 /**
@@ -96,6 +98,12 @@ export const DEFAULT_REVERSIBILITY = {
   'self:improve:config': 0.5,
   'self:improve:core': 0.1,
 
+  // Immune system
+  'immune:analyze:content': 0.9,
+  'immune:override:sentinel': 0.0,
+  'content:process:flagged': 0.6,
+  'content:process:blocked': 0.3,
+
   // Default fallback
   '*': 0.5,
 };
@@ -137,6 +145,12 @@ export const DEFAULT_BLAST_RADIUS = {
   // External with credentials (0.0)
   '*:credentials:*': 0.0,
   'code:execute:external': 0.0,
+
+  // Immune system
+  'immune:analyze:content': 0.9,
+  'immune:override:sentinel': 0.0,
+  'content:process:flagged': 0.5,
+  'content:process:blocked': 0.1,
 
   // Default fallback
   '*': 0.5,

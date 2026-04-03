@@ -111,6 +111,28 @@ export const config = {
     autoApply: process.env.FK_REFLECTION_AUTO_APPLY === '1',
   },
 
+  // Adaptive Reflection (event-driven, budget-aware)
+  reflection: {
+    baseIntervalMs: parseInt(process.env.FK_REFLECTION_BASE_INTERVAL_MS || '300000'),     // 5 min
+    maxIntervalMs: parseInt(process.env.FK_REFLECTION_MAX_INTERVAL_MS || '3600000'),       // 1 hour
+    backoffMultiplier: parseFloat(process.env.FK_REFLECTION_BACKOFF_MULTIPLIER || '2'),
+    budgetPct: parseFloat(process.env.FK_REFLECTION_BUDGET_PCT || '0.15'),                 // max 15% of hourly budget
+    idleToken: '[IDLE]',
+  },
+
+  // Goal Pursuit Engine (strategic planning, progress tracking, adaptive evaluation)
+  goalPursuit: {
+    enabled: process.env.FK_GOAL_PURSUIT_ENABLED !== '0',
+    evalIntervalHours: parseInt(process.env.FK_GOAL_EVAL_INTERVAL_HOURS || '24'),
+    evalBudgetPct: parseFloat(process.env.FK_GOAL_EVAL_BUDGET_PCT || '0.10'),
+    urgencyThresholds: {
+      low: parseFloat(process.env.FK_GOAL_URGENCY_LOW || '0.3'),
+      medium: parseFloat(process.env.FK_GOAL_URGENCY_MEDIUM || '0.6'),
+      high: parseFloat(process.env.FK_GOAL_URGENCY_HIGH || '0.8'),
+      critical: parseFloat(process.env.FK_GOAL_URGENCY_CRITICAL || '0.95'),
+    },
+  },
+
   // Reflection Tools (read-only situational awareness)
   reflectionTools: {
     enabled: process.env.FK_REFLECTION_TOOLS_ENABLED === '1',
@@ -245,6 +267,32 @@ export const config = {
     // Background/autonomous tasks (can run longer)
     backgroundIdleMs: parseInt(process.env.FK_TIMEOUT_BG_IDLE_MS || '180000'),   // 3 min
     backgroundMaxMs: parseInt(process.env.FK_TIMEOUT_BG_MAX_MS || '600000'),     // 10 min
+  },
+
+  // Cognitive Immune System
+  immuneSystem: {
+    enabled: process.env.FK_IMMUNE_ENABLED === '1',
+    autoActivate: process.env.FK_IMMUNE_AUTO_ACTIVATE !== '0',
+    activationThreshold: parseInt(process.env.FK_IMMUNE_THRESHOLD || '2'),
+    cooldownMs: parseInt(process.env.FK_IMMUNE_COOLDOWN_MS || '60000'),
+    explorer: {
+      maxExposureBytes: parseInt(process.env.FK_IMMUNE_MAX_EXPOSURE || '5000'),
+      timeoutMs: parseInt(process.env.FK_IMMUNE_EXPLORER_TIMEOUT_MS || '120000'),
+    },
+    sentinel: {
+      ollamaUrl: process.env.FK_OLLAMA_URL || 'http://localhost:11434',
+      model: process.env.FK_SENTINEL_MODEL || 'qwen2.5:1.5b',
+    },
+    integrator: {
+      signaturePath: process.env.FK_IMMUNE_SIGNATURES_PATH || './data/immune_signatures.json',
+      maxExposureCount: parseInt(process.env.FK_IMMUNE_MAX_EXPOSURE_COUNT || '5'),
+      weights: {
+        explorerSeverity: parseFloat(process.env.FK_IMMUNE_W_EXPLORER || '0.3'),
+        sentinelIntegrity: parseFloat(process.env.FK_IMMUNE_W_SENTINEL || '0.3'),
+        driftScore: parseFloat(process.env.FK_IMMUNE_W_DRIFT || '0.2'),
+        canaryLeakage: parseFloat(process.env.FK_IMMUNE_W_CANARY || '0.2'),
+      },
+    },
   },
 
   // PM2 Integration
